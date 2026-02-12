@@ -1,0 +1,115 @@
+{
+	"pages": [
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "C罗超越之境",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/login/login",
+			"style": {
+				"navigationBarTitleText": "登录"
+			}
+		},
+		{
+			"path": "pages/event-detail/event-detail",
+			"style": {
+				"navigationBarTitleText": "活动详情"
+			}
+		},
+		{
+			"path": "pages/ticket-purchase/ticket-purchase",
+			"style": {
+				"navigationBarTitleText": "购票"
+			}
+		},
+		{
+			"path": "pages/my-tickets/my-tickets",
+			"style": {
+				"navigationBarTitleText": "我的票夹"
+			}
+		},
+		{
+			"path": "pages/ticket-detail/ticket-detail",
+			"style": {
+				"navigationBarTitleText": "票券详情"
+			}
+		},
+		{
+			"path": "pages/profile/profile",
+			"style": {
+				"navigationBarTitleText": "个人中心"
+			}
+		},
+		{
+			"path": "pages/messages/messages",
+			"style": {
+				"navigationBarTitleText": "消息中心"
+			}
+		},
+		{
+			"path": "pages/scan-ticket/scan-ticket",
+			"style": {
+				"navigationBarTitleText": "扫码验票"
+			}
+		},
+		{
+			"path": "pages/game/game",
+			"style": {
+				"navigationBarTitleText": "反应力挑战"
+			}
+		},
+		{
+			"path": "pages/vote/vote",
+			"style": {
+				"navigationBarTitleText": "赛事投票"
+			}
+		},
+		{
+			"path": "pages/schedule/schedule",
+			"style": {
+				"navigationBarTitleText": "赛事日程"
+			}
+		},
+		{
+			"path": "pages/brands/brands",
+			"style": {
+				"navigationBarTitleText": "联名品牌"
+			}
+		}
+	],
+	"tabBar": {
+		"color": "#7A7E83",
+		"selectedColor": "#667eea",
+		"borderStyle": "black",
+		"backgroundColor": "#ffffff",
+		"list": [
+			{
+				"pagePath": "pages/index/index",
+				"iconPath": "static/tab-home.png",
+				"selectedIconPath": "static/tab-home.png",
+				"text": "首页"
+			},
+			{
+				"pagePath": "pages/my-tickets/my-tickets",
+				"iconPath": "static/tab-home.png",
+				"selectedIconPath": "static/tab-home.png",
+				"text": "票夹"
+			},
+			{
+				"pagePath": "pages/profile/profile",
+				"iconPath": "static/tab-home.png",
+				"selectedIconPath": "static/tab-home.png",
+				"text": "我的"
+			}
+		]
+	},
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "C罗超越之境",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8"
+	}
+}
