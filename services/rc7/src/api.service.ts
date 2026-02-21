@@ -12,7 +12,7 @@ const {
 } = ApiService.Errors;
 
 export function signToken(
-  payload: Record<string, any>, tokenExpiresIn?: string | number
+  payload: Record<string, unknown>, tokenExpiresIn?: string | number
 ) {
   const options = Object.assign(
     {}, config.jwt.options,

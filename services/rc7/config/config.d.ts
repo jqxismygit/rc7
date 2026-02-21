@@ -14,7 +14,7 @@ declare module 'config' {
       hotReload: boolean;
       transporter: {
         type: string;
-        options: Record<string, any>;
+        options: Record<string, unknown>;
       }
     }
   }
