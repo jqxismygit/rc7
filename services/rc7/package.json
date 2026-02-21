@@ -1,17 +1,21 @@
 {
-  "name": "services",
+  "name": "@rc7/services",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "moleculer-runner --hot --watch ./dict/*.service.js"
+    "dev": "moleculer-runner --hot --config ./dist/moleculer.config.js ./dist/*.service.js",
+    "build": "tsc -p tsconfig.json"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.19.0",
   "devDependencies": {
+    "@types/config": "^3.3.5",
+    "@types/lodash": "^4.17.23",
+    "@types/node": "^24.10.13",
     "typescript": "~5.9.3",
     "vitest": "^4.0.18"
   },

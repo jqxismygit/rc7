@@ -67,3 +67,5 @@ Thumbs.db
 
 # 打包文件
 *.tgz
+
+.pi

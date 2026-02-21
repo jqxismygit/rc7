@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "outDir": "dist",
+    "lib": ["ES2023"],
+    "target": "es2023",
+    "module": "nodenext"
+  },
+  "include": [
+    "config/config.d.ts",
+    "src/**/*"
+  ],
+}
