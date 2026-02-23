@@ -13,5 +13,13 @@ export default {
   },
   api: {
     port: 5004
+  },
+  pg: {
+    host: 'localhost',
+    port: 5432,
+    user: 'rc7',
+    password: 'rc7',
+    database: 'rc7',
+    schema: 'rc7'
   }
 }

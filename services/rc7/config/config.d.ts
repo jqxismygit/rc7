@@ -16,6 +16,14 @@ declare module 'config' {
         type: string;
         options: Record<string, unknown>;
       }
+    },
+    pg: {
+      host: string;
+      port: number;
+      user: string;
+      password: string;
+      database: string;
+      schema: string;
     }
   }
 
