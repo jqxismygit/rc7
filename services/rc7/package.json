@@ -5,7 +5,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest",
     "dev": "moleculer-runner --hot --config ./dist/moleculer.config.js ./dist/*.service.js",
     "build": "tsc -p tsconfig.json",
     "check": "pnpm run lint && pnpm run type-check",
@@ -24,6 +24,7 @@
     "@types/config": "^3.3.5",
     "@types/lodash": "^4.17.23",
     "@types/node": "^24.10.13",
+    "@types/pg": "^8.16.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
