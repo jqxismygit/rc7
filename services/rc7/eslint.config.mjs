@@ -35,5 +35,11 @@ export default [
       ],
     },
   },
+  {
+    files: ['src/scripts/**/*.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
   prettierConfig,
 ];

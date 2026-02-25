@@ -16,8 +16,7 @@ AfterAll(async () => {
 
 Given('wechat mini app', async function() {
  this.mockCode2SessionResponse = vi.fn();
- const mock_wechat_server = await mockJSONServer(this.mockCode2SessionResponse);
- this.mock_wechat_server = mock_wechat_server;
+ this.mock_wechat_server = await mockJSONServer(this.mockCode2SessionResponse);
 });
 
 When('wechat user_{int} first open', async function (user: number) {
@@ -33,7 +32,7 @@ When('wechat user_{int} first open', async function (user: number) {
   mockCode2SessionResponse.mockResolvedValue(code2SessionResponse);
 
   const code = `code_${user}`;
-  await postJSON(apiServer, '/user/wechat/min/login', { body: { code } });
+  await postJSON(apiServer, '/user/wechat/mini/login', { body: { code } });
 
   await mock_wechat_server.close();
 })

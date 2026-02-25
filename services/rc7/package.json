@@ -7,13 +7,14 @@
   "scripts": {
     "test": "vitest",
     "dev": "moleculer-runner --hot --config ./dist/moleculer.config.js ./dist/*.service.js",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc tsconfig.json",
     "check": "pnpm run lint && pnpm run type-check",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "type-check": "tsc --noEmit",
     "format": "prettier --write .",
-    "prepare": "husky"
+    "prepare": "husky",
+    "rc7": "node dist/scripts/rc7.js"
   },
   "keywords": [],
   "author": "",
@@ -27,6 +28,7 @@
     "@types/node": "^24.10.13",
     "@types/pg": "^8.16.0",
     "@types/qs": "^6.14.0",
+    "@types/yargs": "^17.0.35",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
