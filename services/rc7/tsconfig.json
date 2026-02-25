@@ -7,7 +7,7 @@
     "module": "nodenext"
   },
   "include": [
-    "config/config.d.ts",
+    "config/*.ts",
     "src/**/*"
   ],
 }
