@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "outDir": "dist",
+    "lib": ["ES2023"],
+    "target": "es2023",
+    "module": "preserve",
+    "moduleResolution": "bundler"
+  },
+  "include": [
+    "./**/*.ts",
+    "../config/*.ts"
+  ]
+}
