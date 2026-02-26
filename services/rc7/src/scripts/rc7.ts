@@ -12,7 +12,7 @@ yargs(hideBin(process.argv))
   'd': {
     alias: 'dir',
     demandOption: false,
-    default: path.join(__dirname, '..', 'config'),
+    default: path.join(__dirname, '../..', 'config'),
     type: 'string',
     describe: '配置文件目录'
   },
