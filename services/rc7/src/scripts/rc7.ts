@@ -29,6 +29,11 @@ yargs(hideBin(process.argv))
     type: 'boolean',
     default: false,
     describe: '启用详细日志'
+  },
+  schema: {
+    type: 'string',
+    default: 'rc7',
+    describe: '数据库 schema 名称'
   }
 })
 .commandDir('.', { exclude: /rc7/ })
