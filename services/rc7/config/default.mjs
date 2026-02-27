@@ -21,5 +21,9 @@ export default {
     password: 'rc7',
     database: 'rc7',
     schema: 'rc7'
+  },
+  wechat: {
+    appId: 'wx8e0cd522cf168035',
+    appSecret: '__APP_SECRET__',
   }
 }

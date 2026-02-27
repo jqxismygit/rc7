@@ -24,6 +24,10 @@ declare module 'config' {
       password: string;
       database: string;
       schema: string;
+    },
+    wechat: {
+      appId: string;
+      appSecret: string;
     }
   }
 
