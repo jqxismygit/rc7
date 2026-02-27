@@ -9,5 +9,5 @@
   "include": [
     "config/*.ts",
     "src/**/*"
-  ],
+  ]
 }

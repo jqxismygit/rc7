@@ -3,6 +3,7 @@ import { URL } from 'node:url';
 import { Server } from 'node:http';
 import { ServiceBroker, ServiceSchema } from 'moleculer';
 import config from 'config';
+import { bootstrap, migrate, drop } from '../../src/scripts';
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
 
@@ -27,11 +28,14 @@ export const services_fixtures = {
       broker.createService(nameOrSetting);
     }
 
+    await bootstrap({ schema: 'rc7' });
+    await migrate({ schema: 'rc7' });
     await broker.start();
 
     await use(broker);
 
     await broker.stop();
+    await drop({ schema: 'rc7' });
   },
   apiServer: async (
     { broker }: { broker: ServiceBroker },

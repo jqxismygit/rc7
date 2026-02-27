@@ -9,6 +9,7 @@
   },
   "include": [
     "./**/*.ts",
-    "../config/*.ts"
+    "../config/*.ts",
+    "../src/**/*"
   ]
 }

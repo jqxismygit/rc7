@@ -21,8 +21,6 @@ export async function migrate(
   client: Client,
   { log, schema }: { log?: boolean; schema: string }
 ) {
-  log = log ?? true;
-
   const {
     rows: versions
   } = await client.query(

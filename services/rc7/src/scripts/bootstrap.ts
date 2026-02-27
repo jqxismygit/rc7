@@ -1,10 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { URL } from "node:url";
-import { runCommand } from "./utils.js";
+import { Client } from "pg";
+import { dbClientWrapper } from "./utils.js";
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
-export async function bootstrap(client, { schema }: { schema: string }) {
+export async function bootstrap(client: Client, { schema }: { schema: string }) {
   const bootstrapSQL = await fs.readFile(
     path.join(__dirname, '../..', 'db', 'bootstrap.sql'),
     'utf-8'
@@ -35,6 +36,4 @@ export const builder = (yargs) => yargs
     })
     .help();
 
-export function handler(args) {
-  return runCommand(bootstrap, args);
-}
+export const handler = dbClientWrapper(bootstrap);
