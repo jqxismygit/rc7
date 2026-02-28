@@ -35,6 +35,7 @@ export async function migrate(
 
   try {
     await client.query('BEGIN');
+    await client.query(`CREATE SCHEMA IF NOT EXISTS "${schema}";`);
     await client.query(`SET search_path TO "${schema}", public`);
 
     for (const [version, sqlPath] of migrations) {

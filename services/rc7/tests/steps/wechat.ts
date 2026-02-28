@@ -7,7 +7,10 @@ import { services_fixtures } from '../fixtures/services';
 
 let fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
 BeforeAll(async () => {
-  fixtures = await useFixtures(services_fixtures, ['apiServer']);
+  fixtures = await useFixtures(
+    { ...services_fixtures, schema: 'test_wechat' },
+    ['apiServer']
+  );
 });
 
 AfterAll(async () => {

@@ -7,13 +7,21 @@ import { bootstrap, migrate, drop } from '../../src/scripts';
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
 
+type FIXTURE_SERVICES = 'string' | ServiceSchema;
+
 export const services_fixtures = {
-  schema: 'rc7',
+  schema: '__test__',
   services: ['api'],
   broker: async (
-    { services }: { services: (string | ServiceSchema)[] },
+    { schema, services }: {
+      schema: string; services: FIXTURE_SERVICES[]
+    },
     use: (broker: ServiceBroker) => Promise<void>
   ) => {
+    if (schema === '__test__') {
+      throw new Error('请为测试指定一个数据库 schema');
+    }
+
     const broker = new ServiceBroker(config.broker);
 
     for (const nameOrSetting of services) {
@@ -28,14 +36,14 @@ export const services_fixtures = {
       broker.createService(nameOrSetting);
     }
 
-    await bootstrap({ schema: 'rc7' });
-    await migrate({ schema: 'rc7' });
+    await bootstrap();
+    await migrate({ schema: schema });
     await broker.start();
 
     await use(broker);
 
     await broker.stop();
-    await drop({ schema: 'rc7' });
+    await drop({ schema: schema });
   },
   apiServer: async (
     { broker }: { broker: ServiceBroker },
