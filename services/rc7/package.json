@@ -7,7 +7,7 @@
   "scripts": {
     "test": "vitest",
     "dev": "moleculer-runner --hot --config ./dist/moleculer.config.js ./dist/*.service.js",
-    "build": "tsc tsconfig.json",
+    "build": "tsc -b",
     "check": "pnpm run lint && pnpm run type-check",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

@@ -5,10 +5,13 @@ import { postJSON } from '../lib/api';
 import { FixturesResult, useFixtures } from '../lib/fixtures';
 import { services_fixtures } from '../fixtures/services';
 
+const schema = 'test_wechat';
+const services = ['api', 'user'];
+
 let fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
 BeforeAll(async () => {
   fixtures = await useFixtures(
-    { ...services_fixtures, schema: 'test_wechat' },
+    { ...services_fixtures, schema, services },
     ['apiServer']
   );
 });
@@ -35,7 +38,7 @@ When('wechat user_{int} first open', async function (user: number) {
   mockCode2SessionResponse.mockResolvedValue(code2SessionResponse);
 
   const code = `code_${user}`;
-  await postJSON(apiServer, '/user/wechat/mini/login', { body: { code } });
+  await postJSON(apiServer, '/user/login/wechat/mini', { body: { code } });
 
   await mock_wechat_server.close();
 })

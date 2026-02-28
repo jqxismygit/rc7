@@ -70,14 +70,30 @@ function routeConfig(
   ) satisfies ApiRouteSchema;
 }
 
-const routers = [
-  routeConfig('/auth', ['auth.login', 'auth.register'], { authentication: false }),
+const routes = [
+  routeConfig(
+    '/',
+    [
+      '$node.*', 'api.*',
+      'user.wechat_mini_login'
+    ],
+    {
+      authorization: false,
+      aliases: {
+        'GET  /services': '$node.services',
+        'GET  /nodes':    '$node.list',
+        'GET  /aliases':  'api.listAliases',
+
+        'POST /user/login/wechat/mini': 'user.wechat_mini_login'
+      }
+    },
+  ),
 ]
 
 export default {
   name: 'api',
   mixins: [ApiService],
-  settings: Object.assign({ etag: true, }, config.api, { routers }),
+  settings: Object.assign({ etag: true, }, config.api, { routes }),
 
   methods: {
     signToken,

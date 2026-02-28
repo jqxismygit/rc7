@@ -1,4 +1,7 @@
 export default {
+  api: {
+    port: 0
+  },
   broker: {
     namespace: 'rc7-test',
     logger: {
