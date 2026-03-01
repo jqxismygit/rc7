@@ -2,9 +2,9 @@ import { expect, vi } from 'vitest';
 import config from 'config';
 import { BeforeAll, AfterAll, When, Given, Then } from '@deepracticex/vitest-cucumber';
 import { mockJSONServer } from '../lib/server';
-import { getJSON, postJSON } from '../lib/api';
 import { FixturesResult, useFixtures } from '../lib/fixtures';
 import { services_fixtures } from '../fixtures/services';
+import { wechatMiniLogin, getUserProfile } from '../fixtures/user';
 
 const schema = 'test_wechat';
 const services = ['api', 'user'];
@@ -54,10 +54,7 @@ When('wechat user_{int} first open', async function (user: number) {
   mockCode2SessionResponse.mockResolvedValue(code2SessionResponse);
 
   const code = `code_${user}`;
-  this.loginResponse = await postJSON(
-    apiServer, '/user/login/wechat/mini',
-    { body: { code } }
-  );
+  this.loginResponse = await wechatMiniLogin(apiServer, code);
 
   const { appid, secret, } = config.wechat;
   expect(mockCode2SessionResponse).toHaveBeenCalledWith({
@@ -73,6 +70,46 @@ Then('register as a new user', async function() {
   const { values: { apiServer } } = fixtures;
   assertLoginResponse(loginResponse);
   const { token } = loginResponse;
-  const profile = await getJSON(apiServer, '/user/profile', { token });
+  const profile = await getUserProfile(apiServer, token);
   assertUserProfile(profile);
+
+  // 保存用户信息用于后续测试
+  this.userProfile = profile;
+});
+
+When('wechat user_{int} open again', async function (user: number) {
+  const { apiServer } = fixtures.values;
+  const { mockCode2SessionResponse } = this;
+
+  const code2SessionResponse = {
+    openid: `openid_${user}`,
+    session_key: `session_key_${user}_new`,
+  };
+  mockCode2SessionResponse.mockResolvedValue(code2SessionResponse);
+
+  const code = `code_${user}_again`;
+  this.loginResponse = await wechatMiniLogin(apiServer, code);
+
+  const { appid, secret } = config.wechat;
+  expect(mockCode2SessionResponse).toHaveBeenCalledWith({
+    body: null,
+    query: expect.objectContaining({
+      appid, secret, js_code: code, grant_type: 'authorization_code'
+    })
+  });
+});
+
+Then('login successfully and get user profile', async function() {
+  const { loginResponse, userProfile: previousProfile } = this;
+  const { values: { apiServer } } = fixtures;
+
+  assertLoginResponse(loginResponse);
+  const { token } = loginResponse;
+  const profile = await getUserProfile(apiServer, token);
+  assertUserProfile(profile);
+
+  // 验证是同一个用户
+  expect(profile.id).toBe(previousProfile.id);
+  expect(profile.openid).toBe(previousProfile.openid);
+  expect(profile.created_at).toBe(previousProfile.created_at);
 });

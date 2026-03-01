@@ -16,4 +16,9 @@
     /config - 配置文件
     /src - 后端服务源代码
       /models - 数据库操作层
+    /tests - 后端服务测试代码
+      /features - BDD 测试场景定义
+      /steps - 测试步骤定义
+      /lib - 测试辅助函数
+      /fixtures - 测试数据、方法、断言、mock 等
 ```

@@ -23,6 +23,7 @@
   "devDependencies": {
     "@deepracticex/vitest-cucumber": "^1.4.3",
     "@eslint/js": "^9.39.2",
+    "@rc7/types": "workspace:*",
     "@types/config": "^3.3.5",
     "@types/lodash": "^4.17.23",
     "@types/node": "^24.10.13",

@@ -1,11 +1,11 @@
 {
   "compilerOptions": {
-    "esModuleInterop": true,
-    "outDir": "dist",
-    "lib": ["ES2023"],
-    "target": "es2023",
+    "noEmit": true,
     "module": "preserve",
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "paths": {
+      "@/*": ["../src/*"]
+    }
   },
   "include": [
     "./**/*.ts",

@@ -1,0 +1,14 @@
+{
+  "name": "@rc7/types",
+  "version": "1.0.0",
+  "description": "API types for RC7 services",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.19.0"
+}
