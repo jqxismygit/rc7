@@ -8,12 +8,13 @@ CREATE TABLE users (
 
 
 CREATE TABLE user_wechat(
-  uid                   UUID PRIMARY KEY,
+  uid                   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  appid                 VARCHAR(255) NOT NULL,
   openid                VARCHAR(255) NOT NULL,
   session_key           VARCHAR(255) NOT NULL,
 
   created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-  FOREIGN KEY (uid)     REFERENCES users(id) ON DELETE CASCADE
+  PRIMARY KEY (appid, openid)
 );

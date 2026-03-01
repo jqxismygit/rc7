@@ -4,27 +4,18 @@ import { BeforeAll, AfterAll, When, Given, Then } from '@deepracticex/vitest-cuc
 import { mockJSONServer } from '../lib/server';
 import { FixturesResult, useFixtures } from '../lib/fixtures';
 import { services_fixtures } from '../fixtures/services';
-import { wechatMiniLogin, getUserProfile } from '../fixtures/user';
+import {
+  wechatMiniLogin, getUserProfile,
+  assertLoginResponse, assertUserProfile
+} from '../fixtures/user';
 
 const schema = 'test_wechat';
 const services = ['api', 'user'];
 
 let fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
 
-function assertLoginResponse(data: unknown) {
-  expect(data).toBeTypeOf('object');
-  expect(data).toHaveProperty('token', expect.any(String));
-}
-
-function assertUserProfile(profile: unknown) {
-  expect(profile).toBeTypeOf('object');
-  expect(profile).toHaveProperty('id', expect.any(String));
-  expect(profile).toHaveProperty('openid', expect.any(String));
-  expect(profile).toHaveProperty('created_at', expect.any(String));
-  expect(profile).toHaveProperty('updated_at', expect.any(String));
-}
-
 BeforeAll(async () => {
+  vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
   fixtures = await useFixtures(
     { ...services_fixtures, schema, services },
     ['apiServer']

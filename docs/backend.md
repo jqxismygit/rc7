@@ -16,7 +16,7 @@
   /rc7
     /config - 配置文件
     /src - 后端服务源代码
-      /models - 数据库操作层
+      /data - 数据库操作层
       /api.service.ts - API 服务定义
       /user.service.ts - 用户服务定义
       /rc7.service.ts -  rc7 业务逻辑实现
@@ -33,7 +33,7 @@
 ## 后端服务开发规范
 
 - 使用 TypeScript 进行开发，所有代码都需要有类型定义，并且遵循项目的 tsconfig 配置。
-- 数据库操作通过 models 层封装，服务层调用 models 提供的方法进行数据访问，避免直接操作数据库。
+- 数据库操作通过 data 层封装，服务层调用 data 提供的方法进行数据访问，避免直接操作数据库。
 
 ### 服务层结构
 
@@ -66,7 +66,7 @@
 ## 数据库操作
 
 - 数据库相关文件放在 services/rc7/db 目录
-- 数据库操作通过 models 层封装，服务层调用 models 提供的方法进行数据访问，避免直接操作数据库。
+- 数据库操作通过 data 层封装，服务层调用 data 提供的方法进行数据访问，避免直接操作数据库。
 - 项目采用 code first 模式，db/下创建数据库定义，然后通过迁移脚本或启动脚本进行数据库表的创建和更新.
 - 表结构都定义在 pg schema 下，除非有特例不会在 public schema 下创建表。
 
@@ -76,3 +76,20 @@
 2. 创建新的迁移脚本，执行命令 `pnpm -w s rc7 migration create <migration-name>`，会在 services/rc7/db/migrations 目录下生成一个新的迁移脚本文件。
 3. 在迁移脚本中定义数据库表的创建、修改或删除操作。
 4. 执行迁移命令 `pnpm -w s rc7 migration upgrade`，会执行所有未执行过的迁移脚本，更新数据库表结构。
+
+### SQL 编写规范
+
+- 除了 public schema 下的表，其他 schema 下的表都要加上 schema 前缀，如 `my_schema.my_table`。
+- SQL 语句关键字要大写，变量小写。
+- 表名、字段名使用下划线分隔，如 user_profile。
+- 复杂的 SQL 语句使用多行编写，并且适当缩进以提高可读性。
+- 在 SQL 语句中使用参数化查询，避免直接拼接字符串，防止 SQL 注入攻击。
+- 尽量用 CTE 将复杂查询拆分为多个步骤，提高可读性和可维护性。
+- 不要用存储过程
+
+
+### data 层方法规范
+
+- 参数中要带上 client 和 schema，避免在服务层直接使用全局数据库连接，增加代码的可测试性和灵活性。
+- 方法命名使用动词开头，清晰表达方法的功能，如 getUserById、createProduct 等。
+- 压缩方法中的 db query 次数，尽量将多个相关的数据库操作合并为一个 query，减少服务层对数据库的调用次数，提高性能。

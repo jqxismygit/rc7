@@ -37,13 +37,13 @@ export const services_fixtures = {
     }
 
     await bootstrap();
-    await migrate({ schema: schema });
+    await migrate({ schema });
     await broker.start();
 
     await use(broker);
 
     await broker.stop();
-    await drop({ schema: schema });
+    await drop({ schema });
   },
   apiServer: async (
     { broker }: { broker: ServiceBroker },

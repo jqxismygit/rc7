@@ -2,6 +2,9 @@ export default {
   api: {
     port: 0
   },
+  pg: {
+    database: 'rc7_test',
+  },
   broker: {
     namespace: 'rc7-test',
     logger: {
