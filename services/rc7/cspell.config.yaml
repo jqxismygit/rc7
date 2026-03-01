@@ -1,4 +1,7 @@
 ignoreWords:
   - deepracticex
+  - errcode
+  - errmsg
+  - Jscode
 words:
   - Wechat

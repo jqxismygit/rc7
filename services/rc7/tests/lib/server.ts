@@ -2,7 +2,9 @@ import http, { Server } from 'node:http';
 
 export function getServerAddress(server: Server) {
   const { address, port } = server.address() as { address: string; port: number };
-  return `http://${address}:${port}`;
+  // 处理 IPv6 地址
+  const host = address === '::' ? 'localhost' : address;
+  return `http://${host}:${port}`;
 }
 
 function closeServer(server: Server) {
@@ -13,17 +15,25 @@ function closeServer(server: Server) {
 
 
 export async function mockJSONServer(
-  mockResponse: (data: { body: unknown }) => unknown
+  mockResponse: (data: {
+    body: unknown; query: Record<string, string>
+  }) => unknown
 ) {
   const server = http.createServer((req, res) => {
-    let body = '';
-    res.on('data', async (chunk) => {
-      body += chunk;
+    let body_data = '';
+    req.on('data', (chunk) => {
+      body_data += chunk;
     });
-    res.on('end', async () => {
+    req.on('end', async () => {
+      const url = new URL(req.url ?? '', `http://${req.headers.host}`);
+      const query = Array.from(url.searchParams.entries()).reduce(
+        (acc, [key, value]) => Object.assign(acc, { [key]: value }),
+        {}
+      );
+
       try {
-        const jsonBody = JSON.parse(body);
-        const response = await mockResponse({ body: jsonBody });
+        const jsonBody = body_data ? JSON.parse(body_data) : null;
+        const response = await mockResponse({ body: jsonBody, query });
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(response));
       } catch (error) {

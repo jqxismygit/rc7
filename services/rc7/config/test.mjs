@@ -19,5 +19,10 @@ export default {
         port: 0,
       }
     }
+  },
+  wechat: {
+    base_url: 'https://1.1.1.1',
+    appid: 'test_appid',
+    secret: 'test_secret',
   }
 }

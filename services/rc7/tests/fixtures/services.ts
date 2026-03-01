@@ -2,7 +2,6 @@ import path from 'node:path';
 import { URL } from 'node:url';
 import { Server } from 'node:http';
 import { ServiceBroker, ServiceSchema } from 'moleculer';
-import config from 'config';
 import { bootstrap, migrate, drop } from '../../src/scripts';
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
@@ -22,6 +21,7 @@ export const services_fixtures = {
       throw new Error('请为测试指定一个数据库 schema');
     }
 
+    const { default: config } = await import('config');
     const broker = new ServiceBroker(config.broker);
 
     for (const nameOrSetting of services) {

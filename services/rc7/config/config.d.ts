@@ -26,8 +26,9 @@ declare module 'config' {
       schema: string;
     },
     wechat: {
-      appId: string;
-      appSecret: string;
+      base_url: string;
+      appid: string;
+      secret: string;
     }
   }
 
