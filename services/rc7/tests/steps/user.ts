@@ -2,7 +2,7 @@ import { expect, vi } from 'vitest';
 import config from 'config';
 import { BeforeAll, AfterAll, When, Given, Then } from '@deepracticex/vitest-cucumber';
 import { mockJSONServer } from '../lib/server';
-import { postJSON } from '../lib/api';
+import { getJSON, postJSON } from '../lib/api';
 import { FixturesResult, useFixtures } from '../lib/fixtures';
 import { services_fixtures } from '../fixtures/services';
 
@@ -14,6 +14,14 @@ let fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
 function assertLoginResponse(data: unknown) {
   expect(data).toBeTypeOf('object');
   expect(data).toHaveProperty('token', expect.any(String));
+}
+
+function assertUserProfile(profile: unknown) {
+  expect(profile).toBeTypeOf('object');
+  expect(profile).toHaveProperty('id', expect.any(String));
+  expect(profile).toHaveProperty('openid', expect.any(String));
+  expect(profile).toHaveProperty('created_at', expect.any(String));
+  expect(profile).toHaveProperty('updated_at', expect.any(String));
 }
 
 BeforeAll(async () => {
@@ -62,5 +70,9 @@ When('wechat user_{int} first open', async function (user: number) {
 
 Then('register as a new user', async function() {
   const { loginResponse } = this;
+  const { values: { apiServer } } = fixtures;
   assertLoginResponse(loginResponse);
+  const { token } = loginResponse;
+  const profile = await getJSON(apiServer, '/user/profile', { token });
+  assertUserProfile(profile);
 });

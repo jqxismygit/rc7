@@ -1,7 +1,7 @@
 import { ServiceSchema } from "moleculer"
 import { Pool } from "pg";
 import { jscode2session } from "./libs/wechat.js";
-import { createOrUpdateUser } from "./model/user.js";
+import { createOrUpdateUser, getUserProfile } from "./model/user.js";
 
 const actions: ServiceSchema['actions'] = {
   wechat_mini_login: {
@@ -20,7 +20,18 @@ const actions: ServiceSchema['actions'] = {
 
       const user = await createOrUpdateUser(client, openid, session_key);
 
-      return { token: { id: user.id } };
+      return { token: { uid: user.id } };
+    }
+  },
+
+  profile: {
+    rest: 'GET /profile',
+    async handler(ctx) {
+      const { uid } = ctx.meta.user;
+      const client = this.pool;
+
+      const profile = await getUserProfile(client, uid);
+      return profile;
     }
   }
 };

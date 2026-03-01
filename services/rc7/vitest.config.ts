@@ -9,6 +9,7 @@ export default defineConfig({
     })
   ],
   test: {
-    include: ['**/*.feature']
+    include: ['**/*.feature'],
+    watch: false
   }
 });

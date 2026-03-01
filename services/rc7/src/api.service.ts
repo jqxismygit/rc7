@@ -88,6 +88,15 @@ const routes = [
       }
     },
   ),
+  routeConfig(
+    '/user',
+    ['user.profile'],
+    {
+      aliases: {
+        'GET /profile': 'user.profile'
+      }
+    }
+  )
 ]
 
 export default {

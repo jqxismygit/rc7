@@ -41,3 +41,19 @@ export async function createOrUpdateUser(
 
   return newUser;
 }
+
+export async function getUserProfile(client: Client, uid: string) {
+  const { rows } = await client.query(
+    `SELECT u.id, u.name, uw.openid, u.created_at, uw.updated_at
+     FROM users u
+     LEFT JOIN user_wechat uw ON u.id = uw.uid
+     WHERE u.id = $1`,
+    [uid]
+  );
+
+  if (rows.length === 0) {
+    throw new Error('User not found');
+  }
+
+  return rows[0];
+}
