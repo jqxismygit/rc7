@@ -1,41 +1,36 @@
 <template>
-  <view class="container">
-    <scroll-view class="content" scroll-y>
-      <!-- 票券状态 -->
-      <view class="status-card" :class="'status-' + ticket.status">
+  <view class="ticket-detail-page">
+    <scroll-view class="detail-scroll" scroll-y>
+      <!-- 状态条 -->
+      <view class="status-bar" :class="'status-' + ticket.status">
         <text class="status-text">{{ getStatusText(ticket.status) }}</text>
       </view>
 
-      <!-- 二维码 -->
-      <view class="qr-section">
-        <image :src="ticket.qrCode" mode="aspectFit" class="qr-code"></image>
+      <!-- 二维码卡片 -->
+      <view class="qr-card card-dark">
+        <image :src="ticket.qrCode" mode="aspectFit" class="qr-code" />
         <text class="ticket-id">票号：{{ ticket.id }}</text>
       </view>
 
       <!-- 票券信息 -->
-      <view class="info-section">
+      <view class="info-card card-dark">
         <text class="event-name">{{ ticket.eventName }}</text>
-        
         <view class="info-item">
           <text class="label">活动时间</text>
           <text class="value">{{ ticket.eventDate }}</text>
         </view>
-        
         <view class="info-item">
           <text class="label">票种</text>
           <text class="value">{{ ticket.ticketType }}</text>
         </view>
-        
         <view class="info-item">
           <text class="label">数量</text>
           <text class="value">{{ ticket.quantity }} 张</text>
         </view>
-        
         <view class="info-item">
           <text class="label">购买时间</text>
           <text class="value">{{ ticket.purchaseTime }}</text>
         </view>
-        
         <view class="info-item">
           <text class="label">订单金额</text>
           <text class="value price">¥{{ ticket.price }}</text>
@@ -43,27 +38,29 @@
       </view>
 
       <!-- 使用说明 -->
-      <view class="notice-section">
+      <view class="notice-card card-dark">
         <text class="section-title">使用说明</text>
         <text class="notice-text">
-          1. 入场时请出示此二维码
-          2. 每个二维码仅可使用一次
-          3. 请提前30分钟到达现场
-          4. 请携带有效身份证件
+          1. 入场时请向工作人员出示此二维码，核销后即可入场；{'\n'}
+          2. 每张票券仅可核销一次，截图或复制无效；{'\n'}
+          3. 建议提前 30 分钟到达现场，以免错过参观时段；{'\n'}
+          4. 入场需携带本人身份证件，部分场次可能进行安检。
         </text>
       </view>
+
+      <view class="safe-bottom safe-area-bottom"></view>
     </scroll-view>
 
     <!-- 底部操作栏 -->
-    <view v-if="ticket.status === 'unused'" class="bottom-bar">
-      <button 
-        v-if="ticket.canRefund" 
-        class="action-btn refund-btn"
+    <view v-if="ticket.status === 'unused'" class="bottom-bar safe-area-bottom">
+      <button
+        v-if="ticket.canRefund"
+        class="outline-btn danger"
         @click="handleRefund"
       >
         申请退票
       </button>
-      <button class="action-btn invoice-btn" @click="handleInvoice">
+      <button class="btn-gold invoice-btn" @click="handleInvoice">
         开具发票
       </button>
     </view>
@@ -80,12 +77,12 @@ export default {
       ticket: {}
     }
   },
-  
+
   onLoad(options) {
     this.ticketId = options.id
     this.loadTicketDetail()
   },
-  
+
   methods: {
     loadTicketDetail() {
       const ticket = mockMyTickets.find(item => item.id === this.ticketId)
@@ -93,16 +90,16 @@ export default {
         this.ticket = ticket
       }
     },
-    
+
     getStatusText(status) {
       const statusMap = {
-        unused: '未使用',
-        used: '已使用',
-        refunded: '已退票'
+        unused: '待核销',
+        used: '已入场',
+        refunded: '已退款'
       }
       return statusMap[status] || status
     },
-    
+
     handleRefund() {
       uni.showModal({
         title: '确认退票',
@@ -122,7 +119,7 @@ export default {
         }
       })
     },
-    
+
     handleInvoice() {
       if (this.ticket.status !== 'used') {
         uni.showToast({
@@ -131,7 +128,7 @@ export default {
         })
         return
       }
-      
+
       uni.showToast({
         title: '发票功能开发中',
         icon: 'none'
@@ -141,164 +138,163 @@ export default {
 }
 </script>
 
-<style scoped>
-.container {
+<style lang="scss" scoped>
+.ticket-detail-page {
   width: 100%;
   min-height: 100vh;
-  background: #f5f5f5;
+  background: $cr7-black;
 }
 
-.content {
-  padding: 30rpx;
-  padding-bottom: 150rpx;
+.detail-scroll {
+  padding: 24rpx 24rpx 0;
 }
 
-.status-card {
+.status-bar {
+  padding: 18rpx 24rpx;
+  border-radius: $radius-lg;
+  margin-bottom: 20rpx;
   text-align: center;
-  padding: 30rpx;
-  border-radius: 16rpx;
-  margin-bottom: 30rpx;
 }
 
 .status-unused {
-  background: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%);
+  background: rgba(201, 168, 76, 0.22);
 }
 
 .status-used {
-  background: #9e9e9e;
+  background: rgba(46, 204, 113, 0.22);
 }
 
 .status-refunded {
-  background: #f44336;
+  background: rgba(217, 0, 27, 0.22);
 }
 
 .status-text {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #fff;
+  font-size: $font-md;
+  color: $text-white;
+  font-weight: 600;
 }
 
-.qr-section {
-  background: #fff;
-  padding: 60rpx;
-  border-radius: 16rpx;
+.card-dark {
+  background: $cr7-card;
+  border-radius: $radius-lg;
+  border: 1rpx solid $cr7-border;
+  box-shadow: $shadow-card;
+}
+
+.qr-card {
+  padding: 40rpx 24rpx 26rpx;
+  align-items: center;
   text-align: center;
-  margin-bottom: 30rpx;
+  margin-bottom: 20rpx;
 }
 
 .qr-code {
-  width: 400rpx;
-  height: 400rpx;
-  margin-bottom: 30rpx;
+  width: 360rpx;
+  height: 360rpx;
+  margin: 0 auto 20rpx;
 }
 
 .ticket-id {
-  font-size: 24rpx;
-  color: #999;
+  font-size: $font-xs;
+  color: $text-muted;
 }
 
-.info-section {
-  background: #fff;
-  padding: 30rpx;
-  border-radius: 16rpx;
-  margin-bottom: 30rpx;
+.info-card {
+  padding: 24rpx 24rpx 18rpx;
+  margin-bottom: 20rpx;
 }
 
 .event-name {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
-  display: block;
-  margin-bottom: 30rpx;
-  padding-bottom: 30rpx;
-  border-bottom: 1px solid #f0f0f0;
+  font-size: $font-lg;
+  color: $text-white;
+  font-weight: 600;
+  padding-bottom: 14rpx;
+  margin-bottom: 10rpx;
+  border-bottom: 1rpx solid $cr7-border;
 }
 
 .info-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20rpx 0;
-  border-bottom: 1px solid #f8f8f8;
-}
-
-.info-item:last-child {
-  border-bottom: none;
+  padding: 10rpx 0;
 }
 
 .label {
-  font-size: 28rpx;
-  color: #666;
+  font-size: $font-sm;
+  color: $text-light;
 }
 
 .value {
-  font-size: 28rpx;
-  color: #333;
+  font-size: $font-sm;
+  color: $text-white;
 }
 
 .value.price {
-  font-size: 32rpx;
-  color: #ff4444;
-  font-weight: bold;
+  font-size: $font-md;
+  color: $cr7-gold-light;
+  font-weight: 700;
 }
 
-.notice-section {
-  background: #fff;
-  padding: 30rpx;
-  border-radius: 16rpx;
+.notice-card {
+  padding: 24rpx 24rpx 20rpx;
 }
 
 .section-title {
-  font-size: 28rpx;
-  font-weight: bold;
-  color: #333;
-  display: block;
-  margin-bottom: 20rpx;
+  font-size: $font-md;
+  color: $text-white;
+  font-weight: 600;
+  margin-bottom: 8rpx;
 }
 
 .notice-text {
-  font-size: 24rpx;
-  color: #666;
+  font-size: $font-sm;
+  color: $text-light;
   line-height: 1.8;
   white-space: pre-line;
 }
 
-.bottom-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: #fff;
-  padding: 20rpx 30rpx;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-  display: flex;
-  gap: 20rpx;
+.safe-bottom {
+  height: 80rpx;
 }
 
-.action-btn {
+.bottom-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 20rpx 24rpx;
+  background: $cr7-dark;
+  border-top: 1rpx solid $cr7-border;
+  display: flex;
+  gap: 16rpx;
+}
+
+.outline-btn {
   flex: 1;
   height: 80rpx;
-  border-radius: 40rpx;
-  font-size: 28rpx;
-  border: none;
+  border-radius: 999rpx;
+  border: 1rpx solid $cr7-gold;
+  color: $cr7-gold-light;
+  font-size: $font-sm;
+  line-height: normal;
   display: flex;
   align-items: center;
   justify-content: center;
-  line-height: normal;
+  background: transparent;
 }
 
-.action-btn::after {
+.outline-btn::after {
   border: none;
 }
 
-.refund-btn {
-  background: #fff;
-  color: #ff4444;
-  border: 2rpx solid #ff4444;
+.outline-btn.danger {
+  border-color: $cr7-red;
+  color: $cr7-red;
 }
 
 .invoice-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
+  flex: 1;
+  height: 80rpx;
 }
 </style>

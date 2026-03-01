@@ -1,484 +1,776 @@
 <template>
-  <view class="container">
-    <!-- 自定义导航栏 -->
-    <view class="custom-navbar" :style="{ paddingTop: statusBarHeight + 'px' }">
-      <view class="navbar-content">
-        <text class="navbar-title">C罗超越之境</text>
+  <view class="home-page">
+    <!-- 自定义导航：城市 + 品牌徽章 + 消息 -->
+    <view class="home-navbar" :style="{ paddingTop: statusBarHeight + 'px' }">
+      <view class="navbar-inner">
+        <view class="navbar-left" @click="openCityPicker">
+          <text class="city-name">{{ currentCity }}</text>
+          <text class="city-arrow">▽</text>
+        </view>
+
+        <view class="navbar-center">
+          <view class="mini-badge">
+            <text class="mini-badge-cr7">CR7</text>
+          </view>
+          <text class="mini-badge-text">LIFE MUSEUM</text>
+        </view>
+
         <view class="navbar-right" @click="goToMessages">
-          <text class="iconfont icon-message"></text>
+          <text class="icon-message">🔔</text>
           <view v-if="unreadCount > 0" class="badge">{{ unreadCount }}</view>
         </view>
       </view>
     </view>
 
-    <!-- 内容区域 -->
-    <scroll-view class="content" scroll-y>
-      <!-- 轮播图 -->
-      <swiper class="banner" indicator-dots circular autoplay>
-        <swiper-item v-for="(item, index) in banners" :key="index">
-          <image :src="item.cover" mode="aspectFill"></image>
+    <!-- 首页主体 -->
+    <scroll-view class="home-scroll" scroll-y>
+      <!-- 顶部 Banner（展馆 / 活动主视觉） -->
+      <swiper class="hero-swiper" indicator-dots circular autoplay>
+        <swiper-item v-for="(item, index) in heroBanners" :key="index">
+          <view class="hero-card">
+            <view class="hero-tag">{{ item.tag }}</view>
+            <text class="hero-title">{{ item.title }}</text>
+            <text class="hero-subtitle">{{ item.subtitle }}</text>
+            <view class="hero-meta">
+              <text class="meta-item">📍 {{ item.location }}</text>
+              <text class="meta-item">🕐 {{ item.date }}</text>
+            </view>
+          </view>
         </swiper-item>
       </swiper>
 
-      <!-- 快捷入口 -->
-      <view class="quick-menu">
-        <view class="menu-item" @click="goToSchedule">
-          <text class="menu-icon">📅</text>
-          <text class="menu-text">赛事日程</text>
+      <!-- 热门活动 -->
+      <view class="section">
+        <view class="section-header">
+          <text class="section-title">热门活动</text>
+          <view class="hot-tabs">
+            <text
+              v-for="tab in hotTabs"
+              :key="tab.key"
+              :class="['hot-tab', { active: tab.key === activeHotTab }]"
+              @click="changeHotTab(tab.key)"
+            >
+              {{ tab.label }}
+            </text>
+          </view>
         </view>
-        <view class="menu-item" @click="goToVote">
-          <text class="menu-icon">🗳️</text>
-          <text class="menu-text">赛事投票</text>
-        </view>
-        <view class="menu-item" @click="goToGame">
-          <text class="menu-icon">🎮</text>
-          <text class="menu-text">互动游戏</text>
-        </view>
-        <view class="menu-item" @click="goToBrands">
-          <text class="menu-icon">🏆</text>
-          <text class="menu-text">联名品牌</text>
+
+        <view class="card-list">
+          <view
+            v-for="item in activeHotList"
+            :key="item.id"
+            class="event-card card-dark"
+            @click="openHotItem(item)"
+          >
+            <view class="event-header">
+              <text class="event-museum">{{ item.museum }}</text>
+              <text
+                class="event-tag"
+                :class="[
+                  item.status === 'active' ? 'tag-active' : '',
+                  item.status === 'countdown' ? 'tag-countdown' : '',
+                  item.status === 'ended' ? 'tag-ended' : ''
+                ]"
+              >
+                {{ item.statusText }}
+              </text>
+            </view>
+            <text class="event-title">{{ item.title }}</text>
+            <view class="event-meta">
+              <text class="meta-item">🕐 {{ item.time }}</text>
+              <text class="meta-item">📍 {{ item.location }}</text>
+            </view>
+            <view class="event-footer">
+              <text v-if="item.price" class="event-price">¥{{ item.price }} 起</text>
+              <view class="event-cta">
+                <text class="cta-text">{{ item.cta || '查看详情' }}</text>
+              </view>
+            </view>
+          </view>
         </view>
       </view>
 
-      <!-- 信息流卡片 -->
-      <view class="card-list">
-        <view 
-          v-for="card in cards" 
-          :key="card.id" 
-          class="card-item"
-          @click="handleCardClick(card)"
-        >
-          <!-- 展会/赛事卡片 -->
-          <view v-if="card.type === 'event'" class="event-card">
-            <image :src="card.cover" mode="aspectFill" class="card-cover"></image>
-            <view class="card-content">
-              <view class="card-tags">
-                <text v-for="tag in card.tags" :key="tag" class="tag">{{ tag }}</text>
-              </view>
-              <text class="card-title">{{ card.title }}</text>
-              <view class="card-info">
-                <text class="info-item">📍 {{ card.location }}</text>
-                <text class="info-item">🕐 {{ card.date }}</text>
-              </view>
-              <view class="card-footer">
-                <text class="price">¥{{ card.price }}起</text>
-                <view class="buy-btn">立即购票</view>
-              </view>
+      <!-- C罗专区：行程日历 / 视频集锦 / 职业生涯 -->
+      <view class="section">
+        <view class="section-header">
+          <text class="section-title">C罗专区</text>
+        </view>
+        <view class="cr7-grid">
+          <view
+            v-for="entry in cr7Zone"
+            :key="entry.key"
+            class="cr7-card card-dark"
+            @click="openCr7Entry(entry)"
+          >
+            <view class="cr7-icon">{{ entry.icon }}</view>
+            <view class="cr7-info">
+              <text class="cr7-title">{{ entry.title }}</text>
+              <text class="cr7-desc">{{ entry.desc }}</text>
             </view>
-          </view>
-
-          <!-- 视频卡片 -->
-          <view v-if="card.type === 'video'" class="video-card">
-            <view class="video-wrapper">
-              <image :src="card.cover" mode="aspectFill" class="card-cover"></image>
-              <view class="play-icon">▶</view>
-              <text class="duration">{{ card.duration }}</text>
-            </view>
-            <view class="card-content">
-              <text class="card-title">{{ card.title }}</text>
-              <text class="views">{{ formatViews(card.views) }}次观看</text>
-            </view>
-          </view>
-
-          <!-- 线下活动卡片 -->
-          <view v-if="card.type === 'activity'" class="activity-card">
-            <image :src="card.cover" mode="aspectFill" class="card-cover"></image>
-            <view class="countdown-overlay">
-              <text class="countdown-text">距离开始还有</text>
-              <text class="countdown-time">{{ formatCountdown(card.countdown) }}</text>
-            </view>
-            <view class="card-content">
-              <text class="card-title">{{ card.title }}</text>
-              <view class="card-info">
-                <text class="info-item">📍 {{ card.location }}</text>
-                <text class="info-item">🕐 {{ card.date }}</text>
-              </view>
-            </view>
-          </view>
-
-          <!-- 图文卡片 -->
-          <view v-if="card.type === 'article'" class="article-card">
-            <view class="card-content">
-              <text class="card-title">{{ card.title }}</text>
-              <text class="publish-time">{{ card.publishTime }}</text>
-            </view>
-            <image :src="card.cover" mode="aspectFill" class="article-cover"></image>
           </view>
         </view>
       </view>
+
+      <!-- 联名品牌 -->
+      <view class="section">
+        <view class="section-header">
+          <text class="section-title">联名品牌</text>
+        </view>
+        <scroll-view scroll-x class="brand-scroll" show-scrollbar="false">
+          <view class="brand-row">
+            <view
+              v-for="brand in brands"
+              :key="brand.name"
+              class="brand-chip card-dark"
+              @click="openBrand(brand)"
+            >
+              <view class="brand-logo-circle">
+                <text class="brand-initials">{{ brand.initials }}</text>
+              </view>
+              <view class="brand-text">
+                <text class="brand-name">{{ brand.name }}</text>
+                <text class="brand-tagline">{{ brand.tagline }}</text>
+              </view>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+
+      <view class="safe-bottom safe-area-bottom"></view>
     </scroll-view>
+
+    <!-- 城市选择弹层（简版） -->
+    <view v-if="showCityPicker" class="city-modal" @click="closeCityPicker">
+      <view class="city-panel" @click.stop>
+        <text class="city-panel-title">选择城市</text>
+        <view class="city-list">
+          <view
+            v-for="city in cityList"
+            :key="city"
+            :class="['city-item', { active: city === currentCity }]"
+            @click="chooseCity(city)"
+          >
+            {{ city }}
+          </view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script>
-import { mockHomeCards, mockMessages } from '@/utils/mockData.js'
+import { mockMessages } from '@/utils/mockData.js'
 import storage from '@/utils/storage.js'
 
 export default {
   data() {
     return {
       statusBarHeight: 0,
-      banners: [],
-      cards: [],
-      unreadCount: 0
+      currentCity: '北京',
+      cityList: ['北京', '上海', '中国香港', '深圳'],
+      showCityPicker: false,
+      unreadCount: 0,
+      heroBanners: [
+        {
+          tag: '限时展出',
+          title: 'CR7® LIFE 中国北京馆',
+          subtitle: '亚洲首个 CR7® LIFE 沉浸式博物馆',
+          location: '北京市 · 国贸商圈',
+          date: '2026.03.16 - 06.01'
+        },
+        {
+          tag: '全球巡展',
+          title: 'CR7 世界杯荣耀特展',
+          subtitle: '重温世界杯高光瞬间',
+          location: '中国上海 · 外滩',
+          date: '2026.07 起'
+        }
+      ],
+      hotTabs: [
+        { key: 'ticket', label: '购票' },
+        { key: 'event', label: '线下活动' },
+        { key: 'worldcup', label: '世界杯' }
+      ],
+      activeHotTab: 'ticket',
+      hotTickets: [
+        {
+          id: 1,
+          museum: 'C罗博物馆 · 中国北京馆',
+          title: '首发早鸟票 · 数量有限',
+          time: '2026-03-16 起 · 10:00-22:00',
+          location: '北京市朝阳区 国贸商圈',
+          price: 99,
+          status: 'active',
+          statusText: '售票中',
+          cta: '立即购票'
+        },
+        {
+          id: 2,
+          museum: 'C罗博物馆 · 中国上海馆',
+          title: '家庭套票 · 4 人同游',
+          time: '2026-04-01 起 · 10:00-22:00',
+          location: '上海市黄浦区 外滩片区',
+          price: 366,
+          status: 'countdown',
+          statusText: '倒计时 10 天',
+          cta: '查看详情'
+        }
+      ],
+      hotEvents: [
+        {
+          id: 3,
+          museum: '签名会 · 北京站',
+          title: 'CR7 见面会 · 限定名额',
+          time: '2026-03-20 19:00',
+          location: '北京 CR7® LIFE 馆内互动区',
+          status: 'active',
+          statusText: '报名中',
+          cta: '立即报名'
+        },
+        {
+          id: 4,
+          museum: '线下观赛夜',
+          title: '欧冠观赛派对',
+          time: '2026-04-10 02:30',
+          location: '上海 CR7® LIFE 球迷专区',
+          status: 'countdown',
+          statusText: '倒计时 5 天',
+          cta: '预约席位'
+        }
+      ],
+      hotWorldcup: [
+        {
+          id: 5,
+          museum: '世界杯特别活动',
+          title: 'C罗世界杯经典进球重现',
+          time: '2026 世界杯期间',
+          location: '多城市 CR7® LIFE 馆',
+          status: 'active',
+          statusText: '规划中',
+          cta: '敬请期待'
+        }
+      ],
+      cr7Zone: [
+        {
+          key: 'calendar',
+          title: '行程日历',
+          desc: '跟随 C罗 全球足迹',
+          icon: '📅',
+          route: '/pages/schedule/schedule'
+        },
+        {
+          key: 'highlights',
+          title: '视频集锦',
+          desc: '高光时刻一键回放',
+          icon: '🎥',
+          route: '/pages/schedule/schedule'
+        },
+        {
+          key: 'career',
+          title: '职业生涯',
+          desc: '纵览传奇数据年表',
+          icon: '📊',
+          route: '/pages/schedule/schedule'
+        }
+      ],
+      brands: [
+        {
+          name: 'CR7 SPORTS',
+          initials: 'CR',
+          tagline: '官方运动装备合作'
+        },
+        {
+          name: 'SIUU ENERGY',
+          initials: 'SE',
+          tagline: '联名能量饮品'
+        },
+        {
+          name: 'LEGENDARY BOOTS',
+          initials: 'LB',
+          tagline: '限量战靴联名'
+        }
+      ]
     }
   },
-  
-  onLoad() {
-    this.initPage()
+
+  computed: {
+    activeHotList() {
+      if (this.activeHotTab === 'ticket') return this.hotTickets
+      if (this.activeHotTab === 'event') return this.hotEvents
+      return this.hotWorldcup
+    }
   },
-  
+
+  onLoad() {
+    const systemInfo = uni.getSystemInfoSync()
+    this.statusBarHeight = systemInfo.statusBarHeight || 0
+  },
+
   onShow() {
     this.checkLogin()
     this.loadUnreadCount()
   },
-  
+
   methods: {
-    initPage() {
-      // 获取状态栏高度
-      const systemInfo = uni.getSystemInfoSync()
-      this.statusBarHeight = systemInfo.statusBarHeight || 0
-      
-      // 加载数据
-      this.loadBanners()
-      this.loadCards()
-    },
-    
     checkLogin() {
       if (!storage.isLoggedIn()) {
-        uni.showModal({
-          title: '提示',
-          content: '请先登录',
-          success: (res) => {
-            if (res.confirm) {
-              uni.navigateTo({
-                url: '/pages/login/login'
-              })
-            }
-          }
+        uni.navigateTo({
+          url: '/pages/login/login'
         })
       }
     },
-    
-    loadBanners() {
-      // 使用前3个卡片作为轮播图
-      this.banners = mockHomeCards.slice(0, 3)
-    },
-    
-    loadCards() {
-      this.cards = mockHomeCards
-    },
-    
+
     loadUnreadCount() {
       const unreadMessages = mockMessages.filter(msg => !msg.isRead)
       this.unreadCount = unreadMessages.length
     },
-    
-    handleCardClick(card) {
-      if (card.type === 'event' || card.type === 'activity') {
-        uni.navigateTo({
-          url: `/pages/event-detail/event-detail?id=${card.id}`
-        })
-      } else if (card.type === 'video') {
-        uni.showToast({
-          title: '视频播放功能开发中',
-          icon: 'none'
-        })
-      } else if (card.type === 'article') {
-        uni.navigateTo({
-          url: `/pages/schedule/schedule`
-        })
-      }
-    },
-    
+
     goToMessages() {
       uni.navigateTo({
         url: '/pages/messages/messages'
       })
     },
-    
-    goToSchedule() {
+
+    openCityPicker() {
+      this.showCityPicker = true
+    },
+
+    closeCityPicker() {
+      this.showCityPicker = false
+    },
+
+    chooseCity(city) {
+      this.currentCity = city
+      this.showCityPicker = false
+      // TODO: 根据城市刷新活动数据
+    },
+
+    changeHotTab(key) {
+      this.activeHotTab = key
+    },
+
+    openHotItem(item) {
+      if (this.activeHotTab === 'ticket') {
+        uni.navigateTo({
+          url: `/pages/ticket-purchase/ticket-purchase?id=${item.id}`
+        })
+      } else if (this.activeHotTab === 'event') {
+        uni.navigateTo({
+          url: `/pages/event-detail/event-detail?id=${item.id}`
+        })
+      } else {
+        uni.showToast({
+          title: '世界杯专题即将上线',
+          icon: 'none'
+        })
+      }
+    },
+
+    openCr7Entry(entry) {
       uni.navigateTo({
-        url: '/pages/schedule/schedule'
+        url: entry.route
       })
     },
-    
-    goToVote() {
-      uni.navigateTo({
-        url: '/pages/vote/vote'
-      })
-    },
-    
-    goToGame() {
-      uni.navigateTo({
-        url: '/pages/game/game'
-      })
-    },
-    
-    goToBrands() {
+
+    openBrand(brand) {
       uni.navigateTo({
         url: '/pages/brands/brands'
       })
-    },
-    
-    formatViews(views) {
-      if (views >= 10000) {
-        return (views / 10000).toFixed(1) + '万'
-      }
-      return views
-    },
-    
-    formatCountdown(seconds) {
-      const days = Math.floor(seconds / 86400)
-      const hours = Math.floor((seconds % 86400) / 3600)
-      return `${days}天${hours}小时`
     }
   }
 }
 </script>
 
-<style scoped>
-.container {
+<style lang="scss" scoped>
+.home-page {
   width: 100%;
-  height: 100vh;
-  background: #f5f5f5;
+  min-height: 100vh;
+  background: $cr7-black;
 }
 
-.custom-navbar {
+.home-navbar {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  background: #fff;
-  z-index: 999;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  z-index: 100;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.9), rgba(13, 13, 13, 0.6));
 }
 
-.navbar-content {
-  height: 44px;
+.navbar-inner {
+  height: 88rpx;
+  padding: 0 40rpx 8rpx;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.navbar-left {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 30rpx;
 }
 
-.navbar-title {
-  font-size: 36rpx;
-  font-weight: bold;
-  color: #333;
+.city-name {
+  font-size: $font-md;
+  color: $text-white;
+  margin-right: 6rpx;
+}
+
+.city-arrow {
+  font-size: $font-xs;
+  color: $text-muted;
+}
+
+.navbar-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translateY(6rpx);
+}
+
+.mini-badge {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  background: $gradient-gold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: $shadow-gold;
+}
+
+.mini-badge-cr7 {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: $cr7-black;
+}
+
+.mini-badge-text {
+  margin-top: 4rpx;
+  font-size: 18rpx;
+  color: $text-light;
+  letter-spacing: 3rpx;
 }
 
 .navbar-right {
   position: relative;
-  font-size: 44rpx;
+  display: flex;
+  align-items: center;
+}
+
+.icon-message {
+  font-size: 40rpx;
+  color: $text-white;
 }
 
 .badge {
   position: absolute;
-  top: -10rpx;
-  right: -10rpx;
-  background: #ff4444;
+  top: -6rpx;
+  right: -12rpx;
+  background: $cr7-red;
   color: #fff;
   font-size: 20rpx;
-  padding: 4rpx 8rpx;
-  border-radius: 20rpx;
+  padding: 4rpx 10rpx;
+  border-radius: 24rpx;
   min-width: 32rpx;
   text-align: center;
 }
 
-.content {
-  margin-top: 88px;
-  height: calc(100vh - 88px);
+.home-scroll {
+  margin-top: 120rpx;
+  height: calc(100vh - 120rpx);
 }
 
-.banner {
-  width: 100%;
-  height: 400rpx;
+.hero-swiper {
+  height: 360rpx;
+  padding: 0 32rpx;
 }
 
-.banner image {
-  width: 100%;
-  height: 100%;
-}
-
-.quick-menu {
-  display: flex;
-  background: #fff;
-  padding: 40rpx 0;
-  margin-bottom: 20rpx;
-}
-
-.menu-item {
-  flex: 1;
+.hero-card {
+  margin-top: 8rpx;
+  height: 320rpx;
+  border-radius: $radius-lg;
+  padding: 32rpx;
+  background: radial-gradient(circle at 0% 0%, rgba(201, 168, 76, 0.22), transparent 55%), $gradient-dark;
+  box-shadow: $shadow-card;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+}
+
+.hero-tag {
+  align-self: flex-start;
+  padding: 6rpx 20rpx;
+  border-radius: 999rpx;
+  font-size: $font-xs;
+  color: $cr7-black;
+  background: $gradient-gold;
+}
+
+.hero-title {
+  margin-top: 20rpx;
+  font-size: $font-xxl;
+  font-weight: 700;
+  color: $text-white;
+}
+
+.hero-subtitle {
+  margin-top: 8rpx;
+  font-size: $font-sm;
+  color: $text-light;
+}
+
+.hero-meta {
+  margin-top: 24rpx;
+}
+
+.meta-item {
+  display: block;
+  font-size: $font-sm;
+  color: $text-light;
+}
+
+.section {
+  padding: 32rpx;
+}
+
+.section-header {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
 }
 
-.menu-icon {
-  font-size: 60rpx;
-  margin-bottom: 10rpx;
+.section-title {
+  font-size: $font-lg;
+  color: $text-white;
+  font-weight: 600;
 }
 
-.menu-text {
-  font-size: 24rpx;
-  color: #666;
+.hot-tabs {
+  display: flex;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999rpx;
+  padding: 4rpx;
+}
+
+.hot-tab {
+  min-width: 120rpx;
+  padding: 8rpx 0;
+  text-align: center;
+  font-size: $font-sm;
+  color: $text-light;
+  border-radius: 999rpx;
+}
+
+.hot-tab.active {
+  background: $gradient-gold;
+  color: $cr7-black;
+  font-weight: 600;
 }
 
 .card-list {
-  padding: 0 30rpx 30rpx;
-}
-
-.card-item {
-  margin-bottom: 30rpx;
-  background: #fff;
-  border-radius: 16rpx;
-  overflow: hidden;
-}
-
-.card-cover {
-  width: 100%;
-  height: 400rpx;
-}
-
-.card-content {
-  padding: 30rpx;
-}
-
-.card-tags {
-  margin-bottom: 10rpx;
-}
-
-.tag {
-  display: inline-block;
-  padding: 4rpx 16rpx;
-  background: #ff4444;
-  color: #fff;
-  font-size: 22rpx;
-  border-radius: 8rpx;
-  margin-right: 10rpx;
-}
-
-.card-title {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
-  display: block;
-  margin-bottom: 20rpx;
-}
-
-.card-info {
+  margin-top: 12rpx;
   display: flex;
   flex-direction: column;
-  gap: 10rpx;
-  margin-bottom: 20rpx;
+  gap: 24rpx;
 }
 
-.info-item {
-  font-size: 26rpx;
-  color: #999;
+.card-dark {
+  background: $cr7-card;
+  border-radius: $radius-lg;
+  border: 1rpx solid $cr7-border;
+  padding: 24rpx 24rpx 20rpx;
+  box-shadow: $shadow-card;
 }
 
-.card-footer {
+.event-card {
+  color: $text-white;
+}
+
+.event-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.event-museum {
+  font-size: $font-sm;
+  color: $text-light;
+}
+
+.event-title {
+  margin-top: 4rpx;
+  font-size: $font-md;
+  font-weight: 600;
+}
+
+.event-meta {
+  margin-top: 10rpx;
+}
+
+.event-footer {
+  margin-top: 16rpx;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.price {
-  font-size: 36rpx;
-  color: #ff4444;
-  font-weight: bold;
+.event-price {
+  font-size: $font-lg;
+  color: $cr7-gold-light;
+  font-weight: 700;
 }
 
-.buy-btn {
-  padding: 12rpx 40rpx;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  border-radius: 40rpx;
-  font-size: 28rpx;
+.event-cta {
+  padding: 6rpx 22rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid $cr7-gold;
 }
 
-.video-wrapper {
-  position: relative;
+.cta-text {
+  font-size: $font-sm;
+  color: $cr7-gold-light;
 }
 
-.play-icon {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 100rpx;
-  height: 100rpx;
-  background: rgba(0,0,0,0.5);
-  border-radius: 50%;
+.cr7-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.cr7-card {
+  display: flex;
+  align-items: center;
+}
+
+.cr7-icon {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: $radius-lg;
+  background: rgba(201, 168, 76, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
   font-size: 40rpx;
+  margin-right: 20rpx;
 }
 
-.duration {
-  position: absolute;
-  bottom: 20rpx;
-  right: 20rpx;
-  background: rgba(0,0,0,0.7);
-  color: #fff;
-  padding: 4rpx 12rpx;
-  border-radius: 8rpx;
-  font-size: 22rpx;
-}
-
-.views {
-  font-size: 24rpx;
-  color: #999;
-}
-
-.countdown-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(transparent, rgba(0,0,0,0.7));
-  padding: 40rpx 30rpx 20rpx;
-  color: #fff;
-  text-align: center;
-}
-
-.countdown-text {
-  font-size: 24rpx;
-  display: block;
-}
-
-.countdown-time {
-  font-size: 40rpx;
-  font-weight: bold;
-  display: block;
-  margin-top: 10rpx;
-}
-
-.article-card {
-  display: flex;
-  padding: 30rpx;
-}
-
-.article-card .card-content {
+.cr7-info {
   flex: 1;
-  padding: 0;
-  padding-right: 20rpx;
 }
 
-.article-cover {
-  width: 200rpx;
-  height: 150rpx;
-  border-radius: 8rpx;
+.cr7-title {
+  font-size: $font-md;
+  color: $text-white;
 }
 
-.publish-time {
-  font-size: 24rpx;
-  color: #999;
-  margin-top: 10rpx;
+.cr7-desc {
+  margin-top: 4rpx;
+  font-size: $font-sm;
+  color: $text-light;
+}
+
+.brand-scroll {
+  white-space: nowrap;
+}
+
+.brand-row {
+  display: flex;
+  flex-direction: row;
+  gap: 20rpx;
+}
+
+.brand-chip {
+  min-width: 320rpx;
+  display: flex;
+  align-items: center;
+}
+
+.brand-logo-circle {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle at 0% 0%, rgba(201, 168, 76, 0.24), transparent 55%), $cr7-dark;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 18rpx;
+}
+
+.brand-initials {
+  font-size: $font-md;
+  color: $cr7-gold-light;
+  font-weight: 600;
+}
+
+.brand-text {
+  flex: 1;
+}
+
+.brand-name {
   display: block;
+  font-size: $font-md;
+  color: $text-white;
+}
+
+.brand-tagline {
+  display: block;
+  margin-top: 4rpx;
+  font-size: $font-xs;
+  color: $text-muted;
+}
+
+.city-modal {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.city-panel {
+  width: 100%;
+  background: $cr7-card;
+  border-top-left-radius: $radius-xl;
+  border-top-right-radius: $radius-xl;
+  padding: 32rpx 40rpx 40rpx;
+}
+
+.city-panel-title {
+  font-size: $font-md;
+  color: $text-white;
+  font-weight: 600;
+}
+
+.city-list {
+  margin-top: 24rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.city-item {
+  padding: 12rpx 32rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid $cr7-border;
+  font-size: $font-sm;
+  color: $text-light;
+}
+
+.city-item.active {
+  border-color: $cr7-gold;
+  color: $cr7-gold-light;
+  background: rgba(201, 168, 76, 0.12);
+}
+
+.safe-bottom {
+  height: 80rpx;
 }
 </style>

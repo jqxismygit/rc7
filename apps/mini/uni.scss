@@ -1,125 +1,156 @@
-/* 全局样式 */
+/* CR7® LIFE 全局设计系统 - 暗金运动风 */
 
-/* 颜色变量 */
-$primary-color: #667eea;
-$secondary-color: #764ba2;
-$success-color: #4caf50;
-$warning-color: #ff9800;
-$error-color: #f44336;
-$text-color: #333;
-$text-light: #666;
-$text-lighter: #999;
-$border-color: #e0e0e0;
-$bg-color: #f5f5f5;
+/* ===== 品牌色系 ===== */
+$cr7-gold: #C9A84C;
+$cr7-gold-light: #E8C96A;
+$cr7-gold-dark: #9E7A2E;
+$cr7-black: #0D0D0D;
+$cr7-dark: #1A1A1A;
+$cr7-card: #242424;
+$cr7-border: #333333;
+$cr7-red: #D9001B;
+$cr7-success: #2ECC71;
+$cr7-warning: #F39C12;
 
-/* 渐变色 */
-$gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-$gradient-success: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%);
+/* ===== 文字色 ===== */
+$text-white: #FFFFFF;
+$text-light: #CCCCCC;
+$text-muted: #888888;
+$text-disabled: #555555;
 
-/* 间距 */
-$spacing-xs: 10rpx;
-$spacing-sm: 20rpx;
-$spacing-md: 30rpx;
-$spacing-lg: 40rpx;
-$spacing-xl: 60rpx;
+/* ===== 渐变 ===== */
+$gradient-gold: linear-gradient(135deg, #C9A84C 0%, #E8C96A 50%, #9E7A2E 100%);
+$gradient-dark: linear-gradient(180deg, #1A1A1A 0%, #0D0D0D 100%);
+$gradient-hero: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.85) 100%);
 
-/* 圆角 */
+/* ===== 间距 ===== */
+$spacing-xs: 8rpx;
+$spacing-sm: 16rpx;
+$spacing-md: 24rpx;
+$spacing-lg: 32rpx;
+$spacing-xl: 48rpx;
+$spacing-xxl: 64rpx;
+
+/* ===== 圆角 ===== */
 $radius-sm: 8rpx;
-$radius-md: 12rpx;
-$radius-lg: 16rpx;
-$radius-xl: 20rpx;
+$radius-md: 16rpx;
+$radius-lg: 24rpx;
+$radius-xl: 32rpx;
 $radius-round: 50%;
 
-/* 字体大小 */
+/* ===== 字体 ===== */
 $font-xs: 20rpx;
-$font-sm: 24rpx;
+$font-sm: 22rpx;
 $font-md: 26rpx;
 $font-base: 28rpx;
 $font-lg: 32rpx;
 $font-xl: 36rpx;
-$font-xxl: 40rpx;
+$font-xxl: 48rpx;
+$font-hero: 64rpx;
 
-/* 阴影 */
-$shadow-sm: 0 2px 8px rgba(0,0,0,0.05);
-$shadow-md: 0 4px 12px rgba(0,0,0,0.1);
-$shadow-lg: 0 8px 24px rgba(0,0,0,0.15);
+/* ===== 阴影 ===== */
+$shadow-gold: 0 4rpx 20rpx rgba(201,168,76,0.3);
+$shadow-dark: 0 8rpx 32rpx rgba(0,0,0,0.6);
+$shadow-card: 0 4rpx 16rpx rgba(0,0,0,0.4);
 
-/* 通用样式类 */
-.flex {
-  display: flex;
-}
+/* ===== 通用类 ===== */
+.flex { display: flex; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.flex-col { display: flex; flex-direction: column; }
+.flex-end { display: flex; align-items: center; justify-content: flex-end; }
 
-.flex-center {
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 金色强调文字 */
+.text-gold { color: $cr7-gold; }
+.text-white { color: #FFFFFF; }
+.text-muted { color: $text-muted; }
+.text-red { color: $cr7-red; }
+
+/* 背景 */
+.bg-dark { background: $cr7-black; }
+.bg-card { background: $cr7-card; }
+.bg-gold { background: $gradient-gold; }
+
+/* 金色主按钮 */
+.btn-gold {
+  background: $gradient-gold;
+  color: $cr7-black;
+  border-radius: 48rpx;
+  border: none;
+  font-weight: 700;
+  letter-spacing: 2rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.flex-between {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+/* 描边按钮 */
+.btn-outline-gold {
+  background: transparent;
+  color: $cr7-gold;
+  border: 2rpx solid $cr7-gold;
+  border-radius: 48rpx;
 }
 
-.flex-column {
-  display: flex;
-  flex-direction: column;
-}
-
-.text-center {
-  text-align: center;
-}
-
-.text-right {
-  text-align: right;
-}
-
-.text-ellipsis {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.text-primary {
-  color: $primary-color;
-}
-
-.text-success {
-  color: $success-color;
-}
-
-.text-warning {
-  color: $warning-color;
-}
-
-.text-error {
-  color: $error-color;
-}
-
-.bg-primary {
-  background: $gradient-primary;
-}
-
-.bg-white {
-  background: #fff;
-}
-
-.card {
-  background: #fff;
+/* 暗卡片 */
+.card-dark {
+  background: $cr7-card;
   border-radius: $radius-lg;
-  padding: $spacing-md;
+  border: 1rpx solid $cr7-border;
 }
 
-.btn-primary {
-  background: $gradient-primary;
-  color: #fff;
-  border-radius: 40rpx;
-  border: none;
+/* 分割线 */
+.divider {
+  height: 1rpx;
+  background: $cr7-border;
 }
 
-.btn-outline {
-  background: #fff;
-  color: $primary-color;
-  border: 2rpx solid $primary-color;
-  border-radius: 40rpx;
+/* 状态标签 */
+.tag-active {
+  padding: 4rpx 16rpx;
+  background: rgba(201,168,76,0.2);
+  color: $cr7-gold;
+  border-radius: $radius-sm;
+  font-size: $font-xs;
+  border: 1rpx solid $cr7-gold;
+}
+
+.tag-ended {
+  padding: 4rpx 16rpx;
+  background: rgba(136,136,136,0.15);
+  color: $text-muted;
+  border-radius: $radius-sm;
+  font-size: $font-xs;
+  border: 1rpx solid $cr7-border;
+}
+
+.tag-countdown {
+  padding: 4rpx 16rpx;
+  background: rgba(217,0,27,0.15);
+  color: $cr7-red;
+  border-radius: $radius-sm;
+  font-size: $font-xs;
+  border: 1rpx solid $cr7-red;
+}
+
+/* 安全区域 */
+.safe-area-top {
+  padding-top: constant(safe-area-inset-top);
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-area-y {
+  padding-top: constant(safe-area-inset-top);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
 }

@@ -3,20 +3,45 @@
 		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "C罗超越之境",
+				"navigationBarTitleText": "CR7® LIFE",
+				"navigationStyle": "custom"
+			}
+		},
+    {
+      "path": "pages/legal/terms",
+      "style": {
+        "navigationBarTitleText": "用户协议"
+      }
+    },
+    {
+      "path": "pages/legal/privacy",
+      "style": {
+        "navigationBarTitleText": "隐私政策"
+      }
+    },
+		{
+			"path": "pages/login/login",
+			"style": {
+				"navigationBarTitleText": "登录",
 				"navigationStyle": "custom"
 			}
 		},
 		{
-			"path": "pages/login/login",
+			"path": "pages/my-tickets/my-tickets",
 			"style": {
-				"navigationBarTitleText": "登录"
+				"navigationBarTitleText": "票夹"
 			}
 		},
 		{
-			"path": "pages/event-detail/event-detail",
+			"path": "pages/game/game",
 			"style": {
-				"navigationBarTitleText": "活动详情"
+				"navigationBarTitleText": "互动"
+			}
+		},
+		{
+			"path": "pages/profile/profile",
+			"style": {
+				"navigationBarTitleText": "我的"
 			}
 		},
 		{
@@ -26,9 +51,9 @@
 			}
 		},
 		{
-			"path": "pages/my-tickets/my-tickets",
+			"path": "pages/event-detail/event-detail",
 			"style": {
-				"navigationBarTitleText": "我的票夹"
+				"navigationBarTitleText": "线下活动"
 			}
 		},
 		{
@@ -38,9 +63,21 @@
 			}
 		},
 		{
-			"path": "pages/profile/profile",
+			"path": "pages/brands/brands",
 			"style": {
-				"navigationBarTitleText": "个人中心"
+				"navigationBarTitleText": "联名品牌"
+			}
+		},
+		{
+			"path": "pages/schedule/schedule",
+			"style": {
+				"navigationBarTitleText": "职业生涯"
+			}
+		},
+		{
+			"path": "pages/vote/vote",
+			"style": {
+				"navigationBarTitleText": "票码兑换"
 			}
 		},
 		{
@@ -54,37 +91,13 @@
 			"style": {
 				"navigationBarTitleText": "扫码验票"
 			}
-		},
-		{
-			"path": "pages/game/game",
-			"style": {
-				"navigationBarTitleText": "反应力挑战"
-			}
-		},
-		{
-			"path": "pages/vote/vote",
-			"style": {
-				"navigationBarTitleText": "赛事投票"
-			}
-		},
-		{
-			"path": "pages/schedule/schedule",
-			"style": {
-				"navigationBarTitleText": "赛事日程"
-			}
-		},
-		{
-			"path": "pages/brands/brands",
-			"style": {
-				"navigationBarTitleText": "联名品牌"
-			}
 		}
 	],
 	"tabBar": {
-		"color": "#7A7E83",
-		"selectedColor": "#667eea",
+		"color": "#888888",
+		"selectedColor": "#C9A84C",
 		"borderStyle": "black",
-		"backgroundColor": "#ffffff",
+		"backgroundColor": "#111111",
 		"list": [
 			{
 				"pagePath": "pages/index/index",
@@ -99,6 +112,12 @@
 				"text": "票夹"
 			},
 			{
+				"pagePath": "pages/game/game",
+				"iconPath": "static/tab-home.png",
+				"selectedIconPath": "static/tab-home.png",
+				"text": "互动"
+			},
+			{
 				"pagePath": "pages/profile/profile",
 				"iconPath": "static/tab-home.png",
 				"selectedIconPath": "static/tab-home.png",
@@ -107,9 +126,9 @@
 		]
 	},
 	"globalStyle": {
-		"navigationBarTextStyle": "black",
-		"navigationBarTitleText": "C罗超越之境",
-		"navigationBarBackgroundColor": "#F8F8F8",
-		"backgroundColor": "#F8F8F8"
+		"navigationBarTextStyle": "white",
+		"navigationBarTitleText": "CR7® LIFE",
+		"navigationBarBackgroundColor": "#0D0D0D",
+		"backgroundColor": "#0D0D0D"
 	}
 }

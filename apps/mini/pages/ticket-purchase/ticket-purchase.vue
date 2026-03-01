@@ -1,33 +1,43 @@
 <template>
-  <view class="container">
-    <scroll-view class="content" scroll-y>
-      <!-- 活动信息 -->
-      <view class="event-info">
-        <text class="event-name">{{ eventName }}</text>
-        <text class="event-date">🕐 {{ eventDate }}</text>
+  <view class="purchase-page">
+    <scroll-view class="purchase-scroll" scroll-y>
+      <!-- 展馆信息 -->
+      <view class="museum-card card-dark">
+        <text class="museum-name">{{ eventName || 'C罗博物馆 · 中国馆' }}</text>
+        <text class="museum-sub">亚洲首个 CR7® LIFE 沉浸式博物馆</text>
+        <view class="museum-meta">
+          <text class="meta-item">🕐 {{ eventDate || '10:00 - 22:00（最晚入场 21:00）' }}</text>
+          <text class="meta-item">📍 {{ museumLocation }}</text>
+          <text class="meta-item">☎ 400-CR7-LIFE</text>
+        </view>
       </view>
 
       <!-- 票种选择 -->
-      <view class="ticket-types">
+      <view class="section card-dark">
         <text class="section-title">选择票种</text>
-        <view 
-          v-for="ticket in ticketTypes" 
+        <view
+          v-for="ticket in ticketTypes"
           :key="ticket.id"
-          class="ticket-type-item"
+          class="ticket-type"
           :class="{ active: selectedTicket && selectedTicket.id === ticket.id }"
           @click="selectTicket(ticket)"
         >
-          <view class="ticket-info">
+          <view class="ticket-main">
             <view class="ticket-header">
               <text class="ticket-name">{{ ticket.name }}</text>
               <text v-if="ticket.tag" class="ticket-tag">{{ ticket.tag }}</text>
             </view>
             <text class="ticket-desc">{{ ticket.description }}</text>
-            <text class="stock-info">剩余 {{ ticket.stock }} 张</text>
+            <text class="ticket-stock">
+              剩余 {{ ticket.stock }} 张
+            </text>
           </view>
           <view class="ticket-price">
             <text class="price">¥{{ ticket.price }}</text>
-            <text v-if="ticket.originalPrice > ticket.price" class="original-price">
+            <text
+              v-if="ticket.originalPrice > ticket.price"
+              class="original-price"
+            >
               ¥{{ ticket.originalPrice }}
             </text>
           </view>
@@ -35,41 +45,47 @@
       </view>
 
       <!-- 日期选择 -->
-      <view class="date-section">
-        <text class="section-title">选择日期</text>
+      <view class="section card-dark">
+        <text class="section-title">选择参观日期</text>
         <picker mode="date" :value="selectedDate" @change="onDateChange">
           <view class="date-picker">
-            <text>{{ selectedDate || '请选择日期' }}</text>
-            <text class="arrow">›</text>
+            <text class="date-text">
+              {{ selectedDate || '请选择日期' }}
+            </text>
+            <text class="date-arrow">›</text>
           </view>
         </picker>
+        <text class="section-hint">
+          建议至少提前一天完成购票，节假日高峰时段请尽早预约。
+        </text>
       </view>
 
       <!-- 购票须知 -->
-      <view class="notice-section">
+      <view class="section card-dark">
         <text class="section-title">购票须知</text>
         <text class="notice-text">
-          1. 每个账号限购5张
-          2. 早鸟票不支持退款
-          3. 开展前48小时可全额退款
-          4. 请妥善保管票券二维码
-          5. 入场时需出示有效证件
+          1. 每个账号单笔限购 6 张，部分特殊票种不支持退款；
+          2. 除「早鸟票」「特惠票」外，展览开始前 48 小时可全额退款；
+          3. 入场需出示本人有效身份证件与电子票二维码，请妥善保管；
+          4. 若遇不可抗力或馆方原因导致展览调整，将通过「消息中心」通知您。
         </text>
       </view>
+
+      <view class="safe-bottom safe-area-bottom"></view>
     </scroll-view>
 
     <!-- 底部购买栏 -->
-    <view class="bottom-bar">
-      <view class="total-price">
-        <text class="label">合计</text>
-        <text class="price">¥{{ totalPrice }}</text>
+    <view class="bottom-bar safe-area-bottom">
+      <view class="price-box">
+        <text class="price-label">合计</text>
+        <text class="total-price">¥{{ totalPrice }}</text>
       </view>
-      <button 
-        class="buy-btn" 
+      <button
+        class="btn-gold buy-btn"
         :disabled="!selectedTicket || !selectedDate"
         @click="handlePurchase"
       >
-        确认购买
+        立即购买
       </button>
     </view>
   </view>
@@ -84,37 +100,39 @@ export default {
       eventId: '',
       eventName: '',
       eventDate: '',
+      museumLocation: '北京市朝阳区 国贸商圈',
       ticketTypes: [],
       selectedTicket: null,
       selectedDate: ''
     }
   },
-  
+
   computed: {
     totalPrice() {
       return this.selectedTicket ? this.selectedTicket.price : 0
     }
   },
-  
+
   onLoad(options) {
     this.eventId = options.eventId
     this.loadEventInfo()
     this.loadTicketTypes()
   },
-  
+
   methods: {
     loadEventInfo() {
       const event = mockHomeCards.find(item => item.id == this.eventId)
       if (event) {
         this.eventName = event.title
         this.eventDate = event.date
+        this.museumLocation = event.location || this.museumLocation
       }
     },
-    
+
     loadTicketTypes() {
       this.ticketTypes = mockTicketTypes
     },
-    
+
     selectTicket(ticket) {
       if (ticket.stock > 0) {
         this.selectedTicket = ticket
@@ -125,250 +143,240 @@ export default {
         })
       }
     },
-    
+
     onDateChange(e) {
       this.selectedDate = e.detail.value
     },
-    
+
     handlePurchase() {
-      if (!this.selectedTicket) {
+      if (!this.selectedTicket || !this.selectedDate) {
         uni.showToast({
-          title: '请选择票种',
+          title: '请选择票种和日期',
           icon: 'none'
         })
         return
       }
-      
-      if (!this.selectedDate) {
-        uni.showToast({
-          title: '请选择日期',
-          icon: 'none'
-        })
-        return
-      }
-      
-      // 模拟微信支付
+
       uni.showLoading({ title: '正在支付...' })
-      
+
       setTimeout(() => {
         uni.hideLoading()
         uni.showToast({
           title: '购买成功',
           icon: 'success'
         })
-        
+
         setTimeout(() => {
           uni.switchTab({
             url: '/pages/my-tickets/my-tickets'
           })
         }, 1500)
-      }, 2000)
+      }, 1600)
     }
   }
 }
 </script>
 
-<style scoped>
-.container {
+<style lang="scss" scoped>
+.purchase-page {
   width: 100%;
-  height: 100vh;
-  background: #f5f5f5;
+  min-height: 100vh;
+  background: $cr7-black;
 }
 
-.content {
+.purchase-scroll {
   height: calc(100vh - 120rpx);
-  padding: 30rpx;
+  padding: 24rpx 24rpx 0;
 }
 
-.event-info {
-  background: #fff;
-  padding: 30rpx;
-  border-radius: 16rpx;
-  margin-bottom: 30rpx;
+.card-dark {
+  background: $cr7-card;
+  border-radius: $radius-lg;
+  border: 1rpx solid $cr7-border;
+  box-shadow: $shadow-card;
 }
 
-.event-name {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
+.museum-card {
+  padding: 24rpx 24rpx 20rpx;
+  margin-bottom: 24rpx;
+}
+
+.museum-name {
+  font-size: $font-xl;
+  color: $text-white;
+  font-weight: 600;
+}
+
+.museum-sub {
+  margin-top: 4rpx;
+  font-size: $font-sm;
+  color: $text-light;
+}
+
+.museum-meta {
+  margin-top: 12rpx;
+}
+
+.meta-item {
   display: block;
-  margin-bottom: 15rpx;
+  font-size: $font-sm;
+  color: $text-light;
 }
 
-.event-date {
-  font-size: 26rpx;
-  color: #666;
+.section {
+  padding: 24rpx 24rpx 20rpx;
+  margin-bottom: 24rpx;
 }
 
 .section-title {
-  font-size: 28rpx;
-  font-weight: bold;
-  color: #333;
-  display: block;
-  margin-bottom: 20rpx;
+  font-size: $font-lg;
+  color: $text-white;
+  font-weight: 600;
+  margin-bottom: 12rpx;
 }
 
-.ticket-types {
-  background: #fff;
-  padding: 30rpx;
-  border-radius: 16rpx;
-  margin-bottom: 30rpx;
-}
-
-.ticket-type-item {
+.ticket-type {
+  margin-top: 12rpx;
+  padding: 20rpx 20rpx 18rpx;
+  border-radius: $radius-md;
+  border: 1rpx solid $cr7-border;
   display: flex;
   justify-content: space-between;
-  padding: 30rpx;
-  border: 2rpx solid #e0e0e0;
-  border-radius: 12rpx;
-  margin-bottom: 20rpx;
 }
 
-.ticket-type-item:last-child {
-  margin-bottom: 0;
+.ticket-type.active {
+  border-color: $cr7-gold;
+  box-shadow: $shadow-gold;
 }
 
-.ticket-type-item.active {
-  border-color: #667eea;
-  background: #f5f7ff;
-}
-
-.ticket-info {
+.ticket-main {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 10rpx;
 }
 
 .ticket-header {
   display: flex;
   align-items: center;
-  gap: 10rpx;
 }
 
 .ticket-name {
-  font-size: 30rpx;
-  font-weight: bold;
-  color: #333;
+  font-size: $font-md;
+  color: $text-white;
+  font-weight: 600;
 }
 
 .ticket-tag {
-  padding: 4rpx 12rpx;
-  background: #ff4444;
-  color: #fff;
-  font-size: 20rpx;
-  border-radius: 6rpx;
+  margin-left: 10rpx;
+  font-size: $font-xs;
+  padding: 2rpx 10rpx;
+  border-radius: 999rpx;
+  background: rgba(217, 0, 27, 0.2);
+  color: $cr7-red;
 }
 
 .ticket-desc {
-  font-size: 24rpx;
-  color: #999;
+  margin-top: 6rpx;
+  font-size: $font-sm;
+  color: $text-light;
 }
 
-.stock-info {
-  font-size: 22rpx;
-  color: #ff9800;
+.ticket-stock {
+  margin-top: 4rpx;
+  font-size: $font-xs;
+  color: $cr7-warning;
 }
 
 .ticket-price {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: center;
+  margin-left: 16rpx;
+  align-self: center;
+  text-align: right;
 }
 
 .price {
-  font-size: 36rpx;
-  color: #ff4444;
-  font-weight: bold;
+  font-size: $font-lg;
+  color: $cr7-gold-light;
+  font-weight: 700;
 }
 
 .original-price {
-  font-size: 24rpx;
-  color: #999;
+  margin-top: 2rpx;
+  font-size: $font-xs;
+  color: $text-muted;
   text-decoration: line-through;
 }
 
-.date-section {
-  background: #fff;
-  padding: 30rpx;
-  border-radius: 16rpx;
-  margin-bottom: 30rpx;
-}
-
 .date-picker {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  margin-top: 10rpx;
   padding: 20rpx;
-  background: #f8f8f8;
-  border-radius: 8rpx;
-  font-size: 28rpx;
-  color: #333;
+  border-radius: $radius-md;
+  background: $cr7-dark;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.arrow {
-  font-size: 40rpx;
-  color: #ccc;
+.date-text {
+  font-size: $font-md;
+  color: $text-white;
 }
 
-.notice-section {
-  background: #fff;
-  padding: 30rpx;
-  border-radius: 16rpx;
-  margin-bottom: 30rpx;
+.date-arrow {
+  font-size: $font-md;
+  color: $text-muted;
+}
+
+.section-hint {
+  margin-top: 10rpx;
+  font-size: $font-xs;
+  color: $text-muted;
 }
 
 .notice-text {
-  font-size: 24rpx;
-  color: #666;
+  margin-top: 8rpx;
+  font-size: $font-sm;
+  color: $text-light;
   line-height: 1.8;
-  white-space: pre-line;
+}
+
+.safe-bottom {
+  height: 80rpx;
 }
 
 .bottom-bar {
   position: fixed;
-  bottom: 0;
   left: 0;
   right: 0;
+  bottom: 0;
   height: 120rpx;
-  background: #fff;
+  background: $cr7-dark;
+  border-top: 1rpx solid $cr7-border;
   display: flex;
   align-items: center;
-  padding: 0 30rpx;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+  padding: 0 32rpx;
 }
 
-.total-price {
+.price-box {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
-.label {
-  font-size: 24rpx;
-  color: #999;
+.price-label {
+  font-size: $font-xs;
+  color: $text-muted;
+}
+
+.total-price {
+  font-size: $font-xl;
+  color: $cr7-gold-light;
+  font-weight: 700;
 }
 
 .buy-btn {
-  width: 300rpx;
-  height: 80rpx;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  border-radius: 40rpx;
-  font-size: 28rpx;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: normal;
-}
-
-.buy-btn::after {
-  border: none;
+  width: 260rpx;
+  height: 84rpx;
 }
 
 .buy-btn[disabled] {
-  background: #ccc;
+  opacity: 0.4;
 }
 </style>

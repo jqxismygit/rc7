@@ -5,7 +5,7 @@
       <text class="empty-text">暂无消息</text>
     </view>
 
-    <scroll-view v-else class="message-list" scroll-y>
+    <scroll-view v-else class="message-list safe-area-bottom" scroll-y>
       <view 
         v-for="msg in messages" 
         :key="msg.id"

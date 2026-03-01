@@ -1,55 +1,79 @@
 <template>
-  <view class="container">
-    <!-- 用户信息卡片 -->
-    <view class="user-card">
-      <image :src="userInfo.avatar" class="avatar" mode="aspectFill"></image>
+  <view class="profile-page">
+    <!-- 头部用户信息 -->
+    <view class="user-card card-dark">
+      <image :src="userInfo.avatar" class="avatar" mode="aspectFill" />
       <view class="user-info">
-        <text class="nickname">{{ userInfo.nickname }}</text>
-        <text class="phone">{{ userInfo.phone }}</text>
+        <text class="nickname">{{ userInfo.nickname || '_weixin_user' }}</text>
+        <text class="sub-text">微信登录 · CR7® LIFE 会员</text>
       </view>
       <view v-if="isEmployee" class="employee-badge">员工</view>
     </view>
 
-    <!-- 功能菜单 -->
-    <view class="menu-section">
-      <view class="menu-item" @click="goToMessages">
-        <text class="menu-icon">💬</text>
-        <text class="menu-text">消息中心</text>
-        <view v-if="unreadCount > 0" class="badge">{{ unreadCount }}</view>
-        <text class="arrow">›</text>
-      </view>
-      
-      <view v-if="isEmployee" class="menu-item" @click="goToScan">
-        <text class="menu-icon">📷</text>
-        <text class="menu-text">扫码验票</text>
-        <text class="arrow">›</text>
-      </view>
-      
-      <view class="menu-item" @click="editProfile">
-        <text class="menu-icon">👤</text>
-        <text class="menu-text">编辑资料</text>
-        <text class="arrow">›</text>
-      </view>
-      
-      <view class="menu-item" @click="showInvoice">
-        <text class="menu-icon">🧾</text>
-        <text class="menu-text">发票管理</text>
-        <text class="arrow">›</text>
+    <!-- 我的订单入口 -->
+    <view class="menu-section card-dark">
+      <view class="menu-item" @click="goToTickets">
+        <text class="menu-icon">🎫</text>
+        <view class="menu-main">
+          <text class="menu-text">我的订单 / 票夹</text>
+          <text class="menu-sub">查看已购票券与参观记录</text>
+        </view>
+        <text class="menu-arrow">›</text>
       </view>
     </view>
 
-    <!-- 其他功能 -->
-    <view class="menu-section">
-      <view class="menu-item" @click="showAgreement">
-        <text class="menu-icon">📄</text>
-        <text class="menu-text">协议规则</text>
-        <text class="arrow">›</text>
+    <!-- 功能列表：消息中心 / 扫码验票 / 发票抬头 -->
+    <view class="menu-section card-dark">
+      <view class="menu-item" @click="goToMessages">
+        <text class="menu-icon">💬</text>
+        <view class="menu-main">
+          <text class="menu-text">消息中心</text>
+          <text class="menu-sub">订单状态与活动通知</text>
+        </view>
+        <view v-if="unreadCount > 0" class="badge">{{ unreadCount }}</view>
+        <text class="menu-arrow">›</text>
       </view>
-      
+
+      <view v-if="isEmployee" class="menu-item" @click="goToScan">
+        <text class="menu-icon">📷</text>
+        <view class="menu-main">
+          <text class="menu-text">扫码验票</text>
+          <text class="menu-sub">员工专用核销入口</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+
+      <view class="menu-item" @click="editInvoice">
+        <text class="menu-icon">🧾</text>
+        <view class="menu-main">
+          <text class="menu-text">发票抬头</text>
+          <text class="menu-sub">{{ invoiceTitle || '填写公司或个人发票信息' }}</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+    </view>
+
+    <!-- 协议 / 联系客服 -->
+    <view class="menu-section card-dark">
+      <view class="menu-item" @click="goToLegal('privacy')">
+        <text class="menu-icon">🔒</text>
+        <text class="menu-text">隐私政策</text>
+        <text class="menu-arrow">›</text>
+      </view>
+
+      <view class="menu-item" @click="goToLegal('terms')">
+        <text class="menu-icon">📄</text>
+        <text class="menu-text">服务协议</text>
+        <text class="menu-arrow">›</text>
+      </view>
+
       <view class="menu-item" @click="contactService">
         <text class="menu-icon">📞</text>
-        <text class="menu-text">客服咨询</text>
-        <text class="arrow">›</text>
+        <view class="menu-main">
+          <text class="menu-text">联系客服</text>
+          <text class="menu-sub">010-88888888</text>
+        </view>
+        <text class="menu-arrow">›</text>
       </view>
     </view>
 
@@ -69,87 +93,88 @@ export default {
     return {
       userInfo: {},
       isEmployee: false,
-      unreadCount: 0
+      unreadCount: 0,
+      invoiceTitle: ''
     }
   },
-  
+
   onShow() {
     this.loadUserInfo()
     this.loadUnreadCount()
   },
-  
+
   methods: {
     loadUserInfo() {
       this.userInfo = storage.getUserInfo() || {}
       this.isEmployee = storage.getIsEmployee()
+      this.invoiceTitle = storage.get('invoiceTitle') || ''
     },
-    
+
     loadUnreadCount() {
       const unreadMessages = mockMessages.filter(msg => !msg.isRead)
       this.unreadCount = unreadMessages.length
     },
-    
+
+    goToTickets() {
+      uni.switchTab({
+        url: '/pages/my-tickets/my-tickets'
+      })
+    },
+
     goToMessages() {
       uni.navigateTo({
         url: '/pages/messages/messages'
       })
     },
-    
+
     goToScan() {
       uni.navigateTo({
         url: '/pages/scan-ticket/scan-ticket'
       })
     },
-    
-    editProfile() {
+
+    editInvoice() {
       uni.showModal({
-        title: '编辑资料',
-        content: '请输入邮箱地址',
+        title: '发票抬头',
+        content: '请输入发票抬头（公司或个人姓名）',
         editable: true,
-        placeholderText: this.userInfo.email || '请输入邮箱',
+        placeholderText: this.invoiceTitle || '示例：北京某某科技有限公司',
         success: (res) => {
           if (res.confirm && res.content) {
-            this.userInfo.email = res.content
-            storage.setUserInfo(this.userInfo)
+            this.invoiceTitle = res.content
+            storage.set('invoiceTitle', res.content)
             uni.showToast({
-              title: '保存成功',
+              title: '已保存',
               icon: 'success'
             })
           }
         }
       })
     },
-    
-    showInvoice() {
-      uni.showToast({
-        title: '发票功能开发中',
-        icon: 'none'
-      })
+
+    goToLegal(type) {
+      const url =
+        type === 'privacy'
+          ? '/pages/legal/privacy'
+          : '/pages/legal/terms'
+      uni.navigateTo({ url })
     },
-    
-    showAgreement() {
-      uni.showModal({
-        title: '协议规则',
-        content: '隐私政策和服务协议内容...',
-        showCancel: false
-      })
-    },
-    
+
     contactService() {
       uni.showModal({
         title: '客服电话',
-        content: '400-123-4567',
+        content: '010-88888888',
         confirmText: '拨打',
         success: (res) => {
           if (res.confirm) {
             uni.makePhoneCall({
-              phoneNumber: '4001234567'
+              phoneNumber: '01088888888'
             })
           }
         }
       })
     },
-    
+
     handleLogout() {
       uni.showModal({
         title: '提示',
@@ -168,73 +193,75 @@ export default {
 }
 </script>
 
-<style scoped>
-.container {
+<style lang="scss" scoped>
+.profile-page {
   min-height: 100vh;
-  background: #f5f5f5;
-  padding: 30rpx;
+  background: $cr7-black;
+  padding: 24rpx 24rpx 0;
+}
+
+.card-dark {
+  background: $cr7-card;
+  border-radius: $radius-lg;
+  border: 1rpx solid $cr7-border;
+  box-shadow: $shadow-card;
 }
 
 .user-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 16rpx;
-  padding: 40rpx;
+  margin-top: 16rpx;
+  padding: 32rpx 28rpx;
   display: flex;
   align-items: center;
-  margin-bottom: 30rpx;
   position: relative;
 }
 
 .avatar {
   width: 120rpx;
   height: 120rpx;
-  border-radius: 60rpx;
-  margin-right: 30rpx;
-  border: 4rpx solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  margin-right: 24rpx;
+  border: 3rpx solid rgba(201, 168, 76, 0.6);
 }
 
 .user-info {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 10rpx;
 }
 
 .nickname {
-  font-size: 36rpx;
-  font-weight: bold;
-  color: #fff;
+  font-size: $font-lg;
+  color: $text-white;
+  font-weight: 600;
 }
 
-.phone {
-  font-size: 26rpx;
-  color: rgba(255,255,255,0.8);
+.sub-text {
+  margin-top: 4rpx;
+  font-size: $font-sm;
+  color: $text-light;
 }
 
 .employee-badge {
   position: absolute;
-  top: 20rpx;
   right: 20rpx;
-  background: rgba(255,255,255,0.3);
-  color: #fff;
-  padding: 8rpx 20rpx;
-  border-radius: 20rpx;
-  font-size: 24rpx;
+  top: 24rpx;
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  background: rgba(201, 168, 76, 0.24);
+  color: $cr7-gold-light;
+  font-size: $font-xs;
 }
 
 .menu-section {
-  background: #fff;
-  border-radius: 16rpx;
-  margin-bottom: 30rpx;
+  margin-top: 24rpx;
   overflow: hidden;
 }
 
 .menu-item {
+  padding: 24rpx 24rpx;
   display: flex;
   align-items: center;
-  padding: 30rpx;
-  border-bottom: 1px solid #f0f0f0;
-  position: relative;
+  border-bottom: 1rpx solid $cr7-border;
 }
 
 .menu-item:last-child {
@@ -246,42 +273,54 @@ export default {
   margin-right: 20rpx;
 }
 
-.menu-text {
+.menu-main {
   flex: 1;
-  font-size: 28rpx;
-  color: #333;
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-text {
+  font-size: $font-md;
+  color: $text-white;
+}
+
+.menu-sub {
+  margin-top: 4rpx;
+  font-size: $font-xs;
+  color: $text-muted;
+}
+
+.menu-arrow {
+  font-size: 36rpx;
+  color: $text-muted;
+  margin-left: 8rpx;
 }
 
 .badge {
-  background: #ff4444;
+  background: $cr7-red;
   color: #fff;
-  font-size: 20rpx;
-  padding: 4rpx 12rpx;
-  border-radius: 20rpx;
-  margin-right: 10rpx;
-}
-
-.arrow {
-  font-size: 40rpx;
-  color: #ccc;
+  font-size: $font-xs;
+  padding: 4rpx 10rpx;
+  border-radius: 24rpx;
+  margin-right: 4rpx;
 }
 
 .logout-section {
-  margin-top: 60rpx;
+  margin: 56rpx 0 40rpx;
 }
 
 .logout-btn {
   width: 100%;
-  height: 90rpx;
-  background: #fff;
-  color: #ff4444;
-  border-radius: 16rpx;
-  font-size: 28rpx;
-  border: none;
+  height: 88rpx;
+  background: transparent;
+  border-radius: $radius-md;
+  border: 1rpx solid $cr7-red;
+  color: $cr7-red;
+  font-size: $font-md;
+  line-height: normal;
   display: flex;
   align-items: center;
   justify-content: center;
-  line-height: normal;
 }
 
 .logout-btn::after {

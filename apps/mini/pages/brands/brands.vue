@@ -1,29 +1,44 @@
 <template>
-  <view class="container">
-    <scroll-view class="content" scroll-y>
+  <view class="brands-page">
+    <scroll-view class="brands-scroll" scroll-y>
       <view class="header">
         <text class="title">联名品牌</text>
-        <text class="subtitle">C罗官方合作伙伴</text>
+        <text class="subtitle">CR7® LIFE 官方合作伙伴</text>
       </view>
 
       <view class="brand-grid">
-        <view 
-          v-for="brand in brands" 
+        <view
+          v-for="brand in brands"
           :key="brand.id"
-          class="brand-card"
+          class="brand-card card-dark"
           @click="handleBrandClick(brand)"
         >
-          <image :src="brand.logo" mode="aspectFit" class="brand-logo"></image>
+          <view class="brand-logo-circle">
+            <text class="brand-logo-text">
+              {{ brand.initials || brand.name.slice(0, 2) }}
+            </text>
+          </view>
           <text class="brand-name">{{ brand.name }}</text>
           <text class="brand-desc">{{ brand.description }}</text>
           <view class="products">
-            <text v-for="product in brand.products" :key="product" class="product-tag">
+            <text
+              v-for="product in brand.products"
+              :key="product"
+              class="product-tag"
+            >
               {{ product }}
             </text>
           </view>
-          <view class="visit-btn">访问商城 ›</view>
+          <view class="visit-row">
+            <text class="visit-text">
+              {{ brand.miniAppId ? '访问联名小程序' : '更多合作即将公布' }}
+            </text>
+            <text class="visit-arrow">›</text>
+          </view>
         </view>
       </view>
+
+      <view class="safe-bottom safe-area-bottom"></view>
     </scroll-view>
   </view>
 </template>
@@ -37,26 +52,25 @@ export default {
       brands: []
     }
   },
-  
+
   onLoad() {
     this.loadBrands()
   },
-  
+
   methods: {
     loadBrands() {
       this.brands = mockBrands
     },
-    
+
     handleBrandClick(brand) {
       if (brand.miniAppId) {
         uni.showModal({
           title: '跳转确认',
-          content: `即将跳转至${brand.name}小程序商城`,
+          content: `即将跳转至「${brand.name}」品牌小程序，是否继续？`,
           success: (res) => {
             if (res.confirm) {
-              // 实际项目中使用 uni.navigateToMiniProgram
               uni.showToast({
-                title: '小程序跳转功能需在真机环境测试',
+                title: '小程序跳转需在真机环境测试',
                 icon: 'none',
                 duration: 2000
               })
@@ -65,7 +79,7 @@ export default {
         })
       } else {
         uni.showToast({
-          title: '该品牌暂未开通商城',
+          title: '该品牌商城即将上线',
           icon: 'none'
         })
       }
@@ -74,93 +88,124 @@ export default {
 }
 </script>
 
-<style scoped>
-.container {
+<style lang="scss" scoped>
+.brands-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: $cr7-black;
 }
 
-.content {
-  padding: 30rpx;
+.brands-scroll {
+  padding: 24rpx;
 }
 
 .header {
   text-align: center;
-  padding: 40rpx 0;
+  padding: 24rpx 0 16rpx;
 }
 
 .title {
-  font-size: 40rpx;
-  font-weight: bold;
-  color: #333;
-  display: block;
-  margin-bottom: 10rpx;
+  font-size: $font-xxl;
+  color: $text-white;
+  font-weight: 600;
 }
 
 .subtitle {
-  font-size: 26rpx;
-  color: #999;
+  margin-top: 6rpx;
+  font-size: $font-sm;
+  color: $text-muted;
 }
 
 .brand-grid {
+  margin-top: 20rpx;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 20rpx;
 }
 
+.card-dark {
+  background: $cr7-card;
+  border-radius: $radius-lg;
+  border: 1rpx solid $cr7-border;
+  box-shadow: $shadow-card;
+}
+
 .brand-card {
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 30rpx;
+  padding: 20rpx 18rpx 16rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-.brand-logo {
-  width: 120rpx;
-  height: 120rpx;
-  margin-bottom: 20rpx;
+.brand-logo-circle {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle at 0% 0%, rgba(201, 168, 76, 0.24), transparent 55%), $cr7-dark;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12rpx;
+}
+
+.brand-logo-text {
+  font-size: $font-lg;
+  color: $cr7-gold-light;
+  font-weight: 700;
 }
 
 .brand-name {
-  font-size: 28rpx;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 10rpx;
+  font-size: $font-md;
+  color: $text-white;
+  font-weight: 600;
+  margin-bottom: 4rpx;
+  text-align: center;
 }
 
 .brand-desc {
-  font-size: 22rpx;
-  color: #999;
+  font-size: $font-xs;
+  color: $text-light;
   text-align: center;
-  margin-bottom: 20rpx;
-  line-height: 1.5;
+  margin-bottom: 10rpx;
 }
 
 .products {
   display: flex;
   flex-wrap: wrap;
-  gap: 10rpx;
+  gap: 8rpx;
   justify-content: center;
-  margin-bottom: 20rpx;
+  margin-bottom: 10rpx;
 }
 
 .product-tag {
-  padding: 6rpx 16rpx;
-  background: #f0f0f0;
-  color: #666;
-  font-size: 20rpx;
-  border-radius: 20rpx;
+  padding: 4rpx 10rpx;
+  border-radius: 999rpx;
+  background: $cr7-dark;
+  font-size: $font-xs;
+  color: $text-light;
 }
 
-.visit-btn {
+.visit-row {
   width: 100%;
-  text-align: center;
-  padding: 16rpx;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  border-radius: 40rpx;
-  font-size: 24rpx;
+  margin-top: 4rpx;
+  padding-top: 8rpx;
+  border-top: 1rpx solid $cr7-border;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.visit-text {
+  font-size: $font-xs;
+  color: $cr7-gold-light;
+}
+
+.visit-arrow {
+  font-size: $font-xs;
+  color: $cr7-gold-light;
+  margin-left: 4rpx;
+}
+
+.safe-bottom {
+  height: 80rpx;
 }
 </style>
