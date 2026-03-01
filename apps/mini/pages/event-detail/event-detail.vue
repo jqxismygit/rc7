@@ -30,14 +30,7 @@
           {{ event.description || '这是一场与传奇球星 C罗 相关的线下主题活动。' }}
         </text>
         <view class="detail-box">
-          <text class="detail-text">
-            • 现场互动问答环节{'\n'}
-            • 签名合影机会{'\n'}
-            • 独家周边商品展示{'\n'}
-            • 精彩视频回顾与现场抽奖{'\n'}
-            {'\n'}
-            名额有限，先到先得，请提前完成报名与购票。
-          </text>
+          <text class="detail-text">{{ eventDetailIntro }}</text>
         </view>
       </view>
 
@@ -60,11 +53,19 @@
 <script>
 import { mockHomeCards } from '@/utils/mockData.js'
 
+const EVENT_DETAIL_INTRO = `• 现场互动问答环节
+• 签名合影机会
+• 独家周边商品展示
+• 精彩视频回顾与现场抽奖
+
+名额有限，先到先得，请提前完成报名与购票。`
+
 export default {
   data() {
     return {
       eventId: '',
-      event: {}
+      event: {},
+      eventDetailIntro: EVENT_DETAIL_INTRO
     }
   },
 

@@ -58,6 +58,7 @@
         <view class="game-header">
           <text class="score-label">得分：{{ score }}</text>
           <text class="time-label">时间：{{ timeLeft }}s</text>
+          <view class="game-exit" @click="quitGame">退出</view>
         </view>
 
         <view class="game-area">
@@ -109,7 +110,7 @@ export default {
       gameStarted: false,
       gameOver: false,
       score: 0,
-      timeLeft: 30,
+      timeLeft: 25,
       showTarget: false,
       targetStyle: {},
       gameTip: '点击绿色区域出现的足球，越快越好！',
@@ -138,7 +139,7 @@ export default {
       this.gameStarted = true
       this.gameOver = false
       this.score = 0
-      this.timeLeft = 30
+      this.timeLeft = 25
       this.gameTip = '准备好，足球即将出现...'
       this.startTimer()
       this.showNextTarget()
@@ -155,7 +156,7 @@ export default {
 
     showNextTarget() {
       this.showTarget = false
-      const delay = Math.random() * 1000 + 500
+      const delay = Math.random() * 350 + 250
       this.targetTimer = setTimeout(() => {
         if (this.timeLeft > 0) {
           this.showTarget = true
@@ -196,6 +197,20 @@ export default {
 
     restartGame() {
       this.startGame()
+    },
+
+    quitGame() {
+      uni.showModal({
+        title: '退出游戏',
+        content: '确定退出？当前成绩将不保存',
+        success: (res) => {
+          if (res.confirm) {
+            this.clearTimers()
+            this.gameStarted = false
+            this.showTarget = false
+          }
+        }
+      })
     },
 
     closeResult() {
@@ -392,6 +407,7 @@ export default {
 .game-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 12rpx;
 }
 
@@ -400,6 +416,14 @@ export default {
   font-size: $font-md;
   color: $text-white;
   font-weight: 600;
+}
+
+.game-exit {
+  padding: 8rpx 20rpx;
+  font-size: $font-sm;
+  color: $text-muted;
+  border: 1rpx solid $cr7-border;
+  border-radius: 999rpx;
 }
 
 .game-area {
@@ -489,6 +513,9 @@ export default {
   width: 100%;
   height: 80rpx;
   margin-bottom: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .outline-btn {
@@ -498,6 +525,9 @@ export default {
   color: $text-light;
   font-size: $font-sm;
   line-height: normal;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .outline-btn::after {

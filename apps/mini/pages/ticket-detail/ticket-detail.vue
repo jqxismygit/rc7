@@ -40,12 +40,7 @@
       <!-- 使用说明 -->
       <view class="notice-card card-dark">
         <text class="section-title">使用说明</text>
-        <text class="notice-text">
-          1. 入场时请向工作人员出示此二维码，核销后即可入场；{'\n'}
-          2. 每张票券仅可核销一次，截图或复制无效；{'\n'}
-          3. 建议提前 30 分钟到达现场，以免错过参观时段；{'\n'}
-          4. 入场需携带本人身份证件，部分场次可能进行安检。
-        </text>
+        <text class="notice-text">{{ noticeText }}</text>
       </view>
 
       <view class="safe-bottom safe-area-bottom"></view>
@@ -70,11 +65,17 @@
 <script>
 import { mockMyTickets } from '@/utils/mockData.js'
 
+const NOTICE_TEXT = `1. 入场时请向工作人员出示此二维码，核销后即可入场；
+2. 每张票券仅可核销一次，截图或复制无效；
+3. 建议提前 30 分钟到达现场，以免错过参观时段；
+4. 入场需携带本人身份证件，部分场次可能进行安检。`
+
 export default {
   data() {
     return {
       ticketId: '',
-      ticket: {}
+      ticket: {},
+      noticeText: NOTICE_TEXT
     }
   },
 

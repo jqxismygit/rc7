@@ -28,6 +28,23 @@ page {
   font-family: 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
 }
 
+/* 页面根节点铺满并深色背景，避免跳转时底部露出白色 */
+page > view {
+  min-height: 100vh;
+  background-color: $cr7-black;
+  animation: cr7-page-enter 0.12s ease-out;
+}
+@keyframes cr7-page-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 固定底栏独立合成层，减少底部闪烁 */
+.bottom-bar {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
 view, text, image, button, scroll-view {
   box-sizing: border-box;
 }

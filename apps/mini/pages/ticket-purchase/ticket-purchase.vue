@@ -6,9 +6,18 @@
         <text class="museum-name">{{ eventName || 'C罗博物馆 · 中国馆' }}</text>
         <text class="museum-sub">亚洲首个 CR7® LIFE 沉浸式博物馆</text>
         <view class="museum-meta">
-          <text class="meta-item">🕐 {{ eventDate || '10:00 - 22:00（最晚入场 21:00）' }}</text>
-          <text class="meta-item">📍 {{ museumLocation }}</text>
-          <text class="meta-item">☎ 400-CR7-LIFE</text>
+          <view class="meta-item">
+            <text class="meta-icon">🕐</text>
+            <text class="meta-text">{{ eventDate || '10:00 - 22:00（最晚入场 21:00）' }}</text>
+          </view>
+          <view class="meta-item">
+            <text class="meta-icon">📍</text>
+            <text class="meta-text">{{ museumLocation }}</text>
+          </view>
+          <view class="meta-item">
+            <text class="meta-icon">☎</text>
+            <text class="meta-text">400-CR7-LIFE</text>
+          </view>
         </view>
       </view>
 
@@ -215,10 +224,26 @@ export default {
 
 .museum-meta {
   margin-top: 12rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
 }
 
 .meta-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  font-size: $font-sm;
+  color: $text-light;
+}
+
+.meta-icon {
+  width: 44rpx;
+  flex-shrink: 0;
+  font-size: $font-sm;
+}
+
+.meta-text {
+  flex: 1;
   font-size: $font-sm;
   color: $text-light;
 }
