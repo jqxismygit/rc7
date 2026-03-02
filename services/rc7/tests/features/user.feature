@@ -1,11 +1,6 @@
 
-Feature: Wechat Login
-  Scenario: wechat user first login
-    Given wechat mini app
-    When wechat user_1 first open
-    Then register as a new user
-
-  Scenario: wechat user login again
+Feature: user registration and login
+  Scenario: wechat user login
     Given wechat mini app
     When wechat user_1 first open
     Then register as a new user

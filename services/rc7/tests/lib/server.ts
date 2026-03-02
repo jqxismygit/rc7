@@ -13,12 +13,17 @@ function closeServer(server: Server) {
   );
 }
 
+export interface MockJSONServer {
+  server: Server;
+  address: string;
+  close: () => Promise<void>;
+}
 
 export async function mockJSONServer(
   mockResponse: (data: {
     body: unknown; query: Record<string, string>
   }) => unknown
-) {
+): Promise<MockJSONServer> {
   const server = http.createServer((req, res) => {
     let body_data = '';
     req.on('data', (chunk) => {

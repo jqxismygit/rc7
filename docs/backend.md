@@ -59,9 +59,15 @@
 - 测试辅助函数放在 services/rc7/tests/lib 目录
 - 测试数据和 API 请求以及断言等放在 services/rc7/tests/fixtures 目录
 
+### features
+
+测试场景使用 Gherkin 语法编写，清晰描述测试的 Given、When、Then 步骤。
+
+
 ### 测试执行
 
 测试执行命令：`pnpm -w s test` （在根目录执行，-w s 表示只运行 services 目录下的测试）
+
 
 ## 数据库操作
 

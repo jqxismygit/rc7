@@ -1,7 +1,8 @@
 ignoreWords:
-  - deepracticex
+  - amiceli
   - errcode
   - errmsg
   - Jscode
+  - Descriibe
 words:
   - Wechat
