@@ -1,7 +1,7 @@
 <template>
   <view class="profile-page">
-    <!-- 头部用户信息 -->
-    <view class="user-card card-dark">
+    <!-- 头部用户信息，可点击进入编辑页 -->
+    <view class="user-card card-dark" @click="goToProfileEdit">
       <image :src="userInfo.avatar" class="avatar" mode="aspectFill" />
       <view class="user-info">
         <text class="nickname">{{ userInfo.nickname || '_weixin_user' }}</text>
@@ -108,6 +108,12 @@ export default {
       this.userInfo = storage.getUserInfo() || {}
       this.isEmployee = storage.getIsEmployee()
       this.invoiceTitle = storage.get('invoiceTitle') || ''
+    },
+
+    goToProfileEdit() {
+      uni.navigateTo({
+        url: '/pages/profile/profile-edit'
+      })
     },
 
     async loadUnreadCount() {
@@ -225,14 +231,26 @@ export default {
     },
 
     handleLogout() {
+      // 第一次确认，防止误触
       uni.showModal({
         title: '提示',
         content: '确定要退出登录吗？',
         success: (res) => {
           if (res.confirm) {
-            storage.clear()
-            uni.reLaunch({
-              url: '/pages/login/login'
+            // 第二次确认，彻底退出登录态
+            uni.showModal({
+              title: '再次确认',
+              content: '退出后需要重新登录才能继续使用全部功能，是否仍要退出？',
+              confirmText: '仍要退出',
+              cancelText: '再想想',
+              success: (res2) => {
+                if (res2.confirm) {
+                  storage.clear()
+                  uni.reLaunch({
+                    url: '/pages/login/login'
+                  })
+                }
+              }
             })
           }
         }
