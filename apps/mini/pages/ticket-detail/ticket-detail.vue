@@ -96,6 +96,7 @@ export default {
       const statusMap = {
         unused: '待核销',
         used: '已入场',
+        refunding: '退款中',
         refunded: '已退款'
       }
       return statusMap[status] || status

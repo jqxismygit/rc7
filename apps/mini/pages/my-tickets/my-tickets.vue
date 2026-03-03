@@ -62,16 +62,20 @@
           <view class="footer-actions">
             <button
               class="outline-btn"
+              :class="{ disabled: ticket.status === 'refunding' }"
+              :disabled="ticket.status === 'refunding'"
               @click.stop="goToDetail(ticket)"
             >
               查看券码
             </button>
             <button
-              v-if="ticket.status === 'unused' && ticket.canRefund"
+              v-if="showRefundButton(ticket)"
               class="outline-btn danger"
-              @click.stop="handleRefund(ticket)"
+              :class="{ disabled: !canApplyRefund(ticket) || ticket.status === 'refunding' }"
+              :disabled="!canApplyRefund(ticket) || ticket.status === 'refunding'"
+              @click.stop="onRefundClick(ticket)"
             >
-              申请退票
+              {{ getRefundButtonText(ticket) }}
             </button>
             <button
               v-if="ticket.status === 'refunded'"
@@ -112,9 +116,32 @@ export default {
       const statusMap = {
         unused: '待核销',
         used: '已入场',
+        refunding: '退款中',
         refunded: '已退款'
       }
       return statusMap[status] || status
+    },
+
+    // 是否显示“申请退票”按钮
+    showRefundButton(ticket) {
+      return ticket.canRefund && (ticket.status === 'unused' || ticket.status === 'refunding')
+    },
+
+    // 是否在退票时间窗口内（开展前48小时外）
+    canApplyRefund(ticket) {
+      if (!ticket.canRefund) return false
+      if (ticket.status !== 'unused') return false
+      if (!ticket.eventDate) return false
+      const eventTime = new Date(ticket.eventDate.replace(/-/g, '/')).getTime()
+      if (!eventTime) return false
+      const now = Date.now()
+      const hoursDiff = (eventTime - now) / (1000 * 60 * 60)
+      return hoursDiff > 48
+    },
+
+    getRefundButtonText(ticket) {
+      if (ticket.status === 'refunding') return '退款中'
+      return '申请退票'
     },
 
     goToDetail(ticket) {
@@ -123,23 +150,10 @@ export default {
       })
     },
 
-    handleRefund(ticket) {
-      uni.showModal({
-        title: '申请退票',
-        content: '退票后将原路退款，确认要为该订单发起退票吗？',
-        success: (res) => {
-          if (res.confirm) {
-            uni.showLoading({ title: '退票处理中' })
-            setTimeout(() => {
-              uni.hideLoading()
-              uni.showToast({
-                title: '退票申请已提交',
-                icon: 'success'
-              })
-              ticket.status = 'refunded'
-            }, 1200)
-          }
-        }
+    onRefundClick(ticket) {
+      if (!this.canApplyRefund(ticket)) return
+      uni.navigateTo({
+        url: `/pages/ticket-refund/ticket-refund?id=${ticket.id}`
       })
     },
 
@@ -395,6 +409,12 @@ export default {
 .outline-btn.subtle {
   border-color: $cr7-border;
   color: $text-light;
+}
+
+.outline-btn.disabled {
+  border-color: $cr7-border;
+  color: $text-muted;
+  opacity: 0.6;
 }
 
 .safe-bottom {

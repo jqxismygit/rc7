@@ -306,10 +306,13 @@ export const mockMyTickets = [
     ticketType: '单人票',
     quantity: 1,
     price: 599,
-    status: 'unused', // unused-未使用, used-已使用, refunded-已退票
+    status: 'unused', // unused-未使用, used-已使用, refunding-退款中, refunded-已退票
     qrCode: 'https://via.placeholder.com/300',
     purchaseTime: '2026-02-10 15:30',
-    canRefund: true
+    canRefund: true,
+    orderNo: 'O202602100001',
+    paidAmount: 599,
+    refundAmount: 599
   },
   {
     id: 'T20260215002',
@@ -322,7 +325,10 @@ export const mockMyTickets = [
     status: 'unused',
     qrCode: 'https://via.placeholder.com/300',
     purchaseTime: '2026-02-11 10:20',
-    canRefund: true
+    canRefund: true,
+    orderNo: 'O202602110002',
+    paidAmount: 999,
+    refundAmount: 999
   }
 ]
 

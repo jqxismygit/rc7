@@ -68,6 +68,12 @@
 				"navigationBarTitleText": "票券详情"
 			}
 		},
+    {
+      "path": "pages/ticket-refund/ticket-refund",
+      "style": {
+        "navigationBarTitleText": "申请退票"
+      }
+    },
 		{
 			"path": "pages/brands/brands",
 			"style": {
