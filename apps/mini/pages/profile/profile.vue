@@ -86,7 +86,7 @@
 
 <script>
 import storage from '@/utils/storage.js'
-import { mockMessages } from '@/utils/mockData.js'
+import { fetchUnreadCount } from '@/services/messages.js'
 
 export default {
   data() {
@@ -110,9 +110,13 @@ export default {
       this.invoiceTitle = storage.get('invoiceTitle') || ''
     },
 
-    loadUnreadCount() {
-      const unreadMessages = mockMessages.filter(msg => !msg.isRead)
-      this.unreadCount = unreadMessages.length
+    async loadUnreadCount() {
+      try {
+        const count = await fetchUnreadCount()
+        this.unreadCount = count
+      } catch (e) {
+        console.error('加载未读消息数量失败', e)
+      }
     },
 
     goToTickets() {
@@ -134,6 +138,33 @@ export default {
     },
 
     editInvoice() {
+      // 优先拉起微信发票抬头管理能力，失败时退回手动输入
+      // #ifdef MP-WEIXIN
+      if (wx && wx.chooseInvoiceTitle) {
+        wx.chooseInvoiceTitle({
+          success: (res) => {
+            const title = res?.title || res?.company || ''
+            if (title) {
+              this.invoiceTitle = title
+              storage.set('invoiceTitle', title)
+              uni.showToast({
+                title: '已同步微信发票抬头',
+                icon: 'success'
+              })
+              return
+            }
+          },
+          fail: () => {
+            this.openInvoiceTitleModal()
+          }
+        })
+        return
+      }
+      // #endif
+      this.openInvoiceTitleModal()
+    },
+
+    openInvoiceTitleModal() {
       uni.showModal({
         title: '发票抬头',
         content: '请输入发票抬头（公司或个人姓名）',
@@ -161,6 +192,24 @@ export default {
     },
 
     contactService() {
+      // 微信小程序内优先使用微信客服能力
+      // #ifdef MP-WEIXIN
+      if (wx && wx.openCustomerServiceChat) {
+        wx.openCustomerServiceChat({
+          extInfo: { url: '' },
+          corpId: '',
+          success: () => {},
+          fail: () => {
+            this.openPhoneServiceModal()
+          }
+        })
+        return
+      }
+      // #endif
+      this.openPhoneServiceModal()
+    },
+
+    openPhoneServiceModal() {
       uni.showModal({
         title: '客服电话',
         content: '010-88888888',

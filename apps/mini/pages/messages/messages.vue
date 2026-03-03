@@ -30,22 +30,35 @@
 </template>
 
 <script>
-import { mockMessages } from '@/utils/mockData.js'
+import { fetchMessages } from '@/services/messages.js'
 
 export default {
   data() {
     return {
-      messages: []
+      messages: [],
+      loading: false
     }
   },
   
-  onLoad() {
-    this.loadMessages()
+  async onLoad() {
+    await this.loadMessages()
   },
   
   methods: {
-    loadMessages() {
-      this.messages = mockMessages
+    async loadMessages() {
+      this.loading = true
+      try {
+        const list = await fetchMessages()
+        this.messages = list
+      } catch (e) {
+        console.error('加载消息列表失败', e)
+        uni.showToast({
+          title: '消息加载失败',
+          icon: 'none'
+        })
+      } finally {
+        this.loading = false
+      }
     },
     
     getTypeIcon(type) {
@@ -86,10 +99,10 @@ export default {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .container {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: $cr7-black;
 }
 
 .empty {
@@ -98,6 +111,7 @@ export default {
   align-items: center;
   justify-content: center;
   padding-top: 200rpx;
+  color: $text-light;
 }
 
 .empty-icon {
@@ -106,8 +120,7 @@ export default {
 }
 
 .empty-text {
-  font-size: 28rpx;
-  color: #999;
+  font-size: $font-base;
 }
 
 .message-list {
@@ -117,38 +130,40 @@ export default {
 .message-item {
   display: flex;
   align-items: center;
-  padding: 30rpx;
-  background: #fff;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 30rpx 32rpx;
+  background: $cr7-card;
+  border-bottom: 1rpx solid $cr7-border;
   position: relative;
 }
 
 .message-item.unread {
-  background: #f5f7ff;
+  background: rgba(216, 252, 15, 0.06);
 }
 
 .message-icon {
   width: 80rpx;
   height: 80rpx;
-  border-radius: 40rpx;
+  border-radius: $radius-lg;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 40rpx;
   margin-right: 20rpx;
   flex-shrink: 0;
+  background: $cr7-dark;
+  box-shadow: $shadow-card;
 }
 
 .type-ticket {
-  background: #e3f2fd;
+  background: radial-gradient(circle at 0% 0%, rgba(216, 252, 15, 0.3), transparent 55%), $cr7-dark;
 }
 
 .type-activity {
-  background: #fff3e0;
+  background: radial-gradient(circle at 0% 0%, rgba(243, 156, 18, 0.3), transparent 55%), $cr7-dark;
 }
 
 .type-system {
-  background: #f3e5f5;
+  background: radial-gradient(circle at 0% 0%, rgba(217, 0, 27, 0.3), transparent 55%), $cr7-dark;
 }
 
 .message-content {
@@ -165,32 +180,33 @@ export default {
 }
 
 .message-title {
-  font-size: 28rpx;
-  font-weight: bold;
-  color: #333;
+  font-size: $font-md;
+  font-weight: 600;
+  color: $text-white;
 }
 
 .message-time {
-  font-size: 22rpx;
-  color: #999;
+  font-size: $font-xs;
+  color: $text-muted;
 }
 
 .message-text {
-  font-size: 26rpx;
-  color: #666;
+  font-size: $font-sm;
+  color: $text-light;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .unread-dot {
-  width: 16rpx;
-  height: 16rpx;
-  background: #ff4444;
+  width: 18rpx;
+  height: 18rpx;
+  background: $cr7-gold;
   border-radius: 50%;
   position: absolute;
-  right: 30rpx;
+  right: 32rpx;
   top: 50%;
   transform: translateY(-50%);
+  box-shadow: $shadow-gold;
 }
 </style>

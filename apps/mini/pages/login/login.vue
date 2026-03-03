@@ -57,8 +57,8 @@
 </template>
 
 <script>
-import { mockUser, mockEmployee } from '@/utils/mockData.js'
 import storage from '@/utils/storage.js'
+import { loginWithWechatPhone } from '@/services/auth.js'
 
 export default {
   data() {
@@ -73,7 +73,7 @@ export default {
       this.agreed = (e.detail.value || []).includes('agree')
     },
 
-    handleWechatLogin() {
+    async handleWechatLogin() {
       if (!this.agreed) {
         uni.showToast({
           title: '请先勾选并同意协议',
@@ -84,16 +84,12 @@ export default {
 
       this.loading = true
 
-      // 模拟微信一键登录 / 注册
-      setTimeout(() => {
-        const isEmployee = Math.random() > 0.8
-        const user = isEmployee ? mockEmployee : mockUser
+      try {
+        const { user, token, isEmployee } = await loginWithWechatPhone()
 
         storage.setUserInfo(user)
-        storage.setToken('mock_token_' + Date.now())
+        storage.setToken(token)
         storage.setIsEmployee(isEmployee)
-
-        this.loading = false
 
         uni.showToast({
           title: '欢迎来到 CR7® LIFE',
@@ -105,7 +101,15 @@ export default {
             url: '/pages/index/index'
           })
         }, 800)
-      }, 1200)
+      } catch (e) {
+        console.error('登录失败', e)
+        uni.showToast({
+          title: '登录失败，请稍后重试',
+          icon: 'none'
+        })
+      } finally {
+        this.loading = false
+      }
     },
 
     openLegal(type) {

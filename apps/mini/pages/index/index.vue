@@ -1,29 +1,29 @@
 <template>
   <view class="home-page">
-    <!-- 自定义导航：城市 + 品牌徽章 + 消息 -->
-    <view class="home-navbar" :style="{ paddingTop: statusBarHeight + 'px' }">
-      <view class="navbar-inner">
-        <view class="navbar-left" @click="openCityPicker">
-          <text class="city-name">{{ currentCity }}</text>
-          <text class="city-arrow">▽</text>
-        </view>
-
-        <view class="navbar-center">
-          <view class="mini-badge">
-            <text class="mini-badge-cr7">CR7</text>
+    <!-- 首页主体（包含导航，滚动时吸顶） -->
+    <scroll-view class="home-scroll" scroll-y>
+      <!-- 自定义导航：城市 + 品牌徽章 + 消息 -->
+      <view class="home-navbar" :style="{ paddingTop: statusBarHeight + 'px' }">
+        <view class="navbar-inner">
+          <view class="navbar-left" @click="openCityPicker">
+            <text class="city-name">{{ currentCity }}</text>
+            <text class="city-arrow">▽</text>
           </view>
-          <text class="mini-badge-text">LIFE MUSEUM</text>
-        </view>
 
-        <view class="navbar-right" @click="goToMessages">
-          <text class="icon-message">🔔</text>
-          <view v-if="unreadCount > 0" class="badge">{{ unreadCount }}</view>
+          <view class="navbar-center">
+            <view class="mini-badge">
+              <text class="mini-badge-cr7">CR7</text>
+            </view>
+            <text class="mini-badge-text">LIFE MUSEUM</text>
+          </view>
+
+          <!-- 首页顶部暂时隐藏消息入口，后续如需恢复可去掉 v-if -->
+          <view v-if="false" class="navbar-right" @click="goToMessages">
+            <text class="icon-message">🔔</text>
+            <view v-if="unreadCount > 0" class="badge">{{ unreadCount }}</view>
+          </view>
         </view>
       </view>
-    </view>
-
-    <!-- 首页主体 -->
-    <scroll-view class="home-scroll" scroll-y>
       <!-- 顶部 Banner（展馆 / 活动主视觉） -->
       <swiper class="hero-swiper" indicator-dots circular autoplay>
         <swiper-item v-for="(item, index) in heroBanners" :key="index">
@@ -159,8 +159,16 @@
 </template>
 
 <script>
-import { mockMessages } from '@/utils/mockData.js'
 import storage from '@/utils/storage.js'
+import { fetchUnreadCount } from '@/services/messages.js'
+import {
+  fetchHeroBanners,
+  fetchHotTickets,
+  fetchHotEvents,
+  fetchHotWorldcup,
+  fetchCr7Zone,
+  fetchBrands
+} from '@/services/home.js'
 
 export default {
   data() {
@@ -170,126 +178,18 @@ export default {
       cityList: ['北京', '上海', '中国香港', '深圳'],
       showCityPicker: false,
       unreadCount: 0,
-      heroBanners: [
-        {
-          tag: '限时展出',
-          title: 'CR7® LIFE 中国北京馆',
-          subtitle: '亚洲首个 CR7® LIFE 沉浸式博物馆',
-          location: '北京市 · 国贸商圈',
-          date: '2026.03.16 - 06.01'
-        },
-        {
-          tag: '全球巡展',
-          title: 'CR7 世界杯荣耀特展',
-          subtitle: '重温世界杯高光瞬间',
-          location: '中国上海 · 外滩',
-          date: '2026.07 起'
-        }
-      ],
+      heroBanners: [],
       hotTabs: [
         { key: 'ticket', label: '购票' },
         { key: 'event', label: '线下活动' },
         { key: 'worldcup', label: '世界杯' }
       ],
       activeHotTab: 'ticket',
-      hotTickets: [
-        {
-          id: 1,
-          museum: 'C罗博物馆 · 中国北京馆',
-          title: '首发早鸟票 · 数量有限',
-          time: '2026-03-16 起 · 10:00-22:00',
-          location: '北京市朝阳区 国贸商圈',
-          price: 99,
-          status: 'active',
-          statusText: '售票中',
-          cta: '立即购票'
-        },
-        {
-          id: 2,
-          museum: 'C罗博物馆 · 中国上海馆',
-          title: '家庭套票 · 4 人同游',
-          time: '2026-04-01 起 · 10:00-22:00',
-          location: '上海市黄浦区 外滩片区',
-          price: 366,
-          status: 'countdown',
-          statusText: '倒计时 10 天',
-          cta: '查看详情'
-        }
-      ],
-      hotEvents: [
-        {
-          id: 3,
-          museum: '签名会 · 北京站',
-          title: 'CR7 见面会 · 限定名额',
-          time: '2026-03-20 19:00',
-          location: '北京 CR7® LIFE 馆内互动区',
-          status: 'active',
-          statusText: '报名中',
-          cta: '立即报名'
-        },
-        {
-          id: 4,
-          museum: '线下观赛夜',
-          title: '欧冠观赛派对',
-          time: '2026-04-10 02:30',
-          location: '上海 CR7® LIFE 球迷专区',
-          status: 'countdown',
-          statusText: '倒计时 5 天',
-          cta: '预约席位'
-        }
-      ],
-      hotWorldcup: [
-        {
-          id: 5,
-          museum: '世界杯特别活动',
-          title: 'C罗世界杯经典进球重现',
-          time: '2026 世界杯期间',
-          location: '多城市 CR7® LIFE 馆',
-          status: 'active',
-          statusText: '规划中',
-          cta: '敬请期待'
-        }
-      ],
-      cr7Zone: [
-        {
-          key: 'calendar',
-          title: '行程日历',
-          desc: '跟随 C罗 全球足迹',
-          icon: '📅',
-          route: '/pages/schedule/schedule'
-        },
-        {
-          key: 'highlights',
-          title: '视频集锦',
-          desc: '高光时刻一键回放',
-          icon: '🎥',
-          route: '/pages/schedule/schedule'
-        },
-        {
-          key: 'career',
-          title: '职业生涯',
-          desc: '纵览传奇数据年表',
-          icon: '📊',
-          route: '/pages/schedule/schedule'
-        }
-      ],
-      brands: [
-        {
-          name: 'CR7 SPORTS',
-          initials: 'CR',
-          tagline: '官方运动装备合作'
-        },
-        {
-          name: 'SIUU ENERGY',
-          initials: 'SE',
-          tagline: '联名能量饮品'
-        },
-        {
-          name: 'LEGENDARY BOOTS',
-          initials: 'LB',
-          tagline: '限量战靴联名'
-        }
-      ]
+      hotTickets: [],
+      hotEvents: [],
+      hotWorldcup: [],
+      cr7Zone: [],
+      brands: []
     }
   },
 
@@ -304,6 +204,7 @@ export default {
   onLoad() {
     const systemInfo = uni.getSystemInfoSync()
     this.statusBarHeight = systemInfo.statusBarHeight || 0
+    this.loadHomeData()
   },
 
   onShow() {
@@ -320,9 +221,48 @@ export default {
       }
     },
 
-    loadUnreadCount() {
-      const unreadMessages = mockMessages.filter(msg => !msg.isRead)
-      this.unreadCount = unreadMessages.length
+    async loadUnreadCount() {
+      try {
+        const count = await fetchUnreadCount()
+        this.unreadCount = count
+      } catch (e) {
+        console.error('加载未读消息数量失败', e)
+      }
+    },
+
+    async loadHomeData() {
+      try {
+        const [
+          hero,
+          tickets,
+          events,
+          worldcup,
+          cr7Zone,
+          brands
+        ] = await Promise.all([
+          fetchHeroBanners(),
+          fetchHotTickets(),
+          fetchHotEvents(),
+          fetchHotWorldcup(),
+          fetchCr7Zone(),
+          fetchBrands()
+        ])
+        this.heroBanners = hero
+        this.hotTickets = tickets
+        this.hotEvents = events
+        this.hotWorldcup = worldcup
+        this.cr7Zone = cr7Zone
+        this.brands = brands.map((b) => ({
+          ...b,
+          initials: (b.name || '').slice(0, 2).toUpperCase()
+        }))
+      } catch (e) {
+        console.error('加载首页数据失败', e)
+        uni.showToast({
+          title: '首页数据加载失败',
+          icon: 'none'
+        })
+      }
     },
 
     goToMessages() {
@@ -389,20 +329,19 @@ export default {
 }
 
 .home-navbar {
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
+  z-index: 10;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.9), rgba(13, 13, 13, 0.6));
 }
 
 .navbar-inner {
   height: 88rpx;
-  padding: 0 40rpx 8rpx;
+  padding: 0 40rpx 8rpx 40rpx;
   display: flex;
   align-items: flex-end;
-  justify-content: space-between;
+  justify-content: flex-start;
+  position: relative; /* 让中间 logo 和右侧按钮可以绝对定位 */
 }
 
 .navbar-left {
@@ -422,10 +361,12 @@ export default {
 }
 
 .navbar-center {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, 6rpx); /* 水平精确居中，略微下移 */
   display: flex;
   flex-direction: column;
   align-items: center;
-  transform: translateY(6rpx);
 }
 
 .mini-badge {
@@ -453,7 +394,8 @@ export default {
 }
 
 .navbar-right {
-  position: relative;
+  position: absolute;
+  right: 40rpx;
   display: flex;
   align-items: center;
 }
@@ -477,8 +419,7 @@ export default {
 }
 
 .home-scroll {
-  margin-top: 120rpx;
-  height: calc(100vh - 120rpx);
+  height: 100vh;
 }
 
 .hero-swiper {
