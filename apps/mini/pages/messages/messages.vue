@@ -1,6 +1,6 @@
 <template>
   <view class="container">
-    <view v-if="messages.length === 0" class="empty">
+    <view v-if="messages.length === 0 && !loading" class="empty">
       <text class="empty-icon">💬</text>
       <text class="empty-text">暂无消息</text>
     </view>
@@ -30,7 +30,10 @@
 </template>
 
 <script>
-import { fetchMessages } from '@/services/messages.js'
+import {
+  fetchMessages,
+  markMessageAsRead
+} from '@/services/messages.js'
 
 export default {
   data() {
@@ -39,11 +42,11 @@ export default {
       loading: false
     }
   },
-  
+
   async onLoad() {
     await this.loadMessages()
   },
-  
+
   methods: {
     async loadMessages() {
       this.loading = true
@@ -84,9 +87,14 @@ export default {
       }
     },
     
-    handleMessageClick(msg) {
+    async handleMessageClick(msg) {
       if (!msg.isRead) {
         msg.isRead = true
+        try {
+          await markMessageAsRead(msg.id)
+        } catch (e) {
+          console.error('标记已读失败', e)
+        }
       }
       
       uni.showModal({
@@ -209,4 +217,5 @@ export default {
   transform: translateY(-50%);
   box-shadow: $shadow-gold;
 }
+
 </style>

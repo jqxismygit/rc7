@@ -7,6 +7,16 @@ const STORAGE_KEYS = {
 }
 
 export default {
+  // 通用写入
+  set(key, value) {
+    uni.setStorageSync(key, value)
+  },
+
+  // 通用读取
+  get(key) {
+    return uni.getStorageSync(key)
+  },
+
   // 保存用户信息
   setUserInfo(userInfo) {
     uni.setStorageSync(STORAGE_KEYS.USER_INFO, userInfo)

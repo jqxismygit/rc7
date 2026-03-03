@@ -14,7 +14,9 @@ const delay = (result) =>
  */
 export function fetchMessages() {
   // 这里返回深拷贝，避免调用方意外修改原始 mock 数据
-  const list = mockMessages.map((item) => ({ ...item }))
+  const list = mockMessages
+    .map((item) => ({ ...item }))
+    .sort((a, b) => new Date(b.time) - new Date(a.time)) // 确保最新在前
   return delay(list)
 }
 
@@ -43,5 +45,16 @@ export async function clearReadMessages() {
   const list = await fetchMessages()
   const remaining = list.filter((item) => !item.isRead)
   return delay(remaining)
+}
+
+/**
+ * 单条消息设为已读（mock，本地更新为主）
+ */
+export async function markMessageAsRead(id) {
+  const list = await fetchMessages()
+  const updated = list.map((item) =>
+    item.id === id ? { ...item, isRead: true } : item
+  )
+  return delay(updated)
 }
 
