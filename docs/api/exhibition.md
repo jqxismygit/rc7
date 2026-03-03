@@ -4,7 +4,7 @@
 
 ## 创建展览活动
 
-- URL: `/exhibit`
+- URL: `/exhibition`
 - Method: `POST`
 - Request Header:
   ```ts
@@ -12,16 +12,16 @@
   ```
 - Request Body:
   ```ts
-  Omit<Exhibit.Exhibition, 'id' | 'created_at' | 'updated_at'>
+  Omit<Exhibition.Exhibition, 'id' | 'created_at' | 'updated_at'>
   ```
 - Response Body:
   ```ts
-  Exhibit.ExhibitionWithCategories
+  Exhibition.ExhibitionWithCategories
   ```
 
 ## 获取展览详情（含票种分类）
 
-- URL: `/exhibit/:exhibitId`
+- URL: `/exhibition/:eid`
 - Method: `GET`
 - Request Header:
   ```ts
@@ -29,17 +29,17 @@
   ```
 - Request Params:
   ```ts
-  { exhibitId: string }
+  { eid: string }
   ```
 - Response Body:
   ```ts
-  Exhibit.ExhibitionWithCategories
+  Exhibition.ExhibitionWithCategories
   ```
 
 
 ## 新增票种分类
 
-- URL: `/exhibit/:exhibitId/tickets`
+- URL: `/exhibition/:eid/tickets`
 - Method: `POST`
 - Request Header:
   ```ts
@@ -47,14 +47,14 @@
   ```
 - Request Params:
   ```ts
-  { exhibitId: string }
+  { eid: string }
   ```
 - Request Body:
   ```ts
-  Omit<Exhibit.TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>
+  Omit<Exhibition.TicketCategory, 'id' | 'eid' | 'created_at' | 'updated_at'>
   ```
 
 - Response Body:
   ```ts
-  Exhibit.TicketCategory
+  Exhibition.TicketCategory
   ```

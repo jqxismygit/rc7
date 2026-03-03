@@ -5,13 +5,13 @@ import {
   StepTest
 } from '@amiceli/vitest-cucumber';
 import { expect, TestContext } from 'vitest';
-import { Exhibit } from '@rc7/types';
+import { Exhibition } from '@rc7/types';
 
 const feature = await loadFeature('tests/features/exhibit.feature');
 
-type Exhibition = Exhibit.Exhibition;
-type TicketCategory = Exhibit.TicketCategory;
-type ExhibitionWithCategories = Exhibit.ExhibitionWithCategories;
+type Exhibition = Exhibition.Exhibition;
+type TicketCategory = Exhibition.TicketCategory;
+type ExhibitionWithCategories = Exhibition.ExhibitionWithCategories;
 
 interface ScenarioContext {
   currentUser?: { id: string; role: string };

@@ -1,4 +1,4 @@
-CREATE TABLE exhibits (
+CREATE TABLE exhibitions (
 	id                    UUID PRIMARY KEY DEFAULT GEN_RANDOM_UUID(),
 	name                  VARCHAR(255) NOT NULL UNIQUE,
 	description           TEXT NOT NULL,
@@ -20,7 +20,7 @@ CREATE TABLE exhibits (
 
 CREATE TABLE exhibit_ticket_categories (
 	id                    UUID PRIMARY KEY DEFAULT GEN_RANDOM_UUID(),
-	exhibit_id            UUID NOT NULL REFERENCES exhibits(id) ON DELETE CASCADE,
+	eid            				UUID NOT NULL REFERENCES exhibitions(id) ON DELETE CASCADE,
 	name                  VARCHAR(64) NOT NULL,
 	price                 INTEGER NOT NULL,
 	valid_duration_days   INTEGER NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE exhibit_ticket_categories (
 	created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-	CONSTRAINT uq_exhibit_ticket_categories_name UNIQUE (exhibit_id, name),
+	CONSTRAINT uq_exhibit_ticket_categories_name UNIQUE (eid, name),
 	CONSTRAINT chk_exhibit_ticket_categories_price CHECK (price >= 0),
 	CONSTRAINT chk_exhibit_ticket_categories_valid_duration CHECK (valid_duration_days > 0),
 	CONSTRAINT chk_exhibit_ticket_categories_admittance CHECK (admittance > 0)
