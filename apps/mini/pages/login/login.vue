@@ -27,7 +27,7 @@
         <view class="agreement-row">
           <checkbox-group @change="onAgreeChange">
             <label class="agree-label">
-              <checkbox value="agree" :checked="agreed" color="#C9A84C" />
+              <checkbox value="agree" :checked="agreed" color="#D8FC0F" />
               <text class="agreement-text">
                 已阅读并同意
                 <text class="link" @click.stop="openLegal('terms')">《用户协议》</text>

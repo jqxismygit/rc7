@@ -105,7 +105,7 @@ export default {
   position: absolute;
   width: 60rpx;
   height: 60rpx;
-  border: 6rpx solid #667eea;
+  border: 6rpx solid #D8FC0F;
 }
 
 .corner-tl {
@@ -140,7 +140,7 @@ export default {
   position: absolute;
   width: 100%;
   height: 4rpx;
-  background: linear-gradient(90deg, transparent, #667eea, transparent);
+  background: linear-gradient(90deg, transparent, #D8FC0F, transparent);
   animation: scan 2s linear infinite;
 }
 
@@ -184,7 +184,7 @@ export default {
 .scan-btn {
   width: 500rpx;
   height: 90rpx;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #D8FC0F 0%, #A8C00C 100%);
   color: #fff;
   border-radius: 45rpx;
   font-size: 32rpx;
@@ -258,7 +258,7 @@ export default {
 .close-btn {
   width: 100%;
   height: 80rpx;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #D8FC0F 0%, #A8C00C 100%);
   color: #fff;
   border-radius: 40rpx;
   font-size: 28rpx;

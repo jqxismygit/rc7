@@ -491,7 +491,7 @@ export default {
   height: 320rpx;
   border-radius: $radius-lg;
   padding: 32rpx;
-  background: radial-gradient(circle at 0% 0%, rgba(201, 168, 76, 0.22), transparent 55%), $gradient-dark;
+  background: radial-gradient(circle at 0% 0%, rgba(216, 252, 15, 0.22), transparent 55%), $gradient-dark;
   box-shadow: $shadow-card;
   display: flex;
   flex-direction: column;
@@ -624,14 +624,15 @@ export default {
 }
 
 .event-cta {
-  padding: 6rpx 22rpx;
+  padding: 10rpx 28rpx;
   border-radius: 999rpx;
-  border: 1rpx solid $cr7-gold;
+  background: $gradient-gold;
+  color: $cr7-black;
+  font-weight: 600;
 }
 
 .cta-text {
   font-size: $font-sm;
-  color: $cr7-gold-light;
 }
 
 .cr7-grid {
@@ -649,7 +650,7 @@ export default {
   width: 80rpx;
   height: 80rpx;
   border-radius: $radius-lg;
-  background: rgba(201, 168, 76, 0.12);
+  background: rgba(216, 252, 15, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -692,7 +693,7 @@ export default {
   width: 72rpx;
   height: 72rpx;
   border-radius: 50%;
-  background: radial-gradient(circle at 0% 0%, rgba(201, 168, 76, 0.24), transparent 55%), $cr7-dark;
+  background: radial-gradient(circle at 0% 0%, rgba(216, 252, 15, 0.24), transparent 55%), $cr7-dark;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -767,7 +768,7 @@ export default {
 .city-item.active {
   border-color: $cr7-gold;
   color: $cr7-gold-light;
-  background: rgba(201, 168, 76, 0.12);
+  background: rgba(216, 252, 15, 0.12);
 }
 
 .safe-bottom {

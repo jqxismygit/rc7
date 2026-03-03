@@ -140,7 +140,7 @@ export default {
   width: 96rpx;
   height: 96rpx;
   border-radius: 50%;
-  background: radial-gradient(circle at 0% 0%, rgba(201, 168, 76, 0.24), transparent 55%), $cr7-dark;
+  background: radial-gradient(circle at 0% 0%, rgba(216, 252, 15, 0.24), transparent 55%), $cr7-dark;
   display: flex;
   align-items: center;
   justify-content: center;

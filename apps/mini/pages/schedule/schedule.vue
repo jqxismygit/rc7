@@ -97,7 +97,7 @@ export default {
 .timeline-date-badge {
   padding: 8rpx 16rpx;
   border-radius: 999rpx;
-  background: rgba(201, 168, 76, 0.18);
+  background: rgba(216, 252, 15, 0.18);
   margin-right: 16rpx;
 }
 

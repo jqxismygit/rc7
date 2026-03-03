@@ -220,7 +220,7 @@ export default {
   height: 120rpx;
   border-radius: 50%;
   margin-right: 24rpx;
-  border: 3rpx solid rgba(201, 168, 76, 0.6);
+  border: 3rpx solid rgba(216, 252, 15, 0.6);
 }
 
 .user-info {
@@ -247,7 +247,7 @@ export default {
   top: 24rpx;
   padding: 6rpx 18rpx;
   border-radius: 999rpx;
-  background: rgba(201, 168, 76, 0.24);
+  background: rgba(216, 252, 15, 0.24);
   color: $cr7-gold-light;
   font-size: $font-xs;
 }

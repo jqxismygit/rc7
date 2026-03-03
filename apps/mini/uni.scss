@@ -1,9 +1,9 @@
 /* CR7® LIFE 全局设计系统 - 暗金运动风 */
 
 /* ===== 品牌色系 ===== */
-$cr7-gold: #C9A84C;
-$cr7-gold-light: #E8C96A;
-$cr7-gold-dark: #9E7A2E;
+$cr7-gold: #D8FC0F;
+$cr7-gold-light: #E5FE4D;
+$cr7-gold-dark: #A8C00C;
 $cr7-black: #0D0D0D;
 $cr7-dark: #1A1A1A;
 $cr7-card: #242424;
@@ -19,7 +19,7 @@ $text-muted: #888888;
 $text-disabled: #555555;
 
 /* ===== 渐变 ===== */
-$gradient-gold: linear-gradient(135deg, #C9A84C 0%, #E8C96A 50%, #9E7A2E 100%);
+$gradient-gold: linear-gradient(135deg, #D8FC0F 0%, #E5FE4D 50%, #A8C00C 100%);
 $gradient-dark: linear-gradient(180deg, #1A1A1A 0%, #0D0D0D 100%);
 $gradient-hero: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.85) 100%);
 
@@ -49,7 +49,7 @@ $font-xxl: 48rpx;
 $font-hero: 64rpx;
 
 /* ===== 阴影 ===== */
-$shadow-gold: 0 4rpx 20rpx rgba(201,168,76,0.3);
+$shadow-gold: 0 4rpx 20rpx rgba(216,252,15,0.3);
 $shadow-dark: 0 8rpx 32rpx rgba(0,0,0,0.6);
 $shadow-card: 0 4rpx 16rpx rgba(0,0,0,0.4);
 
@@ -64,7 +64,7 @@ $shadow-card: 0 4rpx 16rpx rgba(0,0,0,0.4);
 .text-right { text-align: right; }
 .text-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* 金色强调文字 */
+/* 主色强调文字 */
 .text-gold { color: $cr7-gold; }
 .text-white { color: #FFFFFF; }
 .text-muted { color: $text-muted; }
@@ -75,7 +75,7 @@ $shadow-card: 0 4rpx 16rpx rgba(0,0,0,0.4);
 .bg-card { background: $cr7-card; }
 .bg-gold { background: $gradient-gold; }
 
-/* 金色主按钮 */
+/* 主色主按钮 */
 .btn-gold {
   background: $gradient-gold;
   color: $cr7-black;
@@ -88,7 +88,7 @@ $shadow-card: 0 4rpx 16rpx rgba(0,0,0,0.4);
   justify-content: center;
 }
 
-/* 描边按钮 */
+/* 主色描边按钮 */
 .btn-outline-gold {
   background: transparent;
   color: $cr7-gold;
@@ -112,7 +112,7 @@ $shadow-card: 0 4rpx 16rpx rgba(0,0,0,0.4);
 /* 状态标签 */
 .tag-active {
   padding: 4rpx 16rpx;
-  background: rgba(201,168,76,0.2);
+  background: rgba(216,252,15,0.2);
   color: $cr7-gold;
   border-radius: $radius-sm;
   font-size: $font-xs;

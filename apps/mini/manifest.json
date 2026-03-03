@@ -1,6 +1,6 @@
 {
-    "name" : "mini",
-    "appid" : "",
+    "name" : "CR7 Life",
+    "appid" : "__UNI__8079C8C",
     "description" : "",
     "versionName" : "1.0.0",
     "versionCode" : "100",
@@ -50,7 +50,7 @@
     "quickapp" : {},
     /* 小程序特有相关 */
     "mp-weixin" : {
-        "appid" : "",
+        "appid" : "wx8e0cd522cf168035",
         "setting" : {
             "urlCheck" : false
         },

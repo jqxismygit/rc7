@@ -127,7 +127,7 @@ export default {
   padding: 4rpx 16rpx;
   border-radius: 999rpx;
   font-size: $font-xs;
-  background: rgba(201, 168, 76, 0.2);
+  background: rgba(216, 252, 15, 0.2);
   color: $cr7-gold-light;
 }
 

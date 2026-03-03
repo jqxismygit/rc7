@@ -293,7 +293,7 @@ export default {
 }
 
 .tag-official {
-  background: rgba(201, 168, 76, 0.18);
+  background: rgba(216, 252, 15, 0.18);
   color: $cr7-gold-light;
 }
 
@@ -341,7 +341,7 @@ export default {
 }
 
 .status-unused {
-  background: rgba(201, 168, 76, 0.18);
+  background: rgba(216, 252, 15, 0.18);
   color: $cr7-gold-light;
 }
 
