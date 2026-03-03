@@ -14,7 +14,8 @@
     "type-check": "tsc --noEmit",
     "format": "prettier --write .",
     "prepare": "husky",
-    "rc7": "node dist/scripts/rc7.js"
+    "rc7": "node dist/scripts/rc7.js",
+    "spec:gen": "npx @amiceli/vitest-cucumber"
   },
   "keywords": [],
   "author": "",

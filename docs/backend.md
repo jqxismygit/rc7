@@ -41,6 +41,14 @@
 - 用户相关逻辑放在 user.service.ts 中。
 - 业务逻辑实现放在 rc7.service.ts 中
 
+### 类型定义规范
+
+- 所有数据模型类型定义统一放在 services/types 目录
+- Request 类型应通过 TypeScript 工具类型基于已有类型组合得出，如 `Omit<Xxx, 'id' | 'created_at' | 'updated_at'>`
+- API 文档中的 Request Body 类型说明应明确引用 services/types 中的类型来源和组合方式
+- 测试代码应导入并复用 services/types 中定义的类型，避免重复定义
+- 不要在 services/types 中创建 Request 类型，如 `CreateXxxRequest`、`UpdateXxxRequest` 等
+
 ## 命令工具 rc7
 
 在 /services/rc7/scripts 目录下提供了一个命令行工具 rc7，用于执行一些常用的开发和维护任务，如数据库迁移、数据处理等功能。
