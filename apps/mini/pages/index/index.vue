@@ -5,9 +5,16 @@
       <!-- 自定义导航：城市 + 品牌徽章 + 消息 -->
       <view class="home-navbar" :style="{ paddingTop: statusBarHeight + 'px' }">
         <view class="navbar-inner">
-          <view class="navbar-left" @click="openCityPicker">
-            <text class="city-name">{{ currentCity }}</text>
-            <text class="city-arrow">▽</text>
+          <view class="navbar-left">
+            <view class="city-switch" @click="openCityPicker">
+              <text class="city-name">{{ currentCity }}</text>
+              <text class="city-arrow">▽</text>
+            </view>
+
+            <view class="navbar-message" @click="goToMessages">
+              <text class="icon-message">🔔</text>
+              <view v-if="unreadCount > 0" class="badge">{{ unreadCount }}</view>
+            </view>
           </view>
 
           <view class="navbar-center">
@@ -15,12 +22,6 @@
               <text class="mini-badge-cr7">CR7</text>
             </view>
             <text class="mini-badge-text">LIFE MUSEUM</text>
-          </view>
-
-          <!-- 首页顶部暂时隐藏消息入口，后续如需恢复可去掉 v-if -->
-          <view v-if="false" class="navbar-right" @click="goToMessages">
-            <text class="icon-message">🔔</text>
-            <view v-if="unreadCount > 0" class="badge">{{ unreadCount }}</view>
           </view>
         </view>
       </view>
@@ -341,10 +342,16 @@ export default {
   display: flex;
   align-items: flex-end;
   justify-content: flex-start;
-  position: relative; /* 让中间 logo 和右侧按钮可以绝对定位 */
+  position: relative; /* 让中间 logo 可以绝对定位 */
 }
 
 .navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.city-switch {
   display: flex;
   align-items: center;
 }
@@ -393,9 +400,8 @@ export default {
   letter-spacing: 3rpx;
 }
 
-.navbar-right {
-  position: absolute;
-  right: 40rpx;
+.navbar-message {
+  position: relative;
   display: flex;
   align-items: center;
 }

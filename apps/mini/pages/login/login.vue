@@ -233,11 +233,13 @@ export default {
 .agreement-row {
   margin-bottom: 40rpx;
   color: $text-light;
+  display: flex;
+  justify-content: center;
 }
 
 .agree-label {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .agreement-text {
