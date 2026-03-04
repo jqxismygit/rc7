@@ -83,60 +83,33 @@ describeFeature(feature, ({
       });
 
       And('description {string}', (ctx, description: string) => {
-        if (!context.draftExhibition) {
-          throw new Error('缺少展览草稿数据');
-        }
         context.draftExhibition.description = description;
       });
 
       And('start date {string}', (ctx, startDate: string) => {
-        if (!context.draftExhibition) {
-          throw new Error('缺少展览草稿数据');
-        }
         context.draftExhibition.start_date = startDate;
       });
 
       And('end date {string}', (ctx, endDate: string) => {
-        if (!context.draftExhibition) {
-          throw new Error('缺少展览草稿数据');
-        }
         context.draftExhibition.end_date = endDate;
       });
-
       And('opening time {string}', (ctx, openingTime: string) => {
-        if (!context.draftExhibition) {
-          throw new Error('缺少展览草稿数据');
-        }
         context.draftExhibition.opening_time = openingTime;
       });
 
       And('closing time {string}', (ctx, closingTime: string) => {
-        if (!context.draftExhibition) {
-          throw new Error('缺少展览草稿数据');
-        }
         context.draftExhibition.closing_time = closingTime;
       });
 
       And('last entry time {string}', (ctx, lastEntryTime: string) => {
-        if (!context.draftExhibition) {
-          throw new Error('缺少展览草稿数据');
-        }
         context.draftExhibition.last_entry_time = lastEntryTime;
       });
-
       And('location {string}', (ctx, location: string) => {
-        if (!context.draftExhibition) {
-          throw new Error('缺少展览草稿数据');
-        }
         context.draftExhibition.location = location;
       });
 
       When('create exhibition', async () => {
         const { draftExhibition } = context;
-        if (!draftExhibition) {
-          throw new Error('draftExhibition not initialized');
-        }
-
         const { apiServer } = scenarioContext.fixtures.values;
         const exhibition = await createExhibition(apiServer, draftExhibition);
         context.currentExhibition = exhibition;
@@ -179,30 +152,20 @@ describeFeature(feature, ({
       });
 
       And('price {int}', (ctx, price: number) => {
-        if (!context.draftCategory) {
-          throw new Error('draftCategory not initialized');
-        }
         context.draftCategory.price = price;
       });
 
       And('valid duration {int} day', (ctx, days: number) => {
-        if (!context.draftCategory) {
-          throw new Error('draftCategory not initialized');
-        }
+
         context.draftCategory.valid_duration_days = days;
       });
 
       And('refund policy non refundable', () => {
-        if (!context.draftCategory) {
-          throw new Error('draftCategory not initialized');
-        }
+
         context.draftCategory.refund_policy = 'NON_REFUNDABLE';
       });
-
       And('admittance {int} person', (ctx, count: number) => {
-        if (!context.draftCategory) {
-          throw new Error('draftCategory not initialized');
-        }
+
         context.draftCategory.admittance = count;
       });
 
@@ -256,30 +219,15 @@ describeFeature(feature, ({
       });
 
       And('price {int}', (ctx, price: number) => {
-        if (!context.draftCategory) {
-          throw new Error('draftCategory not initialized');
-        }
         context.draftCategory.price = price;
       });
-
       And('valid duration {int} day', (ctx, days: number) => {
-        if (!context.draftCategory) {
-          throw new Error('draftCategory not initialized');
-        }
         context.draftCategory.valid_duration_days = days;
       });
-
-
       And('refund policy refundable until 48 hours before the event', () => {
-        if (!context.draftCategory) {
-          throw new Error('draftCategory not initialized');
-        }
         context.draftCategory.refund_policy = 'REFUNDABLE_48H_BEFORE';
       });
       And('admittance {int} person', (ctx, count: number) => {
-        if (!context.draftCategory) {
-          throw new Error('draftCategory not initialized');
-        }
         context.draftCategory.admittance = count;
       });
 
