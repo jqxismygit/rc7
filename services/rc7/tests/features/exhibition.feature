@@ -37,3 +37,6 @@ Feature: setup exhibition and tickets
     Then ticket "regular" added successfully
     And exhibition has 1 ticket categories "regular"
 
+# todo
+# - 更新 exhibition 基本信息
+# - 更新 ticket category
