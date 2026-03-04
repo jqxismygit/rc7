@@ -95,6 +95,8 @@
 
 - 除了 public schema 下的表，其他 schema 下的表都要加上 schema 前缀，如 `my_schema.my_table`。
 - SQL 语句关键字要大写，变量小写。
+- 非必要不用在 sql 中标注类型，如 `SELECT id FROM my_table`，而不是 `SELECT id::int FROM my_table`。
+- 不要给 select 字段起和原字段完全一样的别名，如 `SELECT id as id FROM my_table`，而是直接 `SELECT id FROM my_table`。
 - 表名、字段名使用下划线分隔，如 user_profile。
 - 复杂的 SQL 语句使用多行编写，并且适当缩进以提高可读性。
 - 在 SQL 语句中使用参数化查询，避免直接拼接字符串，防止 SQL 注入攻击。
@@ -107,3 +109,4 @@
 - 参数中要带上 client 和 schema，避免在服务层直接使用全局数据库连接，增加代码的可测试性和灵活性。
 - 方法命名使用动词开头，清晰表达方法的功能，如 getUserById、createProduct 等。
 - 压缩方法中的 db query 次数，尽量将多个相关的数据库操作合并为一个 query，减少服务层对数据库的调用次数，提高性能。
+- 封装针对资源的查询方法时，不用封装 join 逻辑，数据组合放在服务层实现，保持 data 层方法的单一职责和灵活性。

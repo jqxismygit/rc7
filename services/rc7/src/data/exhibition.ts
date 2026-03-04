@@ -28,14 +28,14 @@ export async function createExhibition(
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING
       id, name, description,
-      start_date::TEXT as start_date,
-      end_date::TEXT as end_date,
-      opening_time::TEXT as opening_time,
-      closing_time::TEXT as closing_time,
-      last_entry_time::TEXT as last_entry_time,
+      start_date,
+      end_date,
+      opening_time,
+      closing_time,
+      last_entry_time,
       location,
-      created_at::TEXT as created_at,
-      updated_at::TEXT as updated_at`,
+      created_at,
+      updated_at`,
     [
       exhibition.name,
       exhibition.description,
@@ -58,39 +58,20 @@ export async function getExhibitionById(
   client: Pool,
   schema: string,
   eid: string
-): Promise<Exhibition.ExhibitionWithCategories> {
+): Promise<Exhibition.Exhibition> {
   const { rows } = await client.query(
     `SELECT
-      e.id, e.name, e.description,
-      e.start_date::TEXT as start_date,
-      e.end_date::TEXT as end_date,
-      e.opening_time::TEXT as opening_time,
-      e.closing_time::TEXT as closing_time,
-      e.last_entry_time::TEXT as last_entry_time,
-      e.location,
-      e.created_at::TEXT as created_at,
-      e.updated_at::TEXT as updated_at,
-      COALESCE(
-        json_agg(
-          json_build_object(
-            'id', tc.id,
-            'exhibit_id', tc.eid,
-            'name', tc.name,
-            'price', tc.price,
-            'valid_duration_days', tc.valid_duration_days,
-            'refund_policy', tc.refund_policy,
-            'admittance', tc.admittance,
-            'created_at', tc.created_at::TEXT,
-            'updated_at', tc.updated_at::TEXT
-          )
-          ORDER BY tc.created_at
-        ) FILTER (WHERE tc.id IS NOT NULL),
-        '[]'
-      ) as ticket_categories
-    FROM ${schema}.exhibitions e
-    LEFT JOIN ${schema}.exhibit_ticket_categories tc ON e.id = tc.eid
-    WHERE e.id = $1
-    GROUP BY e.id`,
+      id, name, description,
+      start_date,
+      end_date,
+      opening_time,
+      closing_time,
+      last_entry_time,
+      location,
+      created_at,
+      updated_at
+    FROM ${schema}.exhibitions
+    WHERE id = $1`,
     [eid]
   );
 
@@ -99,6 +80,31 @@ export async function getExhibitionById(
   }
 
   return rows[0];
+}
+
+export async function getTicketCategoriesByExhibitionId(
+  client: Pool,
+  schema: string,
+  eid: string
+): Promise<Exhibition.TicketCategory[]> {
+  const { rows } = await client.query(
+    `SELECT
+      id,
+      eid as exhibit_id,
+      name,
+      price,
+      valid_duration_days,
+      refund_policy,
+      admittance,
+      created_at,
+      updated_at
+    FROM ${schema}.exhibit_ticket_categories
+    WHERE eid = $1
+    ORDER BY created_at`,
+    [eid]
+  );
+
+  return rows;
 }
 
 export async function createTicketCategory(
@@ -118,10 +124,10 @@ export async function createTicketCategory(
       name,
       price,
       valid_duration_days,
-      refund_policy as refund_policy,
+      refund_policy,
       admittance,
-      created_at::TEXT as created_at,
-      updated_at::TEXT as updated_at`,
+      created_at,
+      updated_at`,
     [
       eid,
       category.name,

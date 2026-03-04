@@ -3,6 +3,7 @@ import type { Exhibition } from "@rc7/types";
 import {
   createExhibition,
   getExhibitionById,
+  getTicketCategoriesByExhibitionId,
   createTicketCategory
 } from "../data/exhibition.js";
 import { RC7BaseService } from "./rc7.base.js";
@@ -77,8 +78,12 @@ export class ExhibitionService extends RC7BaseService {
     const schema = await this.getSchema();
 
     const exhibition = await getExhibitionById(client, schema, eid);
+    const ticket_categories = await getTicketCategoriesByExhibitionId(client, schema, eid);
 
-    return exhibition;
+    return {
+      ...exhibition,
+      ticket_categories
+    };
   }
 
   async addTicketCategory(
