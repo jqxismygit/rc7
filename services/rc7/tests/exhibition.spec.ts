@@ -156,16 +156,13 @@ describeFeature(feature, ({
       });
 
       And('valid duration {int} day', (ctx, days: number) => {
-
         context.draftCategory.valid_duration_days = days;
       });
 
       And('refund policy non refundable', () => {
-
         context.draftCategory.refund_policy = 'NON_REFUNDABLE';
       });
       And('admittance {int} person', (ctx, count: number) => {
-
         context.draftCategory.admittance = count;
       });
 
