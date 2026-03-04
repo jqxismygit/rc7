@@ -58,19 +58,47 @@
 
 ## 测试
 
-测试采用 BDD 风格，使用 @deepracticex/vitest-cucumber 作为 vitest 的扩展进行测试编写和执行。
+测试采用 BDD 风格，使用 @amiceli/vitest-cucumber 作为 vitest 的扩展进行测试编写和执行。
 
 ### 测试目录结构
 
 - 测试场景定义在 services/rc7/tests/features 目录
-- 测试步骤实现放在 services/rc7/tests/steps 目录
+- 测试步骤实现放在 services/rc7/tests/specs 目录（*.spec.ts）
 - 测试辅助函数放在 services/rc7/tests/lib 目录
-- 测试数据和 API 请求以及断言等放在 services/rc7/tests/fixtures 目录
+- 测试数据、API 请求、断言等放在 services/rc7/tests/fixtures 目录
 
 ### features
 
 测试场景使用 Gherkin 语法编写，清晰描述测试的 Given、When、Then 步骤。
 
+### 测试编写规范
+
+#### 类型定义
+
+- 在测试文件顶部使用类型别名提炼复杂类型，避免在步骤定义中重复声明
+- 通过 `Omit` 组合方式定义 Draft 类型，例如：
+  ```typescript
+  type DraftExhibition = Omit<ExhibitionType, 'id' | 'created_at' | 'updated_at'>;
+  ```
+- 使用 `StepTest<T>` 泛型定义步骤上下文类型，确保类型安全
+
+#### 步骤实现
+
+- 避免在多个 Scenario 中重复相同的 Given/When/Then 步骤逻辑
+- 将通用的步骤实现封装到 fixtures 中作为辅助函数，供多个测试场景复用
+- 使用 `Object.assign(context, { property })` 来更新上下文，而不是直接赋值
+- 初始化数据时使用 `null` 而不是空字符串，保持数据一致性
+
+#### 测试数据
+
+- 在 fixtures 目录中创建辅助函数生成测试数据，例如 `prepareExhibitionData()`
+- 使用随机数据生成工具避免测试数据冲突，特别是在并行测试场景中
+- 在 `services/rc7/tests/lib/random.ts` 中提供通用的随机数据生成函数
+
+#### 路径别名
+
+- 在 vitest.config.ts 中配置 `@/` 别名指向 `src` 目录，简化导入路径
+- 在 fixtures 和测试中统一使用 `@/` 别名导入源代码模块
 
 ### 测试执行
 

@@ -2,6 +2,9 @@ import { Server } from "http";
 import { getJSON, postJSON } from "../lib/api.js";
 import { Exhibition } from "@rc7/types";
 import { expect } from "vitest";
+import { StepTest } from "@amiceli/vitest-cucumber";
+import { random_text } from "../lib/random.js";
+import { APIServerFixture } from "./services.js";
 
 export async function createExhibition(
   server: Server,
@@ -68,4 +71,26 @@ export function assertTicketCategory(data: Exhibition.TicketCategory) {
   expect(data).toHaveProperty('admittance', expect.any(Number));
   expect(data).toHaveProperty('created_at', expect.any(String));
   expect(data).toHaveProperty('updated_at', expect.any(String));
+}
+
+export function prepareExhibitionData(
+  Step: StepTest['Given'],
+  scenarioContext: { fixtures: APIServerFixture },
+  context: { exhibition: Exhibition.Exhibition },
+) {
+  Step('created exhibition', async () => {
+    const { apiServer } = scenarioContext.fixtures.values;
+
+    const exhibition = await createExhibition(apiServer, {
+      name: `test_exhibition_${random_text(5)}`,
+      description: 'Test exhibition',
+      start_date: '2026-01-01',
+      end_date: '2026-12-31',
+      opening_time: '10:00',
+      closing_time: '18:00',
+      last_entry_time: '17:00',
+      location: 'Test Location'
+    });
+    Object.assign(context, { exhibition });
+  });
 }

@@ -2,10 +2,10 @@ import {
   describeFeature,
   FeatureDescriibeCallbackParams,
   loadFeature,
-  StepTest
+  StepTest,
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
-import { expect, TestContext, vi } from 'vitest';
+import { expect, vi } from 'vitest';
 import { Exhibition } from '@rc7/types';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
 import { services_fixtures } from './fixtures/services.js';
@@ -13,7 +13,8 @@ import {
   createExhibition,
   addTicketCategory,
   assertExhibitionWithCategories,
-  assertTicketCategory
+  assertTicketCategory,
+  prepareExhibitionData
 } from './fixtures/exhibition.js';
 
 const schema = 'test_exhibition';
@@ -24,17 +25,12 @@ const feature = await loadFeature('tests/features/exhibition.feature');
 type ExhibitionType = Exhibition.Exhibition;
 type TicketCategory = Exhibition.TicketCategory;
 type ExhibitionWithCategories = Exhibition.ExhibitionWithCategories;
+type DraftExhibition = Omit<ExhibitionType, 'id' | 'created_at' | 'updated_at'>;
+type DraftTicket = Omit<TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>;
 
 interface ScenarioContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
   currentUser?: { id: string; role: string };
-}
-
-interface ExhibitionStepContext extends TestContext {
-  draftExhibition?: Omit<ExhibitionType, 'id' | 'created_at' | 'updated_at'>;
-  currentExhibition?: ExhibitionWithCategories;
-  draftCategory?: Partial<Omit<TicketCategory, 'exhibit_id' | 'id' | 'created_at' | 'updated_at'>>;
-  addedCategory?: TicketCategory;
 }
 
 describeFeature(feature, ({
@@ -66,18 +62,19 @@ describeFeature(feature, ({
 
   Scenario(
     'create a new exhibition',
-    ({ Given, When, Then, And, context }: StepTest<ExhibitionStepContext>) => {
+    (s: StepTest<{ draftExhibition: DraftExhibition, exhibition: ExhibitionWithCategories }>) => {
+      const { Given, When, Then, And, context } = s;
       Given('exhibition name {word}', (ctx, name: string) => {
         Object.assign(context, {
           draftExhibition: {
             name,
-            description: '',
-            start_date: '',
-            end_date: '',
-            opening_time: '',
-            closing_time: '',
-            last_entry_time: '',
-            location: ''
+            description: null,
+            start_date: null,
+            end_date: null,
+            opening_time: null,
+            closing_time: null,
+            last_entry_time: null,
+            location: null
           }
         });
       });
@@ -112,70 +109,52 @@ describeFeature(feature, ({
         const { draftExhibition } = context;
         const { apiServer } = scenarioContext.fixtures.values;
         const exhibition = await createExhibition(apiServer, draftExhibition);
-        context.currentExhibition = exhibition;
+        Object.assign(context, { exhibition });
       });
 
       Then('exhibition created successfully with empty ticket categories', () => {
-        const { currentExhibition } = context;
-        expect(currentExhibition).toBeTruthy();
-        assertExhibitionWithCategories(currentExhibition);
-        expect(currentExhibition?.ticket_categories).toEqual([]);
-        expect(currentExhibition?.name).toBe('cr7_life_museum');
+        const { exhibition } = context;
+        expect(exhibition).toBeTruthy();
+        assertExhibitionWithCategories(exhibition);
+        expect(exhibition.ticket_categories).toEqual([]);
+        expect(exhibition.name).toBe('cr7_life_museum');
       });
     }
   );
 
   Scenario(
     'add new ticket category to exhibition',
-    ({ Given, When, Then, And, context }: StepTest<ExhibitionStepContext>) => {
-      Given('created exhibition', async () => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        const exhibition = await createExhibition(apiServer, {
-          name: 'test_exhibition',
-          description: 'Test exhibition for tickets',
-          start_date: '2026-01-01',
-          end_date: '2026-12-31',
-          opening_time: '10:00',
-          closing_time: '18:00',
-          last_entry_time: '17:00',
-          location: 'Test Location'
-        });
-        context.currentExhibition = exhibition;
-      });
+    (s: StepTest<{ exhibition: ExhibitionWithCategories, draftTicket: DraftTicket }>) => {
+      const { Given, When, Then, And, context } = s;
+      prepareExhibitionData(Given, scenarioContext, context);
 
       When('add ticket category {string} to exhibition', (ctx, categoryName: string) => {
-        Object.assign(context, {
-          draftCategory: {
-            name: categoryName
-          }
-        });
+        Object.assign(context, { draftTicket: { name: categoryName } });
       });
 
       And('price {int}', (ctx, price: number) => {
-        context.draftCategory.price = price;
+        context.draftTicket.price = price;
       });
-
       And('valid duration {int} day', (ctx, days: number) => {
-        context.draftCategory.valid_duration_days = days;
+        context.draftTicket.valid_duration_days = days;
       });
-
       And('refund policy non refundable', () => {
-        context.draftCategory.refund_policy = 'NON_REFUNDABLE';
+        context.draftTicket.refund_policy = 'NON_REFUNDABLE';
       });
       And('admittance {int} person', (ctx, count: number) => {
-        context.draftCategory.admittance = count;
+        context.draftTicket.admittance = count;
       });
 
       Then('ticket category to exhibition {string} added successfully', async (ctx, categoryName: string) => {
-        const { currentExhibition, draftCategory } = context;
-        expect(currentExhibition).toBeTruthy();
-        expect(draftCategory).toBeTruthy();
+        const { exhibition, draftTicket } = context;
+        expect(exhibition).toBeTruthy();
+        expect(draftTicket).toBeTruthy();
 
         const { apiServer } = scenarioContext.fixtures.values;
         const category = await addTicketCategory(
           apiServer,
-          currentExhibition!.id,
-          draftCategory as Omit<TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>
+          exhibition!.id,
+          draftTicket
         );
 
         // 验证
@@ -191,62 +170,46 @@ describeFeature(feature, ({
 
   Scenario(
     'add another ticket category to exhibition',
-    ({ Given, When, Then, And, context }: StepTest<ExhibitionStepContext>) => {
-      Given('created exhibition', async () => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        const exhibition = await createExhibition(apiServer, {
-          name: 'test_exhibition_2',
-          description: 'Test exhibition for multiple categories',
-          start_date: '2026-01-01',
-          end_date: '2026-12-31',
-          opening_time: '10:00',
-          closing_time: '18:00',
-          last_entry_time: '17:00',
-          location: 'Test Location'
-        });
-        context.currentExhibition = exhibition;
-      });
+    (s: StepTest<{ exhibition: ExhibitionWithCategories; draftTicket: DraftTicket }>) => {
+      const { Given, When, Then, And, context } = s;
+      prepareExhibitionData(Given, scenarioContext, context);
 
-      When('add ticket category {string} to exhibition', (ctx, categoryName: string) => {
-        Object.assign(context, {
-          draftCategory: {
-            name: categoryName
-          }
-        });
+      When('add ticket category {string} to exhibition', (ctx, name: string) => {
+        Object.assign(context, { draftTicket: { name }});
       });
 
       And('price {int}', (ctx, price: number) => {
-        context.draftCategory.price = price;
+        context.draftTicket.price = price;
       });
       And('valid duration {int} day', (ctx, days: number) => {
-        context.draftCategory.valid_duration_days = days;
+        context.draftTicket.valid_duration_days = days;
       });
       And('refund policy refundable until 48 hours before the event', () => {
-        context.draftCategory.refund_policy = 'REFUNDABLE_48H_BEFORE';
+        context.draftTicket.refund_policy = 'REFUNDABLE_48H_BEFORE';
       });
       And('admittance {int} person', (ctx, count: number) => {
-        context.draftCategory.admittance = count;
+        context.draftTicket.admittance = count;
       });
 
       Then('ticket category to exhibition {string} added successfully', async (ctx, categoryName: string) => {
-        const { currentExhibition, draftCategory } = context;
-        expect(currentExhibition).toBeTruthy();
-        expect(draftCategory).toBeTruthy();
+        const { exhibition, draftTicket } = context;
+        expect(exhibition).toBeTruthy();
+        expect(draftTicket).toBeTruthy();
 
         const { apiServer } = scenarioContext.fixtures.values;
-        const category = await addTicketCategory(
+        const ticket = await addTicketCategory(
           apiServer,
-          currentExhibition!.id,
-          draftCategory as Omit<TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>
+          exhibition!.id,
+          draftTicket as Omit<TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>
         );
 
         // 验证
-        assertTicketCategory(category);
-        expect(category.name).toBe(categoryName);
-        expect(category.price).toBe(150);
-        expect(category.valid_duration_days).toBe(10);
-        expect(category.refund_policy).toBe('REFUNDABLE_48H_BEFORE');
-        expect(category.admittance).toBe(2);
+        assertTicketCategory(ticket);
+        expect(ticket.name).toBe(categoryName);
+        expect(ticket.price).toBe(150);
+        expect(ticket.valid_duration_days).toBe(10);
+        expect(ticket.refund_policy).toBe('REFUNDABLE_48H_BEFORE');
+        expect(ticket.admittance).toBe(2);
       });
     }
   );
