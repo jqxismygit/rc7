@@ -1,2 +1,2 @@
-export * as User from './user';
-export * as Exhibition from './exhibition';
+export * as User from './user.js';
+export * as Exhibition from './exhibition.js';

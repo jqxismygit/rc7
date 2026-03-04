@@ -96,6 +96,14 @@ const routes = [
         'GET /profile': 'user.profile'
       }
     }
+  ),
+  routeConfig(
+    '/exhibition',
+    ['rc7.exhibition.*'],
+    {
+      authorization: false,
+      autoAliases: true,
+    }
   )
 ]
 

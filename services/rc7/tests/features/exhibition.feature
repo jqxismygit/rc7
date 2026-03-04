@@ -7,7 +7,7 @@ Feature: setup exhibition and tickets
     Given exhibition name cr7_life_museum
     And description "welcome to cr7 life museum"
     And start date "2026-01-01"
-    And end date "2026-02-31"
+    And end date "2026-02-28"
     And opening time "10:00"
     And closing time "18:00"
     And last entry time "15:30"
@@ -20,7 +20,7 @@ Feature: setup exhibition and tickets
     When add ticket category "early_bird" to exhibition
     And price 100
     And valid duration 1 day
-    And refound policy non refundable
+    And refund policy non refundable
     And admittance 1 person
     Then ticket category to exhibition "early_bird" added successfully
 
@@ -29,6 +29,6 @@ Feature: setup exhibition and tickets
     When add ticket category "regular" to exhibition
     And price 150
     And valid duration 10 day
-    And refound policy refundable until 48 hours before the event
+    And refund policy refundable until 48 hours before the event
     And admittance 2 person
     Then ticket category to exhibition "regular" added successfully

@@ -24,7 +24,7 @@ CREATE TABLE exhibit_ticket_categories (
 	name                  VARCHAR(64) NOT NULL,
 	price                 INTEGER NOT NULL,
 	valid_duration_days   INTEGER NOT NULL,
-	refound_policy        VARCHAR(32) NOT NULL,
+	refund_policy        VARCHAR(32) NOT NULL,
 	admittance            INTEGER NOT NULL DEFAULT 1,
 
 	created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),

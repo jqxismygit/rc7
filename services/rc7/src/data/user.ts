@@ -1,4 +1,4 @@
-import { Client } from "pg";
+import { Pool } from "pg";
 
 export type USER_DATA_ERROR_CODES =
 | 'USER_NOT_FOUND';
@@ -14,7 +14,7 @@ export class UserDataError extends Error {
 }
 
 export async function createOrUpdateUser(
-  client: Client, schema: string,
+  client: Pool, schema: string,
   appid: string,
   openid: string, session_key: string
 ) {
@@ -44,7 +44,7 @@ export async function createOrUpdateUser(
 }
 
 export async function getUserProfile(
-  client: Client, schema: string, uid: string
+  client: Pool, schema: string, uid: string
 ) {
   const { rows } = await client.query(
     `SELECT u.id, u.name, uw.openid, u.created_at, uw.updated_at
