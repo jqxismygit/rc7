@@ -12,6 +12,7 @@ import { services_fixtures } from './fixtures/services.js';
 import {
   createExhibition,
   addTicketCategory,
+  getExhibition,
   assertExhibitionWithCategories,
   assertTicketCategory,
   prepareExhibitionData
@@ -123,12 +124,16 @@ describeFeature(feature, ({
   );
 
   Scenario(
-    'add new ticket category to exhibition',
-    (s: StepTest<{ exhibition: ExhibitionWithCategories, draftTicket: DraftTicket }>) => {
+    'add non-refundable ticket category to exhibition',
+    (s: StepTest<{
+      exhibition: ExhibitionWithCategories,
+      draftTicket: DraftTicket,
+      ticket: TicketCategory
+    }>) => {
       const { Given, When, Then, And, context } = s;
       prepareExhibitionData(Given, scenarioContext, context);
 
-      When('add ticket category {string} to exhibition', (ctx, categoryName: string) => {
+      Given('draft ticket category {string} to exhibition', (ctx, categoryName: string) => {
         Object.assign(context, { draftTicket: { name: categoryName } });
       });
 
@@ -145,7 +150,7 @@ describeFeature(feature, ({
         context.draftTicket.admittance = count;
       });
 
-      Then('ticket category to exhibition {string} added successfully', async (ctx, categoryName: string) => {
+      When('add ticket category to exhibition', async () => {
         const { exhibition, draftTicket } = context;
         expect(exhibition).toBeTruthy();
         expect(draftTicket).toBeTruthy();
@@ -157,25 +162,43 @@ describeFeature(feature, ({
           draftTicket
         );
 
-        // 验证
-        assertTicketCategory(category);
-        expect(category.name).toBe(categoryName);
-        expect(category.price).toBe(100);
-        expect(category.valid_duration_days).toBe(1);
-        expect(category.refund_policy).toBe('NON_REFUNDABLE');
-        expect(category.admittance).toBe(1);
+        Object.assign(context, { addedCategory: category });
+      });
+
+      Then('ticket {string} added successfully', (ctx, categoryName: string) => {
+        const { addedCategory } = context as typeof context & { addedCategory: TicketCategory };
+        assertTicketCategory(addedCategory);
+        expect(addedCategory.name).toBe(categoryName);
+        expect(addedCategory.price).toBe(100);
+        expect(addedCategory.valid_duration_days).toBe(1);
+        expect(addedCategory.refund_policy).toBe('NON_REFUNDABLE');
+        expect(addedCategory.admittance).toBe(1);
+        Object.assign(context, { ticket: addedCategory });
+      });
+
+      And('exhibition has {int} ticket category {string}', async (ctx, count: number, categoryName: string) => {
+        const { exhibition, ticket } = context;
+        const { apiServer } = scenarioContext.fixtures.values;
+        const updatedExhibition = await getExhibition(apiServer, exhibition!.id);
+        expect(updatedExhibition.ticket_categories).toHaveLength(count);
+        expect(updatedExhibition.ticket_categories.some(t => t.name === categoryName)).toBe(true);
+        expect(updatedExhibition.ticket_categories[0]).toMatchObject(ticket);
       });
     }
   );
 
   Scenario(
-    'add another ticket category to exhibition',
-    (s: StepTest<{ exhibition: ExhibitionWithCategories; draftTicket: DraftTicket }>) => {
+    'add a refundable ticket category',
+    (s: StepTest<{
+      exhibition: ExhibitionWithCategories;
+      draftTicket: DraftTicket,
+      ticket: TicketCategory
+    }>) => {
       const { Given, When, Then, And, context } = s;
       prepareExhibitionData(Given, scenarioContext, context);
 
-      When('add ticket category {string} to exhibition', (ctx, name: string) => {
-        Object.assign(context, { draftTicket: { name }});
+      Given('draft ticket category {string} to exhibition', (ctx, categoryName: string) => {
+        Object.assign(context, { draftTicket: { name: categoryName } });
       });
 
       And('price {int}', (ctx, price: number) => {
@@ -191,7 +214,7 @@ describeFeature(feature, ({
         context.draftTicket.admittance = count;
       });
 
-      Then('ticket category to exhibition {string} added successfully', async (ctx, categoryName: string) => {
+      When('add ticket category to exhibition', async () => {
         const { exhibition, draftTicket } = context;
         expect(exhibition).toBeTruthy();
         expect(draftTicket).toBeTruthy();
@@ -203,13 +226,29 @@ describeFeature(feature, ({
           draftTicket as Omit<TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>
         );
 
-        // 验证
-        assertTicketCategory(ticket);
-        expect(ticket.name).toBe(categoryName);
-        expect(ticket.price).toBe(150);
-        expect(ticket.valid_duration_days).toBe(10);
-        expect(ticket.refund_policy).toBe('REFUNDABLE_48H_BEFORE');
-        expect(ticket.admittance).toBe(2);
+        Object.assign(context, { addedCategory: ticket });
+      });
+
+      Then('ticket {string} added successfully', (ctx, categoryName: string) => {
+        const { addedCategory } = context as typeof context & { addedCategory: TicketCategory };
+        assertTicketCategory(addedCategory);
+        expect(addedCategory.name).toBe(categoryName);
+        expect(addedCategory.price).toBe(150);
+        expect(addedCategory.valid_duration_days).toBe(10);
+        expect(addedCategory.refund_policy).toBe('REFUNDABLE_48H_BEFORE');
+        expect(addedCategory.admittance).toBe(2);
+        Object.assign(context, { ticket: addedCategory });
+      });
+
+      And(
+        'exhibition has {int} ticket categories {string}',
+        async (ctx, count: number, name: string) => {
+        const { exhibition, ticket } = context;
+        const { apiServer } = scenarioContext.fixtures.values;
+        const updatedExhibition = await getExhibition(apiServer, exhibition!.id);
+        expect(updatedExhibition.ticket_categories).toHaveLength(count);
+        expect(updatedExhibition.ticket_categories[0].name).toEqual(name);
+        expect(updatedExhibition.ticket_categories[0]).toMatchObject(ticket);
       });
     }
   );

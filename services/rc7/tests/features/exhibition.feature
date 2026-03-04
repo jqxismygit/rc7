@@ -15,20 +15,25 @@ Feature: setup exhibition and tickets
     When create exhibition
     Then exhibition created successfully with empty ticket categories
 
-  Scenario: add new ticket category to exhibition
+  Scenario: add non-refundable ticket category to exhibition
     Given created exhibition
-    When add ticket category "early_bird" to exhibition
+    Given draft ticket category "early_bird" to exhibition
     And price 100
     And valid duration 1 day
     And refund policy non refundable
     And admittance 1 person
-    Then ticket category to exhibition "early_bird" added successfully
+    When add ticket category to exhibition
+    Then ticket "early_bird" added successfully
+    And exhibition has 1 ticket category "early_bird"
 
-  Scenario: add another ticket category to exhibition
+  Scenario: add a refundable ticket category
     Given created exhibition
-    When add ticket category "regular" to exhibition
+    Given draft ticket category "regular" to exhibition
     And price 150
     And valid duration 10 day
     And refund policy refundable until 48 hours before the event
     And admittance 2 person
-    Then ticket category to exhibition "regular" added successfully
+    When add ticket category to exhibition
+    Then ticket "regular" added successfully
+    And exhibition has 1 ticket categories "regular"
+
