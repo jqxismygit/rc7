@@ -78,11 +78,14 @@
             </view>
             <text class="event-title">{{ item.title }}</text>
             <view class="event-meta">
-              <text class="meta-item">🕐 {{ item.time }}</text>
-              <text class="meta-item">📍 {{ item.location }}</text>
+              <text class="meta-item">{{ item.time }}</text>
+              <text class="meta-item">{{ item.location }}</text>
             </view>
             <view class="event-footer">
-              <text v-if="item.price" class="event-price">¥{{ item.price }} 起</text>
+              <view v-if="item.price" class="event-price">
+                <text class="event-price-number">¥{{ item.price }}</text>
+                <text class="event-price-unit">起</text>
+              </view>
               <view class="event-cta">
                 <text class="cta-text">{{ item.cta || '查看详情' }}</text>
               </view>
@@ -549,7 +552,7 @@ export default {
 
 .event-title {
   margin-top: 4rpx;
-  font-size: $font-md;
+  font-size: $font-lg;
   font-weight: 600;
 }
 
@@ -565,9 +568,20 @@ export default {
 }
 
 .event-price {
-  font-size: $font-lg;
+  display: flex;
+  align-items: baseline;
+  gap: 8rpx;
+}
+
+.event-price-number {
+  font-size: $font-xxl;
   color: $cr7-gold-light;
   font-weight: 700;
+}
+
+.event-price-unit {
+  font-size: $font-sm;
+  color: $text-light;
 }
 
 .event-cta {
