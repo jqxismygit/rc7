@@ -19,7 +19,8 @@ $text-muted: #888888;
 $text-disabled: #555555;
 
 /* ===== 渐变 ===== */
-$gradient-gold: linear-gradient(135deg, #D8FC0F 0%, #E5FE4D 50%, #A8C00C 100%);
+// $gradient-gold: linear-gradient(135deg, #D8FC0F 0%, #E5FE4D 50%, #A8C00C 100%);
+$gradient-gold: #D8FC0F;
 $gradient-dark: linear-gradient(180deg, #1A1A1A 0%, #0D0D0D 100%);
 $gradient-hero: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.85) 100%);
 
@@ -49,9 +50,9 @@ $font-xxl: 48rpx;
 $font-hero: 64rpx;
 
 /* ===== 阴影 ===== */
-$shadow-gold: 0 4rpx 20rpx rgba(216,252,15,0.3);
-$shadow-dark: 0 8rpx 32rpx rgba(0,0,0,0.6);
-$shadow-card: 0 4rpx 16rpx rgba(0,0,0,0.4);
+$shadow-gold: none;
+$shadow-dark: none;
+$shadow-card: none;
 
 /* ===== 通用类 ===== */
 .flex { display: flex; }
@@ -77,7 +78,7 @@ $shadow-card: 0 4rpx 16rpx rgba(0,0,0,0.4);
 
 /* 主色主按钮 */
 .btn-gold {
-  background: $gradient-gold;
+  background: $cr7-gold;
   color: $cr7-black;
   border-radius: 48rpx;
   border: none;
