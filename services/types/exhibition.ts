@@ -27,3 +27,12 @@ export interface TicketCategory {
 export interface ExhibitionWithCategories extends Exhibition {
   ticket_categories: TicketCategory[];
 }
+
+export interface Session {
+  id: string;
+  exhibit_id: string;
+  session_date: string;
+  created_at: string;
+  updated_at: string;
+}
+

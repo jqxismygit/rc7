@@ -11,7 +11,7 @@ export async function createExhibition(
   exhibition: Omit<Exhibition.Exhibition, 'id' | 'created_at' | 'updated_at'>,
   token?: string
 ) {
-  return postJSON<Exhibition.ExhibitionWithCategories>(
+  return postJSON<Exhibition.Exhibition>(
     server,
     '/exhibition',
     { body: exhibition, token }
@@ -23,9 +23,21 @@ export async function getExhibition(
   eid: string,
   token?: string
 ) {
-  return getJSON<Exhibition.ExhibitionWithCategories>(
+  return getJSON<Exhibition.Exhibition>(
     server,
     `/exhibition/${eid}`,
+    { token }
+  );
+}
+
+export async function getTicketCategories(
+  server: Server,
+  eid: string,
+  token?: string
+) {
+  return getJSON<Exhibition.TicketCategory[]>(
+    server,
+    `/exhibition/${eid}/tickets`,
     { token }
   );
 }
@@ -43,7 +55,7 @@ export async function addTicketCategory(
   );
 }
 
-export function assertExhibitionWithCategories(data: Exhibition.ExhibitionWithCategories) {
+export function assertExhibition(data: Exhibition.Exhibition) {
   expect(data).toBeTypeOf('object');
   expect(data).toHaveProperty('id', expect.any(String));
   expect(data).toHaveProperty('name', expect.any(String));
@@ -56,8 +68,6 @@ export function assertExhibitionWithCategories(data: Exhibition.ExhibitionWithCa
   expect(data).toHaveProperty('location', expect.any(String));
   expect(data).toHaveProperty('created_at', expect.any(String));
   expect(data).toHaveProperty('updated_at', expect.any(String));
-  expect(data).toHaveProperty('ticket_categories', expect.any(Array));
-  (data.ticket_categories).forEach(assertTicketCategory);
 }
 
 export function assertTicketCategory(data: Exhibition.TicketCategory) {
@@ -93,4 +103,14 @@ export function prepareExhibitionData(
     });
     Object.assign(context, { exhibition });
   });
+}
+
+// Session related functions
+export function assertSession(data: Exhibition.Session) {
+  expect(data).toBeTypeOf('object');
+  expect(data).toHaveProperty('id', expect.any(String));
+  expect(data).toHaveProperty('exhibit_id', expect.any(String));
+  expect(data).toHaveProperty('session_date', expect.any(String));
+  expect(data).toHaveProperty('created_at', expect.any(String));
+  expect(data).toHaveProperty('updated_at', expect.any(String));
 }

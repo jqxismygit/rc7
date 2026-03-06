@@ -19,7 +19,7 @@ export async function createExhibition(
   client: Pool,
   schema: string,
   exhibition: Omit<Exhibition.Exhibition, 'id' | 'created_at' | 'updated_at'>
-): Promise<Exhibition.ExhibitionWithCategories> {
+): Promise<Exhibition.Exhibition> {
   const { rows: [result] } = await client.query(
     `INSERT INTO ${schema}.exhibitions (
       name, description, start_date, end_date,
@@ -48,10 +48,7 @@ export async function createExhibition(
     ]
   );
 
-  return {
-    ...result,
-    ticket_categories: []
-  };
+  return result;
 }
 
 export async function getExhibitionById(

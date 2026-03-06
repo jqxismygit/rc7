@@ -45,6 +45,14 @@ export class ExhibitionService extends RC7BaseService {
       handler: this.getExhibition
     },
 
+    'exhibition.getTicketCategories': {
+      rest: 'GET /:eid/tickets',
+      params: {
+        eid: 'string'
+      },
+      handler: this.getTicketCategories
+    },
+
     'exhibition.addTicketCategory': {
       rest: 'POST /:eid/tickets',
       params: {
@@ -78,12 +86,20 @@ export class ExhibitionService extends RC7BaseService {
     const schema = await this.getSchema();
 
     const exhibition = await getExhibitionById(client, schema, eid);
+
+    return exhibition;
+  }
+
+  async getTicketCategories(
+    ctx: Context<{ eid: string }, { user: UserMeta }>
+  ) {
+    const { eid } = ctx.params;
+    const client = this.pool;
+    const schema = await this.getSchema();
+
     const ticket_categories = await getTicketCategoriesByExhibitionId(client, schema, eid);
 
-    return {
-      ...exhibition,
-      ticket_categories
-    };
+    return ticket_categories;
   }
 
   async addTicketCategory(
