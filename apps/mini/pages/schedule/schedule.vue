@@ -8,15 +8,21 @@
 
       <view class="timeline">
         <view
-          v-for="item in schedule"
+          v-for="(item, index) in schedule"
           :key="item.id"
-          class="timeline-item card-dark"
+          class="timeline-row"
         >
-          <view class="timeline-row">
-            <view class="timeline-date-badge">
-              <text class="timeline-date-text">{{ item.date }}</text>
-            </view>
-            <view class="timeline-main">
+          <view class="timeline-axis">
+            <view class="timeline-dot"></view>
+            <view
+              v-if="index !== schedule.length - 1"
+              class="timeline-connector"
+            ></view>
+          </view>
+
+          <view class="timeline-content">
+            <text class="timeline-date">{{ item.date }}</text>
+            <view class="timeline-card">
               <text class="timeline-event">{{ item.event }}</text>
               <text class="timeline-location">📍 {{ item.location }}</text>
             </view>
@@ -72,42 +78,54 @@ export default {
 }
 
 .timeline {
-  margin-top: 16rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-}
-
-.card-dark {
-  background: $cr7-card;
-  border-radius: $radius-lg;
-  border: 1rpx solid $cr7-border;
-  box-shadow: $shadow-card;
-}
-
-.timeline-item {
-  padding: 16rpx 20rpx;
+  margin-top: 24rpx;
 }
 
 .timeline-row {
   display: flex;
+  flex-direction: row;
+}
+
+.timeline-axis {
+  width: 40rpx;
+  display: flex;
+  flex-direction: column;
   align-items: center;
 }
 
-.timeline-date-badge {
-  padding: 8rpx 16rpx;
-  border-radius: 999rpx;
-  background: rgba(216, 252, 15, 0.18);
-  margin-right: 16rpx;
+.timeline-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background: $cr7-gold;
+  margin-top: 4rpx;
 }
 
-.timeline-date-text {
-  font-size: $font-xs;
-  color: $cr7-gold-light;
-}
-
-.timeline-main {
+.timeline-connector {
   flex: 1;
+  width: 2rpx;
+  background: rgba(255, 255, 255, 0.18);
+  margin-top: 4rpx;
+}
+
+.timeline-content {
+  flex: 1;
+  padding-bottom: 24rpx;
+  padding-left: 8rpx;
+}
+
+.timeline-date {
+  font-size: $font-xs;
+  color: $text-muted;
+  letter-spacing: 2rpx;
+}
+
+.timeline-card {
+  margin-top: 8rpx;
+  padding: 16rpx 20rpx;
+  border-radius: $radius-lg;
+  background: $cr7-card;
+  border: 1rpx solid $cr7-border;
 }
 
 .timeline-event {
