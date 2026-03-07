@@ -6,6 +6,7 @@ import {
   getTicketCategoriesByExhibitionId,
   getSessionsByExhibitionId,
   createTicketCategory,
+  getSessionTicketCategoriesBySessionId,
   getSessionInventoryBySessionId,
   updateTicketCategoryInventoryMax
 } from "../data/exhibition.js";
@@ -166,9 +167,18 @@ export class ExhibitionService extends RC7BaseService {
     const client = this.pool;
     const schema = await this.getSchema();
 
+    const tickets = await getSessionTicketCategoriesBySessionId(client, schema, eid, sid);
     const inventory = await getSessionInventoryBySessionId(client, schema, eid, sid);
 
-    return inventory;
+    const quantityByTicketCategoryId = new Map(
+      inventory.map(item => [item.ticket_category_id, item.quantity])
+    );
+
+    return tickets.map(ticket => ({
+      ...ticket,
+      session_id: sid,
+      quantity: quantityByTicketCategoryId.get(ticket.id) ?? 0
+    }));
   }
 
   async updateTicketCategoryInventoryMax(

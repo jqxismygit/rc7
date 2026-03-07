@@ -40,6 +40,10 @@ function getHeaders(
 }
 
 async function handlerBody<Result>(res: Response): Promise<Result | string> {
+  if (res.status === 204) {
+    return null;
+  }
+
   const contentType = res.headers.get('content-type') || '';
   if (contentType.includes('application/json') === false) {
     return res.text();

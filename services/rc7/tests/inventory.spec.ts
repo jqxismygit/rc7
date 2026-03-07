@@ -98,7 +98,6 @@ describeFeature(feature, ({
       exhibition: ExhibitionType;
       sessions: SessionType[];
       ticketCategories: TicketCategoryType[];
-      updateResult: { success: boolean };
     }>) => {
       const { Given, When, Then, And, context } = s;
       prepareInventoryExhibitionData(Given, scenarioContext, context);
@@ -125,23 +124,16 @@ describeFeature(feature, ({
           const { apiServer } = scenarioContext.fixtures.values;
           const category = context.ticketCategories.find(item => item.name === name);
           expect(category).toBeTruthy();
-          const updateResult = await updateTicketCategoryMaxInventory(
+          await expect(updateTicketCategoryMaxInventory(
             apiServer,
             context.exhibition.id,
             category!.id,
             50
-          )
-          .then(() => ({ success: true }), (error) => ({ success: false, error }));
-
-          Object.assign(context, { updateResult });
+          )).resolves.toBeNull();
         }
       );
 
-      Then('inventory updated successfully', () => {
-        expect(context.updateResult).toEqual({ success: true });
-      });
-
-      And(
+      Then(
         'the inventory of ticket category {string} in all sessions of the exhibition is {int}',
         async (_ctx, categoryName: string, expectedQuantity: number) => {
           const { apiServer } = scenarioContext.fixtures.values;

@@ -15,8 +15,7 @@ Feature: manage inventory
       And created 2 ticket categories for the exhibition
     Given inventory quantity 50 for ticket category "early_bird" in all sessions of the exhibition
      When update inventory of ticket category "early_bird" in all sessions of the exhibition
-     Then inventory updated successfully
-      And the inventory of ticket category "early_bird" in all sessions of the exhibition is 50
+     Then the inventory of ticket category "early_bird" in all sessions of the exhibition is 50
       And the inventory of another ticket category "regular" in all sessions of the exhibition is still 0
 
   Scenario: 可以查看 一个 session 下所有 ticket category 的 inventory

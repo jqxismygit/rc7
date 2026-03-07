@@ -171,12 +171,12 @@ export async function createTicketCategory(
   return result;
 }
 
-export async function getSessionInventoryBySessionId(
+export async function getSessionTicketCategoriesBySessionId(
   client: Pool,
   schema: string,
   eid: string,
   sid: string
-): Promise<Inventory.SessionTicketsInventory[]> {
+): Promise<Exhibition.TicketCategory[]> {
   const { rows } = await client.query(
     `SELECT
       c.id,
@@ -187,18 +187,38 @@ export async function getSessionInventoryBySessionId(
       c.refund_policy,
       c.admittance,
       c.created_at,
-      c.updated_at,
-      s.id as session_id,
-      COALESCE(i.quantity, 0) as quantity
+      c.updated_at
     FROM ${schema}.exhibit_sessions s
     JOIN ${schema}.exhibit_ticket_categories c
       ON c.eid = s.session_id
-    LEFT JOIN ${schema}.exhibit_session_inventories i
-      ON i.session_id = s.id
-      AND i.ticket_category_id = c.id
     WHERE s.session_id = $1
       AND s.id = $2
     ORDER BY c.created_at`,
+    [eid, sid]
+  );
+
+  return rows;
+}
+
+export async function getSessionInventoryBySessionId(
+  client: Pool,
+  schema: string,
+  eid: string,
+  sid: string
+): Promise<Inventory.SessionInventory[]> {
+  const { rows } = await client.query(
+    `SELECT
+      i.id,
+      i.session_id,
+      i.ticket_category_id,
+      i.quantity,
+      i.created_at,
+      i.updated_at
+    FROM ${schema}.exhibit_session_inventories i
+    JOIN ${schema}.exhibit_sessions s
+      ON s.id = i.session_id
+    WHERE s.session_id = $1
+      AND s.id = $2`,
     [eid, sid]
   );
 
