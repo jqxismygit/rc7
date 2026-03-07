@@ -6,9 +6,9 @@
 
 - Session Inventory（场次库存）：某个场次下某个票种的库存数量。
 
-## 获取单个场次的库存
+## 获取单个场次的所有票种和库存
 
-- URL: `/exhibition/:eid/sessions/:sid/inventory`
+- URL: `/exhibition/:eid/sessions/:sid/tickets`
 - Method: `GET`
 - Request Header:
   ```ts
@@ -20,13 +20,13 @@
   ```
 - Response Body:
   ```ts
-  Inventory.SessionInventory[]
+  Inventory.SessionTicketsInventory[]
   ```
 
 ## 批量更新某票种在所有场次的库存上限
 
-- URL: `/exhibition/:eid/inventory/max/ticket/:tid`
-- Method: `POST`
+- URL: `/exhibition/:eid/sessions/tickets/:tid/inventory/max`
+- Method: `PUT`
 - Request Header:
   ```ts
   { Authorization: `Bearer ${token}` }
@@ -39,7 +39,4 @@
   ```ts
   { quantity: number }
   ```
-- Response Body:
-  ```ts
-  { success: boolean }
-  ```
+- Response status: `204 No Content`

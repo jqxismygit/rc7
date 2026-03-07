@@ -36,6 +36,26 @@ export default [
     },
   },
   {
+    files: ['tests/**/*.ts'],
+    languageOptions: {
+      parser: tsEslint.parser,
+      parserOptions: {
+        ecmaVersion: 2023,
+        sourceType: 'module',
+        project: './tests/tsconfig.json',
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
+    }
+  },
+  {
     files: ['src/scripts/**/*.ts'],
     rules: {
       'no-console': 'off',

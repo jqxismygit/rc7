@@ -1,17 +1,19 @@
 import { Server } from "http";
-import { getJSON, postJSON } from "../lib/api.js";
+import { getJSON, putJSON } from "../lib/api.js";
 import { Inventory } from "@rc7/types";
 import { expect } from "vitest";
+import { assertTicketCategory } from "./exhibition.js";
+import { TicketCategory } from "@rc7/types/exhibition.js";
 
-export async function getSessionInventory(
+export async function getSessionTickets(
   server: Server,
   eid: string,
   sid: string,
   token?: string
 ) {
-  return getJSON<Inventory.SessionInventory[]>(
+  return getJSON<Inventory.SessionTicketsInventory[]>(
     server,
-    `/exhibition/${eid}/sessions/${sid}/inventory`,
+    `/exhibition/${eid}/sessions/${sid}/tickets`,
     { token }
   );
 }
@@ -23,19 +25,17 @@ export async function updateTicketCategoryMaxInventory(
   quantity: number,
   token?: string
 ) {
-  return postJSON<{ success: boolean }>(
+  return putJSON(
     server,
-    `/exhibition/${eid}/inventory/max/ticket/${tid}`,
+    `/exhibition/${eid}/sessions/tickets/${tid}/inventory/max`,
     { body: { quantity }, token }
   );
 }
 
-export function assertSessionInventory(data: Inventory.SessionInventory) {
+export function assertSessionTickets(data: Inventory.SessionTicketsInventory) {
   expect(data).toBeTypeOf('object');
-  expect(data).toHaveProperty('id', expect.any(String));
   expect(data).toHaveProperty('session_id', expect.any(String));
-  expect(data).toHaveProperty('ticket_category_id', expect.any(String));
   expect(data).toHaveProperty('quantity', expect.any(Number));
-  expect(data).toHaveProperty('created_at', expect.any(String));
-  expect(data).toHaveProperty('updated_at', expect.any(String));
+  const { session_id: _s, quantity: _q, ...ticketCategoryData } = data;
+  assertTicketCategory(ticketCategoryData as TicketCategory);
 }

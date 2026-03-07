@@ -13,7 +13,9 @@ import {
   createExhibition,
   addTicketCategory,
   getTicketCategories,
+  getSessions,
   assertExhibition,
+  assertSession,
   assertTicketCategory,
   prepareExhibitionData
 } from './fixtures/exhibition.js';
@@ -266,25 +268,32 @@ describeFeature(feature, ({
       const { Given, Then, And, context } = s;
       prepareExhibitionData(Given, scenarioContext, context);
 
-      // TODO: Implement session-related steps when session creation is implemented
-      Then('exhibition has daily sessions by default', () => {
-        // Placeholder: Will be implemented when session creation is added
-        expect(true).toBe(true);
+      Then('exhibition has daily sessions by default', async () => {
+        const { exhibition } = context;
+        const { apiServer } = scenarioContext.fixtures.values;
+        const sessions = await getSessions(apiServer, exhibition.id);
+
+        expect(sessions.length).toBeGreaterThan(0);
+        sessions.forEach(assertSession);
+        Object.assign(context, { sessions });
       });
 
       And('the session date of the first session is the same as the start date of the exhibition', () => {
-        // Placeholder: Will be implemented when session creation is added
-        expect(true).toBe(true);
+        const { exhibition, sessions } = context;
+        expect(sessions[0].session_date).toBe(exhibition.start_date);
       });
 
       And('the session date of the last session is the same as the end date of the exhibition', () => {
-        // Placeholder: Will be implemented when session creation is added
-        expect(true).toBe(true);
+        const { exhibition, sessions } = context;
+        expect(sessions[sessions.length - 1].session_date).toBe(exhibition.end_date);
       });
 
       And('the total number of sessions is exhibition duration in days', () => {
-        // Placeholder: Will be implemented when session creation is added
-        expect(true).toBe(true);
+        const { exhibition, sessions } = context;
+        const start = new Date(exhibition.start_date);
+        const end = new Date(exhibition.end_date);
+        const days = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        expect(sessions).toHaveLength(days);
       });
     }
   );

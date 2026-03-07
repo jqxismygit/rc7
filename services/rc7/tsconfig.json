@@ -1,10 +1,17 @@
 {
   "compilerOptions": {
+    "declaration": true,
+    "declarationMap": true,
     "esModuleInterop": true,
+    "isolatedModules": true,
+    "incremental": false,
+    "module": "NodeNext",
+    "moduleDetection": "force",
+    "moduleResolution": "NodeNext",
+    "skipLibCheck": true,
     "outDir": "dist",
     "lib": ["ES2023"],
-    "target": "es2023",
-    "module": "nodenext"
+    "target": "es2023"
   },
   "include": [
     "config/*.ts",

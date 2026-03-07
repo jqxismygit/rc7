@@ -101,7 +101,7 @@ export async function postJSON<Result>(
 
 export async function putJSON<Result>(
   server: Server, path: string,
-  options: Omit<RequestInit, 'method'> & { token?: string; } = {}
+  options: Omit<RequestInit, 'method' | 'body'> & { token?: string; body?: unknown } = {}
 ): Promise<Result> {
   const url = resolveUrl(server, path);
   const { token, body: _body, ...rest } = options;

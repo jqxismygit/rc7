@@ -4,7 +4,10 @@ import {
   createExhibition,
   getExhibitionById,
   getTicketCategoriesByExhibitionId,
-  createTicketCategory
+  getSessionsByExhibitionId,
+  createTicketCategory,
+  getSessionInventoryBySessionId,
+  updateTicketCategoryInventoryMax
 } from "../data/exhibition.js";
 import { RC7BaseService } from "./rc7.base.js";
 
@@ -53,6 +56,14 @@ export class ExhibitionService extends RC7BaseService {
       handler: this.getTicketCategories
     },
 
+    'exhibition.getSessions': {
+      rest: 'GET /:eid/sessions',
+      params: {
+        eid: 'string'
+      },
+      handler: this.getSessions
+    },
+
     'exhibition.addTicketCategory': {
       rest: 'POST /:eid/tickets',
       params: {
@@ -64,6 +75,25 @@ export class ExhibitionService extends RC7BaseService {
         admittance: 'number'
       },
       handler: this.addTicketCategory
+    },
+
+    'exhibition.getSessionTickets': {
+      rest: 'GET /:eid/sessions/:sid/tickets',
+      params: {
+        eid: 'string',
+        sid: 'string'
+      },
+      handler: this.getSessionTickets
+    },
+
+    'exhibition.updateTicketCategoryInventoryMax': {
+      rest: 'PUT /:eid/sessions/tickets/:tid/inventory/max',
+      params: {
+        eid: 'string',
+        tid: 'string',
+        quantity: 'number|min:0'
+      },
+      handler: this.updateTicketCategoryInventoryMax
     }
   }
 
@@ -102,6 +132,18 @@ export class ExhibitionService extends RC7BaseService {
     return ticket_categories;
   }
 
+  async getSessions(
+    ctx: Context<{ eid: string }, { user: UserMeta }>
+  ) {
+    const { eid } = ctx.params;
+    const client = this.pool;
+    const schema = await this.getSchema();
+
+    const sessions = await getSessionsByExhibitionId(client, schema, eid);
+
+    return sessions;
+  }
+
   async addTicketCategory(
     ctx: Context<
       { eid: string } & Omit<Exhibition.TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>,
@@ -116,4 +158,32 @@ export class ExhibitionService extends RC7BaseService {
 
     return ticketCategory;
   }
+
+  async getSessionTickets(
+    ctx: Context<{ eid: string; sid: string }, { user: UserMeta }>
+  ) {
+    const { eid, sid } = ctx.params;
+    const client = this.pool;
+    const schema = await this.getSchema();
+
+    const inventory = await getSessionInventoryBySessionId(client, schema, eid, sid);
+
+    return inventory;
+  }
+
+  async updateTicketCategoryInventoryMax(
+    ctx: Context<
+      { eid: string; tid: string; quantity: number },
+      { user: UserMeta, $statusCode?: number }
+    >
+  ) {
+    const { eid, tid, quantity } = ctx.params;
+    const client = this.pool;
+    const schema = await this.getSchema();
+
+    await updateTicketCategoryInventoryMax(client, schema, eid, tid, quantity);
+
+    ctx.meta.$statusCode = 204;
+  }
 }
+

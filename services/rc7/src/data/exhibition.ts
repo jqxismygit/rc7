@@ -1,5 +1,5 @@
 import { Pool } from "pg";
-import type { Exhibition } from "@rc7/types";
+import type { Exhibition, Inventory } from "@rc7/types";
 
 export type EXHIBITION_DATA_ERROR_CODES =
   | 'EXHIBITION_NOT_FOUND'
@@ -46,6 +46,18 @@ export async function createExhibition(
       exhibition.last_entry_time,
       exhibition.location
     ]
+  );
+
+  await client.query(
+    `INSERT INTO ${schema}.exhibit_sessions (
+      session_id,
+      session_date
+    )
+    SELECT
+      $1,
+      gs::date
+    FROM GENERATE_SERIES($2::date, $3::date, INTERVAL '1 day') gs`,
+    [result.id, exhibition.start_date, exhibition.end_date]
   );
 
   return result;
@@ -104,6 +116,27 @@ export async function getTicketCategoriesByExhibitionId(
   return rows;
 }
 
+export async function getSessionsByExhibitionId(
+  client: Pool,
+  schema: string,
+  eid: string
+): Promise<Exhibition.Session[]> {
+  const { rows } = await client.query(
+    `SELECT
+      id,
+      session_id as exhibit_id,
+      session_date,
+      created_at,
+      updated_at
+    FROM ${schema}.exhibit_sessions
+    WHERE session_id = $1
+    ORDER BY session_date`,
+    [eid]
+  );
+
+  return rows;
+}
+
 export async function createTicketCategory(
   client: Pool,
   schema: string,
@@ -136,4 +169,77 @@ export async function createTicketCategory(
   );
 
   return result;
+}
+
+export async function getSessionInventoryBySessionId(
+  client: Pool,
+  schema: string,
+  eid: string,
+  sid: string
+): Promise<Inventory.SessionTicketsInventory[]> {
+  const { rows } = await client.query(
+    `SELECT
+      c.id,
+      c.eid as exhibit_id,
+      c.name,
+      c.price,
+      c.valid_duration_days,
+      c.refund_policy,
+      c.admittance,
+      c.created_at,
+      c.updated_at,
+      s.id as session_id,
+      COALESCE(i.quantity, 0) as quantity
+    FROM ${schema}.exhibit_sessions s
+    JOIN ${schema}.exhibit_ticket_categories c
+      ON c.eid = s.session_id
+    LEFT JOIN ${schema}.exhibit_session_inventories i
+      ON i.session_id = s.id
+      AND i.ticket_category_id = c.id
+    WHERE s.session_id = $1
+      AND s.id = $2
+    ORDER BY c.created_at`,
+    [eid, sid]
+  );
+
+  return rows;
+}
+
+export async function updateTicketCategoryInventoryMax(
+  client: Pool,
+  schema: string,
+  eid: string,
+  tid: string,
+  quantity: number
+) {
+  const { rows: ticketCategoryRows } = await client.query(
+    `SELECT id
+    FROM ${schema}.exhibit_ticket_categories
+    WHERE id = $1
+      AND eid = $2`,
+    [tid, eid]
+  );
+
+  if (ticketCategoryRows.length === 0) {
+    throw new ExhibitionDataError('Ticket category not found', 'TICKET_CATEGORY_NOT_FOUND');
+  }
+
+  await client.query(
+    `INSERT INTO ${schema}.exhibit_session_inventories (
+      session_id,
+      ticket_category_id,
+      quantity
+    )
+    SELECT
+      s.id,
+      $2,
+      $3
+    FROM ${schema}.exhibit_sessions s
+    WHERE s.session_id = $1
+    ON CONFLICT (session_id, ticket_category_id)
+    DO UPDATE SET
+      quantity = EXCLUDED.quantity,
+      updated_at = NOW()`,
+    [eid, tid, quantity]
+  );
 }

@@ -28,7 +28,7 @@ export function signToken(
 const onAfterCall: ApiRouteSchema['onAfterCall'] = async function onAfterCall(
   ctx, route, req, res, data
 ) {
-  if (Object.hasOwnProperty.call(data, 'token')) {
+  if (Object.hasOwnProperty.call(data ?? {}, 'token')) {
     const { token: payload, ...rest } = data;
     const { token } = signToken(payload);
     return Object.assign(rest, { token });

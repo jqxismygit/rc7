@@ -42,6 +42,18 @@ export async function getTicketCategories(
   );
 }
 
+export async function getSessions(
+  server: Server,
+  eid: string,
+  token?: string
+) {
+  return getJSON<Exhibition.Session[]>(
+    server,
+    `/exhibition/${eid}/sessions`,
+    { token }
+  );
+}
+
 export async function addTicketCategory(
   server: Server,
   eid: string,
@@ -102,6 +114,70 @@ export function prepareExhibitionData(
       location: 'Test Location'
     });
     Object.assign(context, { exhibition });
+  });
+}
+
+export interface ExhibitionContext {
+  exhibition: Exhibition.Exhibition;
+  sessions: Exhibition.Session[];
+}
+
+export function prepareInventoryExhibitionData(
+  Step: StepTest['Given'] | StepTest['And'],
+  scenarioContext: { fixtures: APIServerFixture },
+  context: ExhibitionContext,
+) {
+  Step('created exhibition with 2 sessions', async () => {
+    const { apiServer } = scenarioContext.fixtures.values;
+
+    const exhibition = await createExhibition(apiServer, {
+      name: `inventory_test_${random_text(5)}`,
+      description: 'Inventory test exhibition',
+      start_date: '2026-01-01',
+      end_date: '2026-01-02',
+      opening_time: '10:00',
+      closing_time: '18:00',
+      last_entry_time: '17:00',
+      location: 'Shanghai'
+    });
+
+    const sessions = await getSessions(apiServer, exhibition.id);
+
+    Object.assign(context, {
+      exhibition,
+      sessions,
+    });
+  });
+}
+
+export function prepareInventoryTicketData(
+  Step: StepTest['Given'] | StepTest['And'],
+  scenarioContext: { fixtures: APIServerFixture },
+  context: ExhibitionContext & { ticketCategories: Exhibition.TicketCategory[]; },
+) {
+  Step('created 2 ticket categories for the exhibition', async () => {
+    const { apiServer } = scenarioContext.fixtures.values;
+    expect(context.exhibition).toBeTruthy();
+
+    const earlyBird = await addTicketCategory(apiServer, context.exhibition!.id, {
+      name: 'early_bird',
+      price: 100,
+      valid_duration_days: 1,
+      refund_policy: 'NON_REFUNDABLE',
+      admittance: 1,
+    });
+
+    const regular = await addTicketCategory(apiServer, context.exhibition!.id, {
+      name: 'regular',
+      price: 150,
+      valid_duration_days: 1,
+      refund_policy: 'REFUNDABLE_48H_BEFORE',
+      admittance: 1,
+    });
+
+    Object.assign(context, {
+      ticketCategories: [earlyBird, regular],
+    });
   });
 }
 
