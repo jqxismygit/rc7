@@ -179,7 +179,7 @@ export const mockHeroBanners = [
     subtitle: '亚洲首个 CR7® LIFE 沉浸式博物馆',
     location: '北京市 · 国贸商圈',
     date: '2026.03.16 - 06.01',
-    cover: '/static/images/hero-banner.png'
+    cover: '/static/images/event-card.jpg'
   },
   {
     tag: '全球巡展',
@@ -187,7 +187,7 @@ export const mockHeroBanners = [
     subtitle: '重温世界杯高光瞬间',
     location: '中国上海 · 外滩',
     date: '2026.07 起',
-    cover: '/static/images/hero-banner-2.png'
+    cover: '/static/images/event-card.jpg'
   }
 ]
 
@@ -199,7 +199,7 @@ export const mockHotTickets = [
     title: 'C罗博物馆 · 中国上海馆',
     time: '03/16·10:00-22:00·上海黄浦区外滩1号',
     location: '上海黄浦区外滩1号',
-    cover: '/static/images/event-card.png',
+    cover: '/static/images/event-card.jpg',
     price: 99,
     status: 'active',
     statusText: '售票中',
@@ -211,7 +211,7 @@ export const mockHotTickets = [
     title: '家庭套票 · 4 人同游',
     time: '2026-04-01 起 · 10:00-22:00',
     location: '北京市朝阳区 国贸商圈',
-    cover: '/static/images/event-card.png',
+    cover: '/static/images/event-card.jpg',
     price: 366,
     status: 'countdown',
     statusText: '倒计时 10 天',
