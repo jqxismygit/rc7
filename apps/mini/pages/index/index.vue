@@ -63,14 +63,15 @@
           <view class="event-image-wrap">
             <image :src="item.cover || '/static/images/event-card.png'" class="event-image" mode="aspectFill" />
           </view>
-          <view class="event-info">
-            <text class="event-title">{{ item.title || item.museum }}</text>
-            <text class="event-meta">{{ item.time }}</text>
-            <text class="event-location">{{ item.location }}</text>
-          </view>
-          <view class="event-price-area" v-if="item.price">
-            <text class="event-price-num">¥{{ item.price }}</text>
-            <text class="event-price-unit">起</text>
+          <view class="event-info-overlay">
+            <view class="event-info-left">
+              <text class="event-title">{{ item.title || item.museum }}</text>
+              <text class="event-meta">{{ item.time }}·{{ item.location }}</text>
+            </view>
+            <view class="event-price-area" v-if="item.price">
+              <text class="event-price-num">¥{{ item.price }}</text>
+              <text class="event-price-unit">起</text>
+            </view>
           </view>
         </view>
       </view>
@@ -300,27 +301,36 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+/* 设计稿 750px 画布，1px = 1rpx 严格对应 */
+$design-bg: #090A07;
+$design-card: #161714;
+$design-card2: #2A2A2A;
+$design-gold: #D8FC0F;
+$design-text: #FFFFFF;
+$design-text2: #ADADAD;
+
 .home-page {
   width: 100%;
   min-height: 100vh;
-  background: $cr7-black;
+  background: $design-bg;
 }
 
 .home-scroll {
   height: 100vh;
+  box-sizing: border-box;
 }
 
-/* 导航栏 */
+/* 导航栏 - 设计稿 Title With Status bar 下沿到内容区 35px 间距 */
 .home-navbar {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: $cr7-black;
+  background: $design-bg;
 }
 
 .navbar-row {
-  height: 96rpx;
-  padding: 0 48rpx;
+  height: 114rpx; /* 设计稿 117.16 到顶约 35+ 区域，取 114 与状态栏协调 */
+  padding: 0 35rpx;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -330,23 +340,24 @@ export default {
 .navbar-left {
   display: flex;
   align-items: center;
-  gap: 20rpx;
+  gap: 16rpx;
 }
 
 .city-switch {
   display: flex;
   align-items: center;
-  gap: 4rpx;
+  gap: 2rpx;
 }
 
 .city-name {
-  font-size: $font-xs;
-  color: $text-white;
+  font-size: 24rpx;
+  color: $design-text;
+  line-height: 38rpx;
 }
 
 .city-arrow-icon {
-  width: 36rpx;
-  height: 36rpx;
+  width: 42rpx;
+  height: 42rpx;
 }
 
 .navbar-notification {
@@ -360,11 +371,11 @@ export default {
 
 .notification-dot {
   position: absolute;
-  top: 2rpx;
-  right: 2rpx;
+  top: 0;
+  right: 0;
   width: 14rpx;
   height: 14rpx;
-  background: $cr7-red;
+  background: #C93838;
   border-radius: 50%;
 }
 
@@ -378,50 +389,52 @@ export default {
 }
 
 .logo-cr7 {
-  font-size: 38rpx;
-  font-weight: 900;
-  color: $text-white;
+  font-size: 36rpx;
+  font-weight: 700;
+  color: $design-text;
   letter-spacing: 2rpx;
 }
 
 .logo-life {
-  font-size: 28rpx;
+  font-size: 24rpx;
   font-weight: 400;
-  color: $text-white;
+  color: $design-gold;
   letter-spacing: 4rpx;
 }
 
-/* Hero 轮播 */
+/* Hero - 设计稿 Frame 1000003725: 679.9×350.47，左右留白 35 */
 .hero-section {
-  padding: 16rpx 48rpx 0;
+  padding: 0 35rpx;
+  margin-top: 18rpx;
   position: relative;
 }
 
 .hero-swiper {
-  height: 460rpx;
-  border-radius: $radius-lg;
+  width: 100%;
+  height: 350rpx;
+  border-radius: 0;
   overflow: hidden;
 }
 
 .hero-slide {
   width: 100%;
   height: 100%;
-  border-radius: $radius-lg;
   overflow: hidden;
 }
 
 .hero-image {
   width: 100%;
   height: 100%;
-  border-radius: $radius-lg;
 }
 
+/* 指示点 - 设计稿 40×12 长条 + 12 圆点 */
 .hero-dots {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12rpx;
-  margin-top: 16rpx;
+  margin-top: 24rpx;
+  height: 12rpx;
 }
 
 .hero-dot {
@@ -429,74 +442,91 @@ export default {
   height: 12rpx;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.3);
-  transition: all 0.3s;
+  transition: all 0.2s;
 
   &.active {
     width: 40rpx;
     border-radius: 12rpx;
-    background: $cr7-gold;
+    background: $design-gold;
   }
 }
 
-/* 区块通用 */
+/* 主内容区 - 设计稿 left 35px, width 679.9px，区块间距 54px，1px=1rpx */
 .section {
-  padding: 40rpx 48rpx 0;
+  padding: 0 35rpx;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 54rpx;
 }
 
 .section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24rpx;
+  margin-bottom: 35rpx;
 }
 
 .section-title {
-  font-size: 46rpx;
-  color: $text-white;
-  font-weight: 700;
+  font-size: 35rpx;
+  font-weight: 600;
+  color: $design-text;
+  line-height: 52rpx;
 }
 
 .section-link {
-  font-size: $font-base;
-  color: $cr7-gold;
+  font-size: 29rpx;
+  color: $design-gold;
+  line-height: 42rpx;
 }
 
-/* 标签 */
+/* 标签 - 设计稿 Tag Small 高 60, 圆角 29, 内边距 49×10.5 */
 .tab-row {
   display: flex;
-  gap: 24rpx;
-  margin-bottom: 24rpx;
+  gap: 21rpx;
+  margin-bottom: 35rpx;
 }
 
 .tab-pill {
-  padding: 12rpx 48rpx;
-  border-radius: 58rpx;
-  background: $cr7-dark;
+  padding: 10rpx 49rpx;
+  height: 60rpx;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 29rpx;
+  background: $design-card;
 
   &.active {
-    background: $cr7-gold;
+    background: $design-gold;
     .tab-text {
-      color: $cr7-black;
+      color: $design-bg;
     }
   }
 }
 
 .tab-text {
-  font-size: $font-xs;
-  color: $text-white;
+  font-size: 24rpx;
+  color: $design-text;
+  line-height: 38rpx;
 }
 
-/* 活动卡片 */
+/* 活动卡片 - 设计稿 679.9×492.4，整卡固定尺寸，底部叠字 */
 .event-card {
-  background: $cr7-dark;
-  border-radius: 32rpx;
+  width: 100%;
+  height: 492rpx;
+  max-width: 680rpx;
+  position: relative;
+  border-radius: 16rpx;
   overflow: hidden;
   margin-bottom: 24rpx;
 }
 
 .event-image-wrap {
-  width: 100%;
-  height: 460rpx;
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
   overflow: hidden;
 }
 
@@ -505,51 +535,68 @@ export default {
   height: 100%;
 }
 
-.event-info {
-  padding: 24rpx 28rpx 0;
+/* 底部信息叠在图片上，设计稿 inset 75.44% 3.22% 4.27% 3.22% */
+.event-info-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 21rpx 22rpx 21rpx 22rpx;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.75) 100%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.event-info-left {
+  flex: 1;
+  min-width: 0;
 }
 
 .event-title {
   display: block;
-  font-size: 42rpx;
-  font-weight: 700;
-  color: $text-white;
-  margin-bottom: 8rpx;
+  font-size: 31rpx;
+  font-weight: 600;
+  color: $design-text;
+  line-height: 47rpx;
+  margin-bottom: 7rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .event-meta {
   display: block;
-  font-size: $font-xs;
-  color: $text-light;
-  margin-bottom: 4rpx;
-}
-
-.event-location {
-  display: block;
-  font-size: $font-xs;
-  color: $text-light;
+  font-size: 24rpx;
+  color: $design-text2;
+  line-height: 38rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .event-price-area {
   display: flex;
   align-items: baseline;
-  justify-content: flex-end;
-  padding: 16rpx 28rpx 28rpx;
+  flex-shrink: 0;
   gap: 4rpx;
 }
 
 .event-price-num {
-  font-size: 56rpx;
-  font-weight: 700;
-  color: $text-white;
+  font-size: 42rpx;
+  font-weight: 600;
+  color: $design-text;
+  line-height: 63rpx;
 }
 
 .event-price-unit {
-  font-size: $font-xs;
-  color: $text-light;
+  font-size: 24rpx;
+  color: $design-text2;
+  line-height: 42rpx;
 }
 
-/* C罗专区 */
+/* C罗专区 - 设计稿每行 133.18 高，圆角 16，内边距 14，图标框 105.14 圆角 10 */
 .zone-list {
   display: flex;
   flex-direction: column;
@@ -559,54 +606,58 @@ export default {
 .zone-card {
   display: flex;
   align-items: center;
-  background: $cr7-dark;
-  border-radius: 32rpx;
-  padding: 20rpx;
+  height: 133rpx;
+  background: $design-card;
+  border-radius: 16rpx;
+  padding: 0 14rpx;
+  box-sizing: border-box;
 }
 
 .zone-icon-wrap {
-  width: 140rpx;
-  height: 140rpx;
-  background: $cr7-card;
-  border-radius: 20rpx;
+  width: 105rpx;
+  height: 105rpx;
+  background: $design-card2;
+  border-radius: 10rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 28rpx;
+  margin-right: 21rpx;
   flex-shrink: 0;
 }
 
 .zone-icon {
-  width: 56rpx;
-  height: 56rpx;
+  width: 42rpx;
+  height: 42rpx;
 }
 
 .zone-text {
   flex: 1;
+  min-width: 0;
 }
 
 .zone-title {
   display: block;
-  font-size: 40rpx;
+  font-size: 29rpx;
   font-weight: 500;
-  color: $text-white;
-  margin-bottom: 8rpx;
+  color: $design-text;
+  line-height: 42rpx;
+  margin-bottom: 7rpx;
 }
 
 .zone-desc {
   display: block;
-  font-size: $font-xs;
-  color: $text-light;
+  font-size: 24rpx;
+  color: $design-text2;
+  line-height: 38rpx;
 }
 
 .zone-arrow {
   width: 42rpx;
   height: 42rpx;
   flex-shrink: 0;
-  opacity: 0.4;
 }
 
-/* 品牌联名 */
+/* 品牌联名 - 设计稿 327.4×300.4 卡片，圆角 28，图区圆角 17.5 */
 .brand-grid {
   display: flex;
   flex-wrap: wrap;
@@ -614,10 +665,13 @@ export default {
 }
 
 .brand-card {
-  width: calc(50% - 12rpx);
-  background: $cr7-dark;
-  border-radius: 36rpx;
-  padding: 20rpx;
+  width: calc((100% - 24rpx) / 2);
+  max-width: 328rpx;
+  height: 300rpx;
+  background: $design-card;
+  border-radius: 28rpx;
+  padding: 14rpx;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -625,42 +679,45 @@ export default {
 
 .brand-logo-area {
   width: 100%;
-  height: 220rpx;
-  background: $cr7-card;
-  border-radius: 24rpx;
+  height: 163rpx;
+  background: $design-card2;
+  border-radius: 17rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 20rpx;
+  margin-bottom: 21rpx;
+  flex-shrink: 0;
 }
 
 .brand-logo-img {
-  width: 120rpx;
-  height: 120rpx;
+  width: 100%;
+  height: 100%;
 }
 
 .brand-name {
   display: block;
-  font-size: 40rpx;
+  font-size: 29rpx;
   font-weight: 500;
-  color: $text-white;
+  color: $design-text;
   text-align: center;
-  margin-bottom: 4rpx;
+  line-height: 42rpx;
+  margin-bottom: 2rpx;
 }
 
 .brand-tagline {
   display: block;
-  font-size: $font-xs;
-  color: $text-light;
+  font-size: 24rpx;
+  color: $design-text2;
   text-align: center;
+  line-height: 38rpx;
 }
 
-/* 底部占位 */
+/* 底部占位 - 为底部导航留空 */
 .bottom-spacer {
   height: 260rpx;
 }
 
-/* 城市选择弹层 */
+/* 城市选择弹层 - 设计稿风格 1:1 */
 .city-modal {
   position: fixed;
   left: 0;
@@ -676,15 +733,16 @@ export default {
 
 .city-panel {
   width: 100%;
-  background: $cr7-dark;
-  border-top-left-radius: $radius-xl;
-  border-top-right-radius: $radius-xl;
-  padding: 40rpx 48rpx 60rpx;
+  background: $design-card;
+  border-top-left-radius: 32rpx;
+  border-top-right-radius: 32rpx;
+  padding: 40rpx 35rpx 60rpx;
+  box-sizing: border-box;
 }
 
 .city-panel-title {
-  font-size: $font-lg;
-  color: $text-white;
+  font-size: 30rpx;
+  color: $design-text;
   font-weight: 600;
   margin-bottom: 32rpx;
 }
@@ -692,20 +750,20 @@ export default {
 .city-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 20rpx;
+  gap: 16rpx;
 }
 
 .city-item {
-  padding: 16rpx 40rpx;
-  border-radius: 999rpx;
-  background: $cr7-card;
-  font-size: $font-sm;
-  color: $text-light;
+  padding: 12rpx 32rpx;
+  border-radius: 40rpx;
+  background: $design-card2;
+  font-size: 26rpx;
+  color: $design-text2;
 
   &.active {
-    background: rgba(216, 252, 15, 0.15);
-    color: $cr7-gold;
-    border: 2rpx solid $cr7-gold;
+    background: rgba(216, 252, 15, 0.2);
+    color: $design-gold;
+    border: 2rpx solid $design-gold;
   }
 }
 </style>
