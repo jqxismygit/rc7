@@ -402,7 +402,7 @@ $design-text2: #ADADAD;
   letter-spacing: 4rpx;
 }
 
-/* Hero - 设计稿 Frame 1000003725: 679.9×350.47，左右留白 35 */
+/* Hero - 设计稿 Frame 1000003725: 679.9×350.47，指示器在图片内部底部 */
 .hero-section {
   padding: 0 35rpx;
   margin-top: 18rpx;
@@ -427,14 +427,18 @@ $design-text2: #ADADAD;
   height: 100%;
 }
 
-/* 指示点 - 设计稿 40×12 长条 + 12 圆点 */
+/* 指示点 - 叠在 banner 内部底部，设计稿 40×12 长条 + 12 圆点 */
 .hero-dots {
+  position: absolute;
+  left: 35rpx;
+  right: 35rpx;
+  bottom: 24rpx;
+  height: 12rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12rpx;
-  margin-top: 24rpx;
-  height: 12rpx;
+  pointer-events: none;
 }
 
 .hero-dot {
