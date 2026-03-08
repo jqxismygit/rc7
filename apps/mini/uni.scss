@@ -1,27 +1,28 @@
-/* CR7® LIFE 全局设计系统 - 暗金运动风 */
+/* CR7® LIFE 全局设计系统 — 基于 Figma Style Guide */
+/* 字体：Onest（标题 + 正文） */
 
-/* ===== 品牌色系 ===== */
-$cr7-gold: #D8FC0F;
-$cr7-gold-light: #E5FE4D;
-$cr7-gold-dark: #A8C00C;
-$cr7-black: #0D0D0D;
-$cr7-dark: #1A1A1A;
-$cr7-card: #242424;
-$cr7-border: #333333;
-$cr7-red: #D9001B;
-$cr7-success: #2ECC71;
-$cr7-warning: #F39C12;
+/* ===== 品牌色系（Figma Colors Palette） ===== */
+$cr7-gold: #D8FC0F;           /* Primary / 100 — 实际色板显示 #E6FE5B 偏亮，token 定义 #D8FC0F */
+$cr7-gold-light: #E6FE5B;     /* Primary 色板亮色 */
+$cr7-gold-dark: #191D01;      /* Accent / 100 */
+$cr7-black: #090A07;          /* Grayscale / 500 — 页面底色 */
+$cr7-dark: #161714;           /* Grayscale / 400 — 卡片 / 次级背景 */
+$cr7-card: #2A2A2A;           /* Grayscale / 300 — 卡片 / 输入框 / 禁用按钮 */
+$cr7-border: #2A2A2A;         /* 与 card 同色，用于边框 */
+$cr7-gray: #8E8E8E;           /* Grayscale / 200-300 — 辅助灰 */
+$cr7-red: #C93838;            /* Message / Red */
+$cr7-success: #04B155;        /* Message / Green */
+$cr7-warning: #F39C12;        /* Warning / Orange */
 
 /* ===== 文字色 ===== */
-$text-white: #FFFFFF;
-$text-light: #CCCCCC;
-$text-muted: #888888;
-$text-disabled: #555555;
+$text-white: #FFFFFF;          /* Grayscale / 50 */
+$text-light: #ADADAD;          /* Grayscale / 100 */
+$text-muted: #8E8E8E;          /* Grayscale / 200 */
+$text-disabled: #787878;       /* Grayscale / 200 偏暗 */
 
-/* ===== 渐变 ===== */
-// $gradient-gold: linear-gradient(135deg, #D8FC0F 0%, #E5FE4D 50%, #A8C00C 100%);
-$gradient-gold: #D8FC0F;
-$gradient-dark: linear-gradient(180deg, #1A1A1A 0%, #0D0D0D 100%);
+/* ===== 渐变（扁平化设计，仅保留背景遮罩用途） ===== */
+$gradient-gold: $cr7-gold;
+$gradient-dark: $cr7-dark;
 $gradient-hero: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.85) 100%);
 
 /* ===== 间距 ===== */
@@ -32,24 +33,27 @@ $spacing-lg: 32rpx;
 $spacing-xl: 48rpx;
 $spacing-xxl: 64rpx;
 
-/* ===== 圆角 ===== */
+/* ===== 圆角（Figma 按钮 30px / 20px / 16px） ===== */
 $radius-sm: 8rpx;
 $radius-md: 16rpx;
 $radius-lg: 24rpx;
 $radius-xl: 32rpx;
+$radius-btn-lg: 60rpx;        /* Button Large / Small — 30px */
+$radius-btn-md: 40rpx;        /* Button Medium — 20px */
 $radius-round: 50%;
 
-/* ===== 字体 ===== */
-$font-xs: 20rpx;
-$font-sm: 22rpx;
-$font-md: 26rpx;
-$font-base: 28rpx;
-$font-lg: 32rpx;
-$font-xl: 36rpx;
-$font-xxl: 48rpx;
-$font-hero: 64rpx;
+/* ===== 字体大小（Figma Typography · 428pt → 750rpx，×1.75） ===== */
+$font-footnote: 22rpx;        /* 13px — Footnote, Regular */
+$font-xs: 24rpx;              /* 15px — Body2 / Subheadline / Caption2 */
+$font-sm: 26rpx;              /* 16px — Callout, Medium */
+$font-base: 28rpx;            /* 17px — Body, Regular */
+$font-md: 30rpx;              /* 18px — Headline / Caption1, SemiBold */
+$font-lg: 34rpx;              /* 20px — Title 3, Bold */
+$font-xl: 40rpx;              /* 24px — Title 2, Bold */
+$font-xxl: 48rpx;             /* 28px — Title 1, Bold */
+$font-hero: 60rpx;            /* 34px — Large title, Bold */
 
-/* ===== 阴影 ===== */
+/* ===== 阴影（扁平化，全部禁用） ===== */
 $shadow-gold: none;
 $shadow-dark: none;
 $shadow-card: none;
@@ -67,39 +71,81 @@ $shadow-card: none;
 
 /* 主色强调文字 */
 .text-gold { color: $cr7-gold; }
-.text-white { color: #FFFFFF; }
+.text-white { color: $text-white; }
 .text-muted { color: $text-muted; }
 .text-red { color: $cr7-red; }
 
 /* 背景 */
 .bg-dark { background: $cr7-black; }
 .bg-card { background: $cr7-card; }
-.bg-gold { background: $gradient-gold; }
+.bg-gold { background: $cr7-gold; }
 
-/* 主色主按钮 */
+/* ===== 按钮（Figma Buttons：Primary / Outline / Disable × Large / Medium / Small） ===== */
+
+/* 主色实心按钮 — Large */
 .btn-gold {
   background: $cr7-gold;
   color: $cr7-black;
-  border-radius: 48rpx;
+  border-radius: $radius-btn-lg;
   border: none;
-  font-weight: 700;
-  letter-spacing: 2rpx;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* 主色描边按钮 */
+/* 主色描边按钮 — Large */
 .btn-outline-gold {
   background: transparent;
   color: $cr7-gold;
-  border: 2rpx solid $cr7-gold;
-  border-radius: 48rpx;
+  border: 3rpx solid $cr7-gold;
+  border-radius: $radius-btn-lg;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* 暗卡片 */
-.card-dark {
+/* 禁用按钮 */
+.btn-disabled {
   background: $cr7-card;
+  color: $text-light;
+  border-radius: $radius-btn-lg;
+  border: none;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Medium 按钮 */
+.btn-gold-md {
+  background: $cr7-gold;
+  color: $cr7-black;
+  border-radius: $radius-btn-md;
+  border: none;
+  font-weight: 500;
+  font-size: $font-xs;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-outline-gold-md {
+  background: transparent;
+  color: $cr7-gold;
+  border: 3rpx solid $cr7-gold;
+  border-radius: $radius-btn-md;
+  font-weight: 500;
+  font-size: $font-xs;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== 暗卡片 ===== */
+.card-dark {
+  background: $cr7-dark;
   border-radius: $radius-lg;
   border: 1rpx solid $cr7-border;
 }
@@ -110,35 +156,35 @@ $shadow-card: none;
   background: $cr7-border;
 }
 
-/* 状态标签 */
+/* ===== 状态标签 ===== */
 .tag-active {
   padding: 4rpx 16rpx;
-  background: rgba(216,252,15,0.2);
+  background: rgba(216, 252, 15, 0.15);
   color: $cr7-gold;
   border-radius: $radius-sm;
-  font-size: $font-xs;
+  font-size: $font-footnote;
   border: 1rpx solid $cr7-gold;
 }
 
 .tag-ended {
   padding: 4rpx 16rpx;
-  background: rgba(136,136,136,0.15);
+  background: rgba(142, 142, 142, 0.12);
   color: $text-muted;
   border-radius: $radius-sm;
-  font-size: $font-xs;
+  font-size: $font-footnote;
   border: 1rpx solid $cr7-border;
 }
 
 .tag-countdown {
   padding: 4rpx 16rpx;
-  background: rgba(217,0,27,0.15);
+  background: rgba(201, 56, 56, 0.12);
   color: $cr7-red;
   border-radius: $radius-sm;
-  font-size: $font-xs;
+  font-size: $font-footnote;
   border: 1rpx solid $cr7-red;
 }
 
-/* 安全区域 */
+/* ===== 安全区域 ===== */
 .safe-area-top {
   padding-top: constant(safe-area-inset-top);
   padding-top: env(safe-area-inset-top);

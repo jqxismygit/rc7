@@ -6,7 +6,7 @@ export const mockUser = {
   openId: 'mock_openid_12345',
   phone: '138****8888',
   nickname: 'CR7粉丝',
-  avatar: 'https://via.placeholder.com/100',
+  avatar: '/static/images/avatar-default.png',
   email: 'user@example.com',
   isEmployee: false // 是否为员工
 }
@@ -135,41 +135,59 @@ export const mockCareer = [
   }
 ]
 
-// 联名品牌
+// 联名品牌（logo 使用 static/images 下的 PNG/JPG）
 export const mockBrands = [
   {
     id: 1,
-    name: 'Nike',
-    logo: 'https://via.placeholder.com/150',
-    description: 'C罗与Nike的长期合作伙伴关系',
-    products: ['CR7足球鞋', '训练装备'],
-    miniAppId: '' // 小程序appId
+    name: 'Air.inc',
+    logo: '/static/images/brand-air.png',
+    description: '官方空间合作品牌',
+    products: ['空间设计', '联名场馆'],
+    miniAppId: ''
   },
   {
     id: 2,
-    name: 'Herbalife',
-    logo: 'https://via.placeholder.com/150',
-    description: '营养补充品牌合作',
-    products: ['蛋白粉', '能量饮料'],
+    name: 'vsble',
+    logo: '/static/images/brand-vsble.png',
+    description: '官方饮品合作品牌',
+    products: ['联名饮品', '限定礼盒'],
+    miniAppId: ''
+  },
+  {
+    id: 3,
+    name: 'Parafin',
+    logo: '/static/images/brand-parafin.png',
+    description: '官方数字合作品牌',
+    products: ['数字藏品', 'NFT'],
+    miniAppId: ''
+  },
+  {
+    id: 4,
+    name: 'SevenOne',
+    logo: '/static/images/brand-sevenone.png',
+    description: '官方云服务合作品牌',
+    products: ['云服务', '数据平台'],
     miniAppId: ''
   }
 ]
 
-// 首页 Hero Banner
+// 首页 Hero Banner（封面使用 static/images 下的 PNG/JPG）
 export const mockHeroBanners = [
   {
     tag: '限时展出',
     title: 'CR7® LIFE 中国北京馆',
     subtitle: '亚洲首个 CR7® LIFE 沉浸式博物馆',
     location: '北京市 · 国贸商圈',
-    date: '2026.03.16 - 06.01'
+    date: '2026.03.16 - 06.01',
+    cover: '/static/images/hero-banner.png'
   },
   {
     tag: '全球巡展',
     title: 'CR7 世界杯荣耀特展',
     subtitle: '重温世界杯高光瞬间',
     location: '中国上海 · 外滩',
-    date: '2026.07 起'
+    date: '2026.07 起',
+    cover: '/static/images/hero-banner-2.png'
   }
 ]
 
@@ -177,10 +195,11 @@ export const mockHeroBanners = [
 export const mockHotTickets = [
   {
     id: 1,
-    museum: 'C罗博物馆 · 中国北京馆',
-    title: '首发早鸟票 · 数量有限',
-    time: '2026-03-16 起 · 10:00-22:00',
-    location: '北京市朝阳区 国贸商圈',
+    museum: 'C罗博物馆 · 中国上海馆',
+    title: 'C罗博物馆 · 中国上海馆',
+    time: '03/16·10:00-22:00·上海黄浦区外滩1号',
+    location: '上海黄浦区外滩1号',
+    cover: '/static/images/event-card.png',
     price: 99,
     status: 'active',
     statusText: '售票中',
@@ -188,10 +207,11 @@ export const mockHotTickets = [
   },
   {
     id: 2,
-    museum: 'C罗博物馆 · 中国上海馆',
+    museum: 'C罗博物馆 · 中国北京馆',
     title: '家庭套票 · 4 人同游',
     time: '2026-04-01 起 · 10:00-22:00',
-    location: '上海市黄浦区 外滩片区',
+    location: '北京市朝阳区 国贸商圈',
+    cover: '/static/images/event-card.png',
     price: 366,
     status: 'countdown',
     statusText: '倒计时 10 天',

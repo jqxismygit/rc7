@@ -1,85 +1,112 @@
 <template>
   <view class="profile-page">
-    <!-- 头部用户信息，可点击进入编辑页 -->
-    <view class="user-card card-dark" @click="goToProfileEdit">
-      <image :src="userInfo.avatar" class="avatar" mode="aspectFill" />
-      <view class="user-info">
-        <text class="nickname">{{ userInfo.nickname || '_weixin_user' }}</text>
-        <text class="sub-text">微信登录 · CR7® LIFE 会员</text>
-      </view>
-      <view v-if="isEmployee" class="employee-badge">员工</view>
-    </view>
-
-    <!-- 我的订单入口 -->
-    <view class="menu-section card-dark">
-      <view class="menu-item" @click="goToTickets">
-        <text class="menu-icon">🎫</text>
-        <view class="menu-main">
-          <text class="menu-text">我的订单 / 票夹</text>
-          <text class="menu-sub">查看已购票券与参观记录</text>
+    <!-- 顶部导航 -->
+    <view class="profile-navbar" :style="{ paddingTop: statusBarHeight + 'px' }">
+      <view class="navbar-row">
+        <view class="navbar-left">
+          <view class="city-switch" @click="openCityPicker">
+            <text class="city-name">{{ currentCity }}</text>
+            <image src="/static/icons/arrow-down.svg" class="city-arrow-icon" mode="aspectFit" />
+          </view>
+          <view class="navbar-notification" @click="goToMessages">
+            <image src="/static/icons/notification.svg" class="nav-icon" mode="aspectFit" />
+            <view v-if="unreadCount > 0" class="notification-dot"></view>
+          </view>
         </view>
-        <text class="menu-arrow">›</text>
+        <view class="navbar-logo">
+          <text class="logo-cr7">CR7</text>
+          <text class="logo-life">LIFE</text>
+        </view>
       </view>
     </view>
 
-    <!-- 功能列表：消息中心 / 扫码验票 / 发票抬头 -->
-    <view class="menu-section card-dark">
-      <view class="menu-item" @click="goToMessages">
-        <text class="menu-icon">💬</text>
-        <view class="menu-main">
+    <scroll-view class="profile-scroll" scroll-y enhanced :show-scrollbar="false">
+      <!-- 用户信息 -->
+      <view class="user-section" @click="goToProfileEdit">
+        <view class="avatar-wrap">
+          <image :src="userInfo.avatar || '/static/images/avatar-default.png'" class="avatar" mode="aspectFill" />
+          <view class="camera-btn">
+            <image src="/static/icons/camera.svg" class="camera-icon" mode="aspectFit" />
+          </view>
+        </view>
+        <view class="user-name-row">
+          <text class="nickname">{{ userInfo.nickname || '用户' }}</text>
+          <view v-if="isEmployee" class="employee-tag">
+            <text class="employee-tag-text">工作人员</text>
+          </view>
+        </view>
+        <text class="login-method">微信登录</text>
+      </view>
+
+      <!-- 功能列表 -->
+      <view class="menu-list">
+        <view class="menu-item" @click="goToTickets">
+          <view class="menu-icon-wrap">
+            <image src="/static/icons/ticket.svg" class="menu-icon" mode="aspectFit" />
+          </view>
+          <text class="menu-text">我的票夹</text>
+          <image src="/static/icons/arrow-right.svg" class="menu-arrow" mode="aspectFit" />
+        </view>
+
+        <view class="menu-item" @click="goToMessages">
+          <view class="menu-icon-wrap">
+            <image src="/static/icons/notification.svg" class="menu-icon" mode="aspectFit" />
+          </view>
           <text class="menu-text">消息中心</text>
-          <text class="menu-sub">订单状态与活动通知</text>
+          <view v-if="unreadCount > 0" class="menu-badge">{{ unreadCount }}</view>
+          <image src="/static/icons/arrow-right.svg" class="menu-arrow" mode="aspectFit" />
         </view>
-        <view v-if="unreadCount > 0" class="badge">{{ unreadCount }}</view>
-        <text class="menu-arrow">›</text>
-      </view>
 
-      <view v-if="isEmployee" class="menu-item" @click="goToScan">
-        <text class="menu-icon">📷</text>
-        <view class="menu-main">
-          <text class="menu-text">扫码验票</text>
-          <text class="menu-sub">员工专用核销入口</text>
-        </view>
-        <text class="menu-arrow">›</text>
-      </view>
-
-      <view class="menu-item" @click="editInvoice">
-        <text class="menu-icon">🧾</text>
-        <view class="menu-main">
+        <view class="menu-item" @click="editInvoice">
+          <view class="menu-icon-wrap">
+            <image src="/static/icons/language.svg" class="menu-icon" mode="aspectFit" />
+          </view>
           <text class="menu-text">发票抬头</text>
-          <text class="menu-sub">{{ invoiceTitle || '填写公司或个人发票信息' }}</text>
+          <image src="/static/icons/arrow-right.svg" class="menu-arrow" mode="aspectFit" />
         </view>
-        <text class="menu-arrow">›</text>
-      </view>
-    </view>
 
-    <!-- 协议 / 联系客服 -->
-    <view class="menu-section card-dark">
-      <view class="menu-item" @click="goToLegal('privacy')">
-        <text class="menu-icon">🔒</text>
-        <text class="menu-text">隐私政策</text>
-        <text class="menu-arrow">›</text>
-      </view>
+        <view class="menu-item" @click="goToLegal">
+          <view class="menu-icon-wrap">
+            <image src="/static/icons/document.svg" class="menu-icon" mode="aspectFit" />
+          </view>
+          <text class="menu-text">隐私政策/服务协议</text>
+          <image src="/static/icons/arrow-right.svg" class="menu-arrow" mode="aspectFit" />
+        </view>
 
-      <view class="menu-item" @click="goToLegal('terms')">
-        <text class="menu-icon">📄</text>
-        <text class="menu-text">服务协议</text>
-        <text class="menu-arrow">›</text>
-      </view>
-
-      <view class="menu-item" @click="contactService">
-        <text class="menu-icon">📞</text>
-        <view class="menu-main">
+        <view class="menu-item" @click="contactService">
+          <view class="menu-icon-wrap">
+            <image src="/static/icons/phone.svg" class="menu-icon" mode="aspectFit" />
+          </view>
           <text class="menu-text">联系客服</text>
-          <text class="menu-sub">010-88888888</text>
+          <image src="/static/icons/arrow-right.svg" class="menu-arrow" mode="aspectFit" />
         </view>
-        <text class="menu-arrow">›</text>
       </view>
-    </view>
 
-    <!-- 退出登录 -->
-    <view class="logout-section">
-      <button class="logout-btn" @click="handleLogout">退出登录</button>
+      <!-- 退出登录 -->
+      <view class="logout-area" @click="handleLogout">
+        <image src="/static/icons/logout.svg" class="logout-icon" mode="aspectFit" />
+        <text class="logout-text">退出登录</text>
+      </view>
+
+      <!-- 底部占位 -->
+      <view class="bottom-spacer"></view>
+    </scroll-view>
+
+    <!-- 城市选择弹层 -->
+    <view v-if="showCityPicker" class="city-modal" @click="closeCityPicker">
+      <view class="city-panel" @click.stop>
+        <text class="city-panel-title">选择城市</text>
+        <view class="city-list">
+          <view
+            v-for="city in cityList"
+            :key="city"
+            :class="['city-item', { active: city === currentCity }]"
+            @click="chooseCity(city)"
+          >
+            {{ city }}
+          </view>
+        </view>
+      </view>
     </view>
   </view>
 </template>
@@ -91,11 +118,20 @@ import { fetchUnreadCount } from '@/services/messages.js'
 export default {
   data() {
     return {
+      statusBarHeight: 0,
       userInfo: {},
       isEmployee: false,
       unreadCount: 0,
-      invoiceTitle: ''
+      invoiceTitle: '',
+      currentCity: '上海',
+      cityList: ['北京', '上海', '中国香港', '深圳'],
+      showCityPicker: false
     }
+  },
+
+  onLoad() {
+    const systemInfo = uni.getSystemInfoSync()
+    this.statusBarHeight = systemInfo.statusBarHeight || 0
   },
 
   onShow() {
@@ -110,12 +146,6 @@ export default {
       this.invoiceTitle = storage.get('invoiceTitle') || ''
     },
 
-    goToProfileEdit() {
-      uni.navigateTo({
-        url: '/pages/profile/profile-edit'
-      })
-    },
-
     async loadUnreadCount() {
       try {
         const count = await fetchUnreadCount()
@@ -125,26 +155,23 @@ export default {
       }
     },
 
+    goToProfileEdit() {
+      uni.navigateTo({ url: '/pages/profile/profile-edit' })
+    },
+
     goToTickets() {
-      uni.switchTab({
-        url: '/pages/my-tickets/my-tickets'
-      })
+      uni.switchTab({ url: '/pages/my-tickets/my-tickets' })
     },
 
     goToMessages() {
-      uni.navigateTo({
-        url: '/pages/messages/messages'
-      })
+      uni.navigateTo({ url: '/pages/messages/messages' })
     },
 
-    goToScan() {
-      uni.navigateTo({
-        url: '/pages/scan-ticket/scan-ticket'
-      })
+    goToLegal() {
+      uni.navigateTo({ url: '/pages/legal/privacy' })
     },
 
     editInvoice() {
-      // 优先拉起微信发票抬头管理能力，失败时退回手动输入
       // #ifdef MP-WEIXIN
       if (wx && wx.chooseInvoiceTitle) {
         wx.chooseInvoiceTitle({
@@ -153,16 +180,11 @@ export default {
             if (title) {
               this.invoiceTitle = title
               storage.set('invoiceTitle', title)
-              uni.showToast({
-                title: '已同步微信发票抬头',
-                icon: 'success'
-              })
+              uni.showToast({ title: '已同步微信发票抬头', icon: 'success' })
               return
             }
           },
-          fail: () => {
-            this.openInvoiceTitleModal()
-          }
+          fail: () => { this.openInvoiceTitleModal() }
         })
         return
       }
@@ -180,34 +202,20 @@ export default {
           if (res.confirm && res.content) {
             this.invoiceTitle = res.content
             storage.set('invoiceTitle', res.content)
-            uni.showToast({
-              title: '已保存',
-              icon: 'success'
-            })
+            uni.showToast({ title: '已保存', icon: 'success' })
           }
         }
       })
     },
 
-    goToLegal(type) {
-      const url =
-        type === 'privacy'
-          ? '/pages/legal/privacy'
-          : '/pages/legal/terms'
-      uni.navigateTo({ url })
-    },
-
     contactService() {
-      // 微信小程序内优先使用微信客服能力
       // #ifdef MP-WEIXIN
       if (wx && wx.openCustomerServiceChat) {
         wx.openCustomerServiceChat({
           extInfo: { url: '' },
           corpId: '',
           success: () => {},
-          fail: () => {
-            this.openPhoneServiceModal()
-          }
+          fail: () => { this.openPhoneServiceModal() }
         })
         return
       }
@@ -222,22 +230,31 @@ export default {
         confirmText: '拨打',
         success: (res) => {
           if (res.confirm) {
-            uni.makePhoneCall({
-              phoneNumber: '01088888888'
-            })
+            uni.makePhoneCall({ phoneNumber: '01088888888' })
           }
         }
       })
     },
 
+    openCityPicker() {
+      this.showCityPicker = true
+    },
+
+    closeCityPicker() {
+      this.showCityPicker = false
+    },
+
+    chooseCity(city) {
+      this.currentCity = city
+      this.showCityPicker = false
+    },
+
     handleLogout() {
-      // 第一次确认，防止误触
       uni.showModal({
         title: '提示',
         content: '确定要退出登录吗？',
         success: (res) => {
           if (res.confirm) {
-            // 第二次确认，彻底退出登录态
             uni.showModal({
               title: '再次确认',
               content: '退出后需要重新登录才能继续使用全部功能，是否仍要退出？',
@@ -246,9 +263,7 @@ export default {
               success: (res2) => {
                 if (res2.confirm) {
                   storage.clear()
-                  uni.reLaunch({
-                    url: '/pages/login/login'
-                  })
+                  uni.reLaunch({ url: '/pages/login/login' })
                 }
               }
             })
@@ -262,135 +277,290 @@ export default {
 
 <style lang="scss" scoped>
 .profile-page {
+  width: 100%;
   min-height: 100vh;
   background: $cr7-black;
-  padding: 24rpx 24rpx 0;
 }
 
-.card-dark {
-  background: $cr7-card;
-  border-radius: $radius-lg;
-  border: 1rpx solid $cr7-border;
-  box-shadow: $shadow-card;
+/* 导航栏 */
+.profile-navbar {
+  background: $cr7-black;
+  position: relative;
+  z-index: 10;
 }
 
-.user-card {
-  margin-top: 16rpx;
-  padding: 32rpx 28rpx;
+.navbar-row {
+  height: 96rpx;
+  padding: 0 48rpx;
   display: flex;
   align-items: center;
   position: relative;
 }
 
-.avatar {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 50%;
-  margin-right: 24rpx;
-  border: 3rpx solid rgba(216, 252, 15, 0.6);
-}
-
-.user-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.nickname {
-  font-size: $font-lg;
-  color: $text-white;
-  font-weight: 600;
-}
-
-.sub-text {
-  margin-top: 4rpx;
-  font-size: $font-sm;
-  color: $text-light;
-}
-
-.employee-badge {
-  position: absolute;
-  right: 20rpx;
-  top: 24rpx;
-  padding: 6rpx 18rpx;
-  border-radius: 999rpx;
-  background: rgba(216, 252, 15, 0.24);
-  color: $cr7-gold-light;
-  font-size: $font-xs;
-}
-
-.menu-section {
-  margin-top: 24rpx;
-  overflow: hidden;
-}
-
-.menu-item {
-  padding: 24rpx 24rpx;
+.navbar-left {
   display: flex;
   align-items: center;
-  border-bottom: 1rpx solid $cr7-border;
+  gap: 20rpx;
 }
 
-.menu-item:last-child {
-  border-bottom: none;
-}
-
-.menu-icon {
-  font-size: 40rpx;
-  margin-right: 20rpx;
-}
-
-.menu-main {
-  flex: 1;
+.city-switch {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
 }
 
-.menu-text {
-  font-size: $font-md;
+.city-name {
+  font-size: $font-xs;
   color: $text-white;
 }
 
-.menu-sub {
-  margin-top: 4rpx;
-  font-size: $font-xs;
-  color: $text-muted;
+.city-arrow-icon {
+  width: 36rpx;
+  height: 36rpx;
 }
 
-.menu-arrow {
-  font-size: 36rpx;
-  color: $text-muted;
-  margin-left: 8rpx;
+.navbar-notification {
+  position: relative;
 }
 
-.badge {
+.nav-icon {
+  width: 42rpx;
+  height: 42rpx;
+}
+
+.notification-dot {
+  position: absolute;
+  top: 2rpx;
+  right: 2rpx;
+  width: 14rpx;
+  height: 14rpx;
   background: $cr7-red;
-  color: #fff;
-  font-size: $font-xs;
-  padding: 4rpx 10rpx;
-  border-radius: 24rpx;
-  margin-right: 4rpx;
+  border-radius: 50%;
 }
 
-.logout-section {
-  margin: 56rpx 0 40rpx;
+.navbar-logo {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: baseline;
+  gap: 8rpx;
 }
 
-.logout-btn {
-  width: 100%;
-  height: 88rpx;
-  background: transparent;
-  border-radius: $radius-md;
-  border: 1rpx solid $cr7-red;
-  color: $cr7-red;
-  font-size: $font-md;
-  line-height: normal;
+.logo-cr7 {
+  font-size: 38rpx;
+  font-weight: 900;
+  color: $text-white;
+  letter-spacing: 2rpx;
+}
+
+.logo-life {
+  font-size: 28rpx;
+  font-weight: 400;
+  color: $text-white;
+  letter-spacing: 4rpx;
+}
+
+.profile-scroll {
+  height: calc(100vh - 200rpx);
+}
+
+/* 用户信息 */
+.user-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40rpx 0 32rpx;
+}
+
+.avatar-wrap {
+  position: relative;
+  width: 234rpx;
+  height: 234rpx;
+  margin-bottom: 24rpx;
+}
+
+.avatar {
+  width: 234rpx;
+  height: 234rpx;
+  border-radius: 50%;
+  border: 4rpx solid rgba(216, 252, 15, 0.3);
+}
+
+.camera-btn {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 56rpx;
+  height: 56rpx;
+  background: $cr7-dark;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.logout-btn::after {
-  border: none;
+.camera-icon {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.user-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 4rpx;
+}
+
+.nickname {
+  font-size: 40rpx;
+  font-weight: 500;
+  color: $text-white;
+}
+
+.employee-tag {
+  background: rgba(216, 252, 15, 0.2);
+  padding: 6rpx 24rpx;
+  border-radius: 40rpx;
+}
+
+.employee-tag-text {
+  font-size: $font-sm;
+  color: $text-white;
+}
+
+.login-method {
+  font-size: $font-xs;
+  color: $text-light;
+}
+
+/* 功能列表 */
+.menu-list {
+  padding: 24rpx 48rpx 0;
+  display: flex;
+  flex-direction: column;
+  gap: 32rpx;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  background: $cr7-dark;
+  border-radius: 32rpx;
+  padding: 28rpx 20rpx;
+}
+
+.menu-icon-wrap {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.menu-icon {
+  width: 42rpx;
+  height: 42rpx;
+}
+
+.menu-text {
+  flex: 1;
+  font-size: 36rpx;
+  color: $text-white;
+}
+
+.menu-badge {
+  background: $cr7-red;
+  color: #fff;
+  font-size: $font-footnote;
+  min-width: 36rpx;
+  height: 36rpx;
+  line-height: 36rpx;
+  text-align: center;
+  border-radius: 999rpx;
+  padding: 0 10rpx;
+  margin-right: 8rpx;
+}
+
+.menu-arrow {
+  width: 42rpx;
+  height: 42rpx;
+  flex-shrink: 0;
+  opacity: 0.3;
+}
+
+/* 退出登录 */
+.logout-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  padding: 64rpx 0 40rpx;
+}
+
+.logout-icon {
+  width: 42rpx;
+  height: 42rpx;
+}
+
+.logout-text {
+  font-size: $font-base;
+  color: $cr7-red;
+}
+
+/* 底部占位 */
+.bottom-spacer {
+  height: 260rpx;
+}
+
+/* 城市选择弹层 */
+.city-modal {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.city-panel {
+  width: 100%;
+  background: $cr7-dark;
+  border-top-left-radius: $radius-xl;
+  border-top-right-radius: $radius-xl;
+  padding: 40rpx 48rpx 60rpx;
+}
+
+.city-panel-title {
+  font-size: $font-lg;
+  color: $text-white;
+  font-weight: 600;
+  margin-bottom: 32rpx;
+}
+
+.city-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+}
+
+.city-item {
+  padding: 16rpx 40rpx;
+  border-radius: 999rpx;
+  background: $cr7-card;
+  font-size: $font-sm;
+  color: $text-light;
+
+  &.active {
+    background: rgba(216, 252, 15, 0.15);
+    color: $cr7-gold;
+    border: 2rpx solid $cr7-gold;
+  }
 }
 </style>
