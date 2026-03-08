@@ -95,8 +95,10 @@
 
 <script>
 import { mockMyTickets } from '@/utils/mockData.js'
+import createTabBarMixin from '@/mixins/tabBar.js'
 
 export default {
+  mixins: [createTabBarMixin(1)],
   data() {
     return {
       tickets: []

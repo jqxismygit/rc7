@@ -103,8 +103,10 @@
 
 <script>
 import { mockGameRanking } from '@/utils/mockData.js'
+import createTabBarMixin from '@/mixins/tabBar.js'
 
 export default {
+  mixins: [createTabBarMixin(2)],
   data() {
     return {
       gameStarted: false,

@@ -114,8 +114,10 @@
 <script>
 import storage from '@/utils/storage.js'
 import { fetchUnreadCount } from '@/services/messages.js'
+import createTabBarMixin from '@/mixins/tabBar.js'
 
 export default {
+  mixins: [createTabBarMixin(3)],
   data() {
     return {
       statusBarHeight: 0,

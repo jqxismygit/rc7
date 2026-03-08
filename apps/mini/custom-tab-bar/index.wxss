@@ -1,0 +1,91 @@
+/* 安全区：整块底部区域（含安全区）都用导航背景色盖住，不露出页面内容 */
+.cr7-tab-bar.safe-area-bottom {
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.cr7-tab-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding-left: 18rpx;
+  padding-right: 18rpx;
+  padding-top: 12rpx;
+  z-index: 9999;
+  background: #161714;
+}
+
+.cr7-tab-bar__inner {
+  position: relative;
+  height: 120rpx;
+  background: #161714;
+  border-radius: 64rpx;
+  display: flex;
+  align-items: center;
+  padding: 0 10rpx;
+  gap: 8rpx;
+}
+
+/* 滑动气泡：独立层，每次切换都过渡 left */
+.cr7-tab-bar__bubble {
+  position: absolute;
+  top: 10rpx;
+  width: 200rpx;
+  height: 100rpx;
+  border-radius: 54rpx;
+  background: #D8FC0F;
+  transform: translateX(-50%);
+  transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.cr7-tab-bar__item {
+  flex: 1;
+  min-width: 0;
+  height: 100rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  border-radius: 54rpx;
+  background: transparent;
+  z-index: 1;
+  position: relative;
+}
+
+.cr7-tab-bar__item.active {
+  background: transparent;
+}
+
+.cr7-tab-bar__icon {
+  width: 44rpx;
+  height: 44rpx;
+  flex-shrink: 0;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cr7-tab-bar__item.active .cr7-tab-bar__icon {
+  transform: scale(1.05);
+}
+
+.cr7-tab-bar__text {
+  font-size: 28rpx;
+  color: #090A07;
+  font-weight: 600;
+  line-height: 44rpx;
+  white-space: nowrap;
+  animation: textFadeIn 0.3s ease-out;
+}
+
+@keyframes textFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-8rpx);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

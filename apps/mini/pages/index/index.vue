@@ -156,8 +156,10 @@ import {
   fetchCr7Zone,
   fetchBrands
 } from '@/services/home.js'
+import createTabBarMixin from '@/mixins/tabBar.js'
 
 export default {
+  mixins: [createTabBarMixin(0)],
   data() {
     return {
       statusBarHeight: 0,
