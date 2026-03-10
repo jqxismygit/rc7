@@ -303,18 +303,13 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+@import '@/uni.scss';
 /* 设计稿 750px 画布，1px = 1rpx 严格对应 */
-$design-bg: #090A07;
-$design-card: #161714;
-$design-card2: #2A2A2A;
-$design-gold: #D8FC0F;
-$design-text: #FFFFFF;
-$design-text2: #ADADAD;
 
 .home-page {
   width: 100%;
   min-height: 100vh;
-  background: $design-bg;
+  background: $cr7-black;
 }
 
 .home-scroll {
@@ -327,7 +322,7 @@ $design-text2: #ADADAD;
   position: sticky;
   top: 0;
   z-index: 10;
-  background: $design-bg;
+  background: $cr7-black;
 }
 
 .navbar-row {
@@ -353,7 +348,7 @@ $design-text2: #ADADAD;
 
 .city-name {
   font-size: 24rpx;
-  color: $design-text;
+  color: $text-white;
   line-height: 38rpx;
 }
 
@@ -377,7 +372,7 @@ $design-text2: #ADADAD;
   right: 0;
   width: 14rpx;
   height: 14rpx;
-  background: #C93838;
+  background: $cr7-red;
   border-radius: 50%;
 }
 
@@ -393,14 +388,14 @@ $design-text2: #ADADAD;
 .logo-cr7 {
   font-size: 36rpx;
   font-weight: 700;
-  color: $design-text;
+  color: $text-white;
   letter-spacing: 2rpx;
 }
 
 .logo-life {
   font-size: 24rpx;
   font-weight: 400;
-  color: $design-gold;
+  color: $cr7-gold;
   letter-spacing: 4rpx;
 }
 
@@ -453,7 +448,7 @@ $design-text2: #ADADAD;
   &.active {
     width: 40rpx;
     border-radius: 12rpx;
-    background: $design-gold;
+    background: $cr7-gold;
   }
 }
 
@@ -475,13 +470,13 @@ $design-text2: #ADADAD;
 .section-title {
   font-size: 35rpx;
   font-weight: 600;
-  color: $design-text;
+  color: $text-white;
   line-height: 52rpx;
 }
 
 .section-link {
   font-size: 29rpx;
-  color: $design-gold;
+  color: $cr7-gold;
   line-height: 42rpx;
 }
 
@@ -500,19 +495,19 @@ $design-text2: #ADADAD;
   align-items: center;
   justify-content: center;
   border-radius: 29rpx;
-  background: $design-card;
+  background: $cr7-dark;
 
   &.active {
-    background: $design-gold;
+    background: $cr7-gold;
     .tab-text {
-      color: $design-bg;
+      color: $cr7-black;
     }
   }
 }
 
 .tab-text {
   font-size: 24rpx;
-  color: $design-text;
+  color: $text-white;
   line-height: 38rpx;
 }
 
@@ -564,7 +559,7 @@ $design-text2: #ADADAD;
   display: block;
   font-size: 31rpx;
   font-weight: 600;
-  color: $design-text;
+  color: $text-white;
   line-height: 47rpx;
   margin-bottom: 7rpx;
   overflow: hidden;
@@ -575,7 +570,7 @@ $design-text2: #ADADAD;
 .event-meta {
   display: block;
   font-size: 24rpx;
-  color: $design-text2;
+  color: $text-light;
   line-height: 38rpx;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -592,13 +587,13 @@ $design-text2: #ADADAD;
 .event-price-num {
   font-size: 42rpx;
   font-weight: 600;
-  color: $design-text;
+  color: $text-white;
   line-height: 63rpx;
 }
 
 .event-price-unit {
   font-size: 24rpx;
-  color: $design-text2;
+  color: $text-light;
   line-height: 42rpx;
 }
 
@@ -613,7 +608,7 @@ $design-text2: #ADADAD;
   display: flex;
   align-items: center;
   height: 133rpx;
-  background: $design-card;
+  background: $cr7-dark;
   border-radius: 16rpx;
   padding: 0 14rpx;
   box-sizing: border-box;
@@ -622,7 +617,7 @@ $design-text2: #ADADAD;
 .zone-icon-wrap {
   width: 105rpx;
   height: 105rpx;
-  background: $design-card2;
+  background: $cr7-card;
   border-radius: 10rpx;
   display: flex;
   align-items: center;
@@ -645,7 +640,7 @@ $design-text2: #ADADAD;
   display: block;
   font-size: 29rpx;
   font-weight: 500;
-  color: $design-text;
+  color: $text-white;
   line-height: 42rpx;
   margin-bottom: 7rpx;
 }
@@ -653,7 +648,7 @@ $design-text2: #ADADAD;
 .zone-desc {
   display: block;
   font-size: 24rpx;
-  color: $design-text2;
+  color: $text-light;
   line-height: 38rpx;
 }
 
@@ -674,7 +669,7 @@ $design-text2: #ADADAD;
   width: calc((100% - 24rpx) / 2);
   max-width: 328rpx;
   height: 300rpx;
-  background: $design-card;
+  background: $cr7-dark;
   border-radius: 28rpx;
   padding: 14rpx;
   box-sizing: border-box;
@@ -686,7 +681,7 @@ $design-text2: #ADADAD;
 .brand-logo-area {
   width: 100%;
   height: 163rpx;
-  background: $design-card2;
+  background: $cr7-card;
   border-radius: 17rpx;
   display: flex;
   align-items: center;
@@ -704,7 +699,7 @@ $design-text2: #ADADAD;
   display: block;
   font-size: 29rpx;
   font-weight: 500;
-  color: $design-text;
+  color: $text-white;
   text-align: center;
   line-height: 42rpx;
   margin-bottom: 2rpx;
@@ -713,7 +708,7 @@ $design-text2: #ADADAD;
 .brand-tagline {
   display: block;
   font-size: 24rpx;
-  color: $design-text2;
+  color: $text-light;
   text-align: center;
   line-height: 38rpx;
 }
@@ -739,7 +734,7 @@ $design-text2: #ADADAD;
 
 .city-panel {
   width: 100%;
-  background: $design-card;
+  background: $cr7-dark;
   border-top-left-radius: 32rpx;
   border-top-right-radius: 32rpx;
   padding: 40rpx 35rpx 60rpx;
@@ -748,7 +743,7 @@ $design-text2: #ADADAD;
 
 .city-panel-title {
   font-size: 30rpx;
-  color: $design-text;
+  color: $text-white;
   font-weight: 600;
   margin-bottom: 32rpx;
 }
@@ -762,14 +757,14 @@ $design-text2: #ADADAD;
 .city-item {
   padding: 12rpx 32rpx;
   border-radius: 40rpx;
-  background: $design-card2;
+  background: $cr7-card;
   font-size: 26rpx;
-  color: $design-text2;
+  color: $text-light;
 
   &.active {
     background: rgba(216, 252, 15, 0.2);
-    color: $design-gold;
-    border: 2rpx solid $design-gold;
+    color: $cr7-gold;
+    border: 2rpx solid $cr7-gold;
   }
 }
 </style>

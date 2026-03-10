@@ -33,6 +33,7 @@ Component({
 
   attached: function () {
     var that = this;
+    var payload = {};
     try {
       var sys = wx.getSystemInfoSync();
       var bottom = 0;
@@ -41,12 +42,12 @@ Component({
       } else if (sys.safeArea && sys.screenHeight) {
         bottom = Math.max(0, sys.screenHeight - sys.safeArea.bottom);
       }
-      that.setData({ safeAreaBottom: bottom });
+      payload.safeAreaBottom = bottom;
     } catch (e) {}
     var app = getApp();
     var prev = (app._tabBarSelected !== undefined) ? app._tabBarSelected : 0;
-    var initialLeft = 12.5 + prev * 25;
-    that.setData({ bubbleLeft: initialLeft });
+    payload.bubbleLeft = 12.5 + prev * 25;
+    that.setData(payload);
   },
 
   observers: {
@@ -55,9 +56,11 @@ Component({
       app._tabBarSelected = val;
       var left = 12.5 + (val || 0) * 25;
       var that = this;
-      setTimeout(function () {
+      clearTimeout(that._bubbleTimer);
+      that._bubbleTimer = setTimeout(function () {
+        that._bubbleTimer = null;
         that.setData({ bubbleLeft: left });
-      }, 20);
+      }, 32);
     }
   },
 
