@@ -289,7 +289,7 @@ export const mockTicketTypes = [
     name: '早鸟票',
     price: 399,
     originalPrice: 599,
-    description: '限时优惠，不可退票',
+    description: '不可退款，当天可用',
     stock: 50,
     canRefund: false,
     tag: '限量'
@@ -297,8 +297,8 @@ export const mockTicketTypes = [
   {
     id: 2,
     name: '单人票',
-    price: 599,
-    originalPrice: 599,
+    price: 299,
+    originalPrice: 299,
     description: '标准入场票',
     stock: 200,
     canRefund: true,
@@ -307,12 +307,12 @@ export const mockTicketTypes = [
   {
     id: 3,
     name: '双人套票',
-    price: 999,
-    originalPrice: 1198,
+    price: 499,
+    originalPrice: 499,
     description: '两人同行更优惠',
     stock: 100,
     canRefund: true,
-    tag: '推荐'
+    tag: ''
   }
 ]
 

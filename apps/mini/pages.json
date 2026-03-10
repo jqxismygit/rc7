@@ -54,7 +54,8 @@
 		{
 			"path": "pages/ticket-purchase/ticket-purchase",
 			"style": {
-				"navigationBarTitleText": "购票"
+				"navigationBarTitleText": "购票",
+				"navigationStyle": "custom"
 			}
 		},
 		{
