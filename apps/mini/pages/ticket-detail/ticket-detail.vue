@@ -1,63 +1,95 @@
 <template>
   <view class="ticket-detail-page">
-    <scroll-view class="detail-scroll" scroll-y>
-      <!-- 状态条 -->
-      <view class="status-bar" :class="'status-' + ticket.status">
-        <text class="status-text">{{ getStatusText(ticket.status) }}</text>
+    <scroll-view class="detail-scroll" scroll-y :style="{ paddingBottom: ticket.status === 'unused' ? '180rpx' : '40rpx' }">
+      <!-- 状态标签 + 票号 -->
+      <view class="status-row">
+        <view class="status-tag" :class="'tag-' + ticket.status">
+          <view class="status-dot" :class="'dot-' + ticket.status" />
+          <text class="status-label">{{ getStatusText(ticket.status) }}</text>
+        </view>
+        <view class="ticket-no-wrap">
+          <text class="ticket-no">票号:{{ ticket.id }}</text>
+        </view>
       </view>
 
-      <!-- 二维码卡片 -->
-      <view class="qr-card card-dark">
-        <image :src="ticket.qrCode" mode="aspectFit" class="qr-code" />
-        <text class="ticket-id">票号：{{ ticket.id }}</text>
+      <!-- 活动主卡片 -->
+      <view class="event-main-card">
+        <view class="event-card-inner card-dark">
+          <image
+            :src="'/static/images/event-card.jpg'"
+            mode="aspectFill"
+            class="event-cover"
+          />
+          <view class="event-info-wrap">
+            <text class="event-title">{{ ticket.eventName }}</text>
+            <view class="event-meta-item">
+              <text class="meta-icon">🕐</text>
+              <text class="meta-text">{{ ticket.eventDate }}</text>
+            </view>
+            <view class="event-meta-item">
+              <text class="meta-icon">📍</text>
+              <text class="meta-text">{{ ticket.eventLocation }}</text>
+            </view>
+          </view>
+        </view>
       </view>
 
-      <!-- 票券信息 -->
-      <view class="info-card card-dark">
-        <text class="event-name">{{ ticket.eventName }}</text>
-        <view class="info-item">
-          <text class="label">活动时间</text>
-          <text class="value">{{ ticket.eventDate }}</text>
+      <!-- 电子票二维码 -->
+      <view class="qr-section">
+        <view class="qr-card">
+          <text class="qr-title">电子票二维码</text>
+          <view class="qr-code-wrap">
+            <view class="qr-code-placeholder" />
+          </view>
+          <text class="qr-id">ID: {{ formatTicketId(ticket.id) }}</text>
+          <text class="qr-hint">使用时请向工作人员出示此码</text>
         </view>
-        <view class="info-item">
-          <text class="label">票种</text>
-          <text class="value">{{ ticket.ticketType }}</text>
+      </view>
+
+      <!-- 票务详情列表 -->
+      <view class="detail-list card-dark">
+        <view class="detail-row">
+          <text class="detail-label">票种</text>
+          <text class="detail-value">{{ ticket.ticketType }}</text>
         </view>
-        <view class="info-item">
-          <text class="label">数量</text>
-          <text class="value">{{ ticket.quantity }} 张</text>
+        <view class="detail-row">
+          <text class="detail-label">数量</text>
+          <text class="detail-value">{{ ticket.quantity }} 张</text>
         </view>
-        <view class="info-item">
-          <text class="label">购买时间</text>
-          <text class="value">{{ ticket.purchaseTime }}</text>
+        <view class="detail-row">
+          <text class="detail-label">购买时间</text>
+          <text class="detail-value">{{ ticket.purchaseTime }}</text>
         </view>
-        <view class="info-item">
-          <text class="label">订单金额</text>
-          <text class="value price">¥{{ ticket.price }}</text>
+        <view class="detail-row detail-row-last">
+          <text class="detail-label">订单总额</text>
+          <text class="detail-value price">¥ {{ formatPrice(ticket.price) }}</text>
         </view>
       </view>
 
       <!-- 使用说明 -->
-      <view class="notice-card card-dark">
-        <text class="section-title">使用说明</text>
-        <text class="notice-text">{{ noticeText }}</text>
+      <view class="instructions-section">
+        <view class="instructions-header">
+          <text class="info-icon">ⓘ</text>
+          <text class="instructions-title">使用说明</text>
+        </view>
+        <view class="instructions-card card-dark">
+          <text v-for="(item, index) in noticeList" :key="index" class="instruction-item">{{ item }}</text>
+        </view>
       </view>
 
-      <view class="safe-bottom safe-area-bottom"></view>
+      <view class="scroll-bottom-space" />
     </scroll-view>
 
     <!-- 底部操作栏 -->
     <view v-if="ticket.status === 'unused'" class="bottom-bar safe-area-bottom">
-      <button
-        v-if="ticket.canRefund"
-        class="outline-btn danger"
-        @click="handleRefund"
-      >
-        申请退票
-      </button>
-      <button class="btn-gold invoice-btn" @click="handleInvoice">
-        开具发票
-      </button>
+      <view class="bottom-bar-inner">
+        <button class="action-btn outline-btn" @click="handleRefund">
+          申请退票
+        </button>
+        <button class="action-btn outline-btn" @click="handleInvoice">
+          开具发票
+        </button>
+      </view>
     </view>
   </view>
 </template>
@@ -65,17 +97,19 @@
 <script>
 import { mockMyTickets } from '@/utils/mockData.js'
 
-const NOTICE_TEXT = `1. 入场时请向工作人员出示此二维码，核销后即可入场；
-2. 每张票券仅可核销一次，截图或复制无效；
-3. 建议提前 30 分钟到达现场，以免错过参观时段；
-4. 入场需携带本人身份证件，部分场次可能进行安检。`
+const NOTICE_LIST = [
+  '1. 入场时请向工作人员出示此二维码，核销后即可入场；',
+  '2. 每张票券仅可核销一次，截图或复制无效；',
+  '3. 建议提前30分钟到达现场，以免错过参观时段；',
+  '4. 入场需携带本人身份证件，部分场次可能进行安检。'
+]
 
 export default {
   data() {
     return {
       ticketId: '',
       ticket: {},
-      noticeText: NOTICE_TEXT
+      noticeList: NOTICE_LIST
     }
   },
 
@@ -94,12 +128,23 @@ export default {
 
     getStatusText(status) {
       const statusMap = {
-        unused: '待核销',
+        unused: '待使用',
         used: '已入场',
         refunding: '退款中',
         refunded: '已退款'
       }
       return statusMap[status] || status
+    },
+
+    formatTicketId(id) {
+      if (!id) return ''
+      const raw = id.replace(/\D/g, '')
+      return raw.replace(/(.{4})/g, '$1 ').trim()
+    },
+
+    formatPrice(price) {
+      if (!price && price !== 0) return '0.00'
+      return Number(price).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
     },
 
     handleRefund() {
@@ -111,10 +156,7 @@ export default {
             uni.showLoading({ title: '处理中...' })
             setTimeout(() => {
               uni.hideLoading()
-              uni.showToast({
-                title: '退票成功',
-                icon: 'success'
-              })
+              uni.showToast({ title: '退票成功', icon: 'success' })
               this.ticket.status = 'refunded'
             }, 1500)
           }
@@ -123,18 +165,7 @@ export default {
     },
 
     handleInvoice() {
-      if (this.ticket.status !== 'used') {
-        uni.showToast({
-          title: '票券使用后才能开具发票',
-          icon: 'none'
-        })
-        return
-      }
-
-      uni.showToast({
-        title: '发票功能开发中',
-        icon: 'none'
-      })
+      uni.showToast({ title: '发票功能开发中', icon: 'none' })
     }
   }
 }
@@ -148,155 +179,284 @@ export default {
 }
 
 .detail-scroll {
-  padding: 24rpx 24rpx 0;
+  height: 100vh;
 }
 
-.status-bar {
-  padding: 18rpx 24rpx;
-  border-radius: $radius-lg;
-  margin-bottom: 20rpx;
+/* ===== 状态标签 + 票号 ===== */
+.status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30rpx 30rpx 0;
+}
+
+.status-tag {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 0 34rpx;
+  height: 62rpx;
+  border-radius: 999rpx;
+}
+
+.tag-unused {
+  background: rgba(216, 251, 14, 0.2);
+  border: 2rpx solid rgba(216, 251, 14, 0.3);
+}
+
+.tag-used {
+  background: rgba(46, 204, 113, 0.2);
+  border: 2rpx solid rgba(46, 204, 113, 0.3);
+}
+
+.tag-refunding {
+  background: rgba(243, 156, 18, 0.2);
+  border: 2rpx solid rgba(243, 156, 18, 0.3);
+}
+
+.tag-refunded {
+  background: rgba(201, 56, 56, 0.2);
+  border: 2rpx solid rgba(201, 56, 56, 0.3);
+}
+
+.status-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+}
+
+.dot-unused { background: $cr7-gold; }
+.dot-used { background: $cr7-success; }
+.dot-refunding { background: $cr7-warning; }
+.dot-refunded { background: $cr7-red; }
+
+.status-label {
+  font-size: 28rpx;
+  font-weight: 500;
+}
+
+.tag-unused .status-label { color: $cr7-gold; }
+.tag-used .status-label { color: $cr7-success; }
+.tag-refunding .status-label { color: $cr7-warning; }
+.tag-refunded .status-label { color: $cr7-red; }
+
+.ticket-no-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.ticket-no {
+  font-size: 24rpx;
+  color: $text-disabled;
+}
+
+/* ===== 活动主卡片 ===== */
+.event-main-card {
+  padding: 30rpx;
+}
+
+.event-card-inner {
+  overflow: hidden;
+}
+
+.event-cover {
+  width: 100%;
+  height: 380rpx;
+}
+
+.event-info-wrap {
+  padding: 38rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.event-title {
+  font-size: 34rpx;
+  color: $text-white;
+  font-weight: 500;
+  letter-spacing: -1rpx;
+  line-height: 1.6;
+}
+
+.event-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.meta-icon {
+  font-size: 22rpx;
+  width: 28rpx;
   text-align: center;
 }
 
-.status-unused {
-  background: rgba(216, 252, 15, 0.22);
+.meta-text {
+  font-size: 28rpx;
+  color: $text-light;
+  line-height: 1.4;
 }
 
-.status-used {
-  background: rgba(46, 204, 113, 0.22);
-}
-
-.status-refunded {
-  background: rgba(217, 0, 27, 0.22);
-}
-
-.status-text {
-  font-size: $font-md;
-  color: $text-white;
-  font-weight: 600;
-}
-
-.card-dark {
-  background: $cr7-card;
-  border-radius: $radius-lg;
-  border: 1rpx solid $cr7-border;
-  box-shadow: $shadow-card;
+/* ===== 电子票二维码 ===== */
+.qr-section {
+  padding: 0 30rpx 46rpx;
 }
 
 .qr-card {
-  padding: 40rpx 24rpx 26rpx;
-  align-items: center;
-  text-align: center;
-  margin-bottom: 20rpx;
-}
-
-.qr-code {
-  width: 360rpx;
-  height: 360rpx;
-  margin: 0 auto 20rpx;
-}
-
-.ticket-id {
-  font-size: $font-xs;
-  color: $text-muted;
-}
-
-.info-card {
-  padding: 24rpx 24rpx 18rpx;
-  margin-bottom: 20rpx;
-}
-
-.event-name {
-  font-size: $font-lg;
-  color: $text-white;
-  font-weight: 600;
-  padding-bottom: 14rpx;
-  margin-bottom: 10rpx;
-  border-bottom: 1rpx solid $cr7-border;
-}
-
-.info-item {
+  background: $cr7-card;
+  border-radius: $radius-xl;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  padding: 10rpx 0;
+  justify-content: center;
+  padding: 62rpx;
 }
 
-.label {
-  font-size: $font-sm;
-  color: $text-light;
-}
-
-.value {
-  font-size: $font-sm;
+.qr-title {
+  font-size: 36rpx;
   color: $text-white;
+  font-weight: 500;
+  margin-bottom: 30rpx;
 }
 
-.value.price {
-  font-size: $font-md;
-  color: $cr7-gold-light;
+.qr-code-wrap {
+  background: #ffffff;
+  border-radius: 62rpx;
+  padding: 30rpx;
+  box-shadow: inset 0 4rpx 8rpx rgba(0, 0, 0, 0.05);
+}
+
+.qr-code-placeholder {
+  width: 370rpx;
+  height: 370rpx;
+  background: #e2e8f0;
+}
+
+.qr-id {
+  font-size: 24rpx;
+  color: $text-light;
+  margin-top: 16rpx;
+}
+
+.qr-hint {
+  font-size: 20rpx;
+  color: $text-light;
+  margin-top: 8rpx;
+}
+
+/* ===== 票务详情列表 ===== */
+.detail-list {
+  margin: 0 30rpx;
+  padding: 30rpx;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid rgba(42, 42, 42, 0.6);
+}
+
+.detail-row-last {
+  border-bottom: none;
+}
+
+.detail-label {
+  font-size: $font-base;
+  color: $text-light;
+  font-weight: 500;
+}
+
+.detail-value {
+  font-size: $font-base;
+  color: $text-white;
+  font-weight: 500;
+}
+
+.detail-value.price {
+  color: $cr7-gold;
   font-weight: 700;
 }
 
-.notice-card {
-  padding: 24rpx 24rpx 20rpx;
+/* ===== 使用说明 ===== */
+.instructions-section {
+  padding: 46rpx 30rpx;
 }
 
-.section-title {
-  font-size: $font-md;
+.instructions-header {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.info-icon {
+  font-size: 28rpx;
   color: $text-white;
-  font-weight: 600;
-  margin-bottom: 8rpx;
 }
 
-.notice-text {
-  font-size: $font-sm;
+.instructions-title {
+  font-size: $font-base;
+  color: $text-white;
+  font-weight: 500;
+}
+
+.instructions-card {
+  padding: 30rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.instruction-item {
+  font-size: 24rpx;
   color: $text-light;
   line-height: 1.8;
-  white-space: pre-line;
 }
 
-.safe-bottom {
-  height: 80rpx;
+.scroll-bottom-space {
+  height: 40rpx;
 }
 
+/* ===== 底部操作栏 ===== */
 .bottom-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 20rpx 24rpx;
   background: $cr7-dark;
   border-top: 1rpx solid $cr7-border;
-  display: flex;
-  gap: 16rpx;
+  backdrop-filter: blur(12px);
+  padding: 16rpx 30rpx;
+  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
 }
 
-.outline-btn {
+.bottom-bar-inner {
+  display: flex;
+  gap: 30rpx;
+  align-items: center;
+}
+
+.action-btn {
   flex: 1;
-  height: 80rpx;
+  height: 98rpx;
   border-radius: 999rpx;
-  border: 1rpx solid $cr7-gold;
-  color: $cr7-gold-light;
-  font-size: $font-sm;
-  line-height: normal;
+  font-size: $font-base;
+  font-weight: 500;
   display: flex;
   align-items: center;
   justify-content: center;
+  line-height: normal;
+}
+
+.outline-btn {
   background: transparent;
+  border: 2rpx solid $cr7-gold;
+  color: $text-white;
 }
 
 .outline-btn::after {
   border: none;
-}
-
-.outline-btn.danger {
-  border-color: $cr7-red;
-  color: $cr7-red;
-}
-
-.invoice-btn {
-  flex: 1;
-  height: 80rpx;
 }
 </style>

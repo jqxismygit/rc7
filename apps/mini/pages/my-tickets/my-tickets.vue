@@ -1,15 +1,27 @@
 <template>
   <view class="tickets-page">
-    <!-- 顶部工具栏：票码兑换 / 三方票同步 -->
-    <view class="ticket-toolbar card-dark">
-      <view class="tool-item" @click="goToExchange">
-        <text class="tool-icon">🔐</text>
-        <text class="tool-text">票码兑换</text>
+    <!-- 顶部标题栏 -->
+    <!-- <view class="tickets-header safe-area-top">
+      <view class="header-back" @click="goBack">
+        <text class="back-arrow">‹</text>
       </view>
-      <view class="divider-vertical"></view>
+      <text class="header-title">我的票夹</text>
+      <view class="header-placeholder"></view>
+    </view> -->
+
+    <!-- 工具栏：票码兑换 / 三方票同步 -->
+    <view class="ticket-toolbar" @click.stop>
+      <view class="tool-item" @click="goToExchange">
+        <view class="tool-icon-box">
+          <text class="tool-icon-text">🎫</text>
+        </view>
+        <text class="tool-label">票码兑换</text>
+      </view>
       <view class="tool-item" @click="syncThirdTickets">
-        <text class="tool-icon">🔄</text>
-        <text class="tool-text">三方票同步</text>
+        <view class="tool-icon-box">
+          <text class="tool-icon-text">🏷</text>
+        </view>
+        <text class="tool-label">三方票同步</text>
       </view>
     </view>
 
@@ -27,63 +39,78 @@
       <view
         v-for="ticket in tickets"
         :key="ticket.id"
-        class="ticket-card card-dark"
+        class="ticket-card"
       >
-        <view class="ticket-header">
-          <view class="museum-line">
-            <text class="museum-name">{{ ticket.eventName }}</text>
-            <text class="ticket-tag" :class="ticket.isThird ? 'tag-third' : 'tag-official'">
-              {{ ticket.isThird ? '三方票' : '官方票' }}
-            </text>
-          </view>
-          <text class="refund-rule">
-            {{ ticket.refundRule || '开展前48小时可退' }}
-          </text>
-        </view>
-
-        <view class="ticket-body" @click="goToDetail(ticket)">
-          <view class="ticket-info">
-            <text class="ticket-type">
-              {{ ticket.ticketType }} × {{ ticket.quantity }}
-            </text>
-            <text class="ticket-time">
-              参展时间：{{ ticket.eventDate }}
-            </text>
-          </view>
-          <view class="ticket-status-block">
-            <text class="status-label" :class="'status-' + ticket.status">
-              {{ getStatusText(ticket.status) }}
-            </text>
+        <!-- 票面大图 + 状态胶囊 -->
+        <view class="ticket-cover-wrap" @click="goToDetail(ticket)">
+          <image
+            class="ticket-cover"
+            src="/static/images/event-card.jpg"
+            mode="aspectFill"
+          />
+          <view class="ticket-status-pill" :class="getStatusPillClass(ticket.status)">
+            <text class="pill-text">{{ getStatusText(ticket.status) }}</text>
           </view>
         </view>
 
-        <view class="ticket-footer">
-          <text class="ticket-price">¥{{ ticket.price }}</text>
-          <view class="footer-actions">
-            <button
-              class="outline-btn"
-              :class="{ disabled: ticket.status === 'refunding' }"
-              :disabled="ticket.status === 'refunding'"
-              @click.stop="goToDetail(ticket)"
-            >
-              查看券码
-            </button>
-            <button
-              v-if="showRefundButton(ticket)"
-              class="outline-btn danger"
-              :class="{ disabled: !canApplyRefund(ticket) || ticket.status === 'refunding' }"
-              :disabled="!canApplyRefund(ticket) || ticket.status === 'refunding'"
-              @click.stop="onRefundClick(ticket)"
-            >
-              {{ getRefundButtonText(ticket) }}
-            </button>
-            <button
-              v-if="ticket.status === 'refunded'"
-              class="outline-btn subtle"
-              @click.stop="handleDelete(ticket)"
-            >
-              删除票券
-            </button>
+        <!-- 内容区域 -->
+        <view class="ticket-body">
+          <!-- 标题 + 标签 -->
+          <view class="ticket-title-row">
+            <text class="ticket-event-name">{{ ticket.eventName }}</text>
+            <view class="ticket-type-tag" :class="ticket.isThird ? 'tag-third' : 'tag-official'">
+              <text class="tag-text" :class="ticket.isThird ? 'tag-text-third' : 'tag-text-official'">
+                {{ ticket.isThird ? '三方票' : '官方票' }}
+              </text>
+            </view>
+          </view>
+
+          <!-- 信息行 -->
+          <view class="ticket-info-list" @click="goToDetail(ticket)">
+            <view class="info-row">
+              <text class="info-icon">⏱</text>
+              <text class="info-text">{{ ticket.eventDate }}</text>
+            </view>
+            <view class="info-row">
+              <text class="info-icon">📍</text>
+              <text class="info-text">{{ getEventLocation(ticket) }}</text>
+            </view>
+            <view class="info-row">
+              <text class="info-icon">🎟</text>
+              <text class="info-text">{{ ticket.ticketType }} × {{ ticket.quantity }}    {{ ticket.refundRule || '开场前48小时可退' }}</text>
+            </view>
+          </view>
+
+          <!-- 底部操作栏 -->
+          <view class="ticket-actions">
+            <view class="action-divider"></view>
+            <view class="action-bar">
+              <text class="action-price">￥{{ ticket.price }}</text>
+              <view class="action-btns">
+                <button
+                  v-if="showRefundButton(ticket)"
+                  class="act-btn act-btn-outline"
+                  :class="{ 'act-btn-disabled': !canApplyRefund(ticket) || ticket.status === 'refunding' }"
+                  :disabled="!canApplyRefund(ticket) || ticket.status === 'refunding'"
+                  @click.stop="onRefundClick(ticket)"
+                >{{ getRefundButtonText(ticket) }}</button>
+                <button
+                  v-else-if="ticket.status === 'used' || ticket.status === 'refunded'"
+                  class="act-btn act-btn-outline"
+                  @click.stop="handleDelete(ticket)"
+                >删除票券</button>
+
+                <button
+                  class="act-btn act-btn-primary"
+                  :class="{
+                    'act-btn-primary-muted': ticket.status === 'used' || ticket.status === 'refunded',
+                    'act-btn-primary-disabled': ticket.status === 'refunding'
+                  }"
+                  :disabled="ticket.status === 'refunding'"
+                  @click.stop="goToDetail(ticket)"
+                >查看券码</button>
+              </view>
+            </view>
           </view>
         </view>
       </view>
@@ -94,7 +121,7 @@
 </template>
 
 <script>
-import { mockMyTickets } from '@/utils/mockData.js'
+import { mockMyTickets, mockHomeCards } from '@/utils/mockData.js'
 import createTabBarMixin from '@/mixins/tabBar.js'
 
 export default {
@@ -116,20 +143,27 @@ export default {
 
     getStatusText(status) {
       const statusMap = {
-        unused: '待核销',
-        used: '已入场',
+        unused: '待入场',
+        used: '已完成',
         refunding: '退款中',
         refunded: '已退款'
       }
       return statusMap[status] || status
     },
 
-    // 是否显示“申请退票”按钮
+    getStatusPillClass(status) {
+      return {
+        'pill-active': status === 'unused',
+        'pill-done': status === 'used',
+        'pill-refunding': status === 'refunding',
+        'pill-refunded': status === 'refunded'
+      }
+    },
+
     showRefundButton(ticket) {
       return ticket.canRefund && (ticket.status === 'unused' || ticket.status === 'refunding')
     },
 
-    // 是否在退票时间窗口内（开展前48小时外）
     canApplyRefund(ticket) {
       if (!ticket.canRefund) return false
       if (ticket.status !== 'unused') return false
@@ -144,6 +178,11 @@ export default {
     getRefundButtonText(ticket) {
       if (ticket.status === 'refunding') return '退款中'
       return '申请退票'
+    },
+
+    getEventLocation(ticket) {
+      const event = mockHomeCards.find(item => item.id == ticket.eventId)
+      return event && event.location ? event.location : '上海体育场'
     },
 
     goToDetail(ticket) {
@@ -189,6 +228,10 @@ export default {
         content: '即将支持从第三方平台（如票务网站、小程序）同步购票记录，请留意后续版本更新。',
         showCancel: false
       })
+    },
+
+    goBack() {
+      uni.navigateBack({ delta: 1 })
     }
   }
 }
@@ -198,47 +241,84 @@ export default {
 .tickets-page {
   min-height: 100vh;
   background: $cr7-black;
-  padding: 24rpx 24rpx 0;
+  padding: 0 32rpx;
 }
 
-.card-dark {
-  background: $cr7-card;
-  border-radius: $radius-lg;
-  border: 1rpx solid $cr7-border;
-  box-shadow: $shadow-card;
-}
-
-.ticket-toolbar {
-  margin-top: 8rpx;
-  padding: 24rpx 32rpx;
+/* ===== 顶部标题栏 ===== */
+.tickets-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  height: 120rpx;
+  padding-top: 20rpx;
+}
+
+.header-back {
+  width: 70rpx;
+  height: 70rpx;
+  border-radius: 50%;
+  background: $cr7-dark;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.back-arrow {
+  font-size: 48rpx;
+  color: $text-white;
+  margin-top: -4rpx;
+}
+
+.header-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: $text-white;
+  text-align: center;
+}
+
+.header-placeholder {
+  width: 70rpx;
+  height: 70rpx;
+}
+
+/* ===== 工具栏 ===== */
+.ticket-toolbar {
+  display: flex;
+  align-items: center;
+  background: $cr7-dark;
+  border-radius: $radius-lg;
+  padding: 32rpx;
+  margin-top: 16rpx;
+  gap: 108rpx;
 }
 
 .tool-item {
-  flex: 1;
   display: flex;
   align-items: center;
+  gap: 24rpx;
 }
 
-.tool-icon {
-  font-size: 36rpx;
-  margin-right: 12rpx;
+.tool-icon-box {
+  width: 62rpx;
+  height: 62rpx;
+  border-radius: 12rpx;
+  background: $cr7-card;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.tool-text {
-  font-size: $font-md;
+.tool-icon-text {
+  font-size: 32rpx;
+}
+
+.tool-label {
+  font-size: $font-base;
   color: $text-white;
+  font-weight: 500;
 }
 
-.divider-vertical {
-  width: 1rpx;
-  height: 40rpx;
-  background: $cr7-border;
-  margin: 0 24rpx;
-}
-
+/* ===== 空状态 ===== */
 .empty {
   padding-top: 200rpx;
   display: flex;
@@ -250,11 +330,10 @@ export default {
   width: 160rpx;
   height: 160rpx;
   border-radius: 50%;
-  background: $gradient-gold;
+  background: $cr7-gold;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: $shadow-gold;
   margin-bottom: 32rpx;
 }
 
@@ -276,149 +355,216 @@ export default {
   margin-top: 8rpx;
 }
 
+/* ===== 票券列表 ===== */
 .ticket-scroll {
-  height: calc(100vh - 180rpx);
-  margin-top: 24rpx;
+  height: calc(100vh - 260rpx);
+  margin-top: 32rpx;
 }
 
 .ticket-card {
-  padding: 20rpx 24rpx 20rpx;
-  margin-bottom: 24rpx;
+  background: $cr7-dark;
+  border-radius: 32rpx;
+  overflow: hidden;
+  margin-bottom: 32rpx;
 }
 
-.ticket-header {
-  border-bottom: 1rpx solid $cr7-border;
-  padding-bottom: 12rpx;
+/* ===== 票面大图 ===== */
+.ticket-cover-wrap {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%; /* 16:9 */
+  overflow: hidden;
 }
 
-.museum-line {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.ticket-cover {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
 }
 
-.museum-name {
-  font-size: $font-sm;
-  color: $text-light;
-}
-
-.ticket-tag {
-  font-size: $font-xs;
-  padding: 4rpx 14rpx;
+.ticket-status-pill {
+  position: absolute;
+  top: 24rpx;
+  left: 24rpx;
+  padding: 8rpx 24rpx;
   border-radius: 999rpx;
+}
+
+.pill-active {
+  background: $cr7-gold;
+}
+
+.pill-done {
+  background: rgba(216, 252, 15, 0.4);
+}
+
+.pill-refunding {
+  background: rgba(243, 156, 18, 0.6);
+}
+
+.pill-refunded {
+  background: rgba(142, 142, 142, 0.4);
+}
+
+.pill-text {
+  font-size: 24rpx;
+  color: #0F2316;
+  font-weight: 500;
+}
+
+/* ===== 内容区域 ===== */
+.ticket-body {
+  padding: 30rpx 32rpx 32rpx;
+}
+
+/* 标题行 */
+.ticket-title-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding-bottom: 4rpx;
+}
+
+.ticket-event-name {
+  font-size: 36rpx;
+  color: $text-white;
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticket-type-tag {
+  padding: 4rpx 24rpx;
+  border-radius: 999rpx;
+  flex-shrink: 0;
 }
 
 .tag-official {
-  background: rgba(216, 252, 15, 0.18);
-  color: $cr7-gold-light;
+  background: rgba(234, 179, 8, 0.2);
 }
 
 .tag-third {
-  background: rgba(127, 127, 127, 0.2);
-  color: $text-light;
+  background: rgba(58, 97, 255, 0.2);
 }
 
-.refund-rule {
-  margin-top: 6rpx;
-  font-size: $font-xs;
-  color: $text-muted;
+.tag-text {
+  font-size: 20rpx;
+  font-weight: bold;
+  text-align: center;
+  text-transform: uppercase;
 }
 
-.ticket-body {
+.tag-text-official {
+  color: #EAB308;
+}
+
+.tag-text-third {
+  color: #3A61FF;
+}
+
+/* 信息列表 */
+.ticket-info-list {
   display: flex;
-  justify-content: space-between;
-  padding: 16rpx 0 8rpx;
+  flex-direction: column;
+  gap: 8rpx;
+  margin-top: 16rpx;
 }
 
-.ticket-info {
-  flex: 1;
-}
-
-.ticket-type {
-  font-size: $font-md;
-  color: $text-white;
-}
-
-.ticket-time {
-  margin-top: 8rpx;
-  font-size: $font-sm;
-  color: $text-light;
-}
-
-.ticket-status-block {
-  margin-left: 24rpx;
-  align-self: center;
-}
-
-.status-label {
-  padding: 6rpx 18rpx;
-  border-radius: 999rpx;
-  font-size: $font-xs;
-}
-
-.status-unused {
-  background: rgba(216, 252, 15, 0.18);
-  color: $cr7-gold-light;
-}
-
-.status-used {
-  background: rgba(46, 204, 113, 0.18);
-  color: $cr7-success;
-}
-
-.status-refunded {
-  background: rgba(217, 0, 27, 0.18);
-  color: $cr7-red;
-}
-
-.ticket-footer {
-  padding-top: 12rpx;
-  border-top: 1rpx solid $cr7-border;
+.info-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 16rpx;
 }
 
-.ticket-price {
-  font-size: $font-lg;
-  color: $cr7-gold-light;
+.info-icon {
+  font-size: 28rpx;
+  width: 36rpx;
+  text-align: center;
+  flex-shrink: 0;
 }
 
-.footer-actions {
+.info-text {
+  font-size: 28rpx;
+  color: $text-light;
+  font-weight: 500;
+  line-height: 40rpx;
+}
+
+/* ===== 底部操作栏 ===== */
+.ticket-actions {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+}
+
+.action-divider {
+  height: 2rpx;
+  background: $cr7-card;
+}
+
+.action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 32rpx;
+}
+
+.action-price {
+  font-size: 28rpx;
+  color: $cr7-gold;
+  font-weight: 500;
+}
+
+.action-btns {
   display: flex;
   gap: 16rpx;
 }
 
-.outline-btn {
-  padding: 10rpx 26rpx;
+.act-btn {
+  padding: 18rpx 34rpx;
   border-radius: 999rpx;
-  border: 1rpx solid $cr7-gold;
-  font-size: $font-sm;
-  color: $cr7-gold-light;
-  background: transparent;
+  font-size: 24rpx;
+  font-weight: 500;
   line-height: normal;
+  text-align: center;
 }
 
-.outline-btn::after {
+.act-btn::after {
   border: none;
 }
 
-.outline-btn.danger {
-  border-color: $cr7-red;
-  color: $cr7-red;
+.act-btn-outline {
+  background: transparent;
+  border: 2rpx solid $cr7-gold;
+  color: $text-white;
 }
 
-.outline-btn.subtle {
-  border-color: $cr7-border;
-  color: $text-light;
-}
-
-.outline-btn.disabled {
+.act-btn-outline.act-btn-disabled {
   border-color: $cr7-border;
   color: $text-muted;
   opacity: 0.6;
 }
 
+.act-btn-primary {
+  background: $cr7-gold;
+  color: #0F2316;
+  border: none;
+}
+
+.act-btn-primary-muted {
+  background: $text-disabled;
+  color: #0F2316;
+}
+
+.act-btn-primary-disabled {
+  background: $cr7-card;
+  color: $text-muted;
+}
+
+/* ===== 安全区域 ===== */
 .safe-bottom {
   height: 80rpx;
 }
