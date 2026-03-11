@@ -635,17 +635,16 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
+  border-top: 1rpx solid $cr7-border;
   background: $cr7-dark;
-  border-top: 2rpx solid rgba(30, 41, 59, 1);
-  backdrop-filter: blur(12rpx);
-  z-index: 10;
+  // padding: 15rpx 30rpx 12rpx;
 }
 
 .bottom-bar-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 33rpx 30rpx 62rpx;
+  // padding: 33rpx 30rpx 62rpx;
 }
 
 .price-box {

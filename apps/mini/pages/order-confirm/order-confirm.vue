@@ -93,20 +93,21 @@
         </view>
       </view>
 
-      <!-- 总额 -->
-      <view class="footer-total">
-        <text class="total-label">总额</text>
-        <text class="total-value">¥ {{ order.amount || '125.00' }}</text>
-      </view>
       <view class="safe-bottom"></view>
     </scroll-view>
 
-    <!-- 底部总额 + 立即支付 -->
+    <!-- 底部总额 + 立即支付（同一条 bar 内） -->
     <view class="footer-wrap safe-area-bottom">
-      <view class="bottom-bar">
-        <button class="btn-gold pay-btn" @click="handlePay">
-          立即支付
-        </button>
+      <view class="footer-inner">
+        <view class="footer-total">
+          <text class="total-label">总额</text>
+          <text class="total-value">¥ {{ order.amount || '125.00' }}</text>
+        </view>
+        <view class="bottom-bar">
+          <button class="btn-gold pay-btn" @click="handlePay">
+            立即支付
+          </button>
+        </view>
       </view>
     </view>
   </view>
@@ -385,7 +386,7 @@ export default {
 }
 
 .safe-bottom {
-  height: 189rpx;
+  height: 160rpx;
 }
 
 .footer-wrap {
@@ -395,26 +396,30 @@ export default {
   bottom: 0;
   border-top: 1rpx solid $cr7-border;
   background: $cr7-dark;
-  padding: 24rpx 35rpx 12rpx;
-  height: 189rpx;
+
+}
+
+.footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15rpx 30rpx 12rpx;
 }
 
 .footer-total {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12rpx;
+  flex-direction: column;
 }
 
 .bottom-bar {
-  width: 100%;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .pay-btn {
-  width: 679rpx;
+  width: 518rpx;
   height: 98rpx;
   font-size: 32rpx;
   font-weight: 700;
