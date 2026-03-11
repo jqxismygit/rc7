@@ -74,7 +74,8 @@
                 ]"
               >
                 <text v-if="chip.icon" class="chip-icon">📅</text>
-                <text class="chip-label">{{ chip.label }}</text>
+                <text class="chip-main">{{ chip.main }}</text>
+                <text v-if="chip.sub" class="chip-sub">{{ chip.sub }}</text>
               </view>
             </picker>
 
@@ -89,7 +90,8 @@
               @click="onChipClick(chip)"
             >
               <text v-if="chip.icon" class="chip-icon">📅</text>
-              <text class="chip-label">{{ chip.label }}</text>
+              <text class="chip-main">{{ chip.main }}</text>
+              <text v-if="chip.sub" class="chip-sub">{{ chip.sub }}</text>
             </view>
           </block>
         </view>
@@ -169,7 +171,8 @@ export default {
       ticketTypes: [],
       selectedTicket: null,
       selectedDate: '',
-      activeDateKey: 'today'
+      activeDateKey: 'today',
+      allDateLabel: ''
     }
   },
 
@@ -186,10 +189,30 @@ export default {
       const formatMonth = (d) => `${d.getMonth() + 1}月${d.getDate()}日`
 
       return [
-        { key: 'today', label: '今天', date: this.formatDate(today) },
-        { key: 'tomorrow', label: '明天', date: this.formatDate(tomorrow) },
-        { key: 'specific', label: formatMonth(today) },
-        { key: 'all', label: '所有日期', icon: true, wide: true }
+        {
+          key: 'today',
+          main: formatMonth(today),
+          sub: '今天',
+          date: this.formatDate(today)
+        },
+        {
+          key: 'tomorrow',
+          main: formatMonth(tomorrow),
+          sub: '明天',
+          date: this.formatDate(tomorrow)
+        },
+        {
+          key: 'specific',
+          main: formatMonth(today),
+          sub: ''
+        },
+        {
+          key: 'all',
+          main: this.allDateLabel || '所有日期',
+          sub: '',
+          icon: true,
+          wide: true
+        }
       ]
     }
   },
@@ -249,6 +272,15 @@ export default {
     onAllDateChange(e) {
       this.selectedDate = e.detail.value
       this.activeDateKey = 'all'
+
+      if (this.selectedDate) {
+        const d = new Date(this.selectedDate.replace(/-/g, '/'))
+        const month = d.getMonth() + 1
+        const day = d.getDate()
+        this.allDateLabel = `${month}月${day}日`
+      } else {
+        this.allDateLabel = ''
+      }
     },
 
     handlePurchase() {
@@ -483,10 +515,11 @@ export default {
 }
 
 .date-chip {
-  width: 142rpx;
+  min-width: 138rpx;
   height: 64rpx;
   border-radius: 21rpx;
   background: $cr7-dark;
+  border: 1rpx solid transparent;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -499,21 +532,28 @@ export default {
 
 .chip-icon {
   font-size: 24rpx;
-  margin-right: 10rpx;
+  margin-right: 18rpx;
 }
 
-.chip-label {
+.chip-main {
   font-size: 24rpx;
+  color: $text-white;
+  font-weight: 600;
+}
+
+.chip-sub {
+  margin-left: 4rpx;
+  font-size: 20rpx;
   color: $text-white;
 }
 
 .date-chip.active {
-  background: $cr7-gold;
+  border-color: $cr7-gold;
 }
 
-.date-chip.active .chip-label {
-  color: $cr7-black;
-  font-weight: 600;
+.date-chip.active .chip-main,
+.date-chip.active .chip-sub {
+  color: $cr7-gold;
 }
 
 /* ===== 票种列表 ===== */
