@@ -135,20 +135,22 @@
       <view class="scroll-bottom-space"></view>
     </scroll-view>
 
-    <!-- 底部固定栏 -->
-    <view class="bottom-bar safe-area-bottom">
-      <view class="bottom-bar-inner">
-        <view class="price-box">
-          <text class="price-label">合计</text>
-          <text class="total-price">¥{{ totalPrice }}</text>
+    <!-- 底部总额 + 立即购买（参考订单确认页样式） -->
+    <view class="purchase-footer safe-area-bottom">
+      <view class="purchase-footer-inner">
+        <view class="footer-total">
+          <text class="total-label">合计</text>
+          <text class="total-value">¥{{ totalPrice }}</text>
         </view>
-        <button
-          class="btn-gold buy-btn"
-          :disabled="!selectedTicket"
-          @click="handlePurchase"
-        >
-          立即购买
-        </button>
+        <view class="purchase-bottom-bar">
+          <button
+            class="btn-gold pay-btn"
+            :disabled="!selectedTicket"
+            @click="handlePurchase"
+          >
+            立即购买
+          </button>
+        </view>
       </view>
     </view>
   </view>
@@ -626,33 +628,32 @@ export default {
 
 /* ===== 底部占位 ===== */
 .scroll-bottom-space {
-  height: 200rpx;
+  height: 160rpx;
 }
 
-/* ===== 底部固定栏 ===== */
-.bottom-bar {
+/* ===== 底部总额 + 按钮（参考订单确认页） ===== */
+.purchase-footer {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   border-top: 1rpx solid $cr7-border;
   background: $cr7-dark;
-  // padding: 15rpx 30rpx 12rpx;
 }
 
-.bottom-bar-inner {
+.purchase-footer-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  // padding: 33rpx 30rpx 62rpx;
+  padding: 15rpx 30rpx 12rpx;
 }
 
-.price-box {
+.footer-total {
   display: flex;
   flex-direction: column;
 }
 
-.price-label {
+.total-label {
   font-size: 23rpx;
   color: $text-light;
   letter-spacing: 1rpx;
@@ -660,21 +661,29 @@ export default {
   line-height: 30rpx;
 }
 
-.total-price {
+.total-value {
   font-size: 46rpx;
   color: $cr7-gold;
   font-weight: 700;
   line-height: 62rpx;
 }
 
-.buy-btn {
+.purchase-bottom-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pay-btn {
   width: 518rpx;
   height: 98rpx;
   font-size: 30rpx;
   font-weight: 500;
+  color: $cr7-black;
 }
 
-.buy-btn[disabled] {
+.pay-btn[disabled] {
   opacity: 0.4;
 }
 </style>
