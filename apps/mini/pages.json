@@ -58,6 +58,13 @@
 				"navigationStyle": "custom"
 			}
 		},
+    {
+      "path": "pages/order-confirm/order-confirm",
+      "style": {
+        "navigationBarTitleText": "订单确认",
+        "navigationStyle": "custom"
+      }
+    },
 		{
 			"path": "pages/event-detail/event-detail",
 			"style": {

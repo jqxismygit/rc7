@@ -255,16 +255,18 @@ export default {
         return
       }
 
-      uni.showLoading({ title: '正在支付...' })
+      const query = [
+        `eventName=${encodeURIComponent('C罗博物馆 CR7LIFE上海博物馆门票')}`,
+        `museumLocation=${encodeURIComponent(this.museumLocation)}`,
+        `visitDate=${this.selectedDate}`,
+        `ticketName=${encodeURIComponent(this.selectedTicket.name)}`,
+        `quantity=1`,
+        `amount=${this.totalPrice}`
+      ].join('&')
 
-      setTimeout(() => {
-        uni.hideLoading()
-        uni.showToast({ title: '购买成功', icon: 'success' })
-
-        setTimeout(() => {
-          uni.switchTab({ url: '/pages/my-tickets/my-tickets' })
-        }, 1500)
-      }, 1600)
+      uni.navigateTo({
+        url: `/pages/order-confirm/order-confirm?${query}`
+      })
     }
   }
 }
