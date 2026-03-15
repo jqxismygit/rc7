@@ -1,7 +1,7 @@
 -- Create base orders table (status 由时间戳计算)
 CREATE TABLE exhibit_orders (
 	id                    UUID PRIMARY KEY DEFAULT GEN_RANDOM_UUID(),
-	user_id               INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+	user_id               UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 	exhibit_id            UUID NOT NULL REFERENCES exhibitions(id) ON DELETE CASCADE,
 	session_id            UUID NOT NULL REFERENCES exhibit_sessions(id) ON DELETE CASCADE,
 	total_amount          INTEGER NOT NULL,

@@ -1,5 +1,5 @@
 import { Server } from "http";
-import { getJSON, postJSON } from "../lib/api";
+import { getJSON, postJSON } from "../lib/api.js";
 import { User } from "@rc7/types";
 import { expect } from "vitest";
 
