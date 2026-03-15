@@ -1,4 +1,7 @@
 Feature: Order ticket
+  Background:
+    Given 用户 "Alice" 已注册并登录
+
   Scenario: 创建订单成功
     Given 展览活动 "艺术展" 已创建，包含场次 "2026-07-01" 和票种 "成人票"
     And 场次 "2026-07-01" 的 "成人票" 库存为 2
