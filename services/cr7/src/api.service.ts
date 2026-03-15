@@ -99,7 +99,7 @@ const routes = [
   ),
   routeConfig(
     '/exhibition',
-    ['rc7.exhibition.*'],
+    ['cr7.exhibition.*'],
     {
       authorization: false,
       autoAliases: true,

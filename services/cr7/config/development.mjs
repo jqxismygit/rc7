@@ -1,5 +1,5 @@
 export default {
   pg: {
-    database: 'rc7_dev',
+    database: 'cr7_dev',
   }
 }

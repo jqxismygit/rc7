@@ -1,7 +1,7 @@
 {
-  "name": "@rc7/types",
+  "name": "@cr7/types",
   "version": "1.0.0",
-  "description": "API types for RC7 services",
+  "description": "API types for CR7 services",
   "main": "index.js",
   "type": "module",
   "scripts": {

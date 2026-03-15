@@ -3,10 +3,10 @@ export default {
     port: 0
   },
   pg: {
-    database: 'rc7_test',
+    database: 'cr7_test',
   },
   broker: {
-    namespace: 'rc7-test',
+    namespace: 'cr7-test',
     logger: {
       type: 'Console',
       options: {
@@ -14,7 +14,7 @@ export default {
       }
     },
     hotReload: false,
-    nodeID: 'rc7-test',
+    nodeID: 'cr7-test',
     transporter: {
       type: 'TCP',
       options: {

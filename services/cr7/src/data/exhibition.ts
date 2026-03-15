@@ -1,5 +1,5 @@
 import { Pool } from "pg";
-import type { Exhibition, Inventory } from "@rc7/types";
+import type { Exhibition, Inventory } from "@cr7/types";
 
 export type EXHIBITION_DATA_ERROR_CODES =
   | 'EXHIBITION_NOT_FOUND'

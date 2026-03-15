@@ -1,5 +1,5 @@
 {
-  "name": "@rc7/services",
+  "name": "@cr7/services",
   "version": "1.0.0",
   "type": "module",
   "description": "",
@@ -15,7 +15,7 @@
     "type-check": "tsc --noEmit",
     "format": "prettier --write .",
     "prepare": "husky",
-    "rc7": "node dist/scripts/rc7.js",
+    "cr7": "node dist/scripts/cr7.js",
     "spec:gen": "npx @amiceli/vitest-cucumber"
   },
   "keywords": [],
@@ -25,7 +25,7 @@
   "devDependencies": {
     "@amiceli/vitest-cucumber": "^6.2.0",
     "@eslint/js": "^9.39.2",
-    "@rc7/types": "workspace:*",
+    "@cr7/types": "workspace:*",
     "@types/config": "^3.3.5",
     "@types/lodash": "^4.17.23",
     "@types/node": "^24.10.13",

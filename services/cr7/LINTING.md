@@ -2,7 +2,7 @@
 
 ## 概述
 
-该项目为 `services/rc7` 配置了以下工具：
+该项目为 `services/cr7` 配置了以下工具：
 - **ESLint**: 代码质量检查
 - **Prettier**: 代码格式化
 - **lint-staged**: 只检查 staged 文件
@@ -11,7 +11,7 @@
 
 ## 可用的命令
 
-在 `services/rc7` 目录下运行：
+在 `services/cr7` 目录下运行：
 
 ```bash
 # 代码检查
@@ -126,16 +126,16 @@ git commit -m "message" --no-verify
 
 **解决**：
 ```bash
-cd /home/ghost/projects/rc7
-git config core.hooksPath services/rc7/.husky
-chmod +x services/rc7/.husky/pre-commit
+cd /home/ghost/projects/cr7
+git config core.hooksPath services/cr7/.husky
+chmod +x services/cr7/.husky/pre-commit
 ```
 
 ### 问题：某文件无法通过 lint
 
 **解决**：
 ```bash
-cd services/rc7
+cd services/cr7
 pnpm lint:fix  # 自动修复
 ```
 

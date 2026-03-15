@@ -2,7 +2,7 @@ export default {
   broker: {
     logger: true,
     hotReload: true,
-    nodeID: 'rc7',
+    nodeID: 'cr7',
     transporter: {
       type: 'TCP',
       options: {
@@ -23,10 +23,10 @@ export default {
   pg: {
     host: 'localhost',
     port: 5432,
-    user: 'rc7',
-    password: 'rc7',
-    database: 'rc7',
-    schema: 'rc7'
+    user: 'cr7',
+    password: 'cr7',
+    database: 'cr7',
+    schema: 'cr7'
   },
   wechat: {
     base_url: 'https://api.weixin.qq.com',

@@ -1,5 +1,5 @@
 import { Context, ServiceSchema } from "moleculer";
-import type { Exhibition } from "@rc7/types";
+import type { Exhibition } from "@cr7/types";
 import {
   createExhibition,
   getExhibitionById,
@@ -10,7 +10,7 @@ import {
   getSessionInventoryBySessionId,
   updateTicketCategoryInventoryMax
 } from "../data/exhibition.js";
-import { RC7BaseService } from "./rc7.base.js";
+import { RC7BaseService } from "./cr7.base.js";
 
 interface UserMeta {
   uid: string;

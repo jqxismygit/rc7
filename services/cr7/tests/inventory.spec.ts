@@ -6,7 +6,7 @@ import {
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
 import { expect, vi } from 'vitest';
-import { Exhibition, Inventory } from '@rc7/types';
+import { Exhibition, Inventory } from '@cr7/types';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
 import { services_fixtures } from './fixtures/services.js';
 import {
@@ -20,7 +20,7 @@ import {
 } from './fixtures/exhibition.js';
 
 const schema = 'test_inventory';
-const services = ['api', 'rc7'];
+const services = ['api', 'cr7'];
 
 const feature = await loadFeature('tests/features/inventory.feature');
 

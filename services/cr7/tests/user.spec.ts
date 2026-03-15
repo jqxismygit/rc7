@@ -4,7 +4,7 @@ import {
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
 import { expect, Mock, vi, TestContext } from 'vitest';
-import { User } from '@rc7/types';
+import { User } from '@cr7/types';
 import { mockJSONServer, MockJSONServer } from './lib/server.js';
 import {
   assertLoginResponse, assertUserProfile,

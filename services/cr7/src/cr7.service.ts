@@ -9,7 +9,7 @@ export default class RC7Service extends ExhibitionService {
     super(broker);
 
     this.parseServiceSchema({
-      name: 'rc7',
+      name: 'cr7',
       settings: {
         rest: '/',
         $noVersionPrefix: true,

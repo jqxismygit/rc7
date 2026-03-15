@@ -1,6 +1,6 @@
 import { Server } from "http";
 import { getJSON, postJSON } from "../lib/api.js";
-import { Exhibition } from "@rc7/types";
+import { Exhibition } from "@cr7/types";
 import { expect } from "vitest";
 import { StepTest } from "@amiceli/vitest-cucumber";
 import { random_text } from "../lib/random.js";

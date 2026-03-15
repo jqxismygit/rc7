@@ -12,14 +12,14 @@
 
 ```txt
 ./services
-  /types - rc7 API 相关类型定义
-  /rc7
+  /types - cr7 API 相关类型定义
+  /cr7
     /config - 配置文件
     /src - 后端服务源代码
       /data - 数据库操作层
       /api.service.ts - API 服务定义
       /user.service.ts - 用户服务定义
-      /rc7.service.ts -  rc7 业务逻辑实现
+      /cr7.service.ts -  cr7 业务逻辑实现
     /tests - 后端服务测试代码
       /features - BDD 测试场景定义
       /steps - 测试步骤定义
@@ -39,7 +39,7 @@
 
 - API 定义在 api.service.ts 中
 - 用户相关逻辑放在 user.service.ts 中。
-- 业务逻辑实现放在 rc7.service.ts 中
+- 业务逻辑实现放在 cr7.service.ts 中
 
 ### 类型定义规范
 
@@ -49,11 +49,11 @@
 - 测试代码应导入并复用 services/types 中定义的类型，避免重复定义
 - 不要在 services/types 中创建 Request 类型，如 `CreateXxxRequest`、`UpdateXxxRequest` 等
 
-## 命令工具 rc7
+## 命令工具 cr7
 
-在 /services/rc7/scripts 目录下提供了一个命令行工具 rc7，用于执行一些常用的开发和维护任务，如数据库迁移、数据处理等功能。
-入口命令为 `pnpm -w s rc7 <command>`，其中 `<command>` 是 rc7 工具支持的具体命令，如 `migration`、`bootstrap` 等。
-一些运维相关的命令也会放在 rc7 工具中，方便运维人员使用。
+在 /services/cr7/scripts 目录下提供了一个命令行工具 cr7，用于执行一些常用的开发和维护任务，如数据库迁移、数据处理等功能。
+入口命令为 `pnpm -w s cr7 <command>`，其中 `<command>` 是 cr7 工具支持的具体命令，如 `migration`、`bootstrap` 等。
+一些运维相关的命令也会放在 cr7 工具中，方便运维人员使用。
 
 
 ## 测试
@@ -62,10 +62,10 @@
 
 ### 测试目录结构
 
-- 测试场景定义在 services/rc7/tests/features 目录
-- 测试步骤实现放在 services/rc7/tests/specs 目录（*.spec.ts）
-- 测试辅助函数放在 services/rc7/tests/lib 目录
-- 测试数据、API 请求、断言等放在 services/rc7/tests/fixtures 目录
+- 测试场景定义在 services/cr7/tests/features 目录
+- 测试步骤实现放在 services/cr7/tests/specs 目录（*.spec.ts）
+- 测试辅助函数放在 services/cr7/tests/lib 目录
+- 测试数据、API 请求、断言等放在 services/cr7/tests/fixtures 目录
 
 ### features
 
@@ -93,7 +93,7 @@
 
 - 在 fixtures 目录中创建辅助函数生成测试数据，例如 `prepareExhibitionData()`
 - 使用随机数据生成工具避免测试数据冲突，特别是在并行测试场景中
-- 在 `services/rc7/tests/lib/random.ts` 中提供通用的随机数据生成函数
+- 在 `services/cr7/tests/lib/random.ts` 中提供通用的随机数据生成函数
 
 #### 路径别名
 
@@ -107,17 +107,17 @@
 
 ## 数据库操作
 
-- 数据库相关文件放在 services/rc7/db 目录
+- 数据库相关文件放在 services/cr7/db 目录
 - 数据库操作通过 data 层封装，服务层调用 data 提供的方法进行数据访问，避免直接操作数据库。
 - 项目采用 code first 模式，db/下创建数据库定义，然后通过迁移脚本或启动脚本进行数据库表的创建和更新.
 - 表结构都定义在 pg schema 下，除非有特例不会在 public schema 下创建表。
 
 ### 数据迁移步骤：
 
-1. 在数据库迁移前执行 bootstrap 命令：`pnpm -w s rc7 bootstrap`，此命令会初始化一些必要插件。
-2. 创建新的迁移脚本，执行命令 `pnpm -w s rc7 migration create <migration-name>`，会在 services/rc7/db/migrations 目录下生成一个新的迁移脚本文件。
+1. 在数据库迁移前执行 bootstrap 命令：`pnpm -w s cr7 bootstrap`，此命令会初始化一些必要插件。
+2. 创建新的迁移脚本，执行命令 `pnpm -w s cr7 migration create <migration-name>`，会在 services/cr7/db/migrations 目录下生成一个新的迁移脚本文件。
 3. 在迁移脚本中定义数据库表的创建、修改或删除操作。
-4. 执行迁移命令 `pnpm -w s rc7 migration upgrade`，会执行所有未执行过的迁移脚本，更新数据库表结构。
+4. 执行迁移命令 `pnpm -w s cr7 migration upgrade`，会执行所有未执行过的迁移脚本，更新数据库表结构。
 
 ### SQL 编写规范
 

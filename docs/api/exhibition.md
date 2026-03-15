@@ -1,6 +1,6 @@
 # 展览活动相关接口
 
-基于 `Exhibition` 类型（来自 `@rc7/types`）定义。
+基于 `Exhibition` 类型（来自 `@cr7/types`）定义。
 
 ## 概念说明
 

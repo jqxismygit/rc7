@@ -32,11 +32,11 @@ yargs(hideBin(process.argv))
   },
   schema: {
     type: 'string',
-    default: 'rc7',
+    default: 'cr7',
     describe: '数据库 schema 名称'
   }
 })
-.commandDir('.', { exclude: /rc7/ })
+.commandDir('.', { exclude: /cr7/ })
 .demandCommand()
 .usage('$0 <command> [options]')
 .help(true)
