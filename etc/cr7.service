@@ -5,7 +5,7 @@ Description=CR7 service.
 User=cr7
 WorkingDirectory=/var/lib/cr7
 Environment=NODE_ENV=production
-ExecStart=/var/lib/cr7/bin/pnpm -w server start
+ExecStart=/usr/bin/pnpm -w s start
 Restart=always
 RestartSec=500ms
 
