@@ -7,7 +7,7 @@ import { dbClientWrapper } from '../utils.js';
 export const command = 'upgrade';
 export const describe = 'Run database migrations to upgrade to the latest version';
 
-const migrationsDir = new URL('../../../db/migrations/', import.meta.url).pathname;
+const migrationsDir = new URL('../../db/migrations/', import.meta.url).pathname;
 
 async function listMigrations() {
   const files = await fs.readdir(migrationsDir);

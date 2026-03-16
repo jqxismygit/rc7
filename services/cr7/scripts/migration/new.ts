@@ -17,7 +17,7 @@ export async function handler(argv) {
   const name = _.snakeCase(argv.name);
   const version = format(new Date(), 'yyyyMMddHHmmss');
   const filename = `${version}_${name}.sql`;
-  const filepath = path.resolve(__dirname, '../../..', `db/migrations/${filename}`);
+  const filepath = path.resolve(__dirname, '../..', `db/migrations/${filename}`);
   await fs.writeFile(filepath, Buffer.from('-- Write your migration SQL here\n'));
   console.log(`Created migration file: ${filepath}`);
 }
