@@ -12,14 +12,13 @@ shift
 echo "build dependencies...";
 pnpm -w s build
 
-
-echo "deploy to $SERVER;
+echo "deploy to $SERVER";
 rsync -aP  etc                                                           "$SERVER:";
 rsync -aP ./{pnpm-workspace.yaml,pnpm-lock.yaml,package.json}            "$SERVER:";
 
 echo "install dependence...";
 rsync -aPR  "services/cr7/package.json"                                  "$SERVER:";
-ssh $SERVER "pnpm install --prefer-offline --frozen-lockfile --prod";
+ssh $SERVER "pnpm install --prefer-offline --frozen-lockfile  --ignore-scripts --prod";
 
 echo "deploy cr7...";
 rsync -aPR "services/cr7/dist/src/api.service.js"                        "$SERVER:"
