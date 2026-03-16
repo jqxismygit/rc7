@@ -2,7 +2,7 @@ import path from 'node:path';
 import { URL } from 'node:url';
 import { Server } from 'node:http';
 import { ServiceBroker, ServiceSchema } from 'moleculer';
-import { bootstrap, migrate, drop } from '@scripts/index.js';
+import { bootstrap, migrate, drop } from '@/scripts/index.js';
 import { FixturesResult } from '../lib/fixtures.js';
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);

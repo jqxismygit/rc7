@@ -8,7 +8,7 @@ const __dirname = path.dirname(new URL(import.meta.url).pathname);
 export async function bootstrap(client: Client, args?: { log?: boolean }) {
   const { log } = args ?? { log: false };
   const bootstrapSQL = await fs.readFile(
-    path.join(__dirname, '..', 'db', 'bootstrap.sql'),
+    path.join(__dirname, '../..', 'db', 'bootstrap.sql'),
     'utf-8'
   );
 

@@ -4,8 +4,7 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "paths": {
-      "@/*": ["../src/*"],
-      "@scripts/*": ["../scripts/*"]
+      "@/*": ["../src/*"]
     }
   },
   "include": [

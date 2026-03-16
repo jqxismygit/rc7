@@ -2,7 +2,6 @@
 Description=CR7 service.
 
 [Service]
-User=cr7
 WorkingDirectory=/var/lib/cr7
 Environment=NODE_ENV=production
 ExecStart=/usr/bin/pnpm -w s start
@@ -10,4 +9,4 @@ Restart=always
 RestartSec=500ms
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

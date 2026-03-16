@@ -6,8 +6,8 @@
   "main": "index.js",
   "scripts": {
     "test": "vitest",
-    "dev": "moleculer-runner --hot --config ./dist/src/moleculer.config.js ./dist/src/*.service.js",
-    "start": "moleculer-runner --config ./dist/src/moleculer.config.js ./dist/src/*.service.js",
+    "dev": "moleculer-runner --hot --config ./dist/moleculer.config.js ./dist/*.service.js",
+    "start": "moleculer-runner --config ./dist/moleculer.config.js ./dist/*.service.js",
     "build": "tsc -b",
     "clean": "rm -rf dist",
     "check": "pnpm run lint && pnpm run type-check",
