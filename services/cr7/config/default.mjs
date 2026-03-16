@@ -12,7 +12,7 @@ export default {
     }
   },
   api: {
-    port: 5004
+    port: 5026,
   },
   jwt: {
     secret: '__JWT_SECRET__',

@@ -1,0 +1,7 @@
+include /var/lib/cr7/etc/nginx/conf.d/upstreams.conf;
+
+server {
+  listen 80 default_server;
+
+  include /var/lib/cr7/etc/nginx/snippets/cr7.conf;
+}

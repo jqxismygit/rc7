@@ -5,5 +5,6 @@ ignoreWords:
   - Jscode
   - Descriibe
 words:
+  - moleculer
   - TSTZRANGE
   - Wechat
