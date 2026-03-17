@@ -1,4 +1,5 @@
 import Request from '@/js_sdk/luch-request/luch-request/index.js'
+import storage from '@/utils/storage.js'
 
 const request = new Request();
 
@@ -11,10 +12,7 @@ request.setConfig((config) => {
 // 获取公共请求头
 const getCommonHeaders = () => {
 	return {
-		// "app-token": appData.token,
-		// "app-coordinates": `${longitude},${latitude}`,
-		// "app-channel": getAppChannel(),
-		// "app-version": getAppVersion()
+		"Authorization": `Bearer ${storage.getToken()}`
 	};
 };
 
@@ -41,16 +39,16 @@ request.interceptors.response.use((response) => { /* 对响应成功做点什么
     return data
 }, (response) => { /*  对响应错误做点什么 （statusCode !== 200）*/
     // console.error('响应拦截器错误:', response)
-    // if (response?.statusCode === 401) {
-    //     console.log('响应状态码401，需要重新登录')
-    //     uni.showToast({
-    //         title: '登录过期，请重新登录',
-    //         icon: 'none'
-    //     })
-    //     uni.navigateTo({
-    //         url: '/pages/login/login'
-    //     })
-    // }
+    if (response?.statusCode === 401) {
+        console.log('登录过期，需要重新登录')
+        uni.showToast({
+            title: '登录过期，请重新登录',
+            icon: 'none'
+        })
+        uni.navigateTo({
+            url: '/pages/login/login'
+        })
+    }
     return Promise.reject(response)
 })
 
