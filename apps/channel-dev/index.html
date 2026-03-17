@@ -13,24 +13,25 @@
         padding: 0;
         box-sizing: border-box;
       }
+      html,
       body {
-        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
-          "Helvetica Neue", Arial, sans-serif;
-        background-color: #ffffff;
-        color: #111827;
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        width: 100%;
+        height: 100%;
       }
-      .message {
-        font-size: 16px;
-        color: #6b7280;
+      body {
+        margin: 0;
+      }
+      .full-bg {
+        position: fixed;
+        inset: 0;
+        background-image: url('https://i.pinimg.com/736x/ff/49/8e/ff498e6922d2092931e1c0a58127bd76.jpg');
+        background-size: cover;
+        background-position: center center;
+        background-repeat: no-repeat;
       }
     </style>
   </head>
   <body>
-    <div class="message">小程序即将上线，敬请期待…</div>
-    <!-- 如后续需要在微信内唤起小程序，可在此处恢复跳转逻辑 -->
+    <div class="full-bg"></div>
   </body>
 </html>
