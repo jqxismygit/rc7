@@ -1,40 +1,22 @@
 <template>
   <view class="brands-page">
     <scroll-view class="brands-scroll" scroll-y>
-      <view class="header">
-        <text class="title">联名品牌</text>
-        <text class="subtitle">CR7® LIFE 官方合作伙伴</text>
-      </view>
-
       <view class="brand-grid">
         <view
           v-for="brand in brands"
           :key="brand.id"
-          class="brand-card card-dark"
+          class="brand-card"
           @click="handleBrandClick(brand)"
         >
-          <view class="brand-logo-circle">
-            <text class="brand-logo-text">
-              {{ brand.initials || brand.name.slice(0, 2) }}
-            </text>
+          <view class="brand-cover-area">
+            <image
+              :src="brand.logo || '/static/images/event-card.jpg'"
+              class="brand-cover-img"
+              mode="aspectFill"
+            />
           </view>
           <text class="brand-name">{{ brand.name }}</text>
           <text class="brand-desc">{{ brand.description }}</text>
-          <view class="products">
-            <text
-              v-for="product in brand.products"
-              :key="product"
-              class="product-tag"
-            >
-              {{ product }}
-            </text>
-          </view>
-          <view class="visit-row">
-            <text class="visit-text">
-              {{ brand.miniAppId ? '访问联名小程序' : '更多合作即将公布' }}
-            </text>
-            <text class="visit-arrow">›</text>
-          </view>
         </view>
       </view>
 
@@ -89,120 +71,68 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+@import '@/uni.scss';
+
+/* 设计稿 327.4×300.4 卡片，与首页合作伙伴区块一致 */
 .brands-page {
   min-height: 100vh;
   background: $cr7-black;
 }
 
 .brands-scroll {
-  padding: 24rpx;
-}
-
-.header {
-  text-align: center;
-  padding: 24rpx 0 16rpx;
-}
-
-.title {
-  font-size: $font-xxl;
-  color: $text-white;
-  font-weight: 600;
-}
-
-.subtitle {
-  margin-top: 6rpx;
-  font-size: $font-sm;
-  color: $text-muted;
+  padding: 24rpx 36rpx;
 }
 
 .brand-grid {
-  margin-top: 20rpx;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20rpx;
-}
-
-.card-dark {
-  background: $cr7-card;
-  border-radius: $radius-lg;
-  border: 1rpx solid $cr7-border;
-  box-shadow: $shadow-card;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24rpx;
 }
 
 .brand-card {
-  padding: 20rpx 18rpx 16rpx;
+  width: calc((100% - 24rpx) / 2);
+  max-width: 328rpx;
+  height: 300rpx;
+  background: $cr7-dark;
+  border-radius: 28rpx;
+  padding: 14rpx;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-.brand-logo-circle {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 50%;
-  background: radial-gradient(circle at 0% 0%, rgba(216, 252, 15, 0.24), transparent 55%), $cr7-dark;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 12rpx;
+.brand-cover-area {
+  width: 100%;
+  height: 163rpx;
+  background: $cr7-card;
+  border-radius: 17rpx;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-bottom: 21rpx;
 }
 
-.brand-logo-text {
-  font-size: $font-lg;
-  color: $cr7-gold-light;
-  font-weight: 700;
+.brand-cover-img {
+  width: 100%;
+  height: 100%;
 }
 
 .brand-name {
-  font-size: $font-md;
+  display: block;
+  font-size: 30rpx;
+  font-weight: 500;
   color: $text-white;
-  font-weight: 600;
-  margin-bottom: 4rpx;
   text-align: center;
+  line-height: 42rpx;
+  margin-bottom: 2rpx;
 }
 
 .brand-desc {
-  font-size: $font-xs;
+  display: block;
+  font-size: 24rpx;
   color: $text-light;
   text-align: center;
-  margin-bottom: 10rpx;
-}
-
-.products {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8rpx;
-  justify-content: center;
-  margin-bottom: 10rpx;
-}
-
-.product-tag {
-  padding: 4rpx 10rpx;
-  border-radius: 999rpx;
-  background: $cr7-dark;
-  font-size: $font-xs;
-  color: $text-light;
-}
-
-.visit-row {
-  width: 100%;
-  margin-top: 4rpx;
-  padding-top: 8rpx;
-  border-top: 1rpx solid $cr7-border;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.visit-text {
-  font-size: $font-xs;
-  color: $cr7-gold-light;
-}
-
-.visit-arrow {
-  font-size: $font-xs;
-  color: $cr7-gold-light;
-  margin-left: 4rpx;
+  line-height: 38rpx;
 }
 
 .safe-bottom {

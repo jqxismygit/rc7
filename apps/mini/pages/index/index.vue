@@ -223,7 +223,9 @@ export default {
 
     selectTicket(ticket) {
       if (ticket.stock > 0) {
-        uni.navigateTo({ url: `/pages/ticket-purchase/ticket-purchase?id=${this.ticketEvent.id || 1}` })
+        const eventId = this.ticketEvent.id || 1
+        const ticketId = ticket.id
+        uni.navigateTo({ url: `/pages/ticket-purchase/ticket-purchase?eventId=${eventId}&ticketId=${ticketId}` })
       } else {
         uni.showToast({ title: '该票种已售罄', icon: 'none' })
       }

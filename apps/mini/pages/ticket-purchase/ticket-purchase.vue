@@ -218,9 +218,18 @@ export default {
   },
 
   onLoad(options) {
-    this.eventId = options.eventId
+    this.eventId = options.eventId || options.id
     this.loadEventInfo()
     this.loadTicketTypes()
+    // 从首页点击票种进入时，预选对应票种
+    if (options.ticketId) {
+      this.$nextTick(() => {
+        const ticket = this.ticketTypes.find((t) => String(t.id) === String(options.ticketId))
+        if (ticket && ticket.stock > 0) {
+          this.selectedTicket = ticket
+        }
+      })
+    }
   },
 
   methods: {
