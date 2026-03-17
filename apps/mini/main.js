@@ -13,8 +13,17 @@ app.$mount()
 
 // #ifdef VUE3
 import { createSSRApp } from 'vue'
+import { createPinia } from 'pinia'
+import createPersistPlugin from '@/utils/createPersistPlugin.js'
+
 export function createApp() {
   const app = createSSRApp(App)
+  const pinia = createPinia()
+
+  // 极薄持久化插件：当前只持久化 user store
+  pinia.use(createPersistPlugin({ ids: ['user'] }))
+
+  app.use(pinia)
   return {
     app
   }

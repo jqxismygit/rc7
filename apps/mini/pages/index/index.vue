@@ -146,7 +146,7 @@
 </template>
 
 <script>
-import storage from '@/utils/storage.js'
+import { useUserStore } from '@/stores/user'
 import { fetchUnreadCount } from '@/services/messages.js'
 import {
   fetchHeroBanners,
@@ -204,7 +204,8 @@ export default {
 
   methods: {
     checkLogin() {
-      if (!storage.isLoggedIn()) {
+      const userStore = useUserStore()
+      if (!userStore.isLoggedIn) {
         uni.navigateTo({ url: '/pages/login/login' })
       }
     },

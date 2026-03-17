@@ -1,5 +1,5 @@
 import Request from '@/js_sdk/luch-request/luch-request/index.js'
-import storage from '@/utils/storage.js'
+import persistStorage from '@/utils/persistStorage.js'
 
 const request = new Request();
 
@@ -9,11 +9,23 @@ request.setConfig((config) => {
 	return config;
 });
 
+const getTokenFromPersistedUser = () => {
+	const raw = persistStorage.getItem('user')
+	if (!raw) return ''
+	try {
+		const state = typeof raw === 'string' ? JSON.parse(raw) : raw
+		return state?.token || ''
+	} catch (e) {
+		return ''
+	}
+}
+
 // 获取公共请求头
 const getCommonHeaders = () => {
-	return {
-		"Authorization": `Bearer ${storage.getToken()}`
-	};
+	const token = getTokenFromPersistedUser()
+	return token
+		? { "Authorization": `Bearer ${token}` }
+		: {}
 };
 
 request.interceptors.request.use((config) => { // 可使用async await 做异步操作    
