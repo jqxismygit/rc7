@@ -56,6 +56,15 @@ export async function loginWithWechatPhone() {
   }
 }
 
+/**
+ * 使用当前 token 刷新用户信息（应用启动、前台唤醒等场景）
+ * token 通过 request 拦截器自动注入
+ */
+export async function fetchProfile() {
+  const profileRes = await request.get('/user/profile')
+  return profileRes
+}
+
 // // 认证与登录相关 mock 服务
 // import { mockUser, mockEmployee } from '@/utils/mockData.js'
 

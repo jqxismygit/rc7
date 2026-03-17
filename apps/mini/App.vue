@@ -1,16 +1,29 @@
 <script>
+import { useUserStore } from '@/stores/user'
+import { fetchProfile } from '@/services/auth.js'
+
 export default {
-  onLaunch: function() {
+  async onLaunch() {
     console.log('App Launch')
-    const token = uni.getStorageSync('token')
-    if (!token) {
+    const userStore = useUserStore()
+
+    if (!userStore.isLoggedIn) {
       console.log('用户未登录')
+      return
+    }
+
+    try {
+      const user = await fetchProfile()
+      userStore.setProfile(user)
+      console.log('启动时刷新用户信息成功', user)
+    } catch (e) {
+      console.error('启动时刷新用户信息失败', e)
     }
   },
-  onShow: function() {
+  onShow() {
     console.log('App Show')
   },
-  onHide: function() {
+  onHide() {
     console.log('App Hide')
   }
 }
