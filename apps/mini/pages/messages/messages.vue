@@ -1,81 +1,130 @@
 <template>
   <view class="container">
-    <view v-if="messages.length === 0" class="empty">
+    <!-- 自定义导航栏 -->
+    <view class="nav-bar safe-area-top">
+      <view class="nav-back" @click="goBack">
+        <text class="nav-back-icon">‹</text>
+      </view>
+      <text class="nav-title">消息中心</text>
+      <view class="nav-placeholder"></view>
+    </view>
+
+    <!-- 空状态 -->
+    <view v-if="messages.length === 0 && !loading" class="empty">
       <text class="empty-icon">💬</text>
       <text class="empty-text">暂无消息</text>
     </view>
 
+    <!-- 消息列表 -->
     <scroll-view v-else class="message-list" scroll-y>
-      <view 
-        v-for="msg in messages" 
+      <view
+        v-for="msg in messages"
         :key="msg.id"
-        class="message-item"
-        :class="{ unread: !msg.isRead }"
+        class="message-card"
         @click="handleMessageClick(msg)"
       >
-        <view class="message-icon" :class="'type-' + msg.type">
-          {{ getTypeIcon(msg.type) }}
+        <view class="msg-avatar" :class="'avatar-' + msg.type">
+          <text class="msg-avatar-icon">{{ getTypeIcon(msg.type) }}</text>
         </view>
-        <view class="message-content">
-          <view class="message-header">
-            <text class="message-title">{{ msg.title }}</text>
-            <text class="message-time">{{ formatTime(msg.time) }}</text>
+        <view class="msg-body">
+          <view class="msg-header">
+            <view class="msg-title-row">
+              <text class="msg-title">{{ msg.title }}</text>
+              <view v-if="!msg.isRead" class="unread-dot"></view>
+            </view>
+            <text class="msg-time">{{ formatTime(msg.time) }}</text>
           </view>
-          <text class="message-text">{{ msg.content }}</text>
+          <view class="msg-preview">
+            <text class="msg-text">{{ msg.content }}</text>
+          </view>
         </view>
-        <view v-if="!msg.isRead" class="unread-dot"></view>
       </view>
+      <view class="safe-bottom safe-area-bottom"></view>
     </scroll-view>
   </view>
 </template>
 
 <script>
-import { mockMessages } from '@/utils/mockData.js'
+import {
+  fetchMessages,
+  markMessageAsRead
+} from '@/services/messages.js'
 
 export default {
   data() {
     return {
-      messages: []
+      messages: [],
+      loading: false
     }
   },
-  
-  onLoad() {
-    this.loadMessages()
+
+  async onLoad() {
+    await this.loadMessages()
   },
-  
+
   methods: {
-    loadMessages() {
-      this.messages = mockMessages
+    goBack() {
+      if (getCurrentPages().length > 1) {
+        uni.navigateBack()
+      } else {
+        uni.switchTab({ url: '/pages/index/index' })
+      }
     },
-    
+
+    async loadMessages() {
+      this.loading = true
+      try {
+        const list = await fetchMessages()
+        this.messages = list
+      } catch (e) {
+        console.error('加载消息列表失败', e)
+        uni.showToast({
+          title: '消息加载失败',
+          icon: 'none'
+        })
+      } finally {
+        this.loading = false
+      }
+    },
+
     getTypeIcon(type) {
       const iconMap = {
         ticket: '🎫',
-        activity: '📅',
-        system: '🔔'
+        activity: '🎁',
+        system: '⚙️'
       }
       return iconMap[type] || '💬'
     },
-    
+
     formatTime(time) {
       const date = new Date(time)
       const now = new Date()
       const diff = now - date
-      
-      if (diff < 3600000) { // 1小时内
+
+      if (diff < 3600000) {
         return Math.floor(diff / 60000) + '分钟前'
-      } else if (diff < 86400000) { // 24小时内
+      } else if (diff < 86400000) {
         return Math.floor(diff / 3600000) + '小时前'
+      } else if (diff < 172800000) {
+        return '昨天'
+      } else if (diff < 604800000) {
+        const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+        return days[date.getDay()]
       } else {
         return time.split(' ')[0]
       }
     },
-    
-    handleMessageClick(msg) {
+
+    async handleMessageClick(msg) {
       if (!msg.isRead) {
         msg.isRead = true
+        try {
+          await markMessageAsRead(msg.id)
+        } catch (e) {
+          console.error('标记已读失败', e)
+        }
       }
-      
+
       uni.showModal({
         title: msg.title,
         content: msg.content,
@@ -86,18 +135,64 @@ export default {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .container {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: $cr7-black;
 }
 
+/* 导航栏 */
+.nav-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  padding: 0 $spacing-lg;
+  padding-top: 56rpx;
+  height: 196rpx;
+  display: flex;
+  align-items: center;
+  z-index: 20;
+  background: $cr7-black;
+}
+
+.nav-back {
+  width: 70rpx;
+  height: 70rpx;
+  border-radius: 40rpx;
+  background: $cr7-dark;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-back-icon {
+  color: $text-white;
+  font-size: 40rpx;
+  margin-top: -4rpx;
+}
+
+.nav-title {
+  flex: 1;
+  text-align: center;
+  font-size: 36rpx;
+  color: $text-white;
+  font-weight: 700;
+}
+
+.nav-placeholder {
+  width: 70rpx;
+  height: 70rpx;
+}
+
+/* 空状态 */
 .empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding-top: 200rpx;
+  padding-top: 400rpx;
+  color: $text-light;
 }
 
 .empty-icon {
@@ -106,91 +201,118 @@ export default {
 }
 
 .empty-text {
-  font-size: 28rpx;
-  color: #999;
+  font-size: $font-base;
 }
 
+/* 消息列表 */
 .message-list {
   height: 100vh;
+  padding-top: 196rpx;
 }
 
-.message-item {
+.message-card {
   display: flex;
-  align-items: center;
+  gap: 30rpx;
+  align-items: flex-start;
   padding: 30rpx;
-  background: #fff;
-  border-bottom: 1px solid #f0f0f0;
-  position: relative;
+  margin: 0 30rpx 15rpx;
+  background: $cr7-dark;
+  border-radius: 24rpx;
 }
 
-.message-item.unread {
-  background: #f5f7ff;
+.message-card:first-child {
+  margin-top: 30rpx;
 }
 
-.message-icon {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 40rpx;
+/* 头像 */
+.msg-avatar {
+  width: 92rpx;
+  height: 92rpx;
+  border-radius: 50%;
+  background: $cr7-gold;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40rpx;
-  margin-right: 20rpx;
   flex-shrink: 0;
 }
 
-.type-ticket {
-  background: #e3f2fd;
+.msg-avatar-icon {
+  font-size: 42rpx;
 }
 
-.type-activity {
-  background: #fff3e0;
+.avatar-activity {
+  background: $cr7-gold;
 }
 
-.type-system {
-  background: #f3e5f5;
+.avatar-system {
+  background: rgba(216, 251, 14, 0.2);
 }
 
-.message-content {
+.avatar-ticket {
+  background: rgba(216, 251, 14, 0.2);
+}
+
+/* 消息内容 */
+.msg-body {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 10rpx;
+  gap: 8rpx;
 }
 
-.message-header {
+.msg-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
 }
 
-.message-title {
-  font-size: 28rpx;
-  font-weight: bold;
-  color: #333;
+.msg-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
 }
 
-.message-time {
-  font-size: 22rpx;
-  color: #999;
-}
-
-.message-text {
-  font-size: 26rpx;
-  color: #666;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.msg-title {
+  font-size: $font-md;
+  font-weight: 500;
+  color: $text-white;
+  line-height: 46rpx;
 }
 
 .unread-dot {
   width: 16rpx;
   height: 16rpx;
-  background: #ff4444;
+  background: $cr7-gold;
   border-radius: 50%;
-  position: absolute;
-  right: 30rpx;
-  top: 50%;
-  transform: translateY(-50%);
+  flex-shrink: 0;
+}
+
+.msg-time {
+  font-size: 23rpx;
+  color: $text-light;
+  line-height: 30rpx;
+  flex-shrink: 0;
+}
+
+.msg-preview {
+  height: 88rpx;
+  overflow: hidden;
+}
+
+.msg-text {
+  font-size: 27rpx;
+  color: $text-light;
+  line-height: 44rpx;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-all;
+}
+
+.safe-bottom {
+  height: 40rpx;
 }
 </style>

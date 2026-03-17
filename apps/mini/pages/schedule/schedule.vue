@@ -1,346 +1,146 @@
 <template>
-  <view class="container">
-    <view class="tabs">
-      <view 
-        v-for="(tab, index) in tabs" 
-        :key="index"
-        class="tab-item"
-        :class="{ active: currentTab === index }"
-        @click="switchTab(index)"
-      >
-        {{ tab }}
+  <view class="schedule-page">
+    <scroll-view class="schedule-scroll" scroll-y>
+      <view class="section">
+        <text class="section-title">C罗职业生涯时间轴</text>
+        <text class="section-sub">从里斯本到世界之巅的每一个关键节点</text>
       </view>
-    </view>
 
-    <scroll-view class="content" scroll-y>
-      <!-- 赛事日程 -->
-      <view v-if="currentTab === 0" class="schedule-list">
-        <view v-for="match in matches" :key="match.id" class="match-card">
-          <view class="match-date">{{ match.date }}</view>
-          <view class="match-teams">
-            <view class="team">
-              <text class="team-name">{{ match.homeTeam }}</text>
-              <text v-if="match.homeScore !== null" class="score">{{ match.homeScore }}</text>
-            </view>
-            <text class="vs">VS</text>
-            <view class="team">
-              <text v-if="match.awayScore !== null" class="score">{{ match.awayScore }}</text>
-              <text class="team-name">{{ match.awayTeam }}</text>
-            </view>
+      <view class="timeline">
+        <view
+          v-for="(item, index) in schedule"
+          :key="item.id"
+          class="timeline-row"
+        >
+          <view class="timeline-axis">
+            <view class="timeline-dot"></view>
+            <view
+              v-if="index !== schedule.length - 1"
+              class="timeline-connector"
+            ></view>
           </view>
-          <view class="match-info">
-            <text class="venue">📍 {{ match.venue }}</text>
-            <view class="status" :class="'status-' + match.status">
-              {{ getStatusText(match.status) }}
-            </view>
-          </view>
-        </view>
-      </view>
 
-      <!-- 积分榜 -->
-      <view v-if="currentTab === 1" class="standings-table">
-        <view class="table-header">
-          <text class="col rank">排名</text>
-          <text class="col team">球队</text>
-          <text class="col">赛</text>
-          <text class="col">胜</text>
-          <text class="col">平</text>
-          <text class="col">负</text>
-          <text class="col points">积分</text>
-        </view>
-        <view v-for="item in standings" :key="item.rank" class="table-row">
-          <text class="col rank">{{ item.rank }}</text>
-          <text class="col team">{{ item.team }}</text>
-          <text class="col">{{ item.played }}</text>
-          <text class="col">{{ item.won }}</text>
-          <text class="col">{{ item.drawn }}</text>
-          <text class="col">{{ item.lost }}</text>
-          <text class="col points">{{ item.points }}</text>
-        </view>
-      </view>
-
-      <!-- C罗行程 -->
-      <view v-if="currentTab === 2" class="timeline">
-        <view v-for="item in schedule" :key="item.id" class="timeline-item">
-          <view class="timeline-dot"></view>
           <view class="timeline-content">
-            <text class="timeline-date">{{ item.date }} {{ item.time }}</text>
-            <text class="timeline-event">{{ item.event }}</text>
-            <text class="timeline-location">📍 {{ item.location }}</text>
+            <text class="timeline-date">{{ item.date }}</text>
+            <view class="timeline-card">
+              <text class="timeline-event">{{ item.event }}</text>
+              <text class="timeline-location">📍 {{ item.location }}</text>
+            </view>
           </view>
         </view>
       </view>
+
+      <view class="safe-bottom safe-area-bottom"></view>
     </scroll-view>
   </view>
 </template>
 
 <script>
-import { mockMatches, mockStandings, mockSchedule } from '@/utils/mockData.js'
+import { mockSchedule } from '@/utils/mockData.js'
 
 export default {
   data() {
     return {
-      tabs: ['赛事日程', '积分榜', 'C罗行程'],
-      currentTab: 0,
-      matches: [],
-      standings: [],
       schedule: []
     }
   },
-  
+
   onLoad() {
-    this.loadData()
-  },
-  
-  methods: {
-    loadData() {
-      this.matches = mockMatches
-      this.standings = mockStandings
-      this.schedule = mockSchedule
-    },
-    
-    switchTab(index) {
-      this.currentTab = index
-    },
-    
-    getStatusText(status) {
-      const statusMap = {
-        upcoming: '未开始',
-        live: '进行中',
-        finished: '已结束'
-      }
-      return statusMap[status] || status
-    }
+    this.schedule = mockSchedule
   }
 }
 </script>
 
-<style scoped>
-.container {
+<style lang="scss" scoped>
+.schedule-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: $cr7-black;
 }
 
-.tabs {
-  display: flex;
-  background: #fff;
-  padding: 0 30rpx;
+.schedule-scroll {
+  padding: 24rpx 24rpx 0;
 }
 
-.tab-item {
-  flex: 1;
-  text-align: center;
-  padding: 30rpx 0;
-  font-size: 28rpx;
-  color: #666;
-  position: relative;
+.section {
+  margin-bottom: 16rpx;
 }
 
-.tab-item.active {
-  color: #667eea;
-  font-weight: bold;
+.section-title {
+  font-size: $font-lg;
+  color: $text-white;
+  font-weight: 600;
 }
 
-.tab-item.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60rpx;
-  height: 6rpx;
-  background: #667eea;
-  border-radius: 3rpx;
-}
-
-.content {
-  padding: 30rpx;
-}
-
-.schedule-list,
-.match-card {
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
-}
-
-.match-date {
-  font-size: 24rpx;
-  color: #999;
-  margin-bottom: 20rpx;
-}
-
-.match-teams {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20rpx;
-}
-
-.team {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 20rpx;
-}
-
-.team:last-child {
-  flex-direction: row-reverse;
-}
-
-.team-name {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
-}
-
-.score {
-  font-size: 40rpx;
-  font-weight: bold;
-  color: #667eea;
-}
-
-.vs {
-  font-size: 24rpx;
-  color: #999;
-  margin: 0 20rpx;
-}
-
-.match-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.venue {
-  font-size: 24rpx;
-  color: #666;
-}
-
-.status {
-  padding: 8rpx 20rpx;
-  border-radius: 20rpx;
-  font-size: 22rpx;
-}
-
-.status-upcoming {
-  background: #e3f2fd;
-  color: #2196f3;
-}
-
-.status-live {
-  background: #ffebee;
-  color: #f44336;
-}
-
-.status-finished {
-  background: #e0e0e0;
-  color: #757575;
-}
-
-.standings-table {
-  background: #fff;
-  border-radius: 16rpx;
-  overflow: hidden;
-}
-
-.table-header,
-.table-row {
-  display: flex;
-  align-items: center;
-  padding: 20rpx 30rpx;
-}
-
-.table-header {
-  background: #f8f8f8;
-  font-weight: bold;
-}
-
-.table-row {
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.table-row:last-child {
-  border-bottom: none;
-}
-
-.col {
-  flex: 1;
-  text-align: center;
-  font-size: 26rpx;
-  color: #333;
-}
-
-.col.rank {
-  flex: 0.5;
-}
-
-.col.team {
-  flex: 2;
-  text-align: left;
-}
-
-.col.points {
-  flex: 1;
-  font-weight: bold;
-  color: #667eea;
+.section-sub {
+  margin-top: 4rpx;
+  font-size: $font-sm;
+  color: $text-light;
 }
 
 .timeline {
-  position: relative;
-  padding-left: 40rpx;
+  margin-top: 24rpx;
 }
 
-.timeline::before {
-  content: '';
-  position: absolute;
-  left: 10rpx;
-  top: 0;
-  bottom: 0;
-  width: 4rpx;
-  background: #e0e0e0;
+.timeline-row {
+  display: flex;
+  flex-direction: row;
 }
 
-.timeline-item {
-  position: relative;
-  margin-bottom: 40rpx;
+.timeline-axis {
+  width: 40rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .timeline-dot {
-  position: absolute;
-  left: -34rpx;
-  top: 10rpx;
-  width: 20rpx;
-  height: 20rpx;
-  background: #667eea;
+  width: 16rpx;
+  height: 16rpx;
   border-radius: 50%;
-  border: 4rpx solid #fff;
-  box-shadow: 0 0 0 4rpx #e0e0e0;
+  background: $cr7-gold;
+  margin-top: 4rpx;
+}
+
+.timeline-connector {
+  flex: 1;
+  width: 2rpx;
+  background: rgba(255, 255, 255, 0.18);
+  margin-top: 4rpx;
 }
 
 .timeline-content {
-  background: #fff;
-  padding: 30rpx;
-  border-radius: 12rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 10rpx;
+  flex: 1;
+  padding-bottom: 24rpx;
+  padding-left: 8rpx;
 }
 
 .timeline-date {
-  font-size: 24rpx;
-  color: #999;
+  font-size: $font-xs;
+  color: $text-muted;
+  letter-spacing: 2rpx;
+}
+
+.timeline-card {
+  margin-top: 8rpx;
+  padding: 16rpx 20rpx;
+  border-radius: $radius-lg;
+  background: $cr7-card;
+  border: 1rpx solid $cr7-border;
 }
 
 .timeline-event {
-  font-size: 28rpx;
-  font-weight: bold;
-  color: #333;
+  font-size: $font-md;
+  color: $text-white;
+  font-weight: 600;
 }
 
 .timeline-location {
-  font-size: 24rpx;
-  color: #666;
+  margin-top: 4rpx;
+  font-size: $font-sm;
+  color: $text-light;
+}
+
+.safe-bottom {
+  height: 80rpx;
 }
 </style>

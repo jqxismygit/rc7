@@ -2,8 +2,6 @@
 export default {
   onLaunch: function() {
     console.log('App Launch')
-    
-    // 检查登录状态
     const token = uni.getStorageSync('token')
     if (!token) {
       console.log('用户未登录')
@@ -21,16 +19,33 @@ export default {
 <style lang="scss">
 @import '@/uni.scss';
 
-/* 全局重置样式 */
+/* 全局重置 — CR7® LIFE 暗金运动风 */
 page {
-  background-color: #f5f5f5;
+  background-color: $cr7-black;
   font-size: 28rpx;
-  color: #333;
+  color: $text-white;
   line-height: 1.6;
+  font-family: 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
 }
 
-/* 清除默认样式 */
-view, text, image, button {
+/* 页面根节点铺满并深色背景，避免跳转时底部露出白色 */
+page > view {
+  min-height: 100vh;
+  background-color: $cr7-black;
+  animation: cr7-page-enter 0.12s ease-out;
+}
+@keyframes cr7-page-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 固定底栏独立合成层，减少底部闪烁 */
+.bottom-bar {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+view, text, image, button, scroll-view {
   box-sizing: border-box;
 }
 
@@ -42,7 +57,6 @@ button::after {
   border: none;
 }
 
-/* 滚动条样式 */
 ::-webkit-scrollbar {
   display: none;
 }
@@ -53,12 +67,8 @@ button::after {
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .slide-up {
@@ -66,21 +76,26 @@ button::after {
 }
 
 @keyframes slideUp {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 
-/* 通用占位图样式 */
-.placeholder-image {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+/* 遮罩弹窗背景 */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-size: 60rpx;
+}
+
+.modal-box {
+  width: 600rpx;
+  background: $cr7-card;
+  border-radius: $radius-lg;
+  border: 1rpx solid $cr7-border;
+  padding: $spacing-xl;
 }
 </style>

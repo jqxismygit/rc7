@@ -1,230 +1,122 @@
 <template>
-  <view class="container">
-    <scroll-view class="content" scroll-y>
-      <view v-for="vote in votes" :key="vote.matchId" class="vote-card">
-        <view class="match-info">
-          <text class="team">{{ vote.homeTeam }}</text>
-          <text class="vs">VS</text>
-          <text class="team">{{ vote.awayTeam }}</text>
-        </view>
+  <view class="exchange-page">
+    <view class="card-dark exchange-card">
+      <text class="title">票码兑换</text>
+      <text class="subtitle">输入兑换码，将第三方购票转入 CR7® LIFE 票夹</text>
 
-        <view class="vote-options">
-          <view 
-            class="vote-option"
-            :class="{ active: vote.userVote === 'home' }"
-            @click="handleVote(vote, 'home')"
-          >
-            <text class="option-text">主胜</text>
-            <text class="vote-count">{{ vote.homeVotes }}</text>
-            <view class="progress-bar">
-              <view 
-                class="progress" 
-                :style="{ width: getVotePercent(vote, 'home') + '%' }"
-              ></view>
-            </view>
-          </view>
+      <input
+        class="code-input"
+        v-model="code"
+        placeholder="请输入兑换码"
+        placeholder-style="color:#555555"
+        maxlength="32"
+      />
 
-          <view 
-            class="vote-option"
-            :class="{ active: vote.userVote === 'draw' }"
-            @click="handleVote(vote, 'draw')"
-          >
-            <text class="option-text">平局</text>
-            <text class="vote-count">{{ vote.drawVotes }}</text>
-            <view class="progress-bar">
-              <view 
-                class="progress" 
-                :style="{ width: getVotePercent(vote, 'draw') + '%' }"
-              ></view>
-            </view>
-          </view>
+      <button
+        class="btn-gold submit-btn"
+        :disabled="!code"
+        @click="handleSubmit"
+      >
+        提交兑换
+      </button>
 
-          <view 
-            class="vote-option"
-            :class="{ active: vote.userVote === 'away' }"
-            @click="handleVote(vote, 'away')"
-          >
-            <text class="option-text">客胜</text>
-            <text class="vote-count">{{ vote.awayVotes }}</text>
-            <view class="progress-bar">
-              <view 
-                class="progress" 
-                :style="{ width: getVotePercent(vote, 'away') + '%' }"
-              ></view>
-            </view>
-          </view>
-        </view>
-
-        <text class="total-votes">总投票数：{{ getTotalVotes(vote) }}</text>
-      </view>
-    </scroll-view>
+      <text class="hint">
+        支持在合作平台/线下渠道购买的票券，通过兑换码同步到当前微信账号。
+      </text>
+    </view>
   </view>
 </template>
 
 <script>
-import { mockVoteOptions } from '@/utils/mockData.js'
-
 export default {
   data() {
     return {
-      votes: []
+      code: ''
     }
   },
-  
-  onLoad() {
-    this.loadVotes()
-  },
-  
+
   methods: {
-    loadVotes() {
-      this.votes = mockVoteOptions
-    },
-    
-    getTotalVotes(vote) {
-      return vote.homeVotes + vote.awayVotes + vote.drawVotes
-    },
-    
-    getVotePercent(vote, type) {
-      const total = this.getTotalVotes(vote)
-      if (total === 0) return 0
-      
-      let count = 0
-      if (type === 'home') count = vote.homeVotes
-      else if (type === 'away') count = vote.awayVotes
-      else count = vote.drawVotes
-      
-      return Math.round((count / total) * 100)
-    },
-    
-    handleVote(vote, type) {
-      if (vote.userVote) {
+    handleSubmit() {
+      if (!this.code) {
         uni.showToast({
-          title: '您已投过票了',
+          title: '请输入兑换码',
           icon: 'none'
         })
         return
       }
-      
-      uni.showModal({
-        title: '确认投票',
-        content: `确定投票给"${this.getVoteText(type)}"吗？`,
-        success: (res) => {
-          if (res.confirm) {
-            vote.userVote = type
-            
-            if (type === 'home') vote.homeVotes++
-            else if (type === 'away') vote.awayVotes++
-            else vote.drawVotes++
-            
-            uni.showToast({
-              title: '投票成功',
-              icon: 'success'
-            })
-          }
-        }
-      })
-    },
-    
-    getVoteText(type) {
-      const textMap = {
-        home: '主胜',
-        away: '客胜',
-        draw: '平局'
-      }
-      return textMap[type]
+
+      uni.showLoading({ title: '兑换中...' })
+
+      setTimeout(() => {
+        uni.hideLoading()
+        uni.showToast({
+          title: '兑换成功，已同步至票夹',
+          icon: 'success'
+        })
+        setTimeout(() => {
+          uni.switchTab({
+            url: '/pages/my-tickets/my-tickets'
+          })
+        }, 1200)
+      }, 1500)
     }
   }
 }
 </script>
 
-<style scoped>
-.container {
-  min-height: 100vh;
-  background: #f5f5f5;
-}
-
-.content {
-  padding: 30rpx;
-}
-
-.vote-card {
-  background: #fff;
-  border-radius: 16rpx;
-  padding: 40rpx;
-  margin-bottom: 30rpx;
-}
-
-.match-info {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 40rpx;
-}
-
-.team {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
-}
-
-.vs {
-  font-size: 24rpx;
-  color: #999;
-  margin: 0 30rpx;
-}
-
-.vote-options {
-  display: flex;
-  flex-direction: column;
-  gap: 20rpx;
-  margin-bottom: 30rpx;
-}
-
-.vote-option {
-  padding: 30rpx;
-  background: #f8f8f8;
-  border-radius: 12rpx;
-  border: 2rpx solid transparent;
-}
-
-.vote-option.active {
-  background: #f5f7ff;
-  border-color: #667eea;
-}
-
-.option-text {
-  font-size: 28rpx;
-  color: #333;
-  font-weight: bold;
-  display: block;
-  margin-bottom: 10rpx;
-}
-
-.vote-count {
-  font-size: 24rpx;
-  color: #666;
-  display: block;
-  margin-bottom: 15rpx;
-}
-
-.progress-bar {
+<style lang="scss" scoped>
+.exchange-page {
   width: 100%;
-  height: 8rpx;
-  background: #e0e0e0;
-  border-radius: 4rpx;
-  overflow: hidden;
+  min-height: 100vh;
+  background: $cr7-black;
+  padding: 40rpx 32rpx 0;
 }
 
-.progress {
-  height: 100%;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-  transition: width 0.3s;
+.card-dark {
+  background: $cr7-card;
+  border-radius: $radius-lg;
+  border: 1rpx solid $cr7-border;
+  box-shadow: $shadow-card;
 }
 
-.total-votes {
-  font-size: 24rpx;
-  color: #999;
-  text-align: center;
-  display: block;
+.exchange-card {
+  padding: 32rpx 28rpx 24rpx;
+}
+
+.title {
+  font-size: $font-lg;
+  color: $text-white;
+  font-weight: 600;
+}
+
+.subtitle {
+  margin-top: 8rpx;
+  font-size: $font-sm;
+  color: $text-light;
+}
+
+.code-input {
+  margin-top: 24rpx;
+  padding: 20rpx 24rpx;
+  border-radius: $radius-md;
+  background: $cr7-dark;
+  color: $text-white;
+  font-size: $font-md;
+}
+
+.submit-btn {
+  margin-top: 24rpx;
+  width: 100%;
+  height: 88rpx;
+}
+
+.submit-btn[disabled] {
+  opacity: 0.5;
+}
+
+.hint {
+  margin-top: 16rpx;
+  font-size: $font-xs;
+  color: $text-muted;
 }
 </style>

@@ -1,484 +1,770 @@
 <template>
-  <view class="container">
-    <!-- 自定义导航栏 -->
-    <view class="custom-navbar" :style="{ paddingTop: statusBarHeight + 'px' }">
-      <view class="navbar-content">
-        <text class="navbar-title">C罗超越之境</text>
-        <view class="navbar-right" @click="goToMessages">
-          <text class="iconfont icon-message"></text>
-          <view v-if="unreadCount > 0" class="badge">{{ unreadCount }}</view>
+  <view class="home-page">
+    <scroll-view class="home-scroll" scroll-y enhanced :show-scrollbar="false">
+      <!-- 顶部导航栏 -->
+      <view class="home-navbar" :style="{ paddingTop: statusBarHeight + 'px' }">
+        <view class="navbar-row">
+          <view class="navbar-left">
+            <view class="city-switch" @click="openCityPicker">
+              <text class="city-name">{{ currentCity }}</text>
+              <image src="/static/icons/arrow-down.svg" class="city-arrow-icon" mode="aspectFit" />
+            </view>
+            <view class="navbar-notification" @click="goToMessages">
+              <image src="/static/icons/notification.svg" class="nav-icon" mode="aspectFit" />
+              <view v-if="unreadCount > 0" class="notification-dot"></view>
+            </view>
+          </view>
+          <view class="navbar-logo">
+            <text class="logo-cr7">CR7</text>
+            <text class="logo-life">LIFE</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- Hero 轮播 -->
+      <view class="hero-section">
+        <swiper class="hero-swiper" circular autoplay :interval="4000" :duration="500" @change="onSwiperChange">
+          <swiper-item v-for="(item, index) in heroBanners" :key="index">
+            <view class="hero-slide">
+              <image :src="item.cover || '/static/images/hero-banner.png'" class="hero-image" mode="aspectFill" />
+            </view>
+          </swiper-item>
+        </swiper>
+        <view class="hero-dots">
+          <view
+            v-for="(item, index) in heroBanners"
+            :key="index"
+            :class="['hero-dot', { active: index === currentBannerIndex }]"
+          ></view>
+        </view>
+      </view>
+
+      <!-- 热门活动 -->
+      <view class="section">
+        <view class="section-header">
+          <text class="section-title">热门活动</text>
+        </view>
+        <view class="tab-row">
+          <view
+            v-for="tab in hotTabs"
+            :key="tab.key"
+            :class="['tab-pill', { active: tab.key === activeHotTab }]"
+            @click="changeHotTab(tab.key)"
+          >
+            <text class="tab-text">{{ tab.label }}</text>
+          </view>
+        </view>
+        <view
+          v-for="item in activeHotList"
+          :key="item.id"
+          class="event-card"
+          @click="openHotItem(item)"
+        >
+          <view class="event-image-wrap">
+            <image :src="item.cover || '/static/images/event-card.png'" class="event-image" mode="aspectFill" />
+          </view>
+          <view class="event-info-overlay">
+            <view class="event-info-left">
+              <text class="event-title">{{ item.title || item.museum }}</text>
+              <text class="event-meta">{{ item.time }}·{{ item.location }}</text>
+            </view>
+            <view class="event-price-area" v-if="item.price">
+              <text class="event-price-num">¥{{ item.price }}</text>
+              <text class="event-price-unit">起</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- C罗专区 -->
+      <view class="section">
+        <view class="section-header">
+          <text class="section-title">C罗专区</text>
+        </view>
+        <view class="zone-list">
+          <view
+            v-for="entry in cr7Zone"
+            :key="entry.key"
+            class="zone-card"
+            @click="openCr7Entry(entry)"
+          >
+            <view class="zone-icon-wrap">
+              <image :src="getZoneIcon(entry.key)" class="zone-icon" mode="aspectFit" />
+            </view>
+            <view class="zone-text">
+              <text class="zone-title">{{ entry.title }}</text>
+              <text class="zone-desc">{{ entry.desc }}</text>
+            </view>
+            <image src="/static/icons/arrow-right.svg" class="zone-arrow" mode="aspectFit" />
+          </view>
+        </view>
+      </view>
+
+      <!-- 品牌联名 -->
+      <view class="section">
+        <view class="section-header">
+          <text class="section-title">品牌联名</text>
+          <text class="section-link" @click="openBrandAll">查看全部</text>
+        </view>
+        <view class="brand-grid">
+          <view
+            v-for="brand in brands"
+            :key="brand.id"
+            class="brand-card"
+            @click="openBrand(brand)"
+          >
+            <view class="brand-logo-area">
+              <image :src="brand.logo" class="brand-logo-img" mode="aspectFit" />
+            </view>
+            <text class="brand-name">{{ brand.name }}</text>
+            <text class="brand-tagline">{{ brand.tagline }}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 底部占位 -->
+      <view class="bottom-spacer"></view>
+    </scroll-view>
+
+    <!-- 城市选择弹层 -->
+    <view v-if="showCityPicker" class="city-modal" @click="closeCityPicker">
+      <view class="city-panel" @click.stop>
+        <text class="city-panel-title">选择城市</text>
+        <view class="city-list">
+          <view
+            v-for="city in cityList"
+            :key="city"
+            :class="['city-item', { active: city === currentCity }]"
+            @click="chooseCity(city)"
+          >
+            {{ city }}
+          </view>
         </view>
       </view>
     </view>
-
-    <!-- 内容区域 -->
-    <scroll-view class="content" scroll-y>
-      <!-- 轮播图 -->
-      <swiper class="banner" indicator-dots circular autoplay>
-        <swiper-item v-for="(item, index) in banners" :key="index">
-          <image :src="item.cover" mode="aspectFill"></image>
-        </swiper-item>
-      </swiper>
-
-      <!-- 快捷入口 -->
-      <view class="quick-menu">
-        <view class="menu-item" @click="goToSchedule">
-          <text class="menu-icon">📅</text>
-          <text class="menu-text">赛事日程</text>
-        </view>
-        <view class="menu-item" @click="goToVote">
-          <text class="menu-icon">🗳️</text>
-          <text class="menu-text">赛事投票</text>
-        </view>
-        <view class="menu-item" @click="goToGame">
-          <text class="menu-icon">🎮</text>
-          <text class="menu-text">互动游戏</text>
-        </view>
-        <view class="menu-item" @click="goToBrands">
-          <text class="menu-icon">🏆</text>
-          <text class="menu-text">联名品牌</text>
-        </view>
-      </view>
-
-      <!-- 信息流卡片 -->
-      <view class="card-list">
-        <view 
-          v-for="card in cards" 
-          :key="card.id" 
-          class="card-item"
-          @click="handleCardClick(card)"
-        >
-          <!-- 展会/赛事卡片 -->
-          <view v-if="card.type === 'event'" class="event-card">
-            <image :src="card.cover" mode="aspectFill" class="card-cover"></image>
-            <view class="card-content">
-              <view class="card-tags">
-                <text v-for="tag in card.tags" :key="tag" class="tag">{{ tag }}</text>
-              </view>
-              <text class="card-title">{{ card.title }}</text>
-              <view class="card-info">
-                <text class="info-item">📍 {{ card.location }}</text>
-                <text class="info-item">🕐 {{ card.date }}</text>
-              </view>
-              <view class="card-footer">
-                <text class="price">¥{{ card.price }}起</text>
-                <view class="buy-btn">立即购票</view>
-              </view>
-            </view>
-          </view>
-
-          <!-- 视频卡片 -->
-          <view v-if="card.type === 'video'" class="video-card">
-            <view class="video-wrapper">
-              <image :src="card.cover" mode="aspectFill" class="card-cover"></image>
-              <view class="play-icon">▶</view>
-              <text class="duration">{{ card.duration }}</text>
-            </view>
-            <view class="card-content">
-              <text class="card-title">{{ card.title }}</text>
-              <text class="views">{{ formatViews(card.views) }}次观看</text>
-            </view>
-          </view>
-
-          <!-- 线下活动卡片 -->
-          <view v-if="card.type === 'activity'" class="activity-card">
-            <image :src="card.cover" mode="aspectFill" class="card-cover"></image>
-            <view class="countdown-overlay">
-              <text class="countdown-text">距离开始还有</text>
-              <text class="countdown-time">{{ formatCountdown(card.countdown) }}</text>
-            </view>
-            <view class="card-content">
-              <text class="card-title">{{ card.title }}</text>
-              <view class="card-info">
-                <text class="info-item">📍 {{ card.location }}</text>
-                <text class="info-item">🕐 {{ card.date }}</text>
-              </view>
-            </view>
-          </view>
-
-          <!-- 图文卡片 -->
-          <view v-if="card.type === 'article'" class="article-card">
-            <view class="card-content">
-              <text class="card-title">{{ card.title }}</text>
-              <text class="publish-time">{{ card.publishTime }}</text>
-            </view>
-            <image :src="card.cover" mode="aspectFill" class="article-cover"></image>
-          </view>
-        </view>
-      </view>
-    </scroll-view>
   </view>
 </template>
 
 <script>
-import { mockHomeCards, mockMessages } from '@/utils/mockData.js'
 import storage from '@/utils/storage.js'
+import { fetchUnreadCount } from '@/services/messages.js'
+import {
+  fetchHeroBanners,
+  fetchHotTickets,
+  fetchHotEvents,
+  fetchHotWorldcup,
+  fetchCr7Zone,
+  fetchBrands
+} from '@/services/home.js'
+import createTabBarMixin from '@/mixins/tabBar.js'
 
 export default {
+  mixins: [createTabBarMixin(0)],
   data() {
     return {
       statusBarHeight: 0,
-      banners: [],
-      cards: [],
-      unreadCount: 0
+      currentCity: '上海',
+      cityList: ['北京', '上海', '中国香港', '深圳'],
+      showCityPicker: false,
+      unreadCount: 0,
+      currentBannerIndex: 0,
+      heroBanners: [],
+      hotTabs: [
+        { key: 'ticket', label: '购票' },
+        { key: 'event', label: '线下活动' },
+        { key: 'worldcup', label: '世界杯' }
+      ],
+      activeHotTab: 'ticket',
+      hotTickets: [],
+      hotEvents: [],
+      hotWorldcup: [],
+      cr7Zone: [],
+      brands: []
     }
   },
-  
-  onLoad() {
-    this.initPage()
+
+  computed: {
+    activeHotList() {
+      if (this.activeHotTab === 'ticket') return this.hotTickets
+      if (this.activeHotTab === 'event') return this.hotEvents
+      return this.hotWorldcup
+    }
   },
-  
+
+  onLoad() {
+    const systemInfo = uni.getSystemInfoSync()
+    this.statusBarHeight = systemInfo.statusBarHeight || 0
+    this.loadHomeData()
+  },
+
   onShow() {
     this.checkLogin()
     this.loadUnreadCount()
   },
-  
+
   methods: {
-    initPage() {
-      // 获取状态栏高度
-      const systemInfo = uni.getSystemInfoSync()
-      this.statusBarHeight = systemInfo.statusBarHeight || 0
-      
-      // 加载数据
-      this.loadBanners()
-      this.loadCards()
-    },
-    
     checkLogin() {
       if (!storage.isLoggedIn()) {
-        uni.showModal({
-          title: '提示',
-          content: '请先登录',
-          success: (res) => {
-            if (res.confirm) {
-              uni.navigateTo({
-                url: '/pages/login/login'
-              })
-            }
-          }
-        })
+        uni.navigateTo({ url: '/pages/login/login' })
       }
     },
-    
-    loadBanners() {
-      // 使用前3个卡片作为轮播图
-      this.banners = mockHomeCards.slice(0, 3)
-    },
-    
-    loadCards() {
-      this.cards = mockHomeCards
-    },
-    
-    loadUnreadCount() {
-      const unreadMessages = mockMessages.filter(msg => !msg.isRead)
-      this.unreadCount = unreadMessages.length
-    },
-    
-    handleCardClick(card) {
-      if (card.type === 'event' || card.type === 'activity') {
-        uni.navigateTo({
-          url: `/pages/event-detail/event-detail?id=${card.id}`
-        })
-      } else if (card.type === 'video') {
-        uni.showToast({
-          title: '视频播放功能开发中',
-          icon: 'none'
-        })
-      } else if (card.type === 'article') {
-        uni.navigateTo({
-          url: `/pages/schedule/schedule`
-        })
+
+    async loadUnreadCount() {
+      try {
+        const count = await fetchUnreadCount()
+        this.unreadCount = count
+      } catch (e) {
+        console.error('加载未读消息数量失败', e)
       }
     },
-    
+
+    async loadHomeData() {
+      try {
+        const [hero, tickets, events, worldcup, cr7Zone, brandList] = await Promise.all([
+          fetchHeroBanners(),
+          fetchHotTickets(),
+          fetchHotEvents(),
+          fetchHotWorldcup(),
+          fetchCr7Zone(),
+          fetchBrands()
+        ])
+        this.heroBanners = hero.length ? hero : [{ cover: '' }, { cover: '' }]
+        this.hotTickets = tickets
+        this.hotEvents = events
+        this.hotWorldcup = worldcup
+        this.cr7Zone = cr7Zone
+        this.brands = brandList.map((b) => ({
+          ...b,
+          tagline: b.description || '官方合作品牌'
+        }))
+      } catch (e) {
+        console.error('加载首页数据失败', e)
+        uni.showToast({ title: '首页数据加载失败', icon: 'none' })
+      }
+    },
+
+    onSwiperChange(e) {
+      this.currentBannerIndex = e.detail.current
+    },
+
+    getZoneIcon(key) {
+      const map = {
+        calendar: '/static/icons/calendar.svg',
+        highlights: '/static/icons/video.svg',
+        career: '/static/icons/crown.svg'
+      }
+      return map[key] || '/static/icons/calendar.svg'
+    },
+
     goToMessages() {
-      uni.navigateTo({
-        url: '/pages/messages/messages'
-      })
+      uni.navigateTo({ url: '/pages/messages/messages' })
     },
-    
-    goToSchedule() {
-      uni.navigateTo({
-        url: '/pages/schedule/schedule'
-      })
+
+    openCityPicker() {
+      this.showCityPicker = true
     },
-    
-    goToVote() {
-      uni.navigateTo({
-        url: '/pages/vote/vote'
-      })
+
+    closeCityPicker() {
+      this.showCityPicker = false
     },
-    
-    goToGame() {
-      uni.navigateTo({
-        url: '/pages/game/game'
-      })
+
+    chooseCity(city) {
+      this.currentCity = city
+      this.showCityPicker = false
     },
-    
-    goToBrands() {
-      uni.navigateTo({
-        url: '/pages/brands/brands'
-      })
+
+    changeHotTab(key) {
+      this.activeHotTab = key
     },
-    
-    formatViews(views) {
-      if (views >= 10000) {
-        return (views / 10000).toFixed(1) + '万'
+
+    openHotItem(item) {
+      if (this.activeHotTab === 'ticket') {
+        uni.navigateTo({ url: `/pages/ticket-purchase/ticket-purchase?id=${item.id}` })
+      } else if (this.activeHotTab === 'event') {
+        uni.navigateTo({ url: `/pages/event-detail/event-detail?id=${item.id}` })
+      } else {
+        uni.showToast({ title: '世界杯专题即将上线', icon: 'none' })
       }
-      return views
     },
-    
-    formatCountdown(seconds) {
-      const days = Math.floor(seconds / 86400)
-      const hours = Math.floor((seconds % 86400) / 3600)
-      return `${days}天${hours}小时`
+
+    openCr7Entry(entry) {
+      uni.navigateTo({ url: entry.route })
+    },
+
+    openBrandAll() {
+      uni.navigateTo({ url: '/pages/brands/brands' })
+    },
+
+    openBrand(brand) {
+      uni.navigateTo({ url: '/pages/brands/brands' })
     }
   }
 }
 </script>
 
-<style scoped>
-.container {
+<style lang="scss" scoped>
+@import '@/uni.scss';
+/* 设计稿 750px 画布，1px = 1rpx 严格对应 */
+
+.home-page {
   width: 100%;
+  min-height: 100vh;
+  background: $cr7-black;
+}
+
+.home-scroll {
   height: 100vh;
-  background: #f5f5f5;
+  box-sizing: border-box;
 }
 
-.custom-navbar {
-  position: fixed;
+/* 导航栏 - 设计稿 Title With Status bar 下沿到内容区 35px 间距 */
+.home-navbar {
+  position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
-  background: #fff;
-  z-index: 999;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  z-index: 10;
+  background: $cr7-black;
 }
 
-.navbar-content {
-  height: 44px;
+.navbar-row {
+  height: 114rpx; /* 设计稿 117.16 到顶约 35+ 区域，取 114 与状态栏协调 */
+  padding: 0 35rpx;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 30rpx;
-}
-
-.navbar-title {
-  font-size: 36rpx;
-  font-weight: bold;
-  color: #333;
-}
-
-.navbar-right {
+  justify-content: flex-start;
   position: relative;
-  font-size: 44rpx;
 }
 
-.badge {
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.city-switch {
+  display: flex;
+  align-items: center;
+  gap: 2rpx;
+}
+
+.city-name {
+  font-size: 24rpx;
+  color: $text-white;
+  line-height: 38rpx;
+}
+
+.city-arrow-icon {
+  width: 42rpx;
+  height: 42rpx;
+}
+
+.navbar-notification {
+  position: relative;
+}
+
+.nav-icon {
+  width: 42rpx;
+  height: 42rpx;
+}
+
+.notification-dot {
   position: absolute;
-  top: -10rpx;
-  right: -10rpx;
-  background: #ff4444;
-  color: #fff;
-  font-size: 20rpx;
-  padding: 4rpx 8rpx;
-  border-radius: 20rpx;
-  min-width: 32rpx;
-  text-align: center;
+  top: 0;
+  right: 0;
+  width: 14rpx;
+  height: 14rpx;
+  background: $cr7-red;
+  border-radius: 50%;
 }
 
-.content {
-  margin-top: 88px;
-  height: calc(100vh - 88px);
+.navbar-logo {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: baseline;
+  gap: 8rpx;
 }
 
-.banner {
+.logo-cr7 {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: $text-white;
+  letter-spacing: 2rpx;
+}
+
+.logo-life {
+  font-size: 24rpx;
+  font-weight: 400;
+  color: $cr7-gold;
+  letter-spacing: 4rpx;
+}
+
+/* Hero - 设计稿 Frame 1000003725: 679.9×350.47，指示器在图片内部底部 */
+.hero-section {
+  padding: 0 35rpx;
+  margin-top: 18rpx;
+  position: relative;
+}
+
+.hero-swiper {
   width: 100%;
-  height: 400rpx;
+  height: 350rpx;
+  border-radius: 0;
+  overflow: hidden;
 }
 
-.banner image {
+.hero-slide {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.hero-image {
   width: 100%;
   height: 100%;
 }
 
-.quick-menu {
-  display: flex;
-  background: #fff;
-  padding: 40rpx 0;
-  margin-bottom: 20rpx;
-}
-
-.menu-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.menu-icon {
-  font-size: 60rpx;
-  margin-bottom: 10rpx;
-}
-
-.menu-text {
-  font-size: 24rpx;
-  color: #666;
-}
-
-.card-list {
-  padding: 0 30rpx 30rpx;
-}
-
-.card-item {
-  margin-bottom: 30rpx;
-  background: #fff;
-  border-radius: 16rpx;
-  overflow: hidden;
-}
-
-.card-cover {
-  width: 100%;
-  height: 400rpx;
-}
-
-.card-content {
-  padding: 30rpx;
-}
-
-.card-tags {
-  margin-bottom: 10rpx;
-}
-
-.tag {
-  display: inline-block;
-  padding: 4rpx 16rpx;
-  background: #ff4444;
-  color: #fff;
-  font-size: 22rpx;
-  border-radius: 8rpx;
-  margin-right: 10rpx;
-}
-
-.card-title {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
-  display: block;
-  margin-bottom: 20rpx;
-}
-
-.card-info {
-  display: flex;
-  flex-direction: column;
-  gap: 10rpx;
-  margin-bottom: 20rpx;
-}
-
-.info-item {
-  font-size: 26rpx;
-  color: #999;
-}
-
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.price {
-  font-size: 36rpx;
-  color: #ff4444;
-  font-weight: bold;
-}
-
-.buy-btn {
-  padding: 12rpx 40rpx;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  border-radius: 40rpx;
-  font-size: 28rpx;
-}
-
-.video-wrapper {
-  position: relative;
-}
-
-.play-icon {
+/* 指示点 - 叠在 banner 内部底部，设计稿 40×12 长条 + 12 圆点 */
+.hero-dots {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 100rpx;
-  height: 100rpx;
-  background: rgba(0,0,0,0.5);
-  border-radius: 50%;
+  left: 35rpx;
+  right: 35rpx;
+  bottom: 24rpx;
+  height: 12rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-size: 40rpx;
+  gap: 12rpx;
+  pointer-events: none;
 }
 
-.duration {
-  position: absolute;
-  bottom: 20rpx;
-  right: 20rpx;
-  background: rgba(0,0,0,0.7);
-  color: #fff;
-  padding: 4rpx 12rpx;
-  border-radius: 8rpx;
-  font-size: 22rpx;
+.hero-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transition: all 0.2s;
+
+  &.active {
+    width: 40rpx;
+    border-radius: 12rpx;
+    background: $cr7-gold;
+  }
 }
 
-.views {
+/* 主内容区 - 设计稿 left 35px, width 679.9px，区块间距 54px，1px=1rpx */
+.section {
+  padding: 0 35rpx;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 54rpx;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 35rpx;
+}
+
+.section-title {
+  font-size: 35rpx;
+  font-weight: 600;
+  color: $text-white;
+  line-height: 52rpx;
+}
+
+.section-link {
+  font-size: 29rpx;
+  color: $cr7-gold;
+  line-height: 42rpx;
+}
+
+/* 标签 - 设计稿 Tag Small 高 60, 圆角 29, 内边距 49×10.5 */
+.tab-row {
+  display: flex;
+  gap: 21rpx;
+  margin-bottom: 35rpx;
+}
+
+.tab-pill {
+  padding: 10rpx 49rpx;
+  height: 60rpx;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 29rpx;
+  background: $cr7-dark;
+
+  &.active {
+    background: $cr7-gold;
+    .tab-text {
+      color: $cr7-black;
+    }
+  }
+}
+
+.tab-text {
   font-size: 24rpx;
-  color: #999;
+  color: $text-white;
+  line-height: 38rpx;
 }
 
-.countdown-overlay {
+/* 活动卡片 - 设计稿 679.9×492.4，整卡固定尺寸，底部叠字 */
+.event-card {
+  width: 100%;
+  height: 492rpx;
+  max-width: 680rpx;
+  position: relative;
+  border-radius: 16rpx;
+  overflow: hidden;
+  margin-bottom: 24rpx;
+}
+
+.event-image-wrap {
   position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
   bottom: 0;
+  overflow: hidden;
+}
+
+.event-image {
+  width: 100%;
+  height: 100%;
+}
+
+/* 底部信息叠在图片上，设计稿 inset 75.44% 3.22% 4.27% 3.22% */
+.event-info-overlay {
+  position: absolute;
   left: 0;
   right: 0;
-  background: linear-gradient(transparent, rgba(0,0,0,0.7));
-  padding: 40rpx 30rpx 20rpx;
-  color: #fff;
-  text-align: center;
-}
-
-.countdown-text {
-  font-size: 24rpx;
-  display: block;
-}
-
-.countdown-time {
-  font-size: 40rpx;
-  font-weight: bold;
-  display: block;
-  margin-top: 10rpx;
-}
-
-.article-card {
+  bottom: 0;
+  padding: 21rpx 22rpx 21rpx 22rpx;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.75) 100%);
   display: flex;
-  padding: 30rpx;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16rpx;
 }
 
-.article-card .card-content {
+.event-info-left {
   flex: 1;
-  padding: 0;
-  padding-right: 20rpx;
+  min-width: 0;
 }
 
-.article-cover {
-  width: 200rpx;
-  height: 150rpx;
-  border-radius: 8rpx;
-}
-
-.publish-time {
-  font-size: 24rpx;
-  color: #999;
-  margin-top: 10rpx;
+.event-title {
   display: block;
+  font-size: 31rpx;
+  font-weight: 600;
+  color: $text-white;
+  line-height: 47rpx;
+  margin-bottom: 7rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-meta {
+  display: block;
+  font-size: 24rpx;
+  color: $text-light;
+  line-height: 38rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-price-area {
+  display: flex;
+  align-items: baseline;
+  flex-shrink: 0;
+  gap: 4rpx;
+}
+
+.event-price-num {
+  font-size: 42rpx;
+  font-weight: 600;
+  color: $text-white;
+  line-height: 63rpx;
+}
+
+.event-price-unit {
+  font-size: 24rpx;
+  color: $text-light;
+  line-height: 42rpx;
+}
+
+/* C罗专区 - 设计稿每行 133.18 高，圆角 16，内边距 14，图标框 105.14 圆角 10 */
+.zone-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.zone-card {
+  display: flex;
+  align-items: center;
+  height: 133rpx;
+  background: $cr7-dark;
+  border-radius: 16rpx;
+  padding: 0 14rpx;
+  box-sizing: border-box;
+}
+
+.zone-icon-wrap {
+  width: 105rpx;
+  height: 105rpx;
+  background: $cr7-card;
+  border-radius: 10rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 21rpx;
+  flex-shrink: 0;
+}
+
+.zone-icon {
+  width: 42rpx;
+  height: 42rpx;
+}
+
+.zone-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.zone-title {
+  display: block;
+  font-size: 29rpx;
+  font-weight: 500;
+  color: $text-white;
+  line-height: 42rpx;
+  margin-bottom: 7rpx;
+}
+
+.zone-desc {
+  display: block;
+  font-size: 24rpx;
+  color: $text-light;
+  line-height: 38rpx;
+}
+
+.zone-arrow {
+  width: 42rpx;
+  height: 42rpx;
+  flex-shrink: 0;
+}
+
+/* 品牌联名 - 设计稿 327.4×300.4 卡片，圆角 28，图区圆角 17.5 */
+.brand-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24rpx;
+}
+
+.brand-card {
+  width: calc((100% - 24rpx) / 2);
+  max-width: 328rpx;
+  height: 300rpx;
+  background: $cr7-dark;
+  border-radius: 28rpx;
+  padding: 14rpx;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.brand-logo-area {
+  width: 100%;
+  height: 163rpx;
+  background: $cr7-card;
+  border-radius: 17rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 21rpx;
+  flex-shrink: 0;
+}
+
+.brand-logo-img {
+  width: 100%;
+  height: 100%;
+}
+
+.brand-name {
+  display: block;
+  font-size: 29rpx;
+  font-weight: 500;
+  color: $text-white;
+  text-align: center;
+  line-height: 42rpx;
+  margin-bottom: 2rpx;
+}
+
+.brand-tagline {
+  display: block;
+  font-size: 24rpx;
+  color: $text-light;
+  text-align: center;
+  line-height: 38rpx;
+}
+
+/* 底部占位 - 为底部导航留空 */
+.bottom-spacer {
+  height: 260rpx;
+}
+
+/* 城市选择弹层 - 设计稿风格 1:1 */
+.city-modal {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.city-panel {
+  width: 100%;
+  background: $cr7-dark;
+  border-top-left-radius: 32rpx;
+  border-top-right-radius: 32rpx;
+  padding: 40rpx 35rpx 60rpx;
+  box-sizing: border-box;
+}
+
+.city-panel-title {
+  font-size: 30rpx;
+  color: $text-white;
+  font-weight: 600;
+  margin-bottom: 32rpx;
+}
+
+.city-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.city-item {
+  padding: 12rpx 32rpx;
+  border-radius: 40rpx;
+  background: $cr7-card;
+  font-size: 26rpx;
+  color: $text-light;
+
+  &.active {
+    background: rgba(216, 252, 15, 0.2);
+    color: $cr7-gold;
+    border: 2rpx solid $cr7-gold;
+  }
 }
 </style>

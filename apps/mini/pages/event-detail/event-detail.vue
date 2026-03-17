@@ -1,59 +1,51 @@
 <template>
-  <view class="container">
-    <scroll-view class="content" scroll-y>
-      <!-- 封面图 -->
-      <image :src="event.cover" mode="aspectFill" class="cover"></image>
-      
-      <!-- 活动信息 -->
-      <view class="info-section">
-        <view class="tags">
-          <text v-for="tag in event.tags" :key="tag" class="tag">{{ tag }}</text>
-        </view>
-        <text class="title">{{ event.title }}</text>
-        
-        <view class="info-item">
-          <text class="info-icon">📍</text>
-          <text class="info-text">{{ event.location }}</text>
-        </view>
-        
-        <view class="info-item">
-          <text class="info-icon">🕐</text>
-          <text class="info-text">{{ event.date }}</text>
-        </view>
-        
-        <view class="price-section">
-          <text class="price-label">票价</text>
-          <text class="price">¥{{ event.price }}起</text>
-        </view>
-      </view>
-      
-      <!-- 活动详情 -->
-      <view class="detail-section">
-        <text class="section-title">活动详情</text>
-        <text class="description">{{ event.description }}</text>
-        
-        <view class="detail-content">
-          <text class="detail-text">
-            这是一场与传奇球星C罗面对面交流的难得机会。活动将包括：
-            
-            • 现场互动问答环节
-            • 签名合影机会
-            • 独家周边商品展示
-            • 精彩视频回顾
-            
-            名额有限，先到先得！
+  <view class="event-page">
+    <scroll-view class="event-scroll" scroll-y>
+      <!-- 顶部主卡 -->
+      <view class="hero-card card-dark">
+        <view class="hero-tag-row">
+          <text
+            v-for="tag in event.tags || []"
+            :key="tag"
+            class="hero-tag"
+          >
+            {{ tag }}
           </text>
         </view>
+        <text class="hero-title">{{ event.title }}</text>
+        <view class="hero-meta">
+          <text class="meta-item">📍 {{ event.location }}</text>
+          <text class="meta-item">🕐 {{ event.date }}</text>
+        </view>
+        <view class="hero-price-row">
+          <text class="price-label">票价</text>
+          <text class="price">¥{{ event.price }} 起</text>
+        </view>
       </view>
+
+      <!-- 活动详情 -->
+      <view class="section card-dark">
+        <text class="section-title">活动详情</text>
+        <text class="section-desc">
+          {{ event.description || '这是一场与传奇球星 C罗 相关的线下主题活动。' }}
+        </text>
+        <view class="detail-box">
+          <text class="detail-text">{{ eventDetailIntro }}</text>
+        </view>
+      </view>
+
+      <view class="safe-bottom safe-area-bottom"></view>
     </scroll-view>
-    
+
     <!-- 底部购票栏 -->
-    <view class="bottom-bar">
+    <view class="bottom-bar safe-area-bottom">
       <view class="price-info">
         <text class="price-label">票价</text>
-        <text class="price">¥{{ event.price }}起</text>
+        <text class="price">¥{{ event.price }} 起</text>
       </view>
-      <button class="buy-btn" @click="goToPurchase">立即购票</button>
+      <button class="btn-gold buy-btn" @click="goToPurchase">
+        立即购票
+      </button>
     </view>
   </view>
 </template>
@@ -61,28 +53,35 @@
 <script>
 import { mockHomeCards } from '@/utils/mockData.js'
 
+const EVENT_DETAIL_INTRO = `• 现场互动问答环节
+• 签名合影机会
+• 独家周边商品展示
+• 精彩视频回顾与现场抽奖
+
+名额有限，先到先得，请提前完成报名与购票。`
+
 export default {
   data() {
     return {
       eventId: '',
-      event: {}
+      event: {},
+      eventDetailIntro: EVENT_DETAIL_INTRO
     }
   },
-  
+
   onLoad(options) {
     this.eventId = options.id
     this.loadEventDetail()
   },
-  
+
   methods: {
     loadEventDetail() {
-      // 从假数据中查找对应的活动
       const event = mockHomeCards.find(item => item.id == this.eventId)
       if (event) {
         this.event = event
       }
     },
-    
+
     goToPurchase() {
       uni.navigateTo({
         url: `/pages/ticket-purchase/ticket-purchase?eventId=${this.eventId}`
@@ -92,131 +91,127 @@ export default {
 }
 </script>
 
-<style scoped>
-.container {
+<style lang="scss" scoped>
+.event-page {
   width: 100%;
-  height: 100vh;
-  background: #f5f5f5;
+  min-height: 100vh;
+  background: $cr7-black;
 }
 
-.content {
+.event-scroll {
   height: calc(100vh - 120rpx);
+  padding: 24rpx;
 }
 
-.cover {
-  width: 100%;
-  height: 500rpx;
+.card-dark {
+  background: $cr7-card;
+  border-radius: $radius-lg;
+  border: 1rpx solid $cr7-border;
+  box-shadow: $shadow-card;
 }
 
-.info-section {
-  background: #fff;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
+.hero-card {
+  padding: 24rpx 24rpx 20rpx;
+  margin-bottom: 24rpx;
 }
 
-.tags {
-  margin-bottom: 20rpx;
+.hero-tag-row {
+  flex-direction: row;
+  margin-bottom: 8rpx;
 }
 
-.tag {
+.hero-tag {
   display: inline-block;
-  padding: 8rpx 20rpx;
-  background: #ff4444;
-  color: #fff;
-  font-size: 22rpx;
-  border-radius: 8rpx;
   margin-right: 10rpx;
+  margin-bottom: 4rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: $font-xs;
+  background: rgba(216, 252, 15, 0.2);
+  color: $cr7-gold-light;
 }
 
-.title {
-  font-size: 40rpx;
-  font-weight: bold;
-  color: #333;
+.hero-title {
+  font-size: $font-xxl;
+  color: $text-white;
+  font-weight: 600;
+  margin-bottom: 12rpx;
+}
+
+.hero-meta {
+  margin-bottom: 16rpx;
+}
+
+.meta-item {
   display: block;
-  margin-bottom: 30rpx;
+  font-size: $font-sm;
+  color: $text-light;
 }
 
-.info-item {
-  display: flex;
-  align-items: center;
-  margin-bottom: 20rpx;
-}
-
-.info-icon {
-  font-size: 32rpx;
-  margin-right: 10rpx;
-}
-
-.info-text {
-  font-size: 28rpx;
-  color: #666;
-}
-
-.price-section {
+.hero-price-row {
+  padding-top: 12rpx;
+  border-top: 1rpx solid $cr7-border;
   display: flex;
   align-items: baseline;
-  margin-top: 30rpx;
-  padding-top: 30rpx;
-  border-top: 1px solid #f0f0f0;
 }
 
 .price-label {
-  font-size: 26rpx;
-  color: #999;
-  margin-right: 10rpx;
+  font-size: $font-sm;
+  color: $text-muted;
+  margin-right: 6rpx;
 }
 
 .price {
-  font-size: 40rpx;
-  color: #ff4444;
-  font-weight: bold;
+  font-size: $font-xl;
+  color: $cr7-gold-light;
+  font-weight: 700;
 }
 
-.detail-section {
-  background: #fff;
-  padding: 30rpx;
+.section {
+  padding: 24rpx 24rpx 20rpx;
 }
 
 .section-title {
-  font-size: 32rpx;
-  font-weight: bold;
-  color: #333;
-  display: block;
-  margin-bottom: 20rpx;
+  font-size: $font-lg;
+  color: $text-white;
+  font-weight: 600;
+  margin-bottom: 8rpx;
 }
 
-.description {
-  font-size: 28rpx;
-  color: #666;
-  line-height: 1.6;
-  display: block;
-  margin-bottom: 30rpx;
+.section-desc {
+  font-size: $font-sm;
+  color: $text-light;
+  margin-bottom: 16rpx;
 }
 
-.detail-content {
-  background: #f8f8f8;
-  padding: 30rpx;
-  border-radius: 12rpx;
+.detail-box {
+  padding: 20rpx;
+  border-radius: $radius-md;
+  background: $cr7-dark;
 }
 
 .detail-text {
-  font-size: 26rpx;
-  color: #666;
+  font-size: $font-sm;
+  color: $text-light;
   line-height: 1.8;
   white-space: pre-line;
 }
 
+.safe-bottom {
+  height: 80rpx;
+}
+
 .bottom-bar {
   position: fixed;
-  bottom: 0;
   left: 0;
   right: 0;
+  bottom: 0;
   height: 120rpx;
-  background: #fff;
+  background: $cr7-dark;
+  border-top: 1rpx solid $cr7-border;
   display: flex;
   align-items: center;
-  padding: 0 30rpx;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+  padding: 0 32rpx;
 }
 
 .price-info {
@@ -226,20 +221,7 @@ export default {
 }
 
 .buy-btn {
-  width: 300rpx;
-  height: 80rpx;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  border-radius: 40rpx;
-  font-size: 28rpx;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: normal;
-}
-
-.buy-btn::after {
-  border: none;
+  width: 260rpx;
+  height: 84rpx;
 }
 </style>
