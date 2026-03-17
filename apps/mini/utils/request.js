@@ -3,7 +3,8 @@ import Request from '@/js_sdk/luch-request/luch-request/index.js'
 const request = new Request();
 
 request.setConfig((config) => {
-	config.baseURL = import.meta.env.VITE_BASE_URL;
+	// 小程序端这里直接写死测试环境域名，避免 import.meta.env 在 mp 环境下为空
+	config.baseURL = 'https://dev.cr7life.cn/api/';
 	return config;
 });
 
@@ -35,18 +36,9 @@ request.interceptors.request.use((config) => { // 可使用async await 做异步
 request.interceptors.response.use((response) => { /* 对响应成功做点什么 可使用async await 做异步操作*/
     console.log('响应拦截器数据:', response)
 
-    // //这里将返回值重新包装一下，包装成统一的数据结构
-    // const res = {
-    //     ...response.data
-    // }
-    // if (Array.isArray(res.data)) {
-    //     res.data = {
-    //         list: res.data,
-    //         total: res.data.length
-    //     }
-    // }
-    // // console.log('响应拦截器处理后的数据:', res)
-    return res
+    // 默认返回后端 data 字段，如果没有则返回原始响应
+    const data = response?.data ?? response
+    return data
 }, (response) => { /*  对响应错误做点什么 （statusCode !== 200）*/
     // console.error('响应拦截器错误:', response)
     // if (response?.statusCode === 401) {
