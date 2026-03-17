@@ -112,7 +112,7 @@
 </template>
 
 <script>
-import storage from '@/utils/storage.js'
+import { useUserStore } from '@/stores/user'
 import { fetchUnreadCount } from '@/services/messages.js'
 import createTabBarMixin from '@/mixins/tabBar.js'
 
@@ -143,9 +143,10 @@ export default {
 
   methods: {
     loadUserInfo() {
-      this.userInfo = storage.getUserInfo() || {}
-      this.isEmployee = storage.getIsEmployee()
-      this.invoiceTitle = storage.get('invoiceTitle') || ''
+      const userStore = useUserStore()
+      this.userInfo = userStore.profile || {}
+      this.isEmployee = userStore.isEmployee
+      this.invoiceTitle = userStore.invoiceTitle || ''
     },
 
     async loadUnreadCount() {
@@ -181,7 +182,8 @@ export default {
             const title = res?.title || res?.company || ''
             if (title) {
               this.invoiceTitle = title
-              storage.set('invoiceTitle', title)
+              const userStore = useUserStore()
+              userStore.setInvoiceTitle(title)
               uni.showToast({ title: '已同步微信发票抬头', icon: 'success' })
               return
             }
@@ -203,7 +205,8 @@ export default {
         success: (res) => {
           if (res.confirm && res.content) {
             this.invoiceTitle = res.content
-            storage.set('invoiceTitle', res.content)
+            const userStore = useUserStore()
+            userStore.setInvoiceTitle(res.content)
             uni.showToast({ title: '已保存', icon: 'success' })
           }
         }
@@ -264,7 +267,8 @@ export default {
               cancelText: '再想想',
               success: (res2) => {
                 if (res2.confirm) {
-                  storage.clear()
+                  const userStore = useUserStore()
+                  userStore.logout()
                   uni.reLaunch({ url: '/pages/login/login' })
                 }
               }

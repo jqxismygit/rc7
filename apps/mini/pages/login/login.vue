@@ -57,7 +57,7 @@
 </template>
 
 <script>
-import storage from '@/utils/storage.js'
+import { useUserStore } from '@/stores/user'
 import { loginWithWechatPhone } from '@/services/auth.js'
 
 export default {
@@ -83,13 +83,14 @@ export default {
       }
 
       this.loading = true
+      const userStore = useUserStore()
 
       try {
         const { user, token, isEmployee } = await loginWithWechatPhone()
 
-        storage.setUserInfo(user)
-        storage.setToken(token)
-        storage.setIsEmployee(isEmployee)
+        userStore.setToken(token)
+        userStore.setProfile(user)
+        userStore.setIsEmployee(isEmployee)
 
         uni.showToast({
           title: '欢迎来到 CR7® LIFE',

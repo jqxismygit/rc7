@@ -62,7 +62,7 @@
 </template>
 
 <script>
-import storage from '@/utils/storage.js'
+import { useUserStore } from '@/stores/user'
 
 export default {
   data() {
@@ -84,7 +84,8 @@ export default {
 
   methods: {
     initForm() {
-      const userInfo = storage.getUserInfo() || {}
+      const userStore = useUserStore()
+      const userInfo = userStore.profile || {}
       this.form.avatar = userInfo.avatar || ''
       this.form.nickname = userInfo.nickname || ''
       this.form.email = userInfo.email || ''
@@ -279,14 +280,15 @@ export default {
 
       this.saving = true
       try {
-        const userInfo = storage.getUserInfo() || {}
+        const userStore = useUserStore()
+        const userInfo = userStore.profile || {}
         const newUserInfo = {
           ...userInfo,
           avatar: this.form.avatar || userInfo.avatar,
           nickname: this.form.nickname,
           email: this.form.email
         }
-        storage.setUserInfo(newUserInfo)
+        userStore.setProfile(newUserInfo)
         uni.showToast({
           title: '已保存',
           icon: 'success'
