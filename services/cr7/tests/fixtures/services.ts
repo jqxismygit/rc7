@@ -28,7 +28,7 @@ export const services_fixtures = {
     for (const nameOrSetting of services) {
       if (typeof nameOrSetting === 'string') {
         const servicePath = path.resolve(
-          __dirname, '..', '..', 'dist/src', `${nameOrSetting}.service.js`
+          __dirname, '..', '..', 'dist', `${nameOrSetting}.service.js`
         );
         const { default: service } = await import(servicePath);
         broker.createService(service);
