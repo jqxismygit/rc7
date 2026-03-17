@@ -36,14 +36,15 @@ export async function jscode2session(
   wechatConfig: WechatConfig, js_code: string
 ): Promise<Jscode2SessionSuccess> {
   const { base_url, appid, secret } = wechatConfig;
-    const res = await getJSON<Jscode2SessionResponse>(
+  const res = await getJSON<string>(
     `${base_url}/sns/jscode2session`,
     { query: { appid, secret, js_code, grant_type: 'authorization_code' } }
   );
 
-  if ('errcode' in res) {
-    throw new WechatError(res);
+  const parsed_res = JSON.parse(res) as Jscode2SessionResponse;
+  if ('errcode' in parsed_res) {
+    throw new WechatError(parsed_res);
   }
 
-  return res as Jscode2SessionSuccess;
+  return parsed_res as Jscode2SessionSuccess;
 }
