@@ -1,23 +1,19 @@
 <template>
   <view class="home-page">
     <scroll-view class="home-scroll" scroll-y enhanced :show-scrollbar="false">
-      <!-- 顶部导航栏 -->
+      <!-- 顶部导航栏 - 仅通知 + CR7 LIFE logo -->
       <view class="home-navbar" :style="{ paddingTop: statusBarHeight + 'px' }">
         <view class="navbar-row">
           <view class="navbar-left">
-            <view class="city-switch" @click="openCityPicker">
-              <text class="city-name">{{ currentCity }}</text>
-              <image src="/static/icons/arrow-down.svg" class="city-arrow-icon" mode="aspectFit" />
-            </view>
             <view class="navbar-notification" @click="goToMessages">
               <image src="/static/icons/notification.svg" class="nav-icon" mode="aspectFit" />
               <view v-if="unreadCount > 0" class="notification-dot"></view>
             </view>
           </view>
           <view class="navbar-logo">
-            <text class="logo-cr7">CR7</text>
-            <text class="logo-life">LIFE</text>
+            <image src="/static/icons/logo.svg" class="logo-img" mode="aspectFit" />
           </view>
+          <view class="navbar-placeholder"></view>
         </view>
       </view>
 
@@ -26,7 +22,7 @@
         <swiper class="hero-swiper" circular autoplay :interval="4000" :duration="500" @change="onSwiperChange">
           <swiper-item v-for="(item, index) in heroBanners" :key="index">
             <view class="hero-slide">
-              <image :src="item.cover || '/static/images/hero-banner.png'" class="hero-image" mode="aspectFill" />
+              <image :src="item.cover || '/static/images/event-card.jpg'" class="hero-image" mode="aspectFill" />
             </view>
           </swiper-item>
         </swiper>
@@ -39,71 +35,74 @@
         </view>
       </view>
 
-      <!-- 热门活动 -->
+      <!-- 马上购票 -->
       <view class="section">
         <view class="section-header">
-          <text class="section-title">热门活动</text>
+          <text class="section-title">马上购票</text>
         </view>
-        <view class="tab-row">
-          <view
-            v-for="tab in hotTabs"
-            :key="tab.key"
-            :class="['tab-pill', { active: tab.key === activeHotTab }]"
-            @click="changeHotTab(tab.key)"
-          >
-            <text class="tab-text">{{ tab.label }}</text>
-          </view>
-        </view>
-        <view
-          v-for="item in activeHotList"
-          :key="item.id"
-          class="event-card"
-          @click="openHotItem(item)"
-        >
+        <view class="event-card" @click="openTicketEvent">
           <view class="event-image-wrap">
-            <image :src="item.cover || '/static/images/event-card.png'" class="event-image" mode="aspectFill" />
+            <image :src="ticketEvent.cover || '/static/images/event-card.jpg'" class="event-image" mode="aspectFill" />
           </view>
-          <view class="event-info-overlay">
+          <view class="event-info-bottom">
             <view class="event-info-left">
-              <text class="event-title">{{ item.title || item.museum }}</text>
-              <text class="event-meta">{{ item.time }}·{{ item.location }}</text>
-            </view>
-            <view class="event-price-area" v-if="item.price">
-              <text class="event-price-num">¥{{ item.price }}</text>
-              <text class="event-price-unit">起</text>
+              <text class="event-title">{{ ticketEvent.title }}</text>
+              <text class="event-meta">{{ ticketEvent.time }}</text>
             </view>
           </view>
         </view>
-      </view>
-
-      <!-- C罗专区 -->
-      <view class="section">
-        <view class="section-header">
-          <text class="section-title">C罗专区</text>
-        </view>
-        <view class="zone-list">
+        <view class="ticket-list">
           <view
-            v-for="entry in cr7Zone"
-            :key="entry.key"
-            class="zone-card"
-            @click="openCr7Entry(entry)"
+            v-for="ticket in ticketTypes"
+            :key="ticket.id"
+            class="ticket-card"
+            @click="selectTicket(ticket)"
           >
-            <view class="zone-icon-wrap">
-              <image :src="getZoneIcon(entry.key)" class="zone-icon" mode="aspectFit" />
+            <view v-if="ticket.tag" class="ticket-tag-badge">
+              <text class="ticket-tag-text">{{ ticket.tag }}</text>
             </view>
-            <view class="zone-text">
-              <text class="zone-title">{{ entry.title }}</text>
-              <text class="zone-desc">{{ entry.desc }}</text>
+            <view class="ticket-card-inner">
+              <view class="ticket-left">
+                <text class="ticket-name">{{ ticket.name }}</text>
+                <text class="ticket-desc">{{ ticket.description }}</text>
+              </view>
+              <view class="ticket-right">
+                <text v-if="ticket.originalPrice > ticket.price" class="ticket-price-origin">￥{{ ticket.originalPrice }}</text>
+                <text class="ticket-price-now" :class="{ 'price-gold': ticket.originalPrice > ticket.price }">¥{{ ticket.price }}</text>
+              </view>
             </view>
-            <image src="/static/icons/arrow-right.svg" class="zone-arrow" mode="aspectFit" />
           </view>
         </view>
       </view>
 
-      <!-- 品牌联名 -->
+      <!-- CR7 News -->
       <view class="section">
         <view class="section-header">
-          <text class="section-title">品牌联名</text>
+          <text class="section-title">CR7 News</text>
+        </view>
+        <view class="news-list">
+          <view
+            v-for="item in cr7News"
+            :key="item.id"
+            class="news-card"
+            @click="openNewsItem(item)"
+          >
+            <view class="news-thumb">
+              <image :src="item.cover || '/static/images/event-card.jpg'" class="news-thumb-img" mode="aspectFill" />
+            </view>
+            <view class="news-content">
+              <text class="news-title">{{ item.title }}</text>
+              <text class="news-desc">{{ item.desc }}</text>
+            </view>
+            <image src="/static/icons/arrow-right.svg" class="news-arrow" mode="aspectFit" />
+          </view>
+        </view>
+      </view>
+
+      <!-- 合作伙伴 -->
+      <view class="section">
+        <view class="section-header">
+          <text class="section-title">合作伙伴</text>
           <text class="section-link" @click="openBrandAll">查看全部</text>
         </view>
         <view class="brand-grid">
@@ -114,7 +113,7 @@
             @click="openBrand(brand)"
           >
             <view class="brand-logo-area">
-              <image :src="brand.logo" class="brand-logo-img" mode="aspectFit" />
+              <image :src="brand.logo || '/static/images/event-card.jpg'" class="brand-logo-img" mode="aspectFit" />
             </view>
             <text class="brand-name">{{ brand.name }}</text>
             <text class="brand-tagline">{{ brand.tagline }}</text>
@@ -125,23 +124,6 @@
       <!-- 底部占位 -->
       <view class="bottom-spacer"></view>
     </scroll-view>
-
-    <!-- 城市选择弹层 -->
-    <view v-if="showCityPicker" class="city-modal" @click="closeCityPicker">
-      <view class="city-panel" @click.stop>
-        <text class="city-panel-title">选择城市</text>
-        <view class="city-list">
-          <view
-            v-for="city in cityList"
-            :key="city"
-            :class="['city-item', { active: city === currentCity }]"
-            @click="chooseCity(city)"
-          >
-            {{ city }}
-          </view>
-        </view>
-      </view>
-    </view>
   </view>
 </template>
 
@@ -150,10 +132,9 @@ import { useUserStore } from '@/stores/user'
 import { fetchUnreadCount } from '@/services/messages.js'
 import {
   fetchHeroBanners,
-  fetchHotTickets,
-  fetchHotEvents,
-  fetchHotWorldcup,
-  fetchCr7Zone,
+  fetchTicketEvent,
+  fetchTicketTypes,
+  fetchCr7News,
   fetchBrands
 } from '@/services/home.js'
 import createTabBarMixin from '@/mixins/tabBar.js'
@@ -163,31 +144,17 @@ export default {
   data() {
     return {
       statusBarHeight: 0,
-      currentCity: '上海',
-      cityList: ['北京', '上海', '中国香港', '深圳'],
-      showCityPicker: false,
       unreadCount: 0,
       currentBannerIndex: 0,
       heroBanners: [],
-      hotTabs: [
-        { key: 'ticket', label: '购票' },
-        { key: 'event', label: '线下活动' },
-        { key: 'worldcup', label: '世界杯' }
-      ],
-      activeHotTab: 'ticket',
-      hotTickets: [],
-      hotEvents: [],
-      hotWorldcup: [],
-      cr7Zone: [],
+      ticketEvent: {
+        title: 'C罗博物馆 · 中国上海馆',
+        time: '03/16·10:00-22:00·上海黄浦区外滩1号',
+        cover: '/static/images/event-card.jpg'
+      },
+      ticketTypes: [],
+      cr7News: [],
       brands: []
-    }
-  },
-
-  computed: {
-    activeHotList() {
-      if (this.activeHotTab === 'ticket') return this.hotTickets
-      if (this.activeHotTab === 'event') return this.hotEvents
-      return this.hotWorldcup
     }
   },
 
@@ -221,19 +188,17 @@ export default {
 
     async loadHomeData() {
       try {
-        const [hero, tickets, events, worldcup, cr7Zone, brandList] = await Promise.all([
+        const [hero, event, tickets, news, brandList] = await Promise.all([
           fetchHeroBanners(),
-          fetchHotTickets(),
-          fetchHotEvents(),
-          fetchHotWorldcup(),
-          fetchCr7Zone(),
+          fetchTicketEvent(),
+          fetchTicketTypes(),
+          fetchCr7News(),
           fetchBrands()
         ])
         this.heroBanners = hero.length ? hero : [{ cover: '' }, { cover: '' }]
-        this.hotTickets = tickets
-        this.hotEvents = events
-        this.hotWorldcup = worldcup
-        this.cr7Zone = cr7Zone
+        this.ticketEvent = event
+        this.ticketTypes = tickets
+        this.cr7News = news
         this.brands = brandList.map((b) => ({
           ...b,
           tagline: b.description || '官方合作品牌'
@@ -248,48 +213,32 @@ export default {
       this.currentBannerIndex = e.detail.current
     },
 
-    getZoneIcon(key) {
-      const map = {
-        calendar: '/static/icons/calendar.svg',
-        highlights: '/static/icons/video.svg',
-        career: '/static/icons/crown.svg'
-      }
-      return map[key] || '/static/icons/calendar.svg'
-    },
-
     goToMessages() {
       uni.navigateTo({ url: '/pages/messages/messages' })
     },
 
-    openCityPicker() {
-      this.showCityPicker = true
+    openTicketEvent() {
+      uni.navigateTo({ url: `/pages/ticket-purchase/ticket-purchase?id=${this.ticketEvent.id || 1}` })
     },
 
-    closeCityPicker() {
-      this.showCityPicker = false
-    },
-
-    chooseCity(city) {
-      this.currentCity = city
-      this.showCityPicker = false
-    },
-
-    changeHotTab(key) {
-      this.activeHotTab = key
-    },
-
-    openHotItem(item) {
-      if (this.activeHotTab === 'ticket') {
-        uni.navigateTo({ url: `/pages/ticket-purchase/ticket-purchase?id=${item.id}` })
-      } else if (this.activeHotTab === 'event') {
-        uni.navigateTo({ url: `/pages/event-detail/event-detail?id=${item.id}` })
+    selectTicket(ticket) {
+      if (ticket.stock > 0) {
+        uni.navigateTo({ url: `/pages/ticket-purchase/ticket-purchase?id=${this.ticketEvent.id || 1}` })
       } else {
-        uni.showToast({ title: '世界杯专题即将上线', icon: 'none' })
+        uni.showToast({ title: '该票种已售罄', icon: 'none' })
       }
     },
 
-    openCr7Entry(entry) {
-      uni.navigateTo({ url: entry.route })
+    openNewsItem(item) {
+      if (item.route) {
+        uni.navigateTo({ url: item.route })
+      } else if (item.type === 'video') {
+        uni.navigateTo({ url: '/pages/schedule/schedule' })
+      } else if (item.type === 'career') {
+        uni.navigateTo({ url: '/pages/schedule/schedule' })
+      } else {
+        uni.showToast({ title: '详情页即将上线', icon: 'none' })
+      }
     },
 
     openBrandAll() {
@@ -327,33 +276,20 @@ export default {
 }
 
 .navbar-row {
-  height: 114rpx; /* 设计稿 117.16 到顶约 35+ 区域，取 114 与状态栏协调 */
+  height: 114rpx;
   padding: 0 35rpx;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   position: relative;
 }
 
 .navbar-left {
   display: flex;
   align-items: center;
-  gap: 16rpx;
 }
 
-.city-switch {
-  display: flex;
-  align-items: center;
-  gap: 2rpx;
-}
-
-.city-name {
-  font-size: 24rpx;
-  color: $text-white;
-  line-height: 38rpx;
-}
-
-.city-arrow-icon {
+.navbar-placeholder {
   width: 42rpx;
   height: 42rpx;
 }
@@ -382,22 +318,13 @@ export default {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  align-items: baseline;
-  gap: 8rpx;
+  align-items: center;
+  justify-content: center;
 }
 
-.logo-cr7 {
-  font-size: 36rpx;
-  font-weight: 700;
-  color: $text-white;
-  letter-spacing: 2rpx;
-}
-
-.logo-life {
-  font-size: 24rpx;
-  font-weight: 400;
-  color: $cr7-gold;
-  letter-spacing: 4rpx;
+.logo-img {
+  width: 156rpx;
+  height: 35rpx;
 }
 
 /* Hero - 设计稿 Frame 1000003725: 679.9×350.47，指示器在图片内部底部 */
@@ -481,54 +408,22 @@ export default {
   line-height: 42rpx;
 }
 
-/* 标签 - 设计稿 Tag Small 高 60, 圆角 29, 内边距 49×10.5 */
-.tab-row {
-  display: flex;
-  gap: 21rpx;
-  margin-bottom: 35rpx;
-}
-
-.tab-pill {
-  padding: 10rpx 49rpx;
-  height: 60rpx;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 29rpx;
-  background: $cr7-dark;
-
-  &.active {
-    background: $cr7-gold;
-    .tab-text {
-      color: $cr7-black;
-    }
-  }
-}
-
-.tab-text {
-  font-size: 24rpx;
-  color: $text-white;
-  line-height: 38rpx;
-}
-
-/* 活动卡片 - 设计稿 679.9×492.4，整卡固定尺寸，底部叠字 */
+/* 活动卡片 - 设计稿：上半图片 350rpx，下半信息区 $cr7-dark，总高 492rpx */
 .event-card {
   width: 100%;
   height: 492rpx;
   max-width: 680rpx;
-  position: relative;
-  border-radius: 16rpx;
+  display: flex;
+  flex-direction: column;
+  border-radius: 24rpx;
   overflow: hidden;
-  margin-bottom: 24rpx;
+  margin-bottom: 35rpx;
 }
 
 .event-image-wrap {
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  width: 100%;
+  height: 350rpx;
+  flex-shrink: 0;
   overflow: hidden;
 }
 
@@ -537,32 +432,30 @@ export default {
   height: 100%;
 }
 
-/* 底部信息叠在图片上，设计稿 inset 75.44% 3.22% 4.27% 3.22% */
-.event-info-overlay {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 21rpx 22rpx 21rpx 22rpx;
-  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.75) 100%);
+.event-info-bottom {
+  flex: 1;
+  min-height: 0;
+  padding: 20rpx 22rpx;
+  background: $cr7-dark;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 16rpx;
 }
 
 .event-info-left {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
 }
 
 .event-title {
   display: block;
-  font-size: 31rpx;
-  font-weight: 600;
+  font-size: 32rpx;
+  font-weight: 500;
   color: $text-white;
   line-height: 47rpx;
-  margin-bottom: 7rpx;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -571,95 +464,168 @@ export default {
 .event-meta {
   display: block;
   font-size: 24rpx;
-  color: $text-light;
+  font-weight: 400;
+  color: $text-disabled;
   line-height: 38rpx;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.event-price-area {
-  display: flex;
-  align-items: baseline;
-  flex-shrink: 0;
-  gap: 4rpx;
-}
-
-.event-price-num {
-  font-size: 42rpx;
-  font-weight: 600;
-  color: $text-white;
-  line-height: 63rpx;
-}
-
-.event-price-unit {
-  font-size: 24rpx;
-  color: $text-light;
-  line-height: 42rpx;
-}
-
-/* C罗专区 - 设计稿每行 133.18 高，圆角 16，内边距 14，图标框 105.14 圆角 10 */
-.zone-list {
+/* 票种列表 - 设计稿 Label - Ticket Type */
+.ticket-list {
   display: flex;
   flex-direction: column;
   gap: 24rpx;
 }
 
-.zone-card {
-  display: flex;
-  align-items: center;
-  height: 133rpx;
+.ticket-card {
+  position: relative;
   background: $cr7-dark;
-  border-radius: 16rpx;
-  padding: 0 14rpx;
-  box-sizing: border-box;
+  border-radius: 24rpx;
+  padding: 30rpx;
+  overflow: visible;
 }
 
-.zone-icon-wrap {
-  width: 105rpx;
-  height: 105rpx;
-  background: $cr7-card;
-  border-radius: 10rpx;
+.ticket-tag-badge {
+  position: absolute;
+  top: -12rpx;
+  right: -12rpx;
+  background: $cr7-gold;
+  border-radius: 999rpx;
+  padding: 0 15rpx;
+  z-index: 3;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 21rpx;
+  min-height: 36rpx;
+}
+
+.ticket-tag-text {
+  font-size: 19rpx;
+  color: #0f2316;
+  font-weight: 500;
+  letter-spacing: 1rpx;
+  text-transform: uppercase;
+}
+
+.ticket-card-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ticket-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.ticket-name {
+  font-size: 30rpx;
+  color: $text-white;
+  font-weight: 700;
+  line-height: 46rpx;
+}
+
+.ticket-desc {
+  font-size: 24rpx;
+  color: $text-disabled;
+  line-height: 38rpx;
+}
+
+.ticket-right {
+  margin-left: $spacing-sm;
+  display: flex;
+  align-items: baseline;
   flex-shrink: 0;
+  gap: 8rpx;
 }
 
-.zone-icon {
-  width: 42rpx;
-  height: 42rpx;
+.ticket-price-origin {
+  font-size: 28rpx;
+  color: $text-disabled;
+  text-decoration: line-through;
 }
 
-.zone-text {
+.ticket-price-now {
+  font-size: 30rpx;
+  color: $text-white;
+  font-weight: 700;
+  line-height: 46rpx;
+
+  &.price-gold {
+    color: $cr7-gold;
+  }
+}
+
+/* CR7 News - 设计稿 Hotel Nearby 列表 */
+.news-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.news-card {
+  display: flex;
+  align-items: center;
+  height: 170rpx;
+  background: $cr7-dark;
+  border-radius: 28rpx;
+  padding: 14rpx;
+  box-sizing: border-box;
+}
+
+.news-thumb {
+  width: 189rpx;
+  height: 142rpx;
+  border-radius: 17rpx;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-right: 21rpx;
+  border: 2rpx solid $cr7-border;
+}
+
+.news-thumb-img {
+  width: 100%;
+  height: 100%;
+}
+
+.news-content {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7rpx;
 }
 
-.zone-title {
-  display: block;
+.news-title {
   font-size: 29rpx;
   font-weight: 500;
   color: $text-white;
   line-height: 42rpx;
-  margin-bottom: 7rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.zone-desc {
-  display: block;
+.news-desc {
   font-size: 24rpx;
-  color: $text-light;
+  color: $text-disabled;
   line-height: 38rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.zone-arrow {
+.news-arrow {
   width: 42rpx;
   height: 42rpx;
   flex-shrink: 0;
 }
 
-/* 品牌联名 - 设计稿 327.4×300.4 卡片，圆角 28，图区圆角 17.5 */
+/* 合作伙伴 - 设计稿 327.4×300.4 卡片 */
 .brand-grid {
   display: flex;
   flex-wrap: wrap;
@@ -717,55 +683,5 @@ export default {
 /* 底部占位 - 为底部导航留空 */
 .bottom-spacer {
   height: 260rpx;
-}
-
-/* 城市选择弹层 - 设计稿风格 1:1 */
-.city-modal {
-  position: fixed;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  z-index: 200;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.city-panel {
-  width: 100%;
-  background: $cr7-dark;
-  border-top-left-radius: 32rpx;
-  border-top-right-radius: 32rpx;
-  padding: 40rpx 35rpx 60rpx;
-  box-sizing: border-box;
-}
-
-.city-panel-title {
-  font-size: 30rpx;
-  color: $text-white;
-  font-weight: 600;
-  margin-bottom: 32rpx;
-}
-
-.city-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16rpx;
-}
-
-.city-item {
-  padding: 12rpx 32rpx;
-  border-radius: 40rpx;
-  background: $cr7-card;
-  font-size: 26rpx;
-  color: $text-light;
-
-  &.active {
-    background: rgba(216, 252, 15, 0.2);
-    color: $cr7-gold;
-    border: 2rpx solid $cr7-gold;
-  }
 }
 </style>

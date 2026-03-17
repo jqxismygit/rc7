@@ -7,7 +7,10 @@ import {
   mockHotTickets,
   mockHotEvents,
   mockHotWorldcup,
-  mockCr7ZoneEntries
+  mockCr7ZoneEntries,
+  mockTicketEvent,
+  mockCr7News,
+  mockTicketTypes
 } from '@/utils/mockData.js'
 
 const MOCK_DELAY = 200
@@ -41,6 +44,27 @@ export function fetchBrands() {
 export function fetchHeroBanners() {
   const list = mockHeroBanners.map((item) => ({ ...item }))
   return delay(list)
+}
+
+/**
+ * 获取首页马上购票主推活动
+ */
+export function fetchTicketEvent() {
+  return delay({ ...mockTicketEvent })
+}
+
+/**
+ * 获取票种列表（首页展示）
+ */
+export function fetchTicketTypes() {
+  return delay(mockTicketTypes.map((item) => ({ ...item })))
+}
+
+/**
+ * 获取 CR7 News 列表
+ */
+export function fetchCr7News() {
+  return delay(mockCr7News.map((item) => ({ ...item })))
 }
 
 /**

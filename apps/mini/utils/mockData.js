@@ -282,6 +282,41 @@ export const mockCr7ZoneEntries = [
   }
 ]
 
+// 首页马上购票 - 主推活动
+export const mockTicketEvent = {
+  id: 1,
+  title: 'C罗博物馆 · 中国上海馆',
+  time: '03/16·10:00-22:00·上海黄浦区外滩1号',
+  cover: '/static/images/event-card.jpg'
+}
+
+// 首页 CR7 News 列表
+export const mockCr7News = [
+  {
+    id: 1,
+    type: 'video',
+    title: '视频集锦',
+    desc: '高光时刻一键回放',
+    cover: '/static/images/event-card.jpg',
+    route: '/pages/schedule/schedule'
+  },
+  {
+    id: 2,
+    type: 'career',
+    title: '职业生涯',
+    desc: '纵览传奇数据年表',
+    cover: '/static/images/event-card.jpg',
+    route: '/pages/schedule/schedule'
+  },
+  {
+    id: 3,
+    type: 'article',
+    title: 'C罗再次上演帽子戏法',
+    desc: '场面极度震撼',
+    cover: '/static/images/event-card.jpg'
+  }
+]
+
 // 票种信息
 export const mockTicketTypes = [
   {
