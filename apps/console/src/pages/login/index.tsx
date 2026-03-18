@@ -37,10 +37,10 @@ export default function Login() {
 
   return (
     <LoginFormPage
-      logo="/logo.png"
-      style={{ height: "100vh" }}
-      title="Errows Console"
-      subTitle="AI 管理平台"
+      logo="/vite.png"
+      style={{ height: "100vh", width: "100%" }}
+      title="CR7® LIFE Console"
+      subTitle="CR7® LIFE 管理平台"
       onFinish={handleFinish}
       submitter={{
         searchConfig: { submitText: loading ? "登录中..." : "登录" },

@@ -1,9 +1,11 @@
-import { Suspense, useMemo } from "react";
+import { Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { Spin, ConfigProvider } from "antd";
 import Login from "./pages/login";
 import BasicLayout from "./layout";
 import { flattenRoutes, routes } from "./routes";
+
+const flatRoutes = flattenRoutes(routes);
 import zhCN from "antd/locale/zh_CN";
 import "./App.css";
 
@@ -34,10 +36,10 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<BasicLayout />}>
-              {routes.map((route) => (
+              {flatRoutes.map((route) => (
                 <Route
                   key={route.path}
-                  path={route.path.replace(/^\//, "")}
+                  path={route.path}
                   element={route.element}
                 />
               ))}

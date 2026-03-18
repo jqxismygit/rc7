@@ -35,8 +35,9 @@ const GRAFANA_PREFIX_URL = window.location.origin.includes("localhost")
   : window.location.origin;
 
 // 页面组件懒加载
-
+const Banners = React.lazy(() => import("./pages/banners"));
 const News = React.lazy(() => import("./pages/news"));
+
 // 路由配置类型
 export interface RouteConfig {
   path: string;
@@ -52,24 +53,16 @@ export interface RouteConfig {
 // 统一的路由和菜单配置
 export const routes: RouteConfig[] = [
   {
+    path: "/banners",
+    name: "轮播图",
+    icon: <PictureOutlined />,
+    element: <Banners />,
+  },
+  {
     path: "/news",
     name: "新闻",
     icon: <DashboardOutlined />,
-    permission: "dashboard_view",
-    children: [
-      {
-        path: "/news/list",
-        name: "新闻列表",
-        icon: <PictureOutlined />,
-        element: <News />,
-      },
-      // {
-      //   path: "/news/create",
-      //   name: "创建新闻",
-      //   icon: <PictureOutlined />,
-      //   element: <News />,
-      // },
-    ],
+    element: <News />,
   },
 ];
 

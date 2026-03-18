@@ -64,8 +64,8 @@ const BasicLayout = () => {
       }}
     >
       <ProLayout
-        title="Errows Console"
-        logo="/logo.png"
+        title="CR7® LIFE Console"
+        logo="/vite.svg"
         layout="mix"
         fixedHeader
         fixSiderbar
@@ -111,7 +111,6 @@ const BasicLayout = () => {
           <div
             style={{ display: "flex", alignItems: "center", gap: 8 }}
             onClick={() => {
-              console.log(item);
               if (item.linkUrl) {
                 window.open(item.linkUrl, "_blank");
               } else if (item.path) {
@@ -119,7 +118,6 @@ const BasicLayout = () => {
               }
             }}
           >
-            {item.icon}
             {dom}
           </div>
         )}
