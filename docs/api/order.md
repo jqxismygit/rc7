@@ -11,6 +11,7 @@
   - `PAID`：已支付
   - `CANCELLED`：已取消
   - `EXPIRED`：已过期
+  - 状态由 data 层查询订单时基于 `paid_at`、`cancelled_at`、`expires_at` 动态计算
 
 ## 创建订单
 
@@ -37,7 +38,7 @@
   ```
 - 说明：
   - 创建订单时会自动计算总金额并设置 30 分钟的过期时间
-  - 创建订单时会锁定对应的库存，库存数量减少
+  - 创建订单时会锁定对应的库存，`reserved_quantity` 增加
   - 如果库存不足，返回 400 错误
 
 ## 获取订单详情
@@ -85,8 +86,8 @@
 
 ## 取消订单
 
-- URL: `/orders/:oid/cancel`
-- Method: `POST`
+- URL: `/orders/:oid`
+- Method: `DELETE`
 - Request Header:
   ```ts
   { Authorization: `Bearer ${token}` }
@@ -98,7 +99,7 @@
 - Response status: `204 No Content`
 - 说明：
   - 只有状态为 `PENDING_PAYMENT` 的订单可以取消
-  - 取消订单时会释放锁定的库存，库存数量恢复
+  - 取消订单时会释放锁定的库存，`reserved_quantity` 减少
   - 如果订单已支付或已取消，返回 400 错误
 
 ## 订单支付（待实现）
@@ -132,4 +133,4 @@
 
 订单过期由系统定时任务自动处理：
 - 定时扫描所有 `PENDING_PAYMENT` 状态且已过期的订单
-- 释放锁定的库存，库存数量恢复
+- 释放锁定的库存，`reserved_quantity` 减少

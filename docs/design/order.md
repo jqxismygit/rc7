@@ -57,7 +57,7 @@
 
 ### 2.3 订单状态保持
 
-继续沿用 exhibit_orders_with_status 视图计算状态：
+在 data 层查询订单时使用 SQL CASE 计算状态：
 - PAID
 - CANCELLED
 - EXPIRED
@@ -114,7 +114,7 @@
 
 ### 3.4 取消订单
 
-接口：POST /orders/:oid/cancel
+接口：DELETE /orders/:oid
 
 事务流程：
 1. 锁定订单行 FOR UPDATE，并校验属于当前用户。

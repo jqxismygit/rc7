@@ -127,6 +127,12 @@
 3. 在迁移脚本中定义数据库表的创建、修改或删除操作。
 4. 执行迁移命令 `pnpm -w s cr7 migration upgrade`，会执行所有未执行过的迁移脚本，更新数据库表结构。
 
+### 迁移文件发布规则
+
+- 如果某个 SQL migration 文件已经存在于 release 分支，视为已发布，禁止再修改该文件内容。
+- 已发布 migration 如需调整逻辑，只能新增一个新的 migration 文件来修正，不能覆盖历史 migration。
+- 该规则用于保证各环境迁移历史一致，避免因修改已发布 migration 导致环境漂移或升级失败。
+
 ### SQL 编写规范
 
 - 除了 public schema 下的表，其他 schema 下的表都要加上 schema 前缀，如 `my_schema.my_table`。

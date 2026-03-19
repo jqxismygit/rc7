@@ -99,9 +99,16 @@ const routes = [
   ),
   routeConfig(
     '/exhibition',
-    ['cr7.exhibition.*'],
+    ['cr7.exhibition.*', 'cr7.order.create'],
     {
       authorization: false,
+      autoAliases: true,
+    }
+  ),
+  routeConfig(
+    '/orders',
+    ['cr7.order.get', 'cr7.order.cancel'],
+    {
       autoAliases: true,
     }
   )

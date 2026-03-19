@@ -211,7 +211,7 @@ export async function getSessionInventoryBySessionId(
       i.id,
       i.session_id,
       i.ticket_category_id,
-      i.quantity,
+      (i.quantity - i.reserved_quantity) AS quantity,
       i.created_at,
       i.updated_at
     FROM ${schema}.exhibit_session_inventories i

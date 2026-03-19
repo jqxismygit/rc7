@@ -1,12 +1,16 @@
+import { RC7BaseService } from "./libs/cr7.base.js";
 import { ExhibitionService } from "./libs/exhibition.js";
+import { OrderService } from "./libs/order.js";
 
 /**
  * RC7Service
  * RC7 主服务，继承所有子服务功能
  */
-export default class RC7Service extends ExhibitionService {
+export default class RC7Service extends RC7BaseService {
   constructor(broker) {
     super(broker);
+    const exhibitionService = new ExhibitionService(broker);
+    const orderService = new OrderService(broker);
 
     this.parseServiceSchema({
       name: 'cr7',
@@ -16,7 +20,8 @@ export default class RC7Service extends ExhibitionService {
       },
 
       actions: {
-        ...this.actions_exhibition
+        ...exhibitionService.actions_exhibition,
+        ...orderService.actions_order
       },
 
       async started() {
