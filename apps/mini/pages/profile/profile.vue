@@ -1,45 +1,38 @@
 <template>
   <view class="profile-page">
-    <!-- 顶部导航 -->
-    <view
-      class="profile-navbar"
-      :style="{ paddingTop: statusBarHeight + 'px' }"
-    >
-      <view class="navbar-row">
-        <view class="navbar-left">
-          <!-- <view class="city-switch" @click="openCityPicker">
-            <text class="city-name">{{ currentCity }}</text>
-            <image
-              src="/static/icons/arrow-down.svg"
-              class="city-arrow-icon"
-              mode="aspectFit"
-            />
-          </view> -->
-          <view class="navbar-notification" @click="goToMessages">
-            <image
-              src="/static/icons/notification.svg"
-              class="nav-icon"
-              mode="aspectFit"
-            />
-            <view v-if="unreadCount > 0" class="notification-dot"></view>
-          </view>
-        </view>
-        <view class="navbar-logo">
-          <image
-            src="/static/icons/logo.svg"
-            class="logo-img"
-            mode="aspectFit"
-          />
-        </view>
-      </view>
-    </view>
-
     <scroll-view
       class="profile-scroll"
       scroll-y
       enhanced
       :show-scrollbar="false"
     >
+      <!-- 顶部导航栏 - 完全参考 index -->
+      <view
+        class="profile-navbar"
+        :style="{ paddingTop: statusBarHeight + 'px' }"
+      >
+        <view class="navbar-row">
+          <view class="navbar-left">
+            <view class="navbar-notification" @click="goToMessages">
+              <image
+                src="/static/icons/notification.svg"
+                class="nav-icon"
+                mode="aspectFit"
+              />
+              <view v-if="unreadCount > 0" class="notification-dot"></view>
+            </view>
+          </view>
+          <view class="navbar-logo">
+            <image
+              src="/static/icons/logo.svg"
+              class="logo-img"
+              mode="aspectFit"
+            />
+          </view>
+          <view class="navbar-placeholder"></view>
+        </view>
+      </view>
+
       <!-- 用户信息 -->
       <view class="user-section" @click="goToProfileEdit">
         <view class="avatar-wrap">
@@ -365,41 +358,31 @@ export default {
   background: $cr7-black;
 }
 
-/* 导航栏 */
+/* 导航栏 - 完全参考 index */
 .profile-navbar {
-  background: $cr7-black;
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 10;
+  background: $cr7-black;
 }
 
 .navbar-row {
-  height: 96rpx;
-  padding: 0 48rpx;
+  height: 114rpx;
+  padding: 0 35rpx;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   position: relative;
 }
 
 .navbar-left {
   display: flex;
   align-items: center;
-  gap: 20rpx;
 }
 
-.city-switch {
-  display: flex;
-  align-items: center;
-  gap: 4rpx;
-}
-
-.city-name {
-  font-size: $font-xs;
-  color: $text-white;
-}
-
-.city-arrow-icon {
-  width: 36rpx;
-  height: 36rpx;
+.navbar-placeholder {
+  width: 42rpx;
+  height: 42rpx;
 }
 
 .navbar-notification {
@@ -413,8 +396,8 @@ export default {
 
 .notification-dot {
   position: absolute;
-  top: 2rpx;
-  right: 2rpx;
+  top: 0;
+  right: 0;
   width: 14rpx;
   height: 14rpx;
   background: $cr7-red;
@@ -426,8 +409,8 @@ export default {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  align-items: baseline;
-  gap: 8rpx;
+  align-items: center;
+  justify-content: center;
 }
 
 .logo-img {
@@ -435,22 +418,9 @@ export default {
   height: 35rpx;
 }
 
-.logo-cr7 {
-  font-size: 38rpx;
-  font-weight: 900;
-  color: $text-white;
-  letter-spacing: 2rpx;
-}
-
-.logo-life {
-  font-size: 28rpx;
-  font-weight: 400;
-  color: $text-white;
-  letter-spacing: 4rpx;
-}
-
 .profile-scroll {
-  height: calc(100vh - 200rpx);
+  height: 100vh;
+  box-sizing: border-box;
 }
 
 /* 用户信息 */
@@ -463,14 +433,14 @@ export default {
 
 .avatar-wrap {
   position: relative;
-  width: 234rpx;
-  height: 234rpx;
+  width: 175rpx;
+  height: 175rpx;
   margin-bottom: 24rpx;
 }
 
 .avatar {
-  width: 234rpx;
-  height: 234rpx;
+  width: 175rpx;
+  height: 175rpx;
   border-radius: 50%;
   border: 4rpx solid rgba(216, 252, 15, 0.3);
 }
@@ -527,7 +497,7 @@ export default {
   padding: 24rpx 48rpx 0;
   display: flex;
   flex-direction: column;
-  gap: 32rpx;
+  gap: 24rpx;
 }
 
 .menu-item {
@@ -535,7 +505,9 @@ export default {
   align-items: center;
   background: $cr7-dark;
   border-radius: 32rpx;
-  padding: 28rpx 20rpx;
+  align-items: center;
+  padding: 0rpx 20rpx;
+  height: 105rpx;
 }
 
 .menu-icon-wrap {

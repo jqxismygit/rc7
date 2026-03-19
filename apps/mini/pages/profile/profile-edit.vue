@@ -387,7 +387,7 @@ export default {
   padding: 24rpx 35rpx 0;
   display: flex;
   flex-direction: column;
-  gap: 32rpx;
+  gap: 24rpx;
 }
 
 /* 表单卡片（参考 profile menu-item） */
