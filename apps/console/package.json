@@ -37,6 +37,7 @@
     "typescript-eslint": "^8.48.0",
     "vite": "^7.3.1",
     "vite-plugin-svgr": "^4.3.0",
-    "vite-tsconfig-paths": "^5.1.4"
+    "vite-tsconfig-paths": "^5.1.4",
+    "@cr7/types": "workspace:*"
   }
 }
