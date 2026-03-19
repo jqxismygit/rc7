@@ -14,10 +14,13 @@ import {
   addTicketCategory,
   getTicketCategories,
   getSessions,
+  listExhibitions,
+  ExhibitionListResponse,
   assertExhibition,
   assertSession,
   assertTicketCategory,
-  prepareExhibitionData
+  prepareExhibitionData,
+  prepareExhibitionListData
 } from './fixtures/exhibition.js';
 
 const schema = 'test_exhibition';
@@ -30,6 +33,23 @@ type SessionType = Exhibition.Session;
 type TicketCategory = Exhibition.TicketCategory;
 type DraftExhibition = Omit<ExhibitionType, 'id' | 'created_at' | 'updated_at'>;
 type DraftTicket = Omit<TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>;
+
+function prepareListExhibitionQuerySteps<T extends { listResult?: ExhibitionListResponse }>(
+  When: StepTest<T>['When'],
+  Then: StepTest<T>['Then'],
+  scenarioContext: ScenarioContext,
+  context: T
+) {
+  When('list exhibitions with limit {int} and offset {int}', async (ctx, limit: number, offset: number) => {
+    const { apiServer } = scenarioContext.fixtures.values;
+    const listResult = await listExhibitions(apiServer, { limit, offset });
+    Object.assign(context, { listResult });
+  });
+
+  Then('return {int} exhibitions', (ctx, count: number) => {
+    expect(context.listResult?.data).toHaveLength(count);
+  });
+}
 
 interface ScenarioContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
@@ -295,6 +315,58 @@ describeFeature(feature, ({
         const days = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
         expect(sessions).toHaveLength(days);
       });
+    }
+  );
+
+  Scenario(
+    'list exhibitions with pagination',
+    (s: StepTest<{
+      createdExhibitions: Exhibition.Exhibition[]
+      listResult: ExhibitionListResponse
+    }>) => {
+      const { Given, When, Then, And, context } = s;
+
+      prepareExhibitionListData(Given, scenarioContext, context);
+      prepareListExhibitionQuerySteps(When, Then, scenarioContext, context);
+
+      And('exhibitions are ordered by created_at descending', () => {
+        const exhibitions = context.listResult.data;
+
+        for (let i = 1; i < exhibitions.length; i++) {
+          const prevDate = new Date(exhibitions[i - 1].created_at).getTime();
+          const currDate = new Date(exhibitions[i].created_at).getTime();
+          expect(prevDate).toBeGreaterThanOrEqual(currDate);
+        }
+      });
+    }
+  );
+
+  Scenario(
+    'list exhibitions with limit and offset',
+    (s: StepTest<{
+      createdExhibitions: Exhibition.Exhibition[]
+      listResult: ExhibitionListResponse
+    }>) => {
+      const { Given, When, Then, And, context } = s;
+
+      prepareExhibitionListData(Given, scenarioContext, context);
+      prepareListExhibitionQuerySteps(When, Then, scenarioContext, context);
+
+      And('the exhibition is the second created exhibition', () => {
+        // createdExhibitions is in creation order: first, second, third
+        // listResult is sorted by created_at DESC, so offset 1 should point to second created.
+        expect(context.listResult.data[0].id).toBe(context.createdExhibitions[1].id);
+      });
+    }
+  );
+
+  Scenario(
+    'list exhibitions empty result',
+    (s: StepTest<{
+      listResult: ExhibitionListResponse
+    }>) => {
+      const { When, Then, context } = s;
+      prepareListExhibitionQuerySteps(When, Then, scenarioContext, context);
     }
   );
 });

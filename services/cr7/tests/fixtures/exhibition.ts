@@ -30,6 +30,33 @@ export async function getExhibition(
   );
 }
 
+export async function listExhibitions(
+  server: Server,
+  options?: { limit?: number; offset?: number },
+  token?: string
+) {
+  return getJSON<{
+    data: Exhibition.Exhibition[]
+    total: number
+    limit: number
+    offset: number
+  }>(
+    server,
+    '/exhibition',
+    {
+      token,
+      query: options,
+    }
+  );
+}
+
+export interface ExhibitionListResponse {
+  data: Exhibition.Exhibition[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export async function getTicketCategories(
   server: Server,
   eid: string,
@@ -114,6 +141,33 @@ export function prepareExhibitionData(
       location: 'Test Location'
     });
     Object.assign(context, { exhibition });
+  });
+}
+
+export function prepareExhibitionListData(
+  Step: StepTest['Given'] | StepTest['And'],
+  scenarioContext: { fixtures: APIServerFixture },
+  context: { createdExhibitions?: Exhibition.Exhibition[] },
+) {
+  Step('created {int} exhibitions for listing', async (ctx, count: number) => {
+    const { apiServer } = scenarioContext.fixtures.values;
+    const createdExhibitions: Exhibition.Exhibition[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const exhibition = await createExhibition(apiServer, {
+        name: `list_exhibition_${i + 1}_${random_text(5)}`,
+        description: `List test exhibition ${i + 1}`,
+        start_date: '2026-01-01',
+        end_date: '2026-12-31',
+        opening_time: '10:00',
+        closing_time: '18:00',
+        last_entry_time: '17:00',
+        location: 'Test Location'
+      });
+      createdExhibitions.push(exhibition);
+    }
+
+    Object.assign(context, { createdExhibitions });
   });
 }
 
