@@ -100,6 +100,14 @@
 - 在 vitest.config.ts 中配置 `@/` 别名指向 `src` 目录，简化导入路径
 - 在 fixtures 和测试中统一使用 `@/` 别名导入源代码模块
 
+#### Feature 与 Spec 同步经验（vitest-cucumber）
+
+- `spec:gen` 需要显式参数：`--feature` 和 `--spec`，仅执行 `npx @amiceli/vitest-cucumber` 会报错。
+- 同一个 Scenario 内，步骤文本不能完全重复（即使是 Given 和 Then 也不行），否则会抛 `ItemAlreadyExistsError`。
+- 为避免重复步骤冲突，建议区分前置与断言文案：如“库存初始为 N”与“库存为 N/库存应为 N”。
+- 重复动作步骤也要区分文案：如“执行订单过期处理任务”与“再次执行订单过期处理任务”。
+- 推荐流程：先统一 feature 文案，再同步 spec，最后执行单文件校验命令 `pnpm test tests/order.spec.ts`。
+
 ### 测试执行
 
 测试执行命令：`pnpm -w s test` （在根目录执行，-w s 表示只运行 services 目录下的测试）

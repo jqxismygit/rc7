@@ -6,7 +6,7 @@ export type OrderStatus =
 
 export interface Order {
   id: string;
-  user_id: number;
+  user_id: string;
   exhibit_id: string;
   session_id: string;
   status: OrderStatus;
@@ -14,6 +14,7 @@ export interface Order {
   expires_at: string;
   paid_at: string | null;
   cancelled_at: string | null;
+  released_at: string | null;
   created_at: string;
   updated_at: string;
 }
