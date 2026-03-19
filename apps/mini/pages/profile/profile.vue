@@ -1,36 +1,63 @@
 <template>
   <view class="profile-page">
     <!-- 顶部导航 -->
-    <view class="profile-navbar" :style="{ paddingTop: statusBarHeight + 'px' }">
+    <view
+      class="profile-navbar"
+      :style="{ paddingTop: statusBarHeight + 'px' }"
+    >
       <view class="navbar-row">
         <view class="navbar-left">
-          <view class="city-switch" @click="openCityPicker">
+          <!-- <view class="city-switch" @click="openCityPicker">
             <text class="city-name">{{ currentCity }}</text>
-            <image src="/static/icons/arrow-down.svg" class="city-arrow-icon" mode="aspectFit" />
-          </view>
+            <image
+              src="/static/icons/arrow-down.svg"
+              class="city-arrow-icon"
+              mode="aspectFit"
+            />
+          </view> -->
           <view class="navbar-notification" @click="goToMessages">
-            <image src="/static/icons/notification.svg" class="nav-icon" mode="aspectFit" />
+            <image
+              src="/static/icons/notification.svg"
+              class="nav-icon"
+              mode="aspectFit"
+            />
             <view v-if="unreadCount > 0" class="notification-dot"></view>
           </view>
         </view>
         <view class="navbar-logo">
-          <text class="logo-cr7">CR7</text>
-          <text class="logo-life">LIFE</text>
+          <image
+            src="/static/icons/logo.svg"
+            class="logo-img"
+            mode="aspectFit"
+          />
         </view>
       </view>
     </view>
 
-    <scroll-view class="profile-scroll" scroll-y enhanced :show-scrollbar="false">
+    <scroll-view
+      class="profile-scroll"
+      scroll-y
+      enhanced
+      :show-scrollbar="false"
+    >
       <!-- 用户信息 -->
       <view class="user-section" @click="goToProfileEdit">
         <view class="avatar-wrap">
-          <image :src="userInfo.avatar || '/static/images/avatar-default.png'" class="avatar" mode="aspectFill" />
+          <image
+            :src="userInfo.avatar || '/static/images/avatar-default.png'"
+            class="avatar"
+            mode="aspectFill"
+          />
           <view class="camera-btn">
-            <image src="/static/icons/camera.svg" class="camera-icon" mode="aspectFit" />
+            <image
+              src="/static/icons/camera.svg"
+              class="camera-icon"
+              mode="aspectFit"
+            />
           </view>
         </view>
         <view class="user-name-row">
-          <text class="nickname">{{ userInfo.nickname || '用户' }}</text>
+          <text class="nickname">{{ userInfo.nickname || "用户" }}</text>
           <view v-if="isEmployee" class="employee-tag">
             <text class="employee-tag-text">工作人员</text>
           </view>
@@ -42,49 +69,95 @@
       <view class="menu-list">
         <view class="menu-item" @click="goToTickets">
           <view class="menu-icon-wrap">
-            <image src="/static/icons/ticket.svg" class="menu-icon" mode="aspectFit" />
+            <image
+              src="/static/icons/ticket.svg"
+              class="menu-icon"
+              mode="aspectFit"
+            />
           </view>
           <text class="menu-text">我的票夹</text>
-          <image src="/static/icons/arrow-right.svg" class="menu-arrow" mode="aspectFit" />
+          <image
+            src="/static/icons/arrow-right.svg"
+            class="menu-arrow"
+            mode="aspectFit"
+          />
         </view>
 
         <view class="menu-item" @click="goToMessages">
           <view class="menu-icon-wrap">
-            <image src="/static/icons/notification.svg" class="menu-icon" mode="aspectFit" />
+            <image
+              src="/static/icons/notification.svg"
+              class="menu-icon"
+              mode="aspectFit"
+            />
           </view>
           <text class="menu-text">消息中心</text>
-          <view v-if="unreadCount > 0" class="menu-badge">{{ unreadCount }}</view>
-          <image src="/static/icons/arrow-right.svg" class="menu-arrow" mode="aspectFit" />
+          <view v-if="unreadCount > 0" class="menu-badge">{{
+            unreadCount
+          }}</view>
+          <image
+            src="/static/icons/arrow-right.svg"
+            class="menu-arrow"
+            mode="aspectFit"
+          />
         </view>
 
         <view class="menu-item" @click="editInvoice">
           <view class="menu-icon-wrap">
-            <image src="/static/icons/language.svg" class="menu-icon" mode="aspectFit" />
+            <image
+              src="/static/icons/language.svg"
+              class="menu-icon"
+              mode="aspectFit"
+            />
           </view>
           <text class="menu-text">发票抬头</text>
-          <image src="/static/icons/arrow-right.svg" class="menu-arrow" mode="aspectFit" />
+          <image
+            src="/static/icons/arrow-right.svg"
+            class="menu-arrow"
+            mode="aspectFit"
+          />
         </view>
 
         <view class="menu-item" @click="goToLegal">
           <view class="menu-icon-wrap">
-            <image src="/static/icons/document.svg" class="menu-icon" mode="aspectFit" />
+            <image
+              src="/static/icons/document.svg"
+              class="menu-icon"
+              mode="aspectFit"
+            />
           </view>
           <text class="menu-text">隐私政策/服务协议</text>
-          <image src="/static/icons/arrow-right.svg" class="menu-arrow" mode="aspectFit" />
+          <image
+            src="/static/icons/arrow-right.svg"
+            class="menu-arrow"
+            mode="aspectFit"
+          />
         </view>
 
         <view class="menu-item" @click="contactService">
           <view class="menu-icon-wrap">
-            <image src="/static/icons/phone.svg" class="menu-icon" mode="aspectFit" />
+            <image
+              src="/static/icons/phone.svg"
+              class="menu-icon"
+              mode="aspectFit"
+            />
           </view>
           <text class="menu-text">联系客服</text>
-          <image src="/static/icons/arrow-right.svg" class="menu-arrow" mode="aspectFit" />
+          <image
+            src="/static/icons/arrow-right.svg"
+            class="menu-arrow"
+            mode="aspectFit"
+          />
         </view>
       </view>
 
       <!-- 退出登录 -->
       <view class="logout-area" @click="handleLogout">
-        <image src="/static/icons/logout.svg" class="logout-icon" mode="aspectFit" />
+        <image
+          src="/static/icons/logout.svg"
+          class="logout-icon"
+          mode="aspectFit"
+        />
         <text class="logout-text">退出登录</text>
       </view>
 
@@ -112,9 +185,9 @@
 </template>
 
 <script>
-import { useUserStore } from '@/stores/user'
-import { fetchUnreadCount } from '@/services/messages.js'
-import createTabBarMixin from '@/mixins/tabBar.js'
+import { useUserStore } from "@/stores/user";
+import { fetchUnreadCount } from "@/services/messages.js";
+import createTabBarMixin from "@/mixins/tabBar.js";
 
 export default {
   mixins: [createTabBarMixin(3)],
@@ -124,54 +197,54 @@ export default {
       userInfo: {},
       isEmployee: false,
       unreadCount: 0,
-      invoiceTitle: '',
-      currentCity: '上海',
-      cityList: ['北京', '上海', '中国香港', '深圳'],
-      showCityPicker: false
-    }
+      invoiceTitle: "",
+      currentCity: "上海",
+      cityList: ["北京", "上海", "中国香港", "深圳"],
+      showCityPicker: false,
+    };
   },
 
   onLoad() {
-    const systemInfo = uni.getSystemInfoSync()
-    this.statusBarHeight = systemInfo.statusBarHeight || 0
+    const systemInfo = uni.getSystemInfoSync();
+    this.statusBarHeight = systemInfo.statusBarHeight || 0;
   },
 
   onShow() {
-    this.loadUserInfo()
-    this.loadUnreadCount()
+    this.loadUserInfo();
+    this.loadUnreadCount();
   },
 
   methods: {
     loadUserInfo() {
-      const userStore = useUserStore()
-      this.userInfo = userStore.profile || {}
-      this.isEmployee = userStore.isEmployee
-      this.invoiceTitle = userStore.invoiceTitle || ''
+      const userStore = useUserStore();
+      this.userInfo = userStore.profile || {};
+      this.isEmployee = userStore.isEmployee;
+      this.invoiceTitle = userStore.invoiceTitle || "";
     },
 
     async loadUnreadCount() {
       try {
-        const count = await fetchUnreadCount()
-        this.unreadCount = count
+        const count = await fetchUnreadCount();
+        this.unreadCount = count;
       } catch (e) {
-        console.error('加载未读消息数量失败', e)
+        console.error("加载未读消息数量失败", e);
       }
     },
 
     goToProfileEdit() {
-      uni.navigateTo({ url: '/pages/profile/profile-edit' })
+      uni.navigateTo({ url: "/pages/profile/profile-edit" });
     },
 
     goToTickets() {
-      uni.switchTab({ url: '/pages/my-tickets/my-tickets' })
+      uni.switchTab({ url: "/pages/my-tickets/my-tickets" });
     },
 
     goToMessages() {
-      uni.navigateTo({ url: '/pages/messages/messages' })
+      uni.navigateTo({ url: "/pages/messages/messages" });
     },
 
     goToLegal() {
-      uni.navigateTo({ url: '/pages/legal/privacy' })
+      uni.navigateTo({ url: "/pages/legal/privacy" });
     },
 
     editInvoice() {
@@ -179,106 +252,110 @@ export default {
       if (wx && wx.chooseInvoiceTitle) {
         wx.chooseInvoiceTitle({
           success: (res) => {
-            const title = res?.title || res?.company || ''
+            const title = res?.title || res?.company || "";
             if (title) {
-              this.invoiceTitle = title
-              const userStore = useUserStore()
-              userStore.setInvoiceTitle(title)
-              uni.showToast({ title: '已同步微信发票抬头', icon: 'success' })
-              return
+              this.invoiceTitle = title;
+              const userStore = useUserStore();
+              userStore.setInvoiceTitle(title);
+              uni.showToast({ title: "已同步微信发票抬头", icon: "success" });
+              return;
             }
           },
-          fail: () => { this.openInvoiceTitleModal() }
-        })
-        return
+          fail: () => {
+            this.openInvoiceTitleModal();
+          },
+        });
+        return;
       }
       // #endif
-      this.openInvoiceTitleModal()
+      this.openInvoiceTitleModal();
     },
 
     openInvoiceTitleModal() {
       uni.showModal({
-        title: '发票抬头',
-        content: '请输入发票抬头（公司或个人姓名）',
+        title: "发票抬头",
+        content: "请输入发票抬头（公司或个人姓名）",
         editable: true,
-        placeholderText: this.invoiceTitle || '示例：北京某某科技有限公司',
+        placeholderText: this.invoiceTitle || "示例：北京某某科技有限公司",
         success: (res) => {
           if (res.confirm && res.content) {
-            this.invoiceTitle = res.content
-            const userStore = useUserStore()
-            userStore.setInvoiceTitle(res.content)
-            uni.showToast({ title: '已保存', icon: 'success' })
+            this.invoiceTitle = res.content;
+            const userStore = useUserStore();
+            userStore.setInvoiceTitle(res.content);
+            uni.showToast({ title: "已保存", icon: "success" });
           }
-        }
-      })
+        },
+      });
     },
 
     contactService() {
       // #ifdef MP-WEIXIN
       if (wx && wx.openCustomerServiceChat) {
         wx.openCustomerServiceChat({
-          extInfo: { url: '' },
-          corpId: '',
+          extInfo: { url: "" },
+          corpId: "",
           success: () => {},
-          fail: () => { this.openPhoneServiceModal() }
-        })
-        return
+          fail: () => {
+            this.openPhoneServiceModal();
+          },
+        });
+        return;
       }
       // #endif
-      this.openPhoneServiceModal()
+      this.openPhoneServiceModal();
     },
 
     openPhoneServiceModal() {
       uni.showModal({
-        title: '客服电话',
-        content: '010-88888888',
-        confirmText: '拨打',
+        title: "客服电话",
+        content: "010-88888888",
+        confirmText: "拨打",
         success: (res) => {
           if (res.confirm) {
-            uni.makePhoneCall({ phoneNumber: '01088888888' })
+            uni.makePhoneCall({ phoneNumber: "01088888888" });
           }
-        }
-      })
+        },
+      });
     },
 
     openCityPicker() {
-      this.showCityPicker = true
+      this.showCityPicker = true;
     },
 
     closeCityPicker() {
-      this.showCityPicker = false
+      this.showCityPicker = false;
     },
 
     chooseCity(city) {
-      this.currentCity = city
-      this.showCityPicker = false
+      this.currentCity = city;
+      this.showCityPicker = false;
     },
 
     handleLogout() {
       uni.showModal({
-        title: '提示',
-        content: '确定要退出登录吗？',
+        title: "提示",
+        content: "确定要退出登录吗？",
         success: (res) => {
           if (res.confirm) {
             uni.showModal({
-              title: '再次确认',
-              content: '退出后需要重新登录才能继续使用全部功能，是否仍要退出？',
-              confirmText: '仍要退出',
-              cancelText: '再想想',
+              title: "再次确认",
+              content: "退出后需要重新登录才能继续使用全部功能，是否仍要退出？",
+              confirmText: "仍要退出",
+              cancelText: "再想想",
               success: (res2) => {
                 if (res2.confirm) {
-                  const userStore = useUserStore()
-                  userStore.logout()
-                  uni.reLaunch({ url: '/pages/login/login' })
+                  const userStore = useUserStore();
+                  userStore.logout();
+                  uni.reLaunch({ url: "/pages/login/login" });
                 }
-              }
-            })
+              },
+            });
           }
-        }
-      })
-    }
-  }
-}
+        },
+      });
+    },
+  },
+};
 </script>
 
 <style lang="scss" scoped>
@@ -351,6 +428,11 @@ export default {
   display: flex;
   align-items: baseline;
   gap: 8rpx;
+}
+
+.logo-img {
+  width: 156rpx;
+  height: 35rpx;
 }
 
 .logo-cr7 {
@@ -473,7 +555,7 @@ export default {
 
 .menu-text {
   flex: 1;
-  font-size: 36rpx;
+  font-size: 26rpx;
   color: $text-white;
 }
 
