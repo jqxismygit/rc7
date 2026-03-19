@@ -8,6 +8,31 @@
 - Session（场次）：展览日期范围内的单日场次，默认按天自动生成。
 - Ticket Category（票种）：展览可售票种配置。
 
+## 获取展览列表
+
+- URL: `/exhibition`
+- Method: `GET`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Query:
+  ```ts
+  {
+    limit?: number    // 每页数量（默认：10，最大：100）
+    offset?: number   // 偏移量（默认：0）
+  }
+  ```
+- Response Body:
+  ```ts
+  {
+    data: Exhibition.Exhibition[]
+    total: number
+    limit: number
+    offset: number
+  }
+  ```
+
 ## 创建展览活动
 
 - URL: `/exhibition`

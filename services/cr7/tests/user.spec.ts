@@ -5,7 +5,7 @@ import {
 import config from 'config';
 import { expect, Mock, vi, TestContext } from 'vitest';
 import { User } from '@cr7/types';
-import { mockJSONServer, MockJSONServer } from './lib/server.js';
+import { mockWechatServer, MockServer } from './lib/server.js';
 import {
   assertLoginResponse, assertUserProfile,
   getUserProfile, wechatMiniLogin
@@ -28,7 +28,7 @@ describeFeature(feature, ({
 }: FeatureDescriibeCallbackParams<ScenarioContext>) => {
   interface WechatContext extends TestContext{
     mockCode2SessionResponse: Mock;
-    mock_wechat_server: MockJSONServer;
+    mock_wechat_server: MockServer;
     loginResponse?: { token: string };
     userProfile: User.Profile;
   }
@@ -51,7 +51,7 @@ describeFeature(feature, ({
     Given('wechat mini app', async function() {
       // 创建 mock wechat server
       const mockCode2SessionResponse = vi.fn();
-      const mock_wechat_server = await mockJSONServer(mockCode2SessionResponse);
+      const mock_wechat_server = await mockWechatServer(mockCode2SessionResponse);
       const { address } = mock_wechat_server;
       vi.spyOn(config.wechat, 'base_url', 'get').mockReturnValue(address);
       Object.assign(context, { mockCode2SessionResponse, mock_wechat_server });

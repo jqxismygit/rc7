@@ -2,7 +2,7 @@ import { Server } from "http";
 import { getJSON, postJSON } from "../lib/api.js";
 import { User } from "@cr7/types";
 import { expect, vi } from "vitest";
-import { mockJSONServer } from "../lib/server.js";
+import { mockWechatServer } from "../lib/server.js";
 
 export async function wechatMiniLogin(
   server: Server, code: string
@@ -40,12 +40,12 @@ export async function registerUser(
 ): Promise<string> {
   // 创建 mock wechat server
   const mockCode2SessionResponse = vi.fn();
-  const mockWechatServer = await mockJSONServer(mockCode2SessionResponse);
+  const mockServer = await mockWechatServer(mockCode2SessionResponse);
 
   try {
     // Mock config.wechat.base_url
     const { default: config } = await import('config');
-    vi.spyOn(config.wechat, 'base_url', 'get').mockReturnValue(mockWechatServer.address);
+    vi.spyOn(config.wechat, 'base_url', 'get').mockReturnValue(mockServer.address);
 
     // 模拟微信登录响应
     const code2SessionResponse = {
@@ -62,6 +62,6 @@ export async function registerUser(
     return loginResponse.token;
   } finally {
     // 用完立即关闭 mock server
-    await mockWechatServer.close();
+    await mockServer.close();
   }
 }
