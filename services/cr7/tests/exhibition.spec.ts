@@ -18,10 +18,9 @@ import {
   ExhibitionListResponse,
   assertExhibition,
   assertSession,
-  assertTicketCategory,
-  prepareExhibitionData,
-  prepareExhibitionListData
+  assertTicketCategory
 } from './fixtures/exhibition.js';
+import { random_text } from './lib/random.js';
 
 const schema = 'test_exhibition';
 const services = ['api', 'cr7'];
@@ -34,21 +33,28 @@ type TicketCategory = Exhibition.TicketCategory;
 type DraftExhibition = Omit<ExhibitionType, 'id' | 'created_at' | 'updated_at'>;
 type DraftTicket = Omit<TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>;
 
-function prepareListExhibitionQuerySteps<T extends { listResult?: ExhibitionListResponse }>(
-  When: StepTest<T>['When'],
-  Then: StepTest<T>['Then'],
-  scenarioContext: ScenarioContext,
-  context: T
-) {
-  When('list exhibitions with limit {int} and offset {int}', async (ctx, limit: number, offset: number) => {
-    const { apiServer } = scenarioContext.fixtures.values;
-    const listResult = await listExhibitions(apiServer, { limit, offset });
-    Object.assign(context, { listResult });
-  });
+async function createExhibitionsForTest(
+  apiServer,
+  count: number,
+  namePrefix: string = 'test_exhibition'
+): Promise<ExhibitionType[]> {
+  const exhibitions: ExhibitionType[] = [];
 
-  Then('return {int} exhibitions', (ctx, count: number) => {
-    expect(context.listResult?.data).toHaveLength(count);
-  });
+  for (let i = 0; i < count; i++) {
+    const exhibition = await createExhibition(apiServer, {
+      name: `${namePrefix}_${i + 1}_${random_text(5)}`,
+      description: `Test exhibition ${i + 1}`,
+      start_date: '2026-01-01',
+      end_date: '2026-12-31',
+      opening_time: '10:00',
+      closing_time: '18:00',
+      last_entry_time: '17:00',
+      location: 'Test Location'
+    });
+    exhibitions.push(exhibition);
+  }
+
+  return exhibitions;
 }
 
 interface ScenarioContext {
@@ -157,7 +163,12 @@ describeFeature(feature, ({
       ticket: TicketCategory
     }>) => {
       const { Given, When, Then, And, context } = s;
-      prepareExhibitionData(Given, scenarioContext, context);
+
+      Given('created exhibition', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const [exhibition] = await createExhibitionsForTest(apiServer, 1);
+        Object.assign(context, { exhibition });
+      });
 
       Given('draft ticket category {string} to exhibition', (ctx, categoryName: string) => {
         Object.assign(context, { draftTicket: { name: categoryName } });
@@ -202,13 +213,12 @@ describeFeature(feature, ({
         Object.assign(context, { ticket: addedCategory });
       });
 
-      And('exhibition has {int} ticket category {string}', async (ctx, count: number, categoryName: string) => {
-        const { exhibition, ticket } = context;
+      And('exhibition has {int} ticket categories {string}', async (ctx, count: number, categoryName: string) => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const categories = await getTicketCategories(apiServer, exhibition!.id);
+        const categories = await getTicketCategories(apiServer, context.exhibition.id);
         expect(categories).toHaveLength(count);
-        expect(categories.some(t => t.name === categoryName)).toBe(true);
-        expect(categories[0]).toMatchObject(ticket);
+        expect(categories.some(item => item.name === categoryName)).toBe(true);
+        expect(categories[0]).toMatchObject(context.ticket);
       });
     }
   );
@@ -221,7 +231,12 @@ describeFeature(feature, ({
       ticket: TicketCategory
     }>) => {
       const { Given, When, Then, And, context } = s;
-      prepareExhibitionData(Given, scenarioContext, context);
+
+      Given('created exhibition', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const [exhibition] = await createExhibitionsForTest(apiServer, 1);
+        Object.assign(context, { exhibition });
+      });
 
       Given('draft ticket category {string} to exhibition', (ctx, categoryName: string) => {
         Object.assign(context, { draftTicket: { name: categoryName } });
@@ -269,12 +284,11 @@ describeFeature(feature, ({
       And(
         'exhibition has {int} ticket categories {string}',
         async (ctx, count: number, name: string) => {
-        const { exhibition, ticket } = context;
         const { apiServer } = scenarioContext.fixtures.values;
-        const categories = await getTicketCategories(apiServer, exhibition!.id);
+        const categories = await getTicketCategories(apiServer, context.exhibition.id);
         expect(categories).toHaveLength(count);
-        expect(categories[0].name).toEqual(name);
-        expect(categories[0]).toMatchObject(ticket);
+        expect(categories.some(item => item.name === name)).toBe(true);
+        expect(categories[0]).toMatchObject(context.ticket);
       });
     }
   );
@@ -286,7 +300,12 @@ describeFeature(feature, ({
       sessions: SessionType[];
     }>) => {
       const { Given, Then, And, context } = s;
-      prepareExhibitionData(Given, scenarioContext, context);
+
+      Given('created exhibition', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const [exhibition] = await createExhibitionsForTest(apiServer, 1);
+        Object.assign(context, { exhibition });
+      });
 
       Then('exhibition has daily sessions by default', async () => {
         const { exhibition } = context;
@@ -326,16 +345,27 @@ describeFeature(feature, ({
     }>) => {
       const { Given, When, Then, And, context } = s;
 
-      prepareExhibitionListData(Given, scenarioContext, context);
-      prepareListExhibitionQuerySteps(When, Then, scenarioContext, context);
+      Given('created {int} exhibitions for listing', async (ctx, count: number) => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const createdExhibitions = await createExhibitionsForTest(apiServer, count, 'list_exhibition');
+        Object.assign(context, { createdExhibitions });
+      });
+
+      When('list exhibitions with limit {int} and offset {int}', async (ctx, limit: number, offset: number) => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const listResult = await listExhibitions(apiServer, { limit, offset });
+        Object.assign(context, { listResult });
+      });
+
+      Then('return {int} exhibitions', (ctx, count: number) => {
+        expect(context.listResult.data).toHaveLength(count);
+      });
 
       And('exhibitions are ordered by created_at descending', () => {
-        const exhibitions = context.listResult.data;
-
-        for (let i = 1; i < exhibitions.length; i++) {
-          const prevDate = new Date(exhibitions[i - 1].created_at).getTime();
-          const currDate = new Date(exhibitions[i].created_at).getTime();
-          expect(prevDate).toBeGreaterThanOrEqual(currDate);
+        for (let i = 1; i < context.listResult.data.length; i++) {
+          const previous = new Date(context.listResult.data[i - 1].created_at).getTime();
+          const current = new Date(context.listResult.data[i].created_at).getTime();
+          expect(previous).toBeGreaterThanOrEqual(current);
         }
       });
     }
@@ -349,12 +379,23 @@ describeFeature(feature, ({
     }>) => {
       const { Given, When, Then, And, context } = s;
 
-      prepareExhibitionListData(Given, scenarioContext, context);
-      prepareListExhibitionQuerySteps(When, Then, scenarioContext, context);
+      Given('created {int} exhibitions for listing', async (ctx, count: number) => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const createdExhibitions = await createExhibitionsForTest(apiServer, count, 'list_exhibition');
+        Object.assign(context, { createdExhibitions });
+      });
+
+      When('list exhibitions with limit {int} and offset {int}', async (ctx, limit: number, offset: number) => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const listResult = await listExhibitions(apiServer, { limit, offset });
+        Object.assign(context, { listResult });
+      });
+
+      Then('return {int} exhibitions', (ctx, count: number) => {
+        expect(context.listResult.data).toHaveLength(count);
+      });
 
       And('the exhibition is the second created exhibition', () => {
-        // createdExhibitions is in creation order: first, second, third
-        // listResult is sorted by created_at DESC, so offset 1 should point to second created.
         expect(context.listResult.data[0].id).toBe(context.createdExhibitions[1].id);
       });
     }
@@ -366,7 +407,16 @@ describeFeature(feature, ({
       listResult: ExhibitionListResponse
     }>) => {
       const { When, Then, context } = s;
-      prepareListExhibitionQuerySteps(When, Then, scenarioContext, context);
+
+      When('list exhibitions with limit {int} and offset {int}', async (ctx, limit: number, offset: number) => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const listResult = await listExhibitions(apiServer, { limit, offset });
+        Object.assign(context, { listResult });
+      });
+
+      Then('return {int} exhibitions', (ctx, count: number) => {
+        expect(context.listResult.data).toHaveLength(count);
+      });
     }
   );
 });

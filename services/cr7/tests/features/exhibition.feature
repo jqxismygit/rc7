@@ -31,7 +31,7 @@ Feature: manage exhibition
       And admittance 1 person
      When add ticket category to exhibition
      Then ticket "early_bird" added successfully
-      And exhibition has 1 ticket category "early_bird"
+      And exhibition has 1 ticket categories "early_bird"
 
   Scenario: add a refundable ticket category
     Given created exhibition

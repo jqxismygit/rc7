@@ -122,55 +122,6 @@ export function assertTicketCategory(data: Exhibition.TicketCategory) {
   expect(data).toHaveProperty('updated_at', expect.any(String));
 }
 
-export function prepareExhibitionData(
-  Step: StepTest['Given'],
-  scenarioContext: { fixtures: APIServerFixture },
-  context: { exhibition: Exhibition.Exhibition },
-) {
-  Step('created exhibition', async () => {
-    const { apiServer } = scenarioContext.fixtures.values;
-
-    const exhibition = await createExhibition(apiServer, {
-      name: `test_exhibition_${random_text(5)}`,
-      description: 'Test exhibition',
-      start_date: '2026-01-01',
-      end_date: '2026-12-31',
-      opening_time: '10:00',
-      closing_time: '18:00',
-      last_entry_time: '17:00',
-      location: 'Test Location'
-    });
-    Object.assign(context, { exhibition });
-  });
-}
-
-export function prepareExhibitionListData(
-  Step: StepTest['Given'] | StepTest['And'],
-  scenarioContext: { fixtures: APIServerFixture },
-  context: { createdExhibitions?: Exhibition.Exhibition[] },
-) {
-  Step('created {int} exhibitions for listing', async (ctx, count: number) => {
-    const { apiServer } = scenarioContext.fixtures.values;
-    const createdExhibitions: Exhibition.Exhibition[] = [];
-
-    for (let i = 0; i < count; i++) {
-      const exhibition = await createExhibition(apiServer, {
-        name: `list_exhibition_${i + 1}_${random_text(5)}`,
-        description: `List test exhibition ${i + 1}`,
-        start_date: '2026-01-01',
-        end_date: '2026-12-31',
-        opening_time: '10:00',
-        closing_time: '18:00',
-        last_entry_time: '17:00',
-        location: 'Test Location'
-      });
-      createdExhibitions.push(exhibition);
-    }
-
-    Object.assign(context, { createdExhibitions });
-  });
-}
-
 export interface ExhibitionContext {
   exhibition: Exhibition.Exhibition;
   sessions: Exhibition.Session[];
