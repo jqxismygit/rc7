@@ -1,152 +1,205 @@
 <template>
   <view class="ticket-refund-page">
-    <scroll-view class="refund-scroll" scroll-y>
-      <!-- 顶部订单概览 -->
-      <view class="order-card card-dark">
-        <view class="order-header">
-          <view class="thumb-placeholder">
-            <text class="thumb-text">CR7</text>
+    <scroll-view
+      class="refund-scroll"
+      scroll-y
+      :style="{ paddingBottom: '220rpx' }"
+    >
+      <!-- 活动主卡片 -->
+      <view class="event-card-section">
+        <view class="event-card card-dark">
+          <image
+            :src="ticket.eventCover || '/static/images/event-card.jpg'"
+            mode="aspectFill"
+            class="event-cover"
+          />
+          <view class="event-info-wrap">
+            <view class="event-title-row">
+              <text class="event-title">{{ ticket.eventName }}</text>
+              <view class="official-tag">
+                <text class="tag-text">{{
+                  ticket.isThird ? "三方票" : "官方票"
+                }}</text>
+              </view>
+            </view>
+            <view class="event-meta-item">
+              <text class="meta-icon">🕐</text>
+              <text class="meta-text">{{ ticket.eventDate }}</text>
+            </view>
+            <view class="event-meta-item">
+              <text class="meta-icon">📍</text>
+              <text class="meta-text">{{ ticket.eventLocation }}</text>
+            </view>
+            <view class="event-meta-item ticket-info">
+              <text class="meta-icon">🎫</text>
+              <text class="meta-text"
+                >{{ ticket.ticketType }} x
+                {{ ticket.quantity }} 开场前48小时可退</text
+              >
+            </view>
           </view>
-          <view class="order-main">
-            <text class="event-name">{{ ticket.eventName }}</text>
-            <text class="ticket-line">
-              {{ ticket.ticketType }} × {{ ticket.quantity }} 张
-            </text>
-            <text class="event-date">参展时间：{{ ticket.eventDate }}</text>
-          </view>
-          <view class="order-tag">
-            <text class="tag-text">
-              {{ ticket.isThird ? '三方票' : '官方票' }}
-            </text>
-          </view>
-        </view>
-
-        <view class="rule-pill">
-          开展前48小时可退 · 逾期不可退
         </view>
       </view>
 
-      <!-- 退款信息 -->
-      <view class="info-card card-dark">
-        <view class="row">
-          <text class="label">订单号</text>
-          <text class="value monospace">{{ ticket.orderNo }}</text>
+      <!-- 订单详情 -->
+      <view class="order-detail-card card-dark">
+        <view class="detail-row">
+          <text class="detail-label">订单号</text>
+          <text class="detail-value">{{ ticket.orderNo || ticket.id }}</text>
         </view>
-        <view class="row">
-          <text class="label">订单总额</text>
-          <text class="value">¥{{ ticket.paidAmount }}</text>
+        <view class="detail-row">
+          <text class="detail-label">订单总额</text>
+          <text class="detail-value"
+            >¥ {{ formatPrice(getOrderAmount()) }}</text
+          >
         </view>
-        <view class="row">
-          <text class="label">退款金额</text>
-          <text class="value highlight">¥{{ ticket.refundAmount }}</text>
+        <view class="detail-row detail-row-last">
+          <text class="detail-label">退款金额</text>
+          <text class="detail-value refund-amount"
+            >¥ {{ formatPrice(getRefundAmount()) }}</text
+          >
         </view>
       </view>
 
       <!-- 退款方式 -->
-      <view class="info-card card-dark">
-        <view class="row">
-          <text class="label">退款方式</text>
-          <view class="refund-method">
-            <text class="value">退回原支付账户</text>
-            <view class="wechat-pill">
-              <text class="wechat-icon">💚</text>
-              <text class="wechat-text">微信支付</text>
+      <view class="refund-method-section">
+        <text class="section-title">退款方式</text>
+        <view class="refund-method-card card-dark">
+          <view class="method-left">
+            <view class="wechat-icon-wrap">
+              <text class="wechat-char">微</text>
+            </view>
+            <view class="method-text">
+              <text class="method-name">微信支付</text>
+              <text class="method-desc">原路退回支付账号</text>
             </view>
           </view>
+          <view class="method-check">
+            <text class="check-icon">✓</text>
+          </view>
         </view>
-        <text class="tips">
-          退款提交后，预计 1 个工作日内原路返回至您的微信支付账户，具体到账时间以银行及支付机构为准。
-        </text>
       </view>
 
-      <view class="safe-bottom safe-area-bottom"></view>
+      <!-- 温馨提示 -->
+      <view class="tips-section">
+        <view class="tips-header">
+          <text class="info-icon">ⓘ</text>
+          <text class="tips-title">温馨提示</text>
+        </view>
+        <view class="tips-card card-dark">
+          <text class="tips-content"
+            >申请提交后，退款将原路返回，预计1-3个工作日到账。请确保您的账户状态正常。</text
+          >
+        </view>
+      </view>
+
+      <view class="scroll-bottom-space" />
     </scroll-view>
 
     <!-- 底部提交栏 -->
     <view class="bottom-bar safe-area-bottom">
-      <view class="amount-block">
-        <text class="amount-label">退款总额</text>
-        <text class="amount-value">¥{{ ticket.refundAmount }}</text>
+      <view class="bottom-bar-inner">
+        <view class="amount-block">
+          <text class="amount-label">退款总额</text>
+          <text class="amount-value"
+            >¥ {{ formatPrice(getRefundAmount()) }}</text
+          >
+        </view>
+        <button
+          class="submit-btn btn-gold"
+          :loading="submitting"
+          @click="submitRefund"
+        >
+          立即提交
+        </button>
       </view>
-      <button class="btn-gold submit-btn" :loading="submitting" @click="submitRefund">
-        立即提交
-      </button>
     </view>
   </view>
 </template>
 
 <script>
-import { mockMyTickets } from '@/utils/mockData.js'
+import { mockMyTickets } from "@/utils/mockData.js";
 
 export default {
   data() {
     return {
-      ticketId: '',
+      ticketId: "",
       ticket: {},
-      submitting: false
-    }
+      submitting: false,
+    };
   },
 
   onLoad(options) {
-    this.ticketId = options.id
-    this.loadTicket()
+    this.ticketId = options.id;
+    this.loadTicket();
   },
 
   methods: {
     loadTicket() {
-      const found = mockMyTickets.find((item) => item.id === this.ticketId)
+      const found = mockMyTickets.find((item) => item.id === this.ticketId);
       if (found) {
-        this.ticket = found
+        this.ticket = found;
       } else {
         uni.showToast({
-          title: '票券不存在',
-          icon: 'none'
-        })
+          title: "票券不存在",
+          icon: "none",
+        });
         setTimeout(() => {
-          uni.navigateBack()
-        }, 800)
+          uni.navigateBack();
+        }, 800);
       }
     },
 
+    getOrderAmount() {
+      return this.ticket.paidAmount ?? this.ticket.price ?? 0;
+    },
+
+    getRefundAmount() {
+      return this.ticket.refundAmount ?? this.ticket.price ?? 0;
+    },
+
+    formatPrice(price) {
+      if (!price && price !== 0) return "0.00";
+      return Number(price)
+        .toFixed(2)
+        .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    },
+
     submitRefund() {
-      if (this.submitting) return
-      this.submitting = true
+      if (this.submitting) return;
+      this.submitting = true;
 
       // 模拟调用退款接口
       setTimeout(() => {
-        this.submitting = false
+        this.submitting = false;
 
-        const isSuccess = Math.random() > 0.2
+        const isSuccess = Math.random() > 0.2;
         if (isSuccess) {
-          // 标记为退款中，返回票夹后展示“退款中”状态
-          this.ticket.status = 'refunding'
+          this.ticket.status = "refunding";
           uni.showModal({
-            title: '退票成功',
-            content: '退款已发起，预计1个工作日内退回至微信支付账户。',
+            title: "退票成功",
+            content: "退款已发起，预计1-3个工作日内退回至微信支付账户。",
             showCancel: false,
             success: () => {
-              // 返回票夹首页
               uni.switchTab({
-                url: '/pages/my-tickets/my-tickets'
-              })
-            }
-          })
+                url: "/pages/my-tickets/my-tickets",
+              });
+            },
+          });
         } else {
           uni.showModal({
-            title: '退票失败',
-            content: '退票失败，请联系客服协助处理。',
+            title: "退票失败",
+            content: "退票失败，请联系客服协助处理。",
             showCancel: false,
             success: () => {
-              uni.switchTab({
-                url: '/pages/my-tickets/my-tickets'
-              })
-            }
-          })
+              uni.navigateBack();
+            },
+          });
         }
-      }, 1200)
-    }
-  }
-}
+      }, 1200);
+    },
+  },
+};
 </script>
 
 <style lang="scss" scoped>
@@ -157,163 +210,251 @@ export default {
 }
 
 .refund-scroll {
-  padding: 24rpx 24rpx 0;
+  height: 100vh;
+  padding: 0 30rpx;
 }
 
-.card-dark {
-  background: $cr7-card;
-  border-radius: $radius-lg;
-  border: 1rpx solid $cr7-border;
-  box-shadow: $shadow-card;
+/* ===== 活动主卡片 ===== */
+.event-card-section {
+  padding: 30rpx 0 24rpx;
 }
 
-.order-card {
-  padding: 20rpx 24rpx 18rpx;
-  margin-bottom: 20rpx;
+.event-card {
+  overflow: hidden;
 }
 
-.order-header {
+.event-cover {
+  width: 100%;
+  height: 387rpx;
+}
+
+.event-info-wrap {
+  padding: 24rpx 30rpx 30rpx;
   display: flex;
-  align-items: center;
-}
-
-.thumb-placeholder {
-  width: 112rpx;
-  height: 112rpx;
-  border-radius: $radius-md;
-  background: radial-gradient(circle at 0% 0%, rgba(216, 252, 15, 0.26), transparent 55%), $cr7-dark;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 20rpx;
-}
-
-.thumb-text {
-  font-size: 36rpx;
-  font-weight: 700;
-  color: $cr7-gold-light;
-}
-
-.order-main {
-  flex: 1;
-}
-
-.event-name {
-  font-size: $font-md;
-  color: $text-white;
-  font-weight: 600;
-}
-
-.ticket-line {
-  margin-top: 6rpx;
-  font-size: $font-sm;
-  color: $text-light;
-}
-
-.event-date {
-  margin-top: 4rpx;
-  font-size: $font-xs;
-  color: $text-muted;
-}
-
-.order-tag {
-  margin-left: 12rpx;
-}
-
-.tag-text {
-  padding: 4rpx 14rpx;
-  border-radius: 999rpx;
-  font-size: $font-xs;
-  background: rgba(216, 252, 15, 0.18);
-  color: $cr7-gold-light;
-}
-
-.rule-pill {
-  margin-top: 14rpx;
-  padding: 8rpx 16rpx;
-  border-radius: 999rpx;
-  background: rgba(216, 252, 15, 0.12);
-  color: $cr7-gold-light;
-  font-size: $font-xs;
-}
-
-.info-card {
-  padding: 20rpx 24rpx 16rpx;
-  margin-bottom: 20rpx;
-}
-
-.row {
-  padding: 10rpx 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.label {
-  font-size: $font-sm;
-  color: $text-light;
-}
-
-.value {
-  font-size: $font-sm;
-  color: $text-white;
-}
-
-.value.highlight {
-  color: $cr7-gold-light;
-  font-size: $font-md;
-  font-weight: 700;
-}
-
-.value.monospace {
-  font-family: 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    monospace;
-  font-size: $font-xs;
-}
-
-.refund-method {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
+  flex-direction: column;
   gap: 12rpx;
 }
 
-.wechat-pill {
-  padding: 4rpx 12rpx;
+.event-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.event-title {
+  flex: 1;
+  font-size: 34rpx;
+  color: $text-white;
+  font-weight: 500;
+  font-family: "PingFang SC", sans-serif;
+  letter-spacing: -1rpx;
+  line-height: 1.5;
+}
+
+.official-tag {
+  flex-shrink: 0;
+  padding: 8rpx 24rpx;
+  background: rgba(234, 179, 8, 0.2);
   border-radius: 999rpx;
-  background: rgba(67, 207, 124, 0.18);
+}
+
+.tag-text {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: $cr7-gold;
+  text-transform: uppercase;
+}
+
+.event-meta-item {
   display: flex;
   align-items: center;
+  gap: 8rpx;
 }
 
-.wechat-icon {
-  margin-right: 4rpx;
+.meta-icon {
+  font-size: 22rpx;
+  width: 28rpx;
+  text-align: center;
 }
 
-.wechat-text {
-  font-size: $font-xs;
-  color: #43cf7c;
+.meta-text {
+  font-size: 26rpx;
+  color: $text-light;
+  line-height: 1.4;
 }
 
-.tips {
-  margin-top: 8rpx;
-  font-size: $font-xs;
-  color: $text-muted;
+.ticket-info .meta-text {
+  font-size: 24rpx;
+}
+
+/* ===== 订单详情 ===== */
+.order-detail-card {
+  padding: 30rpx;
+  margin-bottom: 24rpx;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30rpx 0;
+  border-bottom: 1rpx solid rgba(42, 42, 42, 0.6);
+}
+
+.detail-row-last {
+  border-bottom: none;
+}
+
+.detail-label {
+  font-size: $font-base;
+  color: $text-light;
+  font-weight: 500;
+}
+
+.detail-value {
+  font-size: $font-base;
+  color: $text-white;
+  font-weight: 500;
+}
+
+.detail-value.refund-amount {
+  color: $cr7-gold;
+  font-weight: 700;
+}
+
+/* ===== 退款方式 ===== */
+.refund-method-section {
+  margin-bottom: 24rpx;
+}
+
+.section-title {
+  font-size: 38rpx;
+  font-weight: 400;
+  color: $text-white;
+  letter-spacing: -1rpx;
+  line-height: 1.2;
+  display: block;
+  margin-bottom: 24rpx;
+}
+
+.refund-method-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30rpx;
+}
+
+.method-left {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.wechat-icon-wrap {
+  width: 62rpx;
+  height: 62rpx;
+  background: #07c160;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wechat-char {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #fff;
+}
+
+.method-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.method-name {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: $text-white;
+}
+
+.method-desc {
+  font-size: 24rpx;
+  color: $text-disabled;
+}
+
+.method-check {
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+  background: $cr7-gold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.check-icon {
+  font-size: 20rpx;
+  color: $cr7-black;
+  font-weight: 700;
+}
+
+/* ===== 温馨提示 ===== */
+.tips-section {
+  margin-bottom: 40rpx;
+}
+
+.tips-header {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.info-icon {
+  font-size: 28rpx;
+  color: $text-white;
+}
+
+.tips-title {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: $text-white;
+}
+
+.tips-card {
+  padding: 30rpx;
+}
+
+.tips-content {
+  font-size: 26rpx;
+  color: $text-light;
   line-height: 1.7;
 }
 
+.scroll-bottom-space {
+  height: 40rpx;
+}
+
+/* ===== 底部提交栏 ===== */
 .bottom-bar {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 18rpx 24rpx;
   background: $cr7-dark;
   border-top: 1rpx solid $cr7-border;
+  backdrop-filter: blur(12px);
+  padding: 30rpx;
+  padding-bottom: calc(30rpx + env(safe-area-inset-bottom));
+}
+
+.bottom-bar-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16rpx;
+  gap: 30rpx;
 }
 
 .amount-block {
@@ -322,24 +463,32 @@ export default {
 }
 
 .amount-label {
-  font-size: $font-xs;
-  color: $text-muted;
+  font-size: 24rpx;
+  color: $text-light;
+  letter-spacing: 1rpx;
+  text-transform: uppercase;
 }
 
 .amount-value {
-  margin-top: 4rpx;
-  font-size: $font-lg;
-  color: $cr7-gold-light;
+  font-size: 46rpx;
   font-weight: 700;
+  color: $cr7-gold;
+  line-height: 1.3;
 }
 
 .submit-btn {
   flex: 1;
-  height: 80rpx;
+  max-width: 518rpx;
+  height: 98rpx;
+  border-radius: 999rpx;
+  font-size: 30rpx;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.safe-bottom {
-  height: 80rpx;
+.submit-btn::after {
+  border: none;
 }
 </style>
-

@@ -148,19 +148,8 @@ export default {
     },
 
     handleRefund() {
-      uni.showModal({
-        title: '确认退票',
-        content: '退票后将原路退款至您的支付账户，确定要退票吗？',
-        success: (res) => {
-          if (res.confirm) {
-            uni.showLoading({ title: '处理中...' })
-            setTimeout(() => {
-              uni.hideLoading()
-              uni.showToast({ title: '退票成功', icon: 'success' })
-              this.ticket.status = 'refunded'
-            }, 1500)
-          }
-        }
+      uni.navigateTo({
+        url: '/pages/ticket-refund/ticket-refund?id=' + this.ticketId
       })
     },
 

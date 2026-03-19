@@ -91,6 +91,39 @@ export async function getExhibitionById(
   return rows[0];
 }
 
+export async function getExhibitions(
+  client: Pool,
+  schema: string,
+  limit: number = 10,
+  offset: number = 0
+): Promise<{ exhibitions: Exhibition.Exhibition[]; total: number }> {
+  const { rows: countRows } = await client.query(
+    `SELECT COUNT(*) as total
+    FROM ${schema}.exhibitions`
+  );
+
+  const total = parseInt(countRows[0].total, 10);
+
+  const { rows: exhibitions } = await client.query(
+    `SELECT
+      id, name, description,
+      start_date,
+      end_date,
+      opening_time,
+      closing_time,
+      last_entry_time,
+      location,
+      created_at,
+      updated_at
+    FROM ${schema}.exhibitions
+    ORDER BY created_at DESC
+    LIMIT $1 OFFSET $2`,
+    [limit, offset]
+  );
+
+  return { exhibitions, total };
+}
+
 export async function getTicketCategoriesByExhibitionId(
   client: Pool,
   schema: string,

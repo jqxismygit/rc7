@@ -31,7 +31,7 @@ Feature: manage exhibition
       And admittance 1 person
      When add ticket category to exhibition
      Then ticket "early_bird" added successfully
-      And exhibition has 1 ticket category "early_bird"
+      And exhibition has 1 ticket categories "early_bird"
 
   Scenario: add a refundable ticket category
     Given created exhibition
@@ -43,6 +43,22 @@ Feature: manage exhibition
      When add ticket category to exhibition
      Then ticket "regular" added successfully
       And exhibition has 1 ticket categories "regular"
+
+  Scenario: list exhibitions with pagination
+    Given created 3 exhibitions for listing
+     When list exhibitions with limit 2 and offset 0
+     Then return 2 exhibitions
+      And exhibitions are ordered by created_at descending
+
+  Scenario: list exhibitions with limit and offset
+    Given created 3 exhibitions for listing
+     When list exhibitions with limit 1 and offset 1
+     Then return 1 exhibitions
+      And the exhibition is the second created exhibition
+
+  Scenario: list exhibitions empty result
+     When list exhibitions with limit 10 and offset 1000
+     Then return 0 exhibitions
 
 # todo
 # - 更新 exhibition 基本信息

@@ -3,6 +3,7 @@ import type { Exhibition } from "@cr7/types";
 import {
   createExhibition,
   getExhibitionById,
+  getExhibitions,
   getTicketCategoriesByExhibitionId,
   getSessionsByExhibitionId,
   createTicketCategory,
@@ -26,6 +27,15 @@ export class ExhibitionService extends RC7BaseService {
   }
 
   actions_exhibition: ServiceSchema['actions'] = {
+    'exhibition.list': {
+      rest: 'GET /',
+      params: {
+        limit: { type: 'number', optional: true, default: 10, min: 1, max: 100, convert: true },
+        offset: { type: 'number', optional: true, default: 0, min: 0, convert: true }
+      },
+      handler: this.listExhibitions
+    },
+
     'exhibition.create': {
       rest: 'POST /',
       params: {
@@ -107,6 +117,18 @@ export class ExhibitionService extends RC7BaseService {
     const exhibition = await createExhibition(client, schema, ctx.params);
 
     return exhibition;
+  }
+
+  async listExhibitions(
+    ctx: Context<{ limit?: number; offset?: number }, { user: UserMeta }>
+  ) {
+    const { limit = 10, offset = 0 } = ctx.params;
+    const client = this.pool;
+    const schema = await this.getSchema();
+
+    const { exhibitions, total } = await getExhibitions(client, schema, limit, offset);
+
+    return { data: exhibitions, total, limit, offset };
   }
 
   async getExhibition(

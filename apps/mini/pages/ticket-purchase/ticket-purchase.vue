@@ -5,7 +5,7 @@
       <view class="nav-back" @click="goBack">
         <text class="nav-back-icon">‹</text>
       </view>
-      <text class="nav-title">购票</text>
+      <text class="nav-title">马上购票</text>
       <view class="nav-placeholder"></view>
     </view>
 
@@ -32,7 +32,9 @@
           <text class="info-icon">⏱</text>
           <view class="info-text-col">
             <text class="info-text">2026.05.01-12.31</text>
-            <text class="info-text info-text-indent">10:00 AM - 22:00 PM(最晚入场21:00)</text>
+            <text class="info-text info-text-indent"
+              >10:00 AM - 22:00 PM(最晚入场21:00)</text
+            >
           </view>
         </view>
         <view class="info-row">
@@ -49,8 +51,13 @@
       <view class="desc-card">
         <view class="desc-card-bg"></view>
         <view class="desc-card-content">
-          <text class="desc-main">亚洲史上首个 CR7® LIFE 博物馆落户上海！2025年 7 月博物馆于上海开幕。</text>
-          <text class="desc-sub">博物馆内球迷可以近距离看到传奇球员C罗的冠军奖杯...</text>
+          <text class="desc-main"
+            >亚洲史上首个 CR7® LIFE 博物馆落户上海！2025年 7
+            月博物馆于上海开幕。</text
+          >
+          <text class="desc-sub"
+            >博物馆内球迷可以近距离看到传奇球员C罗的冠军奖杯...</text
+          >
           <text class="desc-link">查看更多</text>
         </view>
       </view>
@@ -70,7 +77,7 @@
                 class="date-chip"
                 :class="[
                   chip.wide ? 'date-chip-wide' : '',
-                  activeDateKey === chip.key ? 'active' : ''
+                  activeDateKey === chip.key ? 'active' : '',
                 ]"
               >
                 <text v-if="chip.icon" class="chip-icon">📅</text>
@@ -79,13 +86,13 @@
               </view>
             </picker>
 
-            <!-- 其他日期：普通 chip 点击切换 --> 
+            <!-- 其他日期：普通 chip 点击切换 -->
             <view
               v-else
               class="date-chip"
               :class="[
                 chip.wide ? 'date-chip-wide' : '',
-                activeDateKey === chip.key ? 'active' : ''
+                activeDateKey === chip.key ? 'active' : '',
               ]"
               @click="onChipClick(chip)"
             >
@@ -120,28 +127,54 @@
               <text
                 v-if="ticket.originalPrice > ticket.price"
                 class="ticket-price-origin"
-              >￥{{ ticket.originalPrice }}</text>
-              <text class="ticket-price-now" :class="{ 'price-gold': ticket.originalPrice > ticket.price }">¥{{ ticket.price }}</text>
+                >￥{{ ticket.originalPrice }}</text
+              >
+              <text
+                class="ticket-price-now"
+                :class="{ 'price-gold': ticket.originalPrice > ticket.price }"
+                >¥{{ ticket.price }}</text
+              >
             </view>
           </view>
         </view>
       </view>
 
-      <!-- 购票须知入口 -->
-      <view class="notice-entry">
-        <text class="notice-icon">ⓘ</text>
-        <text class="notice-text">购票须知</text>
+      <!-- 选择张数 -->
+      <view class="quantity-section">
+        <text class="quantity-label">选择张数</text>
+        <view class="quantity-controls">
+          <view
+            class="quantity-btn quantity-btn-minus"
+            :class="{ disabled: quantity <= 1 }"
+            @click="decreaseQuantity"
+          >
+            <text class="quantity-btn-icon">−</text>
+          </view>
+          <text class="quantity-value">{{ quantity }}</text>
+          <view
+            class="quantity-btn quantity-btn-plus"
+            @click="increaseQuantity"
+          >
+            <text class="quantity-btn-icon plus">+</text>
+          </view>
+        </view>
       </view>
 
+      <!-- 购票须知入口 -->
+      <!-- <view class="notice-entry">
+        <text class="notice-icon">ⓘ</text>
+        <text class="notice-text">购票须知</text>
+      </view> -->
+
       <!-- 底部占位 -->
-      <view class="scroll-bottom-space"></view>
+      <view class="safe-area-height-with-bottom-bar"></view>
     </scroll-view>
 
     <!-- 底部总额 + 立即购买（参考订单确认页样式） -->
     <view class="purchase-footer safe-area-bottom">
       <view class="purchase-footer-inner">
         <view class="footer-total">
-          <text class="total-label">合计</text>
+          <text class="total-label">总额</text>
           <text class="total-value">¥{{ totalPrice }}</text>
         </view>
         <view class="purchase-bottom-bar">
@@ -150,7 +183,7 @@
             :disabled="!selectedTicket"
             @click="handlePurchase"
           >
-            立即购买
+            立即支付
           </button>
         </view>
       </view>
@@ -159,151 +192,182 @@
 </template>
 
 <script>
-import { mockTicketTypes, mockHomeCards } from '@/utils/mockData.js'
+import { mockTicketTypes, mockHomeCards } from "@/utils/mockData.js";
 
 export default {
   data() {
     return {
-      eventId: '',
-      eventName: '',
-      eventDate: '',
-      museumLocation: '上海市黄浦区王府井大街123号',
+      eventId: "",
+      eventName: "",
+      eventDate: "",
+      museumLocation: "上海市黄浦区王府井大街123号",
       ticketTypes: [],
       selectedTicket: null,
-      selectedDate: '',
-      activeDateKey: 'today',
-      allDateLabel: ''
-    }
+      selectedDate: "",
+      activeDateKey: "today",
+      allDateLabel: "",
+      quantity: 1,
+    };
   },
 
   computed: {
     totalPrice() {
-      return this.selectedTicket ? this.selectedTicket.price : 199
+      if (!this.selectedTicket) return 199;
+      return this.selectedTicket.price * this.quantity;
     },
 
     dateChips() {
-      const today = new Date()
-      const tomorrow = new Date(today)
-      tomorrow.setDate(today.getDate() + 1)
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
 
-      const formatMonth = (d) => `${d.getMonth() + 1}月${d.getDate()}日`
+      const formatMonth = (d) => `${d.getMonth() + 1}月${d.getDate()}日`;
 
       return [
         {
-          key: 'today',
+          key: "today",
           main: formatMonth(today),
-          sub: '今天',
-          date: this.formatDate(today)
+          sub: "今天",
+          date: this.formatDate(today),
         },
         {
-          key: 'tomorrow',
+          key: "tomorrow",
           main: formatMonth(tomorrow),
-          sub: '明天',
-          date: this.formatDate(tomorrow)
+          sub: "明天",
+          date: this.formatDate(tomorrow),
         },
         {
-          key: 'specific',
+          key: "specific",
           main: formatMonth(today),
-          sub: ''
+          sub: "",
         },
         {
-          key: 'all',
-          main: this.allDateLabel || '所有日期',
-          sub: '',
+          key: "all",
+          main: this.allDateLabel || "所有日期",
+          sub: "",
           icon: true,
-          wide: true
-        }
-      ]
-    }
+          wide: true,
+        },
+      ];
+    },
   },
 
   onLoad(options) {
-    this.eventId = options.eventId
-    this.loadEventInfo()
-    this.loadTicketTypes()
+    this.eventId = options.eventId || options.id;
+    this.loadEventInfo();
+    this.loadTicketTypes();
+    // 从首页点击票种进入时，预选对应票种
+    if (options.ticketId) {
+      this.$nextTick(() => {
+        const ticket = this.ticketTypes.find(
+          (t) => String(t.id) === String(options.ticketId),
+        );
+        if (ticket && ticket.stock > 0) {
+          this.selectedTicket = ticket;
+        }
+      });
+    }
   },
 
   methods: {
     goBack() {
       if (getCurrentPages().length > 1) {
-        uni.navigateBack()
+        uni.navigateBack();
       } else {
-        uni.switchTab({ url: '/pages/index/index' })
+        uni.switchTab({ url: "/pages/index/index" });
       }
     },
 
     formatDate(d) {
-      const y = d.getFullYear()
-      const m = String(d.getMonth() + 1).padStart(2, '0')
-      const day = String(d.getDate()).padStart(2, '0')
-      return `${y}-${m}-${day}`
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
     },
 
     loadEventInfo() {
-      const event = mockHomeCards.find(item => item.id == this.eventId)
+      const event = mockHomeCards.find((item) => item.id == this.eventId);
       if (event) {
-        this.eventName = event.title
-        this.eventDate = event.date
-        this.museumLocation = event.location || this.museumLocation
+        this.eventName = event.title;
+        this.eventDate = event.date;
+        this.museumLocation = event.location || this.museumLocation;
       }
     },
 
     loadTicketTypes() {
-      this.ticketTypes = mockTicketTypes
+      this.ticketTypes = mockTicketTypes;
     },
 
     selectTicket(ticket) {
       if (ticket.stock > 0) {
-        this.selectedTicket = ticket
+        this.selectedTicket = ticket;
+        if (this.quantity > ticket.stock) {
+          this.quantity = ticket.stock;
+        }
       } else {
-        uni.showToast({ title: '该票种已售罄', icon: 'none' })
+        uni.showToast({ title: "该票种已售罄", icon: "none" });
+      }
+    },
+
+    decreaseQuantity() {
+      if (this.quantity > 1) {
+        this.quantity--;
+      }
+    },
+
+    increaseQuantity() {
+      const max = this.selectedTicket ? this.selectedTicket.stock : 99;
+      if (this.quantity < max) {
+        this.quantity++;
+      } else {
+        uni.showToast({ title: `最多购买${max}张`, icon: "none" });
       }
     },
 
     onChipClick(chip) {
-      this.activeDateKey = chip.key
+      this.activeDateKey = chip.key;
       if (chip.date) {
-        this.selectedDate = chip.date
+        this.selectedDate = chip.date;
       } else {
-        this.selectedDate = ''
+        this.selectedDate = "";
       }
     },
 
     onAllDateChange(e) {
-      this.selectedDate = e.detail.value
-      this.activeDateKey = 'all'
+      this.selectedDate = e.detail.value;
+      this.activeDateKey = "all";
 
       if (this.selectedDate) {
-        const d = new Date(this.selectedDate.replace(/-/g, '/'))
-        const month = d.getMonth() + 1
-        const day = d.getDate()
-        this.allDateLabel = `${month}月${day}日`
+        const d = new Date(this.selectedDate.replace(/-/g, "/"));
+        const month = d.getMonth() + 1;
+        const day = d.getDate();
+        this.allDateLabel = `${month}月${day}日`;
       } else {
-        this.allDateLabel = ''
+        this.allDateLabel = "";
       }
     },
 
     handlePurchase() {
       if (!this.selectedTicket) {
-        uni.showToast({ title: '请选择票种', icon: 'none' })
-        return
+        uni.showToast({ title: "请选择票种", icon: "none" });
+        return;
       }
 
       const query = [
-        `eventName=${encodeURIComponent('C罗博物馆 CR7LIFE上海博物馆门票')}`,
+        `eventName=${encodeURIComponent("C罗博物馆 CR7LIFE上海博物馆门票")}`,
         `museumLocation=${encodeURIComponent(this.museumLocation)}`,
         `visitDate=${this.selectedDate}`,
         `ticketName=${encodeURIComponent(this.selectedTicket.name)}`,
-        `quantity=1`,
-        `amount=${this.totalPrice}`
-      ].join('&')
+        `quantity=${this.quantity}`,
+        `amount=${this.totalPrice}`,
+      ].join("&");
 
       uni.navigateTo({
-        url: `/pages/order-confirm/order-confirm?${query}`
-      })
-    }
-  }
-}
+        url: `/pages/order-confirm/order-confirm?${query}`,
+      });
+    },
+  },
+};
 </script>
 
 <style lang="scss" scoped>
@@ -538,12 +602,12 @@ export default {
 .chip-main {
   font-size: 24rpx;
   color: $text-white;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .chip-sub {
   margin-left: 4rpx;
-  font-size: 20rpx;
+  font-size: 18rpx;
   color: $text-white;
 }
 
@@ -590,7 +654,7 @@ export default {
 
 .ticket-tag-text {
   font-size: 19rpx;
-  color: #0F2316;
+  color: #0f2316;
   font-weight: 500;
   letter-spacing: 1rpx;
   text-transform: uppercase;
@@ -645,6 +709,70 @@ export default {
 
 .ticket-price-now.price-gold {
   color: $cr7-gold;
+}
+
+/* ===== 选择张数 ===== */
+.quantity-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30rpx;
+  margin: 0 30rpx 0;
+  border-radius: $radius-lg;
+  background: transparent;
+}
+
+.quantity-label {
+  font-size: 30rpx;
+  color: $text-white;
+  font-weight: 700;
+  line-height: 46rpx;
+}
+
+.quantity-controls {
+  display: flex;
+  align-items: center;
+  gap: 48rpx;
+}
+
+.quantity-btn {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quantity-btn-minus {
+  background: $cr7-card;
+}
+
+.quantity-btn-minus.disabled {
+  opacity: 0.5;
+}
+
+.quantity-btn-plus {
+  background: $cr7-card;
+}
+
+.quantity-btn-icon {
+  font-size: 32rpx;
+  color: $text-light;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.quantity-btn-icon.plus {
+  color: $cr7-gold;
+  font-weight: 700;
+}
+
+.quantity-value {
+  font-size: 38rpx;
+  color: $text-white;
+  font-weight: 700;
+  line-height: 54rpx;
 }
 
 /* ===== 购票须知入口 ===== */

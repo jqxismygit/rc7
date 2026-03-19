@@ -48,7 +48,8 @@
     {
       "path": "pages/profile/profile-edit",
       "style": {
-        "navigationBarTitleText": "完善个人信息"
+        "navigationBarTitleText": "完善个人信息",
+        "navigationStyle": "custom"
       }
     },
 		{
@@ -86,7 +87,7 @@
 		{
 			"path": "pages/brands/brands",
 			"style": {
-				"navigationBarTitleText": "联名品牌"
+				"navigationBarTitleText": "合作伙伴"
 			}
 		},
 		{
