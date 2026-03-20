@@ -1,128 +1,146 @@
 <template>
-  <view class="login-page safe-area-top safe-area-bottom">
-    <!-- 背景：C罗大图 + 渐变遮罩 -->
-    <image src="/static/cr7-login-bg.jpg" class="login-bg" mode="aspectFill"></image>
-    <view class="login-bg-mask"></view>
+  <view class="login-page">
+    <view class="login-bg-wrap">
+      <image
+        class="login-bg"
+        src="/static/images/event-card.jpg"
+        mode="aspectFill"
+      />
+    </view>
+    <view class="login-bg-mask" />
 
-    <!-- 品牌 & 登录内容 -->
-    <view class="login-content">
-      <!-- CR7 圆形徽章 -->
-      <view class="cr7-badge">
-        <view class="badge-outer">
-          <view class="badge-inner">
-            <text class="badge-cr7">CR7</text>
-            <text class="badge-sub">MUSEUM · LIFE</text>
+    <view class="login-body">
+      <!-- 与首页 home-navbar 一致：状态栏高度 + 114rpx 行，Logo 156×35 居中 -->
+      <view
+        class="login-navbar"
+        :style="{ paddingTop: statusBarHeight + 'px' }"
+      >
+        <view class="login-navbar-row">
+          <view class="login-navbar-side"></view>
+          <view class="login-navbar-logo">
+            <image
+              class="login-logo-img"
+              src="/static/icons/logo-white.svg"
+              mode="aspectFit"
+            />
+          </view>
+          <view class="login-navbar-side"></view>
+        </view>
+      </view>
+
+      <view class="brand-block">
+        <text class="brand-serif">CR7</text>
+      </view>
+    </view>
+
+    <view class="login-float-panel">
+      <view class="login-float-inner safe-area-bottom">
+        <view class="bottom-actions">
+          <button
+            class="login-btn btn-gold"
+            :class="{ 'login-btn--disabled': !agreed }"
+            :disabled="!agreed"
+            :loading="loading"
+            hover-class="none"
+            @click="handleWechatLogin"
+          >
+            一键登录/注册
+          </button>
+        </view>
+
+        <view class="agreement-block">
+          <view class="agreement-radio-hit" @click.stop="toggleAgree">
+            <view
+              class="agreement-radio"
+              :class="{ 'agreement-radio--on': agreed }"
+            >
+              <view v-if="agreed" class="agreement-radio-dot" />
+            </view>
+          </view>
+          <view class="agreement-copy-wrap" @click="toggleAgree">
+            <text class="agreement-copy">
+              <text class="agreement-plain">已阅读并同意</text>
+              <text class="agreement-link" @click.stop="openLegal('terms')"
+                >《用户协议》</text
+              >
+              <text class="agreement-link" @click.stop="openLegal('privacy')"
+                >《隐私政策》</text
+              >
+            </text>
           </view>
         </view>
-      </view>
-
-      <!-- 品牌标题 -->
-      <view class="brand-title">
-        <text class="brand-main">C罗博物馆</text>
-        <text class="brand-sub">CR7® LIFE</text>
-      </view>
-
-      <!-- 登录操作区 -->
-      <view class="login-actions">
-        <view class="agreement-row">
-          <checkbox-group @change="onAgreeChange">
-            <label class="agree-label">
-              <checkbox value="agree" :checked="agreed" color="#D8FC0F" />
-              <text class="agreement-text">
-                已阅读并同意
-                <text class="link" @click.stop="openLegal('terms')">《用户协议》</text>
-                与
-                <text class="link" @click.stop="openLegal('privacy')">《隐私政策》</text>
-              </text>
-            </label>
-          </checkbox-group>
-        </view>
-
-        <button
-          class="login-btn btn-gold"
-          :disabled="!agreed || loading"
-          :loading="loading"
-          @click="handleWechatLogin"
-        >
-          <text class="btn-icon"></text>
-          <text>一键登录 / 注册</text>
-        </button>
-
-        <text class="login-tip">
-          为提供购票、订单管理等服务，我们将基于用户协议与隐私政策处理必要信息。
-        </text>
       </view>
     </view>
   </view>
 </template>
 
 <script>
-import { useUserStore } from '@/stores/user'
-import { loginWithWechatPhone } from '@/services/auth.js'
+import { useUserStore } from "@/stores/user";
+import { loginWithWechatPhone } from "@/services/auth.js";
 
 export default {
   data() {
     return {
+      statusBarHeight: 0,
       agreed: false,
-      loading: false
-    }
+      loading: false,
+    };
+  },
+
+  onLoad() {
+    const systemInfo = uni.getSystemInfoSync();
+    this.statusBarHeight = systemInfo.statusBarHeight || 0;
   },
 
   methods: {
-    onAgreeChange(e) {
-      this.agreed = (e.detail.value || []).includes('agree')
+    toggleAgree() {
+      this.agreed = !this.agreed;
     },
 
     async handleWechatLogin() {
-      if (!this.agreed) {
-        uni.showToast({
-          title: '请先勾选并同意协议',
-          icon: 'none'
-        })
-        return
+      if (!this.agreed || this.loading) {
+        return;
       }
 
-      this.loading = true
-      const userStore = useUserStore()
+      this.loading = true;
+      const userStore = useUserStore();
 
       try {
-        const { user, token, isEmployee } = await loginWithWechatPhone()
+        const { user, token, isEmployee } = await loginWithWechatPhone();
 
-        userStore.setToken(token)
-        userStore.setProfile(user)
-        userStore.setIsEmployee(isEmployee)
+        userStore.setToken(token);
+        userStore.setProfile(user);
+        userStore.setIsEmployee(isEmployee);
 
         uni.showToast({
-          title: '欢迎来到 CR7® LIFE',
-          icon: 'success'
-        })
+          title: "欢迎来到 CR7® LIFE",
+          icon: "success",
+        });
 
         setTimeout(() => {
           uni.switchTab({
-            url: '/pages/index/index'
-          })
-        }, 800)
+            url: "/pages/index/index",
+          });
+        }, 800);
       } catch (e) {
-        console.error('登录失败', e)
+        console.error("登录失败", e);
         uni.showToast({
-          title: '登录失败，请稍后重试',
-          icon: 'none'
-        })
+          title: "登录失败，请稍后重试",
+          icon: "none",
+        });
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
 
     openLegal(type) {
       const url =
-        type === 'privacy'
-          ? '/pages/legal/privacy'
-          : '/pages/legal/terms'
+        type === "privacy" ? "/pages/legal/privacy" : "/pages/legal/terms";
 
-      uni.navigateTo({ url })
-    }
-  }
-}
+      uni.navigateTo({ url });
+    },
+  },
+};
 </script>
 
 <style lang="scss" scoped>
@@ -130,8 +148,18 @@ export default {
   position: relative;
   width: 100%;
   min-height: 100vh;
-  background: $gradient-dark;
+  background: $cr7-black;
   overflow: hidden;
+}
+
+.login-bg-wrap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .login-bg {
@@ -140,7 +168,7 @@ export default {
   top: 0;
   width: 100%;
   height: 100%;
-  opacity: 0.35;
+  display: block;
 }
 
 .login-bg-mask {
@@ -149,137 +177,205 @@ export default {
   top: 0;
   right: 0;
   bottom: 0;
-  background: $gradient-hero;
+  background: linear-gradient(
+    180deg,
+    rgba(9, 10, 7, 0.55) 0%,
+    rgba(9, 10, 7, 0.12) 38%,
+    rgba(9, 10, 7, 0.2) 65%,
+    rgba(9, 10, 7, 0.35) 100%
+  );
+  pointer-events: none;
 }
 
-.login-content {
+.login-body {
   position: relative;
   z-index: 1;
   min-height: 100vh;
-  padding: 160rpx 64rpx 120rpx;
   display: flex;
   flex-direction: column;
+  padding-bottom: 320rpx;
+  box-sizing: border-box;
+}
+
+/* 对齐首页 .home-navbar + .navbar-row + .navbar-logo + .logo-img */
+.login-navbar {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.login-navbar-row {
+  height: 114rpx;
+  padding: 0 35rpx;
+  display: flex;
   align-items: center;
   justify-content: space-between;
+  position: relative;
 }
 
-.cr7-badge {
-  margin-top: 40rpx;
-  margin-bottom: 48rpx;
+.login-navbar-side {
+  width: 42rpx;
+  height: 42rpx;
+  flex-shrink: 0;
 }
 
-.badge-outer {
-  width: 260rpx;
-  height: 260rpx;
-  border-radius: 50%;
-  padding: 8rpx;
-  background: $gradient-gold;
-  box-shadow: $shadow-gold;
+.login-navbar-logo {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.badge-inner {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 0%, rgba(255,255,255,0.12), transparent 55%), $gradient-dark;
-  border: 2rpx solid rgba(255,255,255,0.12);
+.login-logo-img {
+  width: 156rpx;
+  height: 35rpx;
+}
+
+.brand-block {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding: 18rpx 48rpx 48rpx;
+  box-sizing: border-box;
 }
 
-.badge-cr7 {
-  font-size: $font-hero;
-  font-weight: 800;
-  letter-spacing: 6rpx;
+.brand-serif {
+  margin-top: 40rpx;
+  font-size: 60rpx;
+  line-height: 1;
+  font-weight: 400;
   color: $text-white;
-}
-
-.badge-sub {
-  margin-top: 8rpx;
-  font-size: $font-xs;
-  color: $text-light;
   letter-spacing: 4rpx;
+  font-family: Georgia, "Times New Roman", "Songti SC", serif;
 }
 
-.brand-title {
-  align-items: center;
-  text-align: center;
-  margin-bottom: 120rpx;
+.login-float-panel {
+  position: fixed;
+  left: 30rpx;
+  right: 30rpx;
+  bottom: 132rpx;
+  z-index: 20;
+  border-radius: 32rpx;
+  overflow: hidden;
+  // background: rgba(22, 23, 20, 0.88);
+  // border: 1rpx solid rgba(255, 255, 255, 0.06);
+  // box-shadow:
+  //   0 24rpx 64rpx rgba(0, 0, 0, 0.45),
+  //   0 0 0 1rpx rgba(0, 0, 0, 0.2);
+  // backdrop-filter: blur(40rpx);
+  // -webkit-backdrop-filter: blur(40rpx);
 }
 
-.brand-main {
-  display: block;
-  font-size: $font-xxl;
-  color: $text-white;
-  font-weight: 600;
+.login-float-inner {
+  padding: 28rpx 0 20rpx;
 }
 
-.brand-sub {
-  display: block;
-  margin-top: 8rpx;
-  font-size: $font-md;
-  color: $cr7-gold-light;
-  letter-spacing: 4rpx;
-}
-
-.login-actions {
-  width: 100%;
-}
-
-.agreement-row {
-  margin-bottom: 40rpx;
-  color: $text-light;
-  display: flex;
-  justify-content: center;
-}
-
-.agree-label {
-  display: flex;
-  align-items: center;
-}
-
-.agreement-text {
-  font-size: $font-sm;
-  color: $text-light;
-  margin-left: 16rpx;
-  line-height: 1.6;
-}
-
-.link {
-  color: $cr7-gold-light;
+.bottom-actions {
+  padding: 0 0 8rpx;
 }
 
 .login-btn {
   width: 100%;
-  height: 96rpx;
-  margin-bottom: 24rpx;
+  height: 98rpx;
+  border-radius: 999rpx;
+  font-size: 31rpx;
+  font-weight: 400;
+  color: $cr7-black;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: $font-lg;
-  font-weight: 700;
-  letter-spacing: 4rpx;
 }
 
 .login-btn::after {
   border: none;
 }
 
-.btn-icon {
-  font-family: 'iconfont';
-  font-size: 40rpx;
-  margin-right: 12rpx;
+/* 对齐 uni.scss .btn-disabled：未同意协议时不可点 */
+.login-btn--disabled,
+.login-btn[disabled] {
+  background: $cr7-card !important;
+  color: $text-muted !important;
+  opacity: 1;
 }
 
-.login-tip {
-  margin-top: 8rpx;
-  font-size: $font-xs;
-  color: $text-muted;
+.agreement-block {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  padding: 16rpx 0 8rpx;
+}
+
+.agreement-radio-hit {
+  flex-shrink: 0;
+  padding: 4rpx 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 设计稿：前置圆形 Radio，选中后内点填充方可登录 */
+.agreement-radio {
+  position: relative;
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 50%;
+  border: 2rpx solid rgba(255, 255, 255, 0.85);
+  box-sizing: border-box;
+  background: transparent;
+}
+
+.agreement-radio--on {
+  border-color: $cr7-gold;
+}
+
+.agreement-radio-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10rpx;
+  height: 10rpx;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: $cr7-gold;
+}
+
+.agreement-copy-wrap {
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.agreement-copy {
+  max-width: 560rpx;
   text-align: center;
+}
+
+.agreement-plain,
+.agreement-link {
+  font-family:
+    "PingFang SC",
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  font-weight: 500;
+  font-size: 24rpx;
+  line-height: 46.15rpx;
+  letter-spacing: 0;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.agreement-plain {
+  color: $text-white;
+}
+
+.agreement-link {
+  color: $cr7-gold;
 }
 </style>
