@@ -10,7 +10,7 @@ const envPrefix = ["VITE_"];
 
 export default defineConfig(({ mode }) => {
   const { VITE_API_HOST, VITE_PORT } = loadEnv(mode, __dirname, envPrefix);
-
+  console.log("VITE_API_HOST ========", VITE_API_HOST);
   return {
     plugins: [
       react(),

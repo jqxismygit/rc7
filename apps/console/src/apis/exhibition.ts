@@ -6,8 +6,29 @@ export type CreateExhibitionInput = Omit<
   "id" | "created_at" | "updated_at"
 >;
 
-export const createExhibitionApi = async (data: CreateExhibitionInput) => {
-  // 后端：POST /exhibition
-  return request.post("/exhibition", data);
+export type ExhibitionListQuery = {
+  limit?: number;
+  offset?: number;
 };
+
+export type ExhibitionListResponse = {
+  data: ExhibitionTypes.Exhibition[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export async function listExhibitionsApi(
+  params: ExhibitionListQuery,
+): Promise<ExhibitionListResponse> {
+  const raw = await request.get("/exhibition", { params });
+  return raw as unknown as ExhibitionListResponse;
+}
+
+export async function createExhibitionApi(
+  data: CreateExhibitionInput,
+): Promise<ExhibitionTypes.Exhibition> {
+  const raw = await request.post("/exhibition", data);
+  return raw as unknown as ExhibitionTypes.Exhibition;
+}
 

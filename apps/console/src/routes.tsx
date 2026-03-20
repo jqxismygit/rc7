@@ -68,7 +68,7 @@ export const routes: RouteConfig[] = [
   {
     path: "/exhibition",
     name: "展会",
-    icon: <DashboardOutlined />,
+    icon: <CalendarOutlined />,
     element: <Exhibition />,
   },
 ];
