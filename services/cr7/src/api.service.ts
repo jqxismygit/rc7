@@ -7,7 +7,7 @@ import config from 'config';
 import * as DateFns from 'date-fns';
 
 const {
-  UnAuthorizedError, ForbiddenError,
+  UnAuthorizedError,
   ERR_INVALID_TOKEN, ERR_NO_TOKEN
 } = ApiService.Errors;
 
@@ -193,11 +193,5 @@ export default {
         return Promise.reject(new UnAuthorizedError(ERR_NO_TOKEN, 'No token provided'));
       }
     },
-
-    ops_authorize: async function (ctx, route, req) {
-      await this.authorize(ctx, route, req);
-      const user = ctx.meta.user ?? null;
-
-    }
   }
 } as ServiceSchema;

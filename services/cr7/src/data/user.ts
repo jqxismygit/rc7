@@ -180,6 +180,22 @@ export async function assignRoleToUser(
   );
 }
 
+export async function getUserRoles(
+  client: DBClient,
+  schema: string,
+  uid: string,
+) {
+  const { rows } = await client.query<{ id: string; name: string }>(
+    `SELECT r.id, r.name
+    FROM ${schema}.user_roles ur
+    JOIN ${schema}.roles r ON ur.role_id = r.id
+    WHERE ur.uid = $1`,
+    [uid]
+  );
+
+  return rows;
+}
+
 export async function upsertUserPassword(
   client: DBClient,
   schema: string,

@@ -29,6 +29,7 @@ export class ExhibitionService extends RC7BaseService {
   actions_exhibition: ServiceSchema['actions'] = {
     'exhibition.list': {
       rest: 'GET /',
+      roles: ['admin'],
       params: {
         limit: { type: 'number', optional: true, default: 10, min: 1, max: 100, convert: true },
         offset: { type: 'number', optional: true, default: 0, min: 0, convert: true }
@@ -38,6 +39,7 @@ export class ExhibitionService extends RC7BaseService {
 
     'exhibition.create': {
       rest: 'POST /',
+      roles: ['admin'],
       params: {
         name: 'string',
         description: 'string',
@@ -77,6 +79,7 @@ export class ExhibitionService extends RC7BaseService {
 
     'exhibition.addTicketCategory': {
       rest: 'POST /:eid/tickets',
+      roles: ['admin'],
       params: {
         eid: 'string',
         name: 'string',
@@ -98,6 +101,7 @@ export class ExhibitionService extends RC7BaseService {
     },
 
     'exhibition.updateTicketCategoryInventoryMax': {
+      roles: ['admin'],
       rest: 'PUT /:eid/sessions/tickets/:tid/inventory/max',
       params: {
         eid: 'string',

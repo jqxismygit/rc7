@@ -4,6 +4,7 @@ import { jscode2session } from './libs/wechat.js';
 import {
   createOrUpdateUser,
   getUserProfile,
+  getUserRoles,
   loginByPhonePassword,
   updatePassword,
 } from './data/user.js';
@@ -63,7 +64,9 @@ export default class UserService extends Service {
         profile: {
           rest: 'GET /profile',
           handler: this.profile
-        }
+        },
+
+        roles: this.getRoleNames
       },
 
       async started() {
@@ -143,6 +146,15 @@ export default class UserService extends Service {
 
     ctx.meta.$statusCode = 204;
     return null;
+  }
+
+  async getRoleNames(ctx: Context<void, { user: UserMeta }>) {
+    const { uid } = ctx.meta.user;
+    const client = this.pool;
+    const schema = await this.getSchema();
+
+    const roles = await getUserRoles(client, schema, uid);
+    return roles.map(role => role.name);
   }
 
   async getSchema() {
