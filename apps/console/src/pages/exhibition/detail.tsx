@@ -31,6 +31,7 @@ import {
   createExhibitionTicketCategoryApi,
   getExhibitionApi,
   listExhibitionSessionTicketsApi,
+  updateTicketCategoryInventoryMaxApi,
   type CreateTicketCategoryInput,
 } from "@/apis/exhibition";
 import { formatDateTime, formatSessionDateTime } from "@/utils/format-datetime";
@@ -73,6 +74,11 @@ export default function ExhibitionDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [ticketSubmitting, setTicketSubmitting] = useState(false);
+
+  const [ticketInvModalOpen, setTicketInvModalOpen] = useState(false);
+  const [ticketInvCategory, setTicketInvCategory] =
+    useState<ExhibitionTypes.TicketCategory | null>(null);
+  const [ticketInvSubmitting, setTicketInvSubmitting] = useState(false);
 
   const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
   const [inventoryLoading, setInventoryLoading] = useState(false);
@@ -209,17 +215,25 @@ export default function ExhibitionDetailPage() {
         dataIndex: "admittance",
         width: 110,
       },
-      {
-        title: "票种 ID",
-        dataIndex: "id",
-        ellipsis: true,
-        render: (id: string) => (
-          <Typography.Text copyable={{ text: id }} ellipsis>
-            {id}
-          </Typography.Text>
-        ),
-      },
+      // {
+      //   title: "票种 ID",
+      //   dataIndex: "id",
+      //   ellipsis: true,
+      //   render: (id: string) => (
+      //     <Typography.Text copyable={{ text: id }} ellipsis>
+      //       {id}
+      //     </Typography.Text>
+      //   ),
+      // },
     ],
+    [],
+  );
+
+  const openTicketInventoryModal = useCallback(
+    (row: ExhibitionTypes.TicketCategory) => {
+      setTicketInvCategory(row);
+      setTicketInvModalOpen(true);
+    },
     [],
   );
 
@@ -277,8 +291,24 @@ export default function ExhibitionDetailPage() {
         width: 170,
         render: (v: string) => formatDateTime(v),
       },
+      {
+        title: "操作",
+        key: "ticketInventory",
+        width: 120,
+        fixed: "right",
+        render: (_, row) => (
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0, height: "auto" }}
+            onClick={() => openTicketInventoryModal(row)}
+          >
+            设置库存
+          </Button>
+        ),
+      },
     ],
-    [],
+    [openTicketInventoryModal],
   );
 
   async function handleTicketModalFinish(values: CreateTicketCategoryInput) {
@@ -295,6 +325,29 @@ export default function ExhibitionDetailPage() {
       return false;
     } finally {
       setTicketSubmitting(false);
+    }
+  }
+
+  async function handleTicketInventoryFinish(values: { quantity: number }) {
+    if (!eid || !ticketInvCategory) return false;
+    try {
+      setTicketInvSubmitting(true);
+      await updateTicketCategoryInventoryMaxApi(
+        eid,
+        ticketInvCategory.id,
+        values.quantity,
+      );
+      message.success("该票种在所有场次的库存上限已更新");
+      setTicketInvModalOpen(false);
+      setTicketInvCategory(null);
+      await loadDetail();
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      message.error(msg ? `更新失败：${msg}` : "更新库存失败");
+      return false;
+    } finally {
+      setTicketInvSubmitting(false);
     }
   }
 
@@ -493,11 +546,52 @@ export default function ExhibitionDetailPage() {
             columns={inventoryColumns}
             dataSource={inventoryRows}
             pagination={false}
-            locale={{ emptyText: inventoryLoading ? "加载中…" : "暂无票种或库存数据" }}
+            locale={{
+              emptyText: inventoryLoading ? "加载中…" : "暂无票种或库存数据",
+            }}
             scroll={{ x: "max-content" }}
           />
         </Spin>
       </Modal>
+
+      <ModalForm<{ quantity: number }>
+        title={
+          ticketInvCategory
+            ? `设置库存 · ${ticketInvCategory.name}`
+            : "设置库存"
+        }
+        open={ticketInvModalOpen}
+        onOpenChange={(open) => {
+          setTicketInvModalOpen(open);
+          if (!open) setTicketInvCategory(null);
+        }}
+        initialValues={{ quantity: 0 }}
+        modalProps={{
+          destroyOnClose: true,
+          maskClosable: false,
+        }}
+        submitter={{
+          searchConfig: {
+            submitText: ticketInvSubmitting ? "提交中…" : "确定",
+          },
+          resetButtonProps: { children: "取消" },
+        }}
+        onFinish={handleTicketInventoryFinish}
+        width={480}
+        layout="vertical"
+      >
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+          将为本票种在<strong>全部场次</strong>下设置相同的库存上限数量（对应接口 PUT
+          /exhibition/:eid/sessions/tickets/:tid/inventory/max）。
+        </Typography.Paragraph>
+        <ProFormDigit
+          name="quantity"
+          label="库存上限"
+          placeholder="请输入数量"
+          fieldProps={{ min: 0, precision: 0, style: { width: "100%" } }}
+          rules={[{ required: true, message: "请输入库存上限" }]}
+        />
+      </ModalForm>
 
       <ModalForm<CreateTicketCategoryInput>
         title="添加票种"

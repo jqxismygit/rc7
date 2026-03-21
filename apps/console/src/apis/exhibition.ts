@@ -117,3 +117,15 @@ export async function createExhibitionSessionTicketApi(
   );
   return raw as unknown as InventoryTypes.SessionTicketsInventory;
 }
+
+/** 批量设置某票种在所有场次下的库存上限，响应 204 */
+export async function updateTicketCategoryInventoryMaxApi(
+  eid: string,
+  tid: string,
+  quantity: number,
+): Promise<void> {
+  await request.put(
+    `/exhibition/${encodeURIComponent(eid)}/sessions/tickets/${encodeURIComponent(tid)}/inventory/max`,
+    { quantity },
+  );
+}
