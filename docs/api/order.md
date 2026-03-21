@@ -12,6 +12,31 @@
   - `CANCELLED`：已取消
   - `EXPIRED`：已过期
 
+- 库存管理：
+  - `quantity`：库存上限，静态配置值，代表可售库存总数，不会因订单变化而减少
+  - `reserved_quantity`：已占用库存，表示当前被待支付订单占用的数量
+  - `available_quantity = quantity - reserved_quantity`：可售余量
+
+- 关键字段：
+  - `created_at`：订单创建时间
+  - `expires_at`：订单过期时间（创建后 30 分钟）
+  - `cancelled_at`：订单取消时间（仅当用户主动取消时写入）
+  - `paid_at`：订单支付时间（仅当订单支付成功时写入）
+  - `released_at`：库存释放时间（取消或过期时写入，用于幂等控制）
+
+## 订单状态流转
+
+```
+PENDING_PAYMENT
+    ├─ 支付成功 → PAID
+    ├─ 用户取消 → CANCELLED (released_at 已写入)
+    └─ 超过 expires_at → EXPIRED (released_at 已写入)
+```
+
+说明：
+- 订单状态基于 `paid_at`、`cancelled_at`、`expires_at`、`released_at` 字段计算
+- 取消和过期都会写入 `released_at`，标记库存已释放，确保不重复释放
+
 ## 创建订单
 
 - URL: `/exhibition/:eid/sessions/:sid/orders`
@@ -35,10 +60,18 @@
   ```ts
   Order.OrderWithItems
   ```
+- Response Status:
+  - `201 Created`：订单创建成功
+  - `400 Bad Request`：参数错误（订单项为空、数量不合法等）
+  - `401 Unauthorized`：未认证
+  - `404 Not Found`：展览或场次不存在
+  - `410 Gone`：场次已过期
+  - `409 Conflict`：票种库存不足
+
 - 说明：
   - 创建订单时会自动计算总金额并设置 30 分钟的过期时间
-  - 创建订单时会锁定对应的库存，`reserved_quantity` 增加
-  - 如果库存不足，返回 400 错误
+  - 相同票种的订单项会自动聚合
+  - 订单项数量必须大于 0
 
 ## 获取订单详情
 
@@ -56,6 +89,13 @@
   ```ts
   Order.OrderWithItems
   ```
+- Response Status:
+  - `200 OK`：查询成功
+  - `401 Unauthorized`：未认证
+  - `404 Not Found`：订单不存在或无权限访问
+
+- 说明：
+  - 仅允许查看自己的订单
 
 ## 获取用户的订单列表
 
@@ -82,6 +122,15 @@
     limit: number;
   }
   ```
+- Response Status:
+  - `200 OK`：查询成功
+  - `401 Unauthorized`：未认证
+  - `400 Bad Request`：参数错误
+
+- 说明：
+  - 仅返回当前用户的订单
+  - 支持按订单状态筛选：`PENDING_PAYMENT`、`PAID`、`CANCELLED`、`EXPIRED`
+  - 分页参数 `page` 和 `limit` 均可选，默认返回第 1 页，每页 20 条
 
 ## 取消订单
 
@@ -95,11 +144,16 @@
   ```ts
   { oid: string }
   ```
-- Response status: `204 No Content`
+- Response Status:
+  - `204 No Content`：取消成功
+  - `400 Bad Request`：订单状态不允许取消
+  - `401 Unauthorized`：未认证
+  - `404 Not Found`：订单不存在或无权限访问
+
 - 说明：
   - 只有状态为 `PENDING_PAYMENT` 的订单可以取消
-  - 取消订单时会释放锁定的库存，`reserved_quantity` 减少
-  - 如果订单已支付或已取消，返回 400 错误
+  - 重复取消同一订单返回 204，幂等
+  - 仅允许取消自己的订单
 
 ## 订单支付（待实现）
 
@@ -124,12 +178,60 @@
   ```ts
   Order.Order
   ```
+- Response Status:
+  - `200 OK`：支付成功
+  - `400 Bad Request`：订单状态不允许支付
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：无权限支付他人订单
+  - `404 Not Found`：订单不存在
+
 - 说明：
-  - 支付成功后订单状态变为 `PAID`
+  - 支付成功后订单状态变为 `PAID`，`paid_at` 被写入
+  - 只有 `PENDING_PAYMENT` 状态的订单可以支付
+  - 已过期订单无法支付
   - 此接口需要与支付服务集成，待后续实现
 
 ## 订单过期处理
 
-订单过期由系统定时任务自动处理：
-- 定时扫描所有 `PENDING_PAYMENT` 状态且已过期的订单
-- 释放锁定的库存，`reserved_quantity` 减少
+订单过期由系统定时任务自动处理，无需手动调用。
+
+- Action: `cr7.order.expire`
+- Method: 内部定时任务
+- Parameters:
+  ```ts
+  {
+    batchSize?: number;  // 单次处理的订单数量，默认 100
+  }
+  ```
+
+- 说明：
+  - 定时扫描所有已过期的待支付订单并释放其库存占用
+  - 单次任务支持批量处理，通过 `batchSize` 参数控制
+  - 幂等：重复执行不会重复释放库存
+
+## 错误响应
+
+所有接口在出错时返回以下格式：
+
+```ts
+{
+  "code": string;      // 错误码，如 "ORDER_NOT_FOUND"
+  "message": string;   // 用户可读的错误信息
+}
+```
+
+常见错误码（HTTP Status Code）：
+- `400 Bad Request`：参数错误（订单项为空、数量不合法等）或场次/票种不存在
+- `401 Unauthorized`：未认证
+- `404 Not Found`：订单不存在或无权限访问
+- `409 Conflict`：库存不足
+- `410 Gone`：场次已过期
+
+## 关键特性
+
+**幂等性**
+- 取消订单：重复请求返回 204，库存只释放一次
+- 过期处理：定时任务可重复执行，库存不会重复释放
+
+**权限控制**
+- 订单操作仅限于订单所有者
