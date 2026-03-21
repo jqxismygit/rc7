@@ -136,7 +136,7 @@ describeFeature(feature, ({
       location: 'Shanghai',
     });
 
-    const [session] = await getSessions(apiServer, exhibition.id);
+    const [session] = await getSessions(apiServer, exhibition.id, adminToken);
     const ticketByName: TicketByName = {};
 
     for (let i = 0; i < names.length; i += 1) {

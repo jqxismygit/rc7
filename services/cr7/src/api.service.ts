@@ -104,7 +104,6 @@ const routes = [
     '/exhibition',
     ['cr7.exhibition.*'],
     {
-      authorization: false,
       autoAliases: true,
     }
   ),
@@ -189,31 +188,16 @@ export default {
       return user;
     },
 
-    authorize(ctx, router, req) {
+    authorize(ctx) {
       if ((ctx.meta.user ?? null) === null) {
         return Promise.reject(new UnAuthorizedError(ERR_NO_TOKEN, 'No token provided'));
-      }
-
-      const { scope } = ctx.meta.user;
-
-      // 有 scope 时，需要应用到指定接口上
-      if (scope !== null && scope !== req['$action'].name) {
-        return Promise.reject(new ForbiddenError('ERR_INSUFFICIENT_SCOPE', 'Insufficient scope'));
       }
     },
 
     ops_authorize: async function (ctx, route, req) {
+      await this.authorize(ctx, route, req);
       const user = ctx.meta.user ?? null;
-      if (user === null) {
-        return Promise.reject(new UnAuthorizedError(ERR_NO_TOKEN, 'No token provided'));
-      }
-      const opsProfile = await ctx.call(
-        'ops.user_profile', {}, { meta: { user } }
-      );
-      if (opsProfile.roles.length === 0) {
-        return Promise.reject(new ForbiddenError('ERR_INSUFFICIENT_SCOPE', 'Insufficient scope'));
-      }
-      return this.authorize(ctx, route, req);
+
     }
   }
 } as ServiceSchema;
