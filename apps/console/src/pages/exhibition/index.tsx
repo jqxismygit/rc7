@@ -31,6 +31,7 @@ import {
   listExhibitionsApi,
   type CreateExhibitionInput,
 } from "@/apis/exhibition";
+import { useTableQuery } from "@/hooks/use-table-query";
 import "./exhibition.less";
 
 type DayjsLike = {
@@ -64,7 +65,10 @@ const ExhibitionPage = () => {
   const actionRef = useRef<ActionType>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [pageCursor, setPageCursor] = useState({ current: 1, pageSize: 10 });
+  const { proTablePagination, rowIndexBase, getListParams } = useTableQuery({
+    defaultPageSize: 10,
+    maxPageSize: 100,
+  });
 
   const columns = useMemo<ProColumns<ExhibitionTypes.Exhibition>[]>(
     () => [
@@ -73,10 +77,7 @@ const ExhibitionPage = () => {
         width: 64,
         align: "center",
         search: false,
-        render: (_, __, index) => {
-          const base = (pageCursor.current - 1) * pageCursor.pageSize;
-          return base + index + 1;
-        },
+        render: (_, __, index) => rowIndexBase + index + 1,
       },
       {
         title: "展会名称",
@@ -171,7 +172,7 @@ const ExhibitionPage = () => {
         ),
       },
     ],
-    [pageCursor],
+    [rowIndexBase],
   );
 
   async function handleCreateModalFinish(values: ExhibitionCreateFormValues) {
@@ -305,27 +306,12 @@ const ExhibitionPage = () => {
           cardProps={{ bodyStyle: { padding: 0 } }}
           options={false}
           search={false}
-          pagination={{
-            current: pageCursor.current,
-            pageSize: pageCursor.pageSize,
-            defaultPageSize: 10,
-            showSizeChanger: true,
-            pageSizeOptions: [10, 20, 50, 100],
-            showTotal: (total) => `共 ${total} 条`,
-            onChange: (current, pageSize) => {
-              setPageCursor({ current, pageSize });
-            },
-            onShowSizeChange: (current, size) => {
-              setPageCursor({ current, pageSize: size });
-            },
-          }}
+          pagination={proTablePagination}
           dateFormatter="string"
           headerTitle={false}
           toolBarRender={false}
           request={async (params) => {
-            const { current = 1, pageSize = 10 } = params;
-            const limit = Math.min(pageSize, 100);
-            const offset = (current - 1) * limit;
+            const { limit, offset } = getListParams(params, []);
             try {
               const res = await listExhibitionsApi({ limit, offset });
               return {
