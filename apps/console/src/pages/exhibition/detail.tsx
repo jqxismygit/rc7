@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import type { ColumnsType } from "antd/es/table";
 import {
   Breadcrumb,
   Button,
@@ -7,6 +8,7 @@ import {
   Descriptions,
   Empty,
   Spin,
+  Table,
   Typography,
   theme,
 } from "antd";
@@ -14,15 +16,49 @@ import { ArrowLeftOutlined, HomeOutlined } from "@ant-design/icons";
 import type { Exhibition as ExhibitionTypes } from "@cr7/types";
 import { getExhibitionApi } from "@/apis/exhibition";
 import { formatDateTime, formatSessionDateTime } from "@/utils/format-datetime";
+import dayjs from "dayjs";
 import "./exhibition.less";
+
+type ExhibitionDetailData = ExhibitionTypes.Exhibition & {
+  sessions?: ExhibitionTypes.Session[];
+};
 
 export default function ExhibitionDetailPage() {
   const { eid = "" } = useParams<{ eid: string }>();
   const navigate = useNavigate();
   const { token } = theme.useToken();
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<ExhibitionTypes.Exhibition | null>(null);
+  const [data, setData] = useState<ExhibitionDetailData | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const sessionColumns = useMemo<ColumnsType<ExhibitionTypes.Session>>(
+    () => [
+      {
+        title: "序号",
+        key: "index",
+        width: 72,
+        align: "center",
+        render: (_, __, index) => index + 1,
+      },
+      {
+        title: "场次日期",
+        dataIndex: "session_date",
+        width: 180,
+        render: (v: string) => dayjs(v).format("YYYY-MM-DD"),
+      },
+      {
+        title: "场次 ID",
+        dataIndex: "id",
+        ellipsis: true,
+        render: (id: string) => (
+          <Typography.Text copyable={{ text: id }} ellipsis>
+            {id}
+          </Typography.Text>
+        ),
+      },
+    ],
+    [],
+  );
 
   useEffect(() => {
     if (!eid) {
@@ -157,6 +193,34 @@ export default function ExhibitionDetailPage() {
           <Empty description="未找到展会" />
         )}
       </Card>
+
+      {!loading && !error && data ? (
+        <Card
+          className="exhibition-detail-sessions-card"
+          variant="borderless"
+          title="场次列表"
+          style={{
+            marginTop: token.marginMD,
+            borderRadius: token.borderRadiusLG,
+            boxShadow: token.boxShadowSecondary,
+          }}
+        >
+          <Table<ExhibitionTypes.Session>
+            className="exhibition-detail-sessions-table"
+            rowKey="id"
+            columns={sessionColumns}
+            dataSource={data.sessions ?? []}
+            pagination={{
+              pageSize: 20,
+              showSizeChanger: true,
+              pageSizeOptions: [10, 20, 50, 100],
+              showTotal: (total) => `共 ${total} 场`,
+            }}
+            locale={{ emptyText: "暂无场次数据" }}
+            scroll={{ x: "max-content" }}
+          />
+        </Card>
+      ) : null}
     </div>
   );
 }
