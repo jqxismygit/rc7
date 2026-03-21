@@ -9,6 +9,7 @@ import { Exhibition, Order } from '@cr7/types';
 import { expect, vi } from 'vitest';
 import { Pool } from 'pg';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
+import { assertAPIError } from './lib/api.js';
 import { services_fixtures } from './fixtures/services.js';
 import { registerUser } from './fixtures/user.js';
 import {
@@ -43,7 +44,7 @@ type OrderCaseContext = {
   orderDetail: Order.OrderWithItems;
   orderList: Order.OrderListResult;
   ordersByKey: Record<string, Order.OrderWithItems>;
-  lastErrorMessage: string;
+  lastError: unknown;
 };
 
 interface ScenarioContext {
@@ -57,12 +58,20 @@ type Cr7ServiceWithPool = {
   pool: Pick<Pool, 'query'>;
 };
 
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
+function rememberError(context: Partial<OrderCaseContext>, error: unknown) {
+  Object.assign(context, { lastError: error });
+}
 
-  return String(error);
+function assertLastAPIError(
+  context: Partial<OrderCaseContext>,
+  options: {
+    status: number;
+    messageIncludes: string;
+    method?: string;
+  }
+) {
+  expect(context.lastError).toBeTruthy();
+  return assertAPIError(context.lastError, options);
 }
 
 function rememberOrder(
@@ -407,12 +416,15 @@ describeFeature(feature, ({
       try {
         await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 3 }]);
       } catch (error) {
-        Object.assign(context, { lastErrorMessage: getErrorMessage(error) });
+        rememberError(context, error);
       }
     });
 
     Then('预订失败，提示库存不足', () => {
-      expect(context.lastErrorMessage).toContain('库存不足');
+      assertLastAPIError(context, {
+        status: 409,
+        messageIncludes: '库存不足',
+      });
     });
 
     And('场次 "2026-07-01" 的 "成人票" 库存为 2', async () => {
@@ -631,12 +643,15 @@ describeFeature(feature, ({
           getUserToken('Alice'),
         );
       } catch (error) {
-        Object.assign(context, { lastErrorMessage: getErrorMessage(error) });
+        rememberError(context, error);
       }
     });
 
     Then('查看失败，提示订单不存在或无权限', () => {
-      expect(context.lastErrorMessage).toContain('订单不存在或无权限');
+      assertLastAPIError(context, {
+        status: 404,
+        messageIncludes: '订单不存在或无权限',
+      });
     });
   });
 
@@ -724,12 +739,15 @@ describeFeature(feature, ({
       try {
         await cancelOrderByApi(apiServer, context.order!.id, scenarioContext.userToken);
       } catch (error) {
-        Object.assign(context, { lastErrorMessage: getErrorMessage(error) });
+        rememberError(context, error);
       }
     });
 
     Then('取消失败，提示订单状态不允许取消', () => {
-      expect(context.lastErrorMessage).toContain('订单状态不允许取消');
+      assertLastAPIError(context, {
+        status: 400,
+        messageIncludes: '订单状态不允许取消',
+      });
     });
   });
 
@@ -753,12 +771,15 @@ describeFeature(feature, ({
           scenarioContext.userToken,
         );
       } catch (error) {
-        Object.assign(context, { lastErrorMessage: getErrorMessage(error) });
+        rememberError(context, error);
       }
     });
 
     Then('创建失败，提示参数不合法', () => {
-      expect(context.lastErrorMessage).toContain('参数不合法');
+      assertLastAPIError(context, {
+        status: 400,
+        messageIncludes: '参数不合法',
+      });
     });
   });
 
@@ -774,12 +795,15 @@ describeFeature(feature, ({
       try {
         await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 0 }]);
       } catch (error) {
-        Object.assign(context, { lastErrorMessage: getErrorMessage(error) });
+        rememberError(context, error);
       }
     });
 
     Then('创建失败，提示参数不合法', () => {
-      expect(context.lastErrorMessage).toContain('参数不合法');
+      assertLastAPIError(context, {
+        status: 400,
+        messageIncludes: '参数不合法',
+      });
     });
   });
 });

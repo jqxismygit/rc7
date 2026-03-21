@@ -22,7 +22,7 @@ function handleOrderError(error: unknown): never {
   }
 
   if (error.code === 'INVENTORY_NOT_ENOUGH') {
-    throw new MoleculerClientError('库存不足', 400, 'INVENTORY_NOT_ENOUGH');
+    throw new MoleculerClientError('库存不足', 409, 'INVENTORY_NOT_ENOUGH');
   }
 
   if (

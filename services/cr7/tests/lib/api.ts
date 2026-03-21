@@ -3,6 +3,7 @@ import { Server } from 'node:http';
 import Stream from 'node:stream';
 import { fetch, Response, RequestInit, HeadersInit } from 'undici';
 import qs from 'qs';
+import { expect } from 'vitest';
 
 function resolveUrl(server: Server, path: string) {
   const { address, port } = server.address() as { address: string; port: number };
@@ -10,7 +11,7 @@ function resolveUrl(server: Server, path: string) {
   return url.toString();
 };
 
-class APIError extends Error {
+export class APIError extends Error {
   status: number;
   url: string;
   method: string;
@@ -25,6 +26,32 @@ class APIError extends Error {
     this.method = method;
     this.body = body;
   }
+}
+
+export function assertAPIError(
+  error: unknown,
+  options: {
+    status?: number;
+    messageIncludes?: string;
+    method?: string;
+  } = {}
+): APIError {
+  expect(error).toBeInstanceOf(APIError);
+  const apiError = error as APIError;
+
+  if (options.status !== undefined) {
+    expect(apiError.status).toBe(options.status);
+  }
+
+  if (options.method !== undefined) {
+    expect(apiError.method).toBe(options.method);
+  }
+
+  if (options.messageIncludes !== undefined) {
+    expect(apiError.message).toContain(options.messageIncludes);
+  }
+
+  return apiError;
 }
 
 function getHeaders(
