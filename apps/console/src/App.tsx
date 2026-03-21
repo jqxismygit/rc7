@@ -7,7 +7,7 @@ import { flattenRoutes, routes } from "./routes";
 
 const flatRoutes = flattenRoutes(routes);
 import zhCN from "antd/locale/zh_CN";
-import "./App.css";
+import "./App.less";
 
 function App() {
   return (

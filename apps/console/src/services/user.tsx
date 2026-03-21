@@ -25,9 +25,9 @@ export const UserServiceProvider = ({
   const [profile, setProfile] = React.useState<any | null>(null);
 
   useEffect(() => {
-    getProfile().then((res) => {
-      setProfile(res as any);
-    });
+    getProfile()
+      .then((res) => setProfile(res as any))
+      .catch(() => setProfile(null));
   }, []);
   return (
     <UserServiceContext.Provider value={{ profile }}>

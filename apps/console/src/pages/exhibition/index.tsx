@@ -31,7 +31,7 @@ import {
   listExhibitionsApi,
   type CreateExhibitionInput,
 } from "@/apis/exhibition";
-import "./exhibition.css";
+import "./exhibition.less";
 
 type DayjsLike = {
   format: (fmt: string) => string;
