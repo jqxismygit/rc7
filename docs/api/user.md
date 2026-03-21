@@ -101,8 +101,7 @@
   ```
 - Response Status:
   - `200 OK`：查询成功
--  - `400 Bad Request`：手机号或密码为空
--  - `401 Unauthorized`：手机号不存在或密码错误
+  - `401 Unauthorized`：未认证
 
 - 说明：
   - 手机号密码登录与微信登录共享同一套 `users` 主表

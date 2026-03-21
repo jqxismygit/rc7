@@ -54,7 +54,6 @@ PENDING_PAYMENT
   {
     items: Order.CreateOrderItem[]
   }
-  // CreateOrderItem = { ticket_category_id: string; quantity: number }
   ```
 - Response Body:
   ```ts
@@ -115,12 +114,7 @@ PENDING_PAYMENT
   ```
 - Response Body:
   ```ts
-  {
-    orders: Order.OrderWithItems[];
-    total: number;
-    page: number;
-    limit: number;
-  }
+  Order.OrderListResult
   ```
 - Response Status:
   - `200 OK`：查询成功
