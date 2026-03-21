@@ -24,6 +24,7 @@ import {
   cancelOrder as cancelOrderByApi,
   createOrder as createOrderByApi,
   getOrder as getOrderByApi,
+  listOrders as listOrdersByApi,
 } from './fixtures/order.js';
 import { random_text } from './lib/random.js';
 
@@ -39,6 +40,9 @@ type OrderCaseContext = {
   session: Exhibition.Session;
   ticketByName: TicketByName;
   order: Order.OrderWithItems;
+  orderDetail: Order.OrderWithItems;
+  orderList: Order.OrderListResult;
+  ordersByKey: Record<string, Order.OrderWithItems>;
   lastErrorMessage: string;
 };
 
@@ -46,6 +50,7 @@ interface ScenarioContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer' | 'broker'>;
   userToken: string;
   bobToken: string;
+  tokensByName: Record<string, string>;
 }
 
 type Cr7ServiceWithPool = {
@@ -58,6 +63,28 @@ function getErrorMessage(error: unknown): string {
   }
 
   return String(error);
+}
+
+function rememberOrder(
+  context: Partial<OrderCaseContext>,
+  key: string,
+  order: Order.OrderWithItems,
+) {
+  Object.assign(context, {
+    ordersByKey: {
+      ...(context.ordersByKey ?? {}),
+      [key]: order,
+    },
+  });
+}
+
+function getRememberedOrder(
+  context: Partial<OrderCaseContext>,
+  key: string,
+) {
+  const order = context.ordersByKey?.[key];
+  expect(order).toBeTruthy();
+  return order!;
 }
 
 describeFeature(feature, ({
@@ -177,6 +204,66 @@ describeFeature(feature, ({
     return order;
   }
 
+  async function getOrderDetail(
+    context: Partial<OrderCaseContext>,
+    orderId: string,
+    token?: string,
+  ) {
+    const { apiServer } = scenarioContext.fixtures.values;
+    const orderDetail = await getOrderByApi(
+      apiServer,
+      orderId,
+      token ?? scenarioContext.userToken,
+    );
+
+    Object.assign(context, { orderDetail });
+    return orderDetail;
+  }
+
+  async function listOrders(
+    context: Partial<OrderCaseContext>,
+    query: {
+      status?: Order.OrderStatus;
+      page?: number;
+      limit?: number;
+    } = {},
+    token?: string,
+  ) {
+    const { apiServer } = scenarioContext.fixtures.values;
+    const orderList = await listOrdersByApi(
+      apiServer,
+      token ?? scenarioContext.userToken,
+      query,
+    );
+
+    Object.assign(context, { orderList });
+    return orderList;
+  }
+
+  async function registerScenarioUser(
+    alias: string,
+    targetKey: 'userToken' | 'bobToken',
+  ) {
+    const { apiServer } = scenarioContext.fixtures.values;
+    const token = await registerUser(apiServer, `${alias}_${random_text(6)}`);
+
+    Object.assign(scenarioContext, {
+      [targetKey]: token,
+      tokensByName: {
+        ...(scenarioContext.tokensByName ?? {}),
+        [alias]: token,
+      },
+    });
+
+    return token;
+  }
+
+  function getUserToken(name: string) {
+    const token = scenarioContext.tokensByName?.[name];
+    expect(token).toBeTruthy();
+    return token!;
+  }
+
   async function expireCurrentOrder(context: Partial<OrderCaseContext>) {
     const { broker } = scenarioContext.fixtures.values;
     const cr7Service = broker.getLocalService('cr7') as unknown as Cr7ServiceWithPool;
@@ -203,9 +290,7 @@ describeFeature(feature, ({
 
   Background(({ Given }) => {
     Given('用户 "Alice" 已注册并登录', async () => {
-      const { apiServer } = scenarioContext.fixtures.values;
-      const token = await registerUser(apiServer, 'Alice');
-      Object.assign(scenarioContext, { userToken: token });
+      await registerScenarioUser('Alice', 'userToken');
     });
   });
 
@@ -476,48 +561,176 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('用户可以获取自己的订单详情', ({ Given, When, Then, And }) => {
-    Given('展览活动 "艺术展" 已创建，包含场次 "2026-07-01" 和票种 "成人票"', () => { });
-    And('场次 "2026-07-01" 的 "成人票" 库存初始为 2', () => { });
-    Given('用户已成功预订 1 张 "艺术展" 的 "2026-07-01" 场次的 "成人票"', () => { });
-    When('用户查看该订单详情', () => { });
-    Then('返回订单详情成功', () => { });
-    And('订单包含 1 条订单项', () => { });
-    And('订单项为 "艺术展" 的 "2026-07-01" 场次的 "成人票"', () => { });
-  });
+  Scenario('用户可以获取自己的订单详情', (s: StepTest<Partial<OrderCaseContext>>) => {
+    const { Given, When, Then, And, context } = s;
 
-  Scenario('用户不能获取他人的订单详情', ({ Given, When, Then, And }) => {
-    Given('用户 "Bob" 已注册并登录', async () => {
-      const { apiServer } = scenarioContext.fixtures.values;
-      const token = await registerUser(apiServer, 'Bob');
-      Object.assign(scenarioContext, { bobToken: token });
+    Given('展览活动 "艺术展" 已创建，包含场次 "2026-07-01" 和票种 "成人票"', async () => {
+      await prepareExhibitionWithTickets(context, ['成人票']);
     });
-    And('展览活动 "艺术展" 已创建，包含场次 "2026-07-01" 和票种 "成人票"', () => { });
-    And('场次 "2026-07-01" 的 "成人票" 库存初始为 2', () => { });
-    And('"Bob" 已成功预订 1 张 "艺术展" 的 "2026-07-01" 场次的 "成人票"', () => { });
-    When('"Alice" 查看 "Bob" 的订单详情', () => { });
-    Then('查看失败，提示订单不存在或无权限', () => { });
+
+    And('场次 "2026-07-01" 的 "成人票" 库存初始为 2', async () => {
+      await setInitialInventory(context, '成人票', 2);
+    });
+
+    Given('用户已成功预订 1 张 "艺术展" 的 "2026-07-01" 场次的 "成人票"', async () => {
+      const order = await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }]);
+      rememberOrder(context, 'self', order);
+    });
+
+    When('用户查看该订单详情', async () => {
+      await getOrderDetail(context, getRememberedOrder(context, 'self').id);
+    });
+
+    Then('返回订单详情成功', () => {
+      expect(context.orderDetail).toBeTruthy();
+      expect(context.orderDetail!.id).toBe(getRememberedOrder(context, 'self').id);
+    });
+
+    And('订单包含 1 条订单项', () => {
+      expect(context.orderDetail!.items).toHaveLength(1);
+    });
+
+    And('订单项为 "艺术展" 的 "2026-07-01" 场次的 "成人票"', () => {
+      expect(context.orderDetail!.exhibit_id).toBe(context.exhibition!.id);
+      expect(context.orderDetail!.session_id).toBe(context.session!.id);
+      expect(context.orderDetail!.items[0].ticket_category_id).toBe(
+        context.ticketByName!.成人票.id,
+      );
+    });
   });
 
-  Scenario('用户按分页查询订单列表', ({ Given, When, Then, And }) => {
-    Given('用户已创建 3 笔订单', () => { });
-    When('用户按 page 1、limit 2 查询订单列表', () => { });
-    Then('返回 2 条订单', () => { });
-    And('total 为 3', () => { });
-    And('page 为 1', () => { });
-    And('limit 为 2', () => { });
+  Scenario('用户不能获取他人的订单详情', (s: StepTest<Partial<OrderCaseContext>>) => {
+    const { Given, When, Then, And, context } = s;
+
+    Given('用户 "Bob" 已注册并登录', async () => {
+      await registerScenarioUser('Bob', 'bobToken');
+    });
+
+    And('展览活动 "艺术展" 已创建，包含场次 "2026-07-01" 和票种 "成人票"', async () => {
+      await prepareExhibitionWithTickets(context, ['成人票']);
+    });
+
+    And('场次 "2026-07-01" 的 "成人票" 库存初始为 2', async () => {
+      await setInitialInventory(context, '成人票', 2);
+    });
+
+    And('"Bob" 已成功预订 1 张 "艺术展" 的 "2026-07-01" 场次的 "成人票"', async () => {
+      const order = await createOrderWithItems(
+        context,
+        [{ ticketName: '成人票', quantity: 1 }],
+        getUserToken('Bob'),
+      );
+      rememberOrder(context, 'bob', order);
+    });
+
+    When('"Alice" 查看 "Bob" 的订单详情', async () => {
+      try {
+        await getOrderDetail(
+          context,
+          getRememberedOrder(context, 'bob').id,
+          getUserToken('Alice'),
+        );
+      } catch (error) {
+        Object.assign(context, { lastErrorMessage: getErrorMessage(error) });
+      }
+    });
+
+    Then('查看失败，提示订单不存在或无权限', () => {
+      expect(context.lastErrorMessage).toContain('订单不存在或无权限');
+    });
   });
 
-  Scenario('用户按状态筛选订单列表', ({ Given, When, Then }) => {
-    Given('用户有待支付订单、已取消订单和已过期订单', () => { });
-    When('用户按状态 "待付款" 查询订单列表', () => { });
-    Then('仅返回待支付订单', () => { });
+  Scenario('用户按分页查询订单列表', (s: StepTest<Partial<OrderCaseContext>>) => {
+    const { Given, When, Then, And, context } = s;
+
+    Given('用户已创建 3 笔订单', async () => {
+      await prepareExhibitionWithTickets(context, ['成人票']);
+      await setInitialInventory(context, '成人票', 5);
+
+      for (let i = 0; i < 3; i += 1) {
+        await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }]);
+      }
+    });
+
+    When('用户按 page 1、limit 2 查询订单列表', async () => {
+      await listOrders(context, { page: 1, limit: 2 });
+    });
+
+    Then('返回 2 条订单', () => {
+      expect(context.orderList!.orders).toHaveLength(2);
+    });
+
+    And('total 为 3', () => {
+      expect(context.orderList!.total).toBe(3);
+    });
+
+    And('page 为 1', () => {
+      expect(context.orderList!.page).toBe(1);
+    });
+
+    And('limit 为 2', () => {
+      expect(context.orderList!.limit).toBe(2);
+    });
   });
 
-  Scenario('用户取消已过期订单失败', ({ Given, When, Then }) => {
-    Given('用户有一笔已过期订单', () => { });
-    When('用户取消该订单', () => { });
-    Then('取消失败，提示订单状态不允许取消', () => { });
+  Scenario('用户按状态筛选订单列表', (s: StepTest<Partial<OrderCaseContext>>) => {
+    const { Given, When, Then, context } = s;
+
+    Given('用户有待支付订单、已取消订单和已过期订单', async () => {
+      const { apiServer } = scenarioContext.fixtures.values;
+
+      await prepareExhibitionWithTickets(context, ['成人票']);
+      await setInitialInventory(context, '成人票', 6);
+
+      const pendingOrder = await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }]);
+      rememberOrder(context, 'pending', pendingOrder);
+
+      const cancelledOrder = await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }]);
+      await cancelOrderByApi(apiServer, cancelledOrder.id, scenarioContext.userToken);
+      rememberOrder(context, 'cancelled', cancelledOrder);
+
+      const expiredOrder = await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }]);
+      Object.assign(context, { order: expiredOrder });
+      await expireCurrentOrder(context);
+      rememberOrder(context, 'expired', expiredOrder);
+    });
+
+    When('用户按状态 "待付款" 查询订单列表', async () => {
+      await listOrders(context, { status: 'PENDING_PAYMENT' });
+    });
+
+    Then('仅返回待支付订单', () => {
+      expect(context.orderList!.total).toBe(1);
+      expect(context.orderList!.orders).toHaveLength(1);
+      expect(context.orderList!.orders[0].status).toBe('PENDING_PAYMENT');
+      expect(context.orderList!.orders[0].id).toBe(getRememberedOrder(context, 'pending').id);
+    });
+  });
+
+  Scenario('用户取消已过期订单失败', (s: StepTest<Partial<OrderCaseContext>>) => {
+    const { Given, When, Then, context } = s;
+
+    Given('用户有一笔已过期订单', async () => {
+      await prepareExhibitionWithTickets(context, ['成人票']);
+      await setInitialInventory(context, '成人票', 2);
+      const order = await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }]);
+      Object.assign(context, { order });
+      await expireCurrentOrder(context);
+    });
+
+    When('用户取消该订单', async () => {
+      const { apiServer } = scenarioContext.fixtures.values;
+
+      try {
+        await cancelOrderByApi(apiServer, context.order!.id, scenarioContext.userToken);
+      } catch (error) {
+        Object.assign(context, { lastErrorMessage: getErrorMessage(error) });
+      }
+    });
+
+    Then('取消失败，提示订单状态不允许取消', () => {
+      expect(context.lastErrorMessage).toContain('订单状态不允许取消');
+    });
   });
 
   Scenario('用户创建空订单失败', (s: StepTest<Partial<OrderCaseContext>>) => {

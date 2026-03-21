@@ -39,3 +39,19 @@ export async function getOrder(
     { token }
   );
 }
+
+export async function listOrders(
+  server: Server,
+  token: string,
+  query: {
+    status?: Order.OrderStatus;
+    page?: number;
+    limit?: number;
+  } = {},
+) {
+  return getJSON<Order.OrderListResult>(
+    server,
+    '/orders',
+    { token, query }
+  );
+}

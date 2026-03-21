@@ -34,6 +34,13 @@ export interface OrderWithItems extends Order {
   items: OrderItem[];
 }
 
+export interface OrderListResult {
+  orders: OrderWithItems[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface CreateOrderItem {
   ticket_category_id: string;
   quantity: number;

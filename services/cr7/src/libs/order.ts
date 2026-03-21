@@ -5,6 +5,7 @@ import {
   cancelOrder,
   createOrder,
   getOrderById,
+  getOrders,
   releaseExpiredOrders,
   OrderDataError,
 } from '../data/order.js';
@@ -65,6 +66,34 @@ export class OrderService extends RC7BaseService {
         oid: 'string',
       },
       handler: this.getOrder,
+    },
+
+    'order.list': {
+      rest: 'GET /',
+      params: {
+        status: {
+          type: 'enum',
+          values: ['PENDING_PAYMENT', 'PAID', 'CANCELLED', 'EXPIRED'],
+          optional: true,
+        },
+        page: {
+          type: 'number',
+          integer: true,
+          positive: true,
+          optional: true,
+          default: 1,
+          convert: true,
+        },
+        limit: {
+          type: 'number',
+          integer: true,
+          positive: true,
+          optional: true,
+          default: 20,
+          convert: true,
+        },
+      },
+      handler: this.listOrders,
     },
 
     'order.cancel': {
@@ -145,6 +174,28 @@ export class OrderService extends RC7BaseService {
 
     return getOrderById(this.pool, schema, oid, uid)
       .catch(handleOrderError);
+  }
+
+  async listOrders(
+    ctx: Context<{
+      status?: Order.OrderStatus;
+      page?: number;
+      limit?: number;
+    }, { user: UserMeta }>
+  ) {
+    const {
+      status,
+      page = 1,
+      limit = 20,
+    } = ctx.params;
+    const { uid } = ctx.meta.user;
+    const schema = await this.getSchema();
+
+    return getOrders(this.pool, schema, uid, {
+      status,
+      page,
+      limit,
+    }).catch(handleOrderError);
   }
 
   async expireOrders(

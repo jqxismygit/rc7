@@ -107,7 +107,7 @@ const routes = [
   ),
   routeConfig(
     '/orders',
-    ['cr7.order.get', 'cr7.order.cancel'],
+    ['cr7.order.get', 'cr7.order.list', 'cr7.order.cancel'],
     {
       autoAliases: true,
     }

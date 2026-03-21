@@ -34,6 +34,15 @@ type ExpiredOrderRow = {
   session_id: string;
 };
 
+const ORDER_STATUS_CASE = `
+  CASE
+    WHEN paid_at IS NOT NULL THEN 'PAID'
+    WHEN cancelled_at IS NOT NULL THEN 'CANCELLED'
+    WHEN expires_at < NOW() THEN 'EXPIRED'
+    ELSE 'PENDING_PAYMENT'
+  END
+`;
+
 export type ORDER_DATA_ERROR_CODES =
   | 'ORDER_NOT_FOUND'
   | 'ORDER_STATUS_INVALID'
@@ -163,6 +172,42 @@ async function getOrderItemsByOrderId(
   return rows;
 }
 
+async function getOrderItemsByOrderIds(
+  client: DBClient,
+  schema: string,
+  orderIds: string[],
+): Promise<Map<string, Order.OrderItem[]>> {
+  if (orderIds.length === 0) {
+    return new Map();
+  }
+
+  const { rows } = await client.query<Order.OrderItem>(
+    `SELECT
+      id,
+      order_id,
+      ticket_category_id,
+      quantity,
+      unit_price,
+      subtotal,
+      created_at,
+      updated_at
+    FROM ${schema}.exhibit_order_items
+    WHERE order_id = ANY($1::uuid[])
+    ORDER BY created_at`,
+    [orderIds]
+  );
+
+  const itemsByOrderId = new Map<string, Order.OrderItem[]>();
+
+  for (const item of rows) {
+    const items = itemsByOrderId.get(item.order_id) ?? [];
+    items.push(item);
+    itemsByOrderId.set(item.order_id, items);
+  }
+
+  return itemsByOrderId;
+}
+
 export async function getOrderById(
   client: DBClient,
   schema: string,
@@ -175,12 +220,7 @@ export async function getOrderById(
       user_id,
       exhibit_id,
       session_id,
-      CASE
-        WHEN paid_at IS NOT NULL THEN 'PAID'
-        WHEN cancelled_at IS NOT NULL THEN 'CANCELLED'
-        WHEN expires_at < NOW() THEN 'EXPIRED'
-        ELSE 'PENDING_PAYMENT'
-      END AS status,
+      ${ORDER_STATUS_CASE} AS status,
       total_amount,
       expires_at,
       paid_at,
@@ -202,6 +242,87 @@ export async function getOrderById(
   const items = await getOrderItemsByOrderId(client, schema, orderId);
 
   return { ...order, items };
+}
+
+export async function getOrders(
+  client: DBClient,
+  schema: string,
+  userId: string,
+  options: {
+    status?: Order.OrderStatus;
+    page: number;
+    limit: number;
+  },
+): Promise<Order.OrderListResult> {
+  const { status, page, limit } = options;
+  const offset = (page - 1) * limit;
+
+  const { rows: countRows } = await client.query<{ total: string }>(
+    `WITH order_rows AS (
+      SELECT
+        id,
+        ${ORDER_STATUS_CASE} AS status
+      FROM ${schema}.exhibit_orders
+      WHERE user_id = $1
+    )
+    SELECT COUNT(*)::text AS total
+    FROM order_rows
+    WHERE ($2::text IS NULL OR status = $2)`,
+    [userId, status ?? null]
+  );
+
+  const total = parseInt(countRows[0].total, 10);
+
+  const { rows: orders } = await client.query<Omit<Order.OrderWithItems, 'items'>>(
+    `WITH order_rows AS (
+      SELECT
+        id,
+        user_id,
+        exhibit_id,
+        session_id,
+        ${ORDER_STATUS_CASE} AS status,
+        total_amount,
+        expires_at,
+        paid_at,
+        cancelled_at,
+        released_at,
+        created_at,
+        updated_at
+      FROM ${schema}.exhibit_orders
+      WHERE user_id = $1
+    )
+    SELECT
+      id,
+      user_id,
+      exhibit_id,
+      session_id,
+      status,
+      total_amount,
+      expires_at,
+      paid_at,
+      cancelled_at,
+      released_at,
+      created_at,
+      updated_at
+    FROM order_rows
+    WHERE ($2::text IS NULL OR status = $2)
+    ORDER BY created_at DESC
+    LIMIT $3 OFFSET $4`,
+    [userId, status ?? null, limit, offset]
+  );
+
+  const orderIds = orders.map(order => order.id);
+  const itemsByOrderId = await getOrderItemsByOrderIds(client, schema, orderIds);
+
+  return {
+    orders: orders.map(order => ({
+      ...order,
+      items: itemsByOrderId.get(order.id) ?? [],
+    })),
+    total,
+    page,
+    limit,
+  };
 }
 
 export async function createOrder(
@@ -304,12 +425,7 @@ async function lockOrderForCancel(
       user_id,
       session_id,
       released_at,
-      CASE
-        WHEN paid_at IS NOT NULL THEN 'PAID'
-        WHEN cancelled_at IS NOT NULL THEN 'CANCELLED'
-        WHEN expires_at < NOW() THEN 'EXPIRED'
-        ELSE 'PENDING_PAYMENT'
-      END AS status
+      ${ORDER_STATUS_CASE} AS status
     FROM ${schema}.exhibit_orders
     WHERE id = $1
       AND user_id = $2
