@@ -1,5 +1,5 @@
 import { Server } from "http";
-import { getJSON, postJSON } from "../lib/api.js";
+import { getJSON, postJSON, putJSON } from "../lib/api.js";
 import { User } from "@cr7/types";
 import { expect, vi } from "vitest";
 import { mockWechatServer } from "../lib/server.js";
@@ -18,6 +18,38 @@ export function getUserProfile(server: Server, token: string) {
   return getJSON<User.Profile>(server, '/user/profile', { token });
 }
 
+export function passwordLogin(
+  server: Server,
+  country_code: string,
+  phone: string,
+  password: string,
+) {
+  return postJSON<{ token: string }>(
+    server,
+    '/user/login/password',
+    { body: { country_code, phone, password } }
+  );
+}
+
+export function changePassword(
+  server: Server,
+  token: string,
+  current_password: string,
+  new_password: string,
+) {
+  return putJSON<null>(
+    server,
+    '/user/password',
+    {
+      token,
+      body: {
+        current_password,
+        new_password,
+      },
+    }
+  );
+}
+
 export function assertLoginResponse(data: unknown) {
   expect(data).toBeTypeOf('object');
   expect(data).toHaveProperty('token', expect.any(String));
@@ -25,8 +57,13 @@ export function assertLoginResponse(data: unknown) {
 
 export function assertUserProfile(profile: unknown) {
   expect(profile).toBeTypeOf('object');
-  expect(profile).toHaveProperty('id', expect.any(String));
-  expect(profile).toHaveProperty('openid', expect.any(String));
+  const userProfile = profile as User.Profile;
+  expect(userProfile.id).toEqual(expect.any(String));
+  if (userProfile.phone !== null) {
+    expect(userProfile.phone).toBeTypeOf('string');
+  } else {
+    expect(userProfile.phone).toBeNull();
+  }
   expect(profile).toHaveProperty('created_at', expect.any(String));
   expect(profile).toHaveProperty('updated_at', expect.any(String));
 }

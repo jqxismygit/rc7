@@ -75,7 +75,8 @@ const routes = [
     '/',
     [
       '$node.*', 'api.*',
-      'user.wechat_mini_login'
+      'user.wechat_mini_login',
+      'user.password_login'
     ],
     {
       authorization: false,
@@ -84,16 +85,18 @@ const routes = [
         'GET  /nodes':    '$node.list',
         'GET  /aliases':  'api.listAliases',
 
-        'POST /user/login/wechat/mini': 'user.wechat_mini_login'
+        'POST /user/login/wechat/mini': 'user.wechat_mini_login',
+        'POST /user/login/password': 'user.password_login'
       }
     },
   ),
   routeConfig(
     '/user',
-    ['user.profile'],
+    ['user.profile', 'user.password_update'],
     {
       aliases: {
-        'GET /profile': 'user.profile'
+        'GET /profile': 'user.profile',
+        'PUT /password': 'user.password_update'
       }
     }
   ),
