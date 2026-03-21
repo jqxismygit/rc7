@@ -131,6 +131,7 @@ export function prepareInventoryExhibitionData(
   Step: StepTest['Given'] | StepTest['And'],
   scenarioContext: { fixtures: APIServerFixture },
   context: ExhibitionContext,
+  token?: string,
 ) {
   Step('created exhibition with 2 sessions', async () => {
     const { apiServer } = scenarioContext.fixtures.values;
@@ -144,9 +145,9 @@ export function prepareInventoryExhibitionData(
       closing_time: '18:00',
       last_entry_time: '17:00',
       location: 'Shanghai'
-    });
+    }, token);
 
-    const sessions = await getSessions(apiServer, exhibition.id);
+    const sessions = await getSessions(apiServer, exhibition.id, token);
 
     Object.assign(context, {
       exhibition,
@@ -159,6 +160,7 @@ export function prepareInventoryTicketData(
   Step: StepTest['Given'] | StepTest['And'],
   scenarioContext: { fixtures: APIServerFixture },
   context: ExhibitionContext & { ticketCategories: Exhibition.TicketCategory[]; },
+  token?: string,
 ) {
   Step('created 2 ticket categories for the exhibition', async () => {
     const { apiServer } = scenarioContext.fixtures.values;
@@ -170,7 +172,7 @@ export function prepareInventoryTicketData(
       valid_duration_days: 1,
       refund_policy: 'NON_REFUNDABLE',
       admittance: 1,
-    });
+    }, token);
 
     const regular = await addTicketCategory(apiServer, context.exhibition!.id, {
       name: 'regular',
@@ -178,7 +180,7 @@ export function prepareInventoryTicketData(
       valid_duration_days: 1,
       refund_policy: 'REFUNDABLE_48H_BEFORE',
       admittance: 1,
-    });
+    }, token);
 
     Object.assign(context, {
       ticketCategories: [earlyBird, regular],

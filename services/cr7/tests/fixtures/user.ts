@@ -3,6 +3,8 @@ import { getJSON, postJSON, putJSON } from "../lib/api.js";
 import { User } from "@cr7/types";
 import { expect, vi } from "vitest";
 import { mockWechatServer } from "../lib/server.js";
+import { handler as initAdminHandler } from "@/scripts/user/init-admin.js";
+import { random_text } from "../lib/random.js";
 
 export async function wechatMiniLogin(
   server: Server, code: string
@@ -69,11 +71,35 @@ export function assertUserProfile(profile: unknown) {
 }
 
 /**
+ * 初始化管理员账号并返回 token
+ */
+export async function prepareAdminToken(
+  apiServer: Server,
+  schema: string
+): Promise<string> {
+  const adminPhone = `admin_${random_text(5)}`;
+  const adminPassword = 'admin_password_test';
+  await initAdminHandler({
+    schema,
+    phone: adminPhone,
+    password: adminPassword,
+    countryCode: '+86',
+  });
+  const { token } = await passwordLogin(
+    apiServer,
+    '+86',
+    adminPhone,
+    adminPassword
+  );
+  return token;
+}
+
+/**
  * 注册用户并返回 token
  */
 export async function registerUser(
   apiServer: Server,
-  userName: string = 'Alice'
+  userName: string = random_text(8)
 ): Promise<string> {
   // 创建 mock wechat server
   const mockCode2SessionResponse = vi.fn();

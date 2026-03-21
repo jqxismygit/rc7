@@ -21,9 +21,11 @@ import {
   assertTicketCategory
 } from './fixtures/exhibition.js';
 import { random_text } from './lib/random.js';
+import { registerUser, prepareAdminToken } from './fixtures/user.js';
+import { APIError } from './lib/api.js';
 
 const schema = 'test_exhibition';
-const services = ['api', 'cr7'];
+const services = ['api', 'cr7', 'user'];
 
 const feature = await loadFeature('tests/features/exhibition.feature');
 
@@ -35,6 +37,7 @@ type DraftTicket = Omit<TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'up
 
 async function createExhibitionsForTest(
   apiServer,
+  token: string,
   count: number,
   namePrefix: string = 'test_exhibition'
 ): Promise<ExhibitionType[]> {
@@ -50,7 +53,7 @@ async function createExhibitionsForTest(
       closing_time: '18:00',
       last_entry_time: '17:00',
       location: 'Test Location'
-    });
+    }, token);
     exhibitions.push(exhibition);
   }
 
@@ -60,6 +63,7 @@ async function createExhibitionsForTest(
 interface ScenarioContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
   currentUser?: { id: string; role: string };
+  adminToken?: string;
 }
 
 describeFeature(feature, ({
@@ -76,6 +80,13 @@ describeFeature(feature, ({
       ['apiServer']
     );
     Object.assign(scenarioContext, { fixtures });
+
+    const { apiServer } = fixtures.values;
+
+    // Create admin user and get token
+    const adminToken = await prepareAdminToken(apiServer, schema);
+    Object.assign(scenarioContext, { adminToken });
+
   });
 
   AfterAllScenarios(async () => {
@@ -86,6 +97,7 @@ describeFeature(feature, ({
     Given('a user with role admin is logged in', () => {
       scenarioContext.currentUser = { id: 'admin_user_1', role: 'admin' };
       expect(scenarioContext.currentUser.role).toBe('admin');
+      expect(scenarioContext.adminToken).toBeTruthy();
     });
   });
 
@@ -137,7 +149,7 @@ describeFeature(feature, ({
       When('create exhibition', async () => {
         const { draftExhibition } = context;
         const { apiServer } = scenarioContext.fixtures.values;
-        const exhibition = await createExhibition(apiServer, draftExhibition);
+        const exhibition = await createExhibition(apiServer, draftExhibition, scenarioContext.adminToken);
         Object.assign(context, { exhibition });
       });
 
@@ -149,7 +161,7 @@ describeFeature(feature, ({
 
         // Verify ticket categories are empty by querying separately
         const { apiServer } = scenarioContext.fixtures.values;
-        const categories = await getTicketCategories(apiServer, exhibition.id);
+        const categories = await getTicketCategories(apiServer, exhibition.id, scenarioContext.adminToken);
         expect(categories).toEqual([]);
       });
     }
@@ -166,7 +178,7 @@ describeFeature(feature, ({
 
       Given('created exhibition', async () => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const [exhibition] = await createExhibitionsForTest(apiServer, 1);
+        const [exhibition] = await createExhibitionsForTest(apiServer, scenarioContext.adminToken, 1, 'test_exhibition');
         Object.assign(context, { exhibition });
       });
 
@@ -196,7 +208,8 @@ describeFeature(feature, ({
         const category = await addTicketCategory(
           apiServer,
           exhibition!.id,
-          draftTicket
+          draftTicket,
+          scenarioContext.adminToken
         );
 
         Object.assign(context, { addedCategory: category });
@@ -215,7 +228,7 @@ describeFeature(feature, ({
 
       And('exhibition has {int} ticket categories {string}', async (ctx, count: number, categoryName: string) => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const categories = await getTicketCategories(apiServer, context.exhibition.id);
+        const categories = await getTicketCategories(apiServer, context.exhibition.id, scenarioContext.adminToken);
         expect(categories).toHaveLength(count);
         expect(categories.some(item => item.name === categoryName)).toBe(true);
         expect(categories[0]).toMatchObject(context.ticket);
@@ -234,7 +247,7 @@ describeFeature(feature, ({
 
       Given('created exhibition', async () => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const [exhibition] = await createExhibitionsForTest(apiServer, 1);
+        const [exhibition] = await createExhibitionsForTest(apiServer, scenarioContext.adminToken, 1, 'test_exhibition');
         Object.assign(context, { exhibition });
       });
 
@@ -264,7 +277,8 @@ describeFeature(feature, ({
         const ticket = await addTicketCategory(
           apiServer,
           exhibition!.id,
-          draftTicket as Omit<TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>
+          draftTicket as Omit<TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>,
+          scenarioContext.adminToken
         );
 
         Object.assign(context, { addedCategory: ticket });
@@ -285,7 +299,7 @@ describeFeature(feature, ({
         'exhibition has {int} ticket categories {string}',
         async (ctx, count: number, name: string) => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const categories = await getTicketCategories(apiServer, context.exhibition.id);
+        const categories = await getTicketCategories(apiServer, context.exhibition.id, scenarioContext.adminToken);
         expect(categories).toHaveLength(count);
         expect(categories.some(item => item.name === name)).toBe(true);
         expect(categories[0]).toMatchObject(context.ticket);
@@ -303,14 +317,14 @@ describeFeature(feature, ({
 
       Given('created exhibition', async () => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const [exhibition] = await createExhibitionsForTest(apiServer, 1);
+        const [exhibition] = await createExhibitionsForTest(apiServer, scenarioContext.adminToken, 1, 'test_exhibition');
         Object.assign(context, { exhibition });
       });
 
       Then('exhibition has daily sessions by default', async () => {
         const { exhibition } = context;
         const { apiServer } = scenarioContext.fixtures.values;
-        const sessions = await getSessions(apiServer, exhibition.id);
+        const sessions = await getSessions(apiServer, exhibition.id, scenarioContext.adminToken);
 
         expect(sessions.length).toBeGreaterThan(0);
         sessions.forEach(assertSession);
@@ -347,13 +361,13 @@ describeFeature(feature, ({
 
       Given('created {int} exhibitions for listing', async (ctx, count: number) => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const createdExhibitions = await createExhibitionsForTest(apiServer, count, 'list_exhibition');
+        const createdExhibitions = await createExhibitionsForTest(apiServer, scenarioContext.adminToken, count, 'list_exhibition');
         Object.assign(context, { createdExhibitions });
       });
 
       When('list exhibitions with limit {int} and offset {int}', async (ctx, limit: number, offset: number) => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const listResult = await listExhibitions(apiServer, { limit, offset });
+        const listResult = await listExhibitions(apiServer, { limit, offset }, scenarioContext.adminToken);
         Object.assign(context, { listResult });
       });
 
@@ -381,13 +395,13 @@ describeFeature(feature, ({
 
       Given('created {int} exhibitions for listing', async (ctx, count: number) => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const createdExhibitions = await createExhibitionsForTest(apiServer, count, 'list_exhibition');
+        const createdExhibitions = await createExhibitionsForTest(apiServer, scenarioContext.adminToken, count, 'list_exhibition');
         Object.assign(context, { createdExhibitions });
       });
 
       When('list exhibitions with limit {int} and offset {int}', async (ctx, limit: number, offset: number) => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const listResult = await listExhibitions(apiServer, { limit, offset });
+        const listResult = await listExhibitions(apiServer, { limit, offset }, scenarioContext.adminToken);
         Object.assign(context, { listResult });
       });
 
@@ -410,12 +424,113 @@ describeFeature(feature, ({
 
       When('list exhibitions with limit {int} and offset {int}', async (ctx, limit: number, offset: number) => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const listResult = await listExhibitions(apiServer, { limit, offset });
+        const listResult = await listExhibitions(apiServer, { limit, offset }, scenarioContext.adminToken);
         Object.assign(context, { listResult });
       });
 
       Then('return {int} exhibitions', (ctx, count: number) => {
         expect(context.listResult.data).toHaveLength(count);
+      });
+    }
+  );
+
+  Scenario.skip(
+    'non-admin user cannot create exhibition',
+    (s: StepTest<{
+      draftExhibition: DraftExhibition;
+      regularUserToken?: string;
+      lastError?: unknown;
+    }>) => {
+      const { Given, When, Then, context } = s;
+
+      Given('a regular user is logged in', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const regularUserToken = await registerUser(apiServer, random_text());
+        Object.assign(context, { regularUserToken });
+      });
+
+      When('try to create exhibition with name {string}', async (ctx, name: string) => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        Object.assign(context, {
+          draftExhibition: {
+            name,
+            description: 'unauthorized exhibition',
+            start_date: '2026-01-01',
+            end_date: '2026-12-31',
+            opening_time: '10:00',
+            closing_time: '18:00',
+            last_entry_time: '17:00',
+            location: 'Test Location'
+          }
+        });
+
+        try {
+          await createExhibition(apiServer, context.draftExhibition, context.regularUserToken);
+        } catch (error) {
+          Object.assign(context, { lastError: error });
+        }
+      });
+
+      Then('permission denied error is returned', () => {
+        expect(context.lastError).toBeTruthy();
+        expect(context.lastError).toBeInstanceOf(APIError);
+        const apiError = context.lastError as APIError;
+        expect(apiError.status).toBe(403);
+      });
+    }
+  );
+
+  Scenario.skip(
+    'non-admin user cannot add ticket category to exhibition',
+    (s: StepTest<{
+      exhibition: ExhibitionType;
+      draftTicket: DraftTicket;
+      regularUserToken?: string;
+      lastError?: unknown;
+    }>) => {
+      const { Given, When, Then, context } = s;
+
+      Given('created exhibition by admin', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const [exhibition] = await createExhibitionsForTest(apiServer, scenarioContext.adminToken, 1, 'test_exhibition');
+        Object.assign(context, { exhibition });
+      });
+
+      Given('a regular user is logged in', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const regularUserToken = await registerUser(apiServer, random_text());
+        Object.assign(context, { regularUserToken });
+      });
+
+      When('try to add ticket category to exhibition', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        Object.assign(context, {
+          draftTicket: {
+            name: 'unauthorized_ticket',
+            price: 100,
+            valid_duration_days: 1,
+            refund_policy: 'NON_REFUNDABLE',
+            admittance: 1
+          }
+        });
+
+        try {
+          await addTicketCategory(
+            apiServer,
+            context.exhibition.id,
+            context.draftTicket,
+            context.regularUserToken
+          );
+        } catch (error) {
+          Object.assign(context, { lastError: error });
+        }
+      });
+
+      Then('permission denied error is returned', () => {
+        expect(context.lastError).toBeTruthy();
+        expect(context.lastError).toBeInstanceOf(APIError);
+        const apiError = context.lastError as APIError;
+        expect(apiError.status).toBe(403);
       });
     }
   );

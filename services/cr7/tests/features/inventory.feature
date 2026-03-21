@@ -27,3 +27,17 @@ Feature: manage inventory
      Then the inventory of ticket category "early_bird" in the first session of the exhibition is 30
       And the inventory of ticket category "regular" in the first session of the exhibition is 20
 
+  Scenario: non-admin user cannot view inventory of a session
+    Given created exhibition with 2 sessions by admin
+      And created 2 ticket categories for the exhibition by admin
+    Given a regular user is logged in
+    When try to view inventory of a session
+    Then permission denied error is returned
+
+  Scenario: non-admin user cannot update inventory
+    Given created exhibition with 2 sessions by admin
+      And created 2 ticket categories for the exhibition by admin
+    Given a regular user is logged in
+    When try to update inventory of ticket category
+    Then permission denied error is returned
+

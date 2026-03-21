@@ -60,6 +60,17 @@ Feature: manage exhibition
      When list exhibitions with limit 10 and offset 1000
      Then return 0 exhibitions
 
+  Scenario: non-admin user cannot create exhibition
+    Given a regular user is logged in
+    When try to create exhibition with name "unauthorized_exhibition"
+    Then permission denied error is returned
+
+  Scenario: non-admin user cannot add ticket category to exhibition
+    Given created exhibition by admin
+    Given a regular user is logged in
+    When try to add ticket category to exhibition
+    Then permission denied error is returned
+
 # todo
 # - 更新 exhibition 基本信息
 # - 更新 ticket category

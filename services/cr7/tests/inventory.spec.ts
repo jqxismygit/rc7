@@ -17,10 +17,16 @@ import {
 import {
   prepareInventoryExhibitionData,
   prepareInventoryTicketData,
+  createExhibition,
+  addTicketCategory,
+  getSessions,
 } from './fixtures/exhibition.js';
+import { random_text } from './lib/random.js';
+import { registerUser, prepareAdminToken } from './fixtures/user.js';
+import { APIError } from './lib/api.js';
 
 const schema = 'test_inventory';
-const services = ['api', 'cr7'];
+const services = ['api', 'cr7', 'user'];
 
 const feature = await loadFeature('tests/features/inventory.feature');
 
@@ -32,6 +38,7 @@ type SessionTicketsInventoryType = Inventory.SessionTicketsInventory;
 interface ScenarioContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
   currentUser?: { id: string; role: string };
+  adminToken?: string;
 }
 
 describeFeature(feature, ({
@@ -48,6 +55,10 @@ describeFeature(feature, ({
       ['apiServer']
     );
     Object.assign(scenarioContext, { fixtures });
+
+    // Create admin user and get token
+    const { apiServer } = fixtures.values;
+    scenarioContext.adminToken = await prepareAdminToken(apiServer, schema);
   });
 
   AfterAllScenarios(async () => {
@@ -58,6 +69,7 @@ describeFeature(feature, ({
     Given('a user with role admin is logged in', () => {
       scenarioContext.currentUser = { id: 'admin_user_1', role: 'admin' };
       expect(scenarioContext.currentUser.role).toBe('admin');
+      expect(scenarioContext.adminToken).toBeTruthy();
     });
   });
 
@@ -70,8 +82,8 @@ describeFeature(feature, ({
       inventory: SessionTicketsInventoryType[];
     }>) => {
       const { Given, And, When, Then, context } = s;
-      prepareInventoryExhibitionData(Given, scenarioContext, context);
-      prepareInventoryTicketData(And, scenarioContext, context);
+      prepareInventoryExhibitionData(Given, scenarioContext, context, scenarioContext.adminToken);
+      prepareInventoryTicketData(And, scenarioContext, context, scenarioContext.adminToken);
 
       Given('a session with inventory', () => {
         expect(context.sessions).toHaveLength(2);
@@ -80,7 +92,7 @@ describeFeature(feature, ({
       When('view inventory of the session', async () => {
         const { apiServer } = scenarioContext.fixtures.values;
         const session = context.sessions[0];
-        const inventory = await getSessionTickets(apiServer, context.exhibition.id, session.id);
+        const inventory = await getSessionTickets(apiServer, context.exhibition.id, session.id, scenarioContext.adminToken);
         Object.assign(context, { inventory });
       });
 
@@ -100,8 +112,8 @@ describeFeature(feature, ({
       ticketCategories: TicketCategoryType[];
     }>) => {
       const { Given, When, Then, And, context } = s;
-      prepareInventoryExhibitionData(Given, scenarioContext, context);
-      prepareInventoryTicketData(And, scenarioContext, context);
+      prepareInventoryExhibitionData(Given, scenarioContext, context, scenarioContext.adminToken);
+      prepareInventoryTicketData(And, scenarioContext, context, scenarioContext.adminToken);
 
       Given(
         'inventory quantity 50 for ticket category {string} in all sessions of the exhibition',
@@ -113,7 +125,8 @@ describeFeature(feature, ({
             apiServer,
             context.exhibition.id,
             category!.id,
-            50
+            50,
+            scenarioContext.adminToken
           );
         }
       );
@@ -128,7 +141,8 @@ describeFeature(feature, ({
             apiServer,
             context.exhibition.id,
             category!.id,
-            50
+            50,
+            scenarioContext.adminToken
           )).resolves.toBeNull();
         }
       );
@@ -141,7 +155,7 @@ describeFeature(feature, ({
           expect(category).toBeTruthy();
 
           for (const session of context.sessions) {
-            const inventory = await getSessionTickets(apiServer, context.exhibition.id, session.id);
+            const inventory = await getSessionTickets(apiServer, context.exhibition.id, session.id, scenarioContext.adminToken);
             const item = inventory.find(row => row.id === category!.id);
             expect(item?.quantity).toBe(expectedQuantity);
           }
@@ -156,7 +170,7 @@ describeFeature(feature, ({
           expect(category).toBeTruthy();
 
           for (const session of context.sessions) {
-            const inventory = await getSessionTickets(apiServer, context.exhibition.id, session.id);
+            const inventory = await getSessionTickets(apiServer, context.exhibition.id, session.id, scenarioContext.adminToken);
             const item = inventory.find(row => row.id === category!.id);
             expect(item?.quantity).toBe(expectedQuantity);
           }
@@ -174,8 +188,8 @@ describeFeature(feature, ({
       inventory: SessionTicketsInventoryType[];
     }>) => {
       const { Given, When, Then, And, context } = s;
-      prepareInventoryExhibitionData(Given, scenarioContext, context);
-      prepareInventoryTicketData(And, scenarioContext, context);
+      prepareInventoryExhibitionData(Given, scenarioContext, context, scenarioContext.adminToken);
+      prepareInventoryTicketData(And, scenarioContext, context, scenarioContext.adminToken);
 
       Given(
         'inventory quantity {int} for ticket category {string} in the first session of the exhibition',
@@ -187,7 +201,8 @@ describeFeature(feature, ({
             apiServer,
             context.exhibition.id,
             category!.id,
-            quantity
+            quantity,
+            scenarioContext.adminToken
           );
         }
       );
@@ -202,7 +217,8 @@ describeFeature(feature, ({
             apiServer,
             context.exhibition.id,
             category!.id,
-            20
+            20,
+            scenarioContext.adminToken
           );
         }
       );
@@ -210,7 +226,7 @@ describeFeature(feature, ({
       When('view inventory of the first session of the exhibition', async () => {
         const { apiServer } = scenarioContext.fixtures.values;
         const firstSession = context.sessions[0];
-        const inventory = await getSessionTickets(apiServer, context.exhibition.id, firstSession.id);
+        const inventory = await getSessionTickets(apiServer, context.exhibition.id, firstSession.id, scenarioContext.adminToken);
         Object.assign(context, { inventory });
       });
 
@@ -235,6 +251,158 @@ describeFeature(feature, ({
           expect(item!.quantity).toBe(20);
         }
       );
+    }
+  );
+
+  Scenario.skip(
+    'non-admin user cannot view inventory of a session',
+    (s: StepTest<{
+      exhibition: ExhibitionType;
+      sessions: SessionType[];
+      ticketCategories: TicketCategoryType[];
+      regularUserToken?: string;
+      lastError?: unknown;
+    }>) => {
+      const { Given, When, Then, And, context } = s;
+
+      Given('created exhibition with 2 sessions by admin', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const exhibition = await createExhibition(apiServer, {
+          name: `inventory_test_${random_text(5)}`,
+          description: 'Inventory test exhibition',
+          start_date: '2026-01-01',
+          end_date: '2026-01-02',
+          opening_time: '10:00',
+          closing_time: '18:00',
+          last_entry_time: '17:00',
+          location: 'Shanghai'
+        }, scenarioContext.adminToken);
+
+        const sessions = await getSessions(apiServer, exhibition.id, scenarioContext.adminToken);
+        Object.assign(context, { exhibition, sessions });
+      });
+
+      And('created 2 ticket categories for the exhibition by admin', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const earlyBird = await addTicketCategory(apiServer, context.exhibition.id, {
+          name: 'early_bird',
+          price: 100,
+          valid_duration_days: 1,
+          refund_policy: 'NON_REFUNDABLE',
+          admittance: 1,
+        }, scenarioContext.adminToken);
+
+        const regular = await addTicketCategory(apiServer, context.exhibition.id, {
+          name: 'regular',
+          price: 150,
+          valid_duration_days: 1,
+          refund_policy: 'REFUNDABLE_48H_BEFORE',
+          admittance: 1,
+        }, scenarioContext.adminToken);
+
+        Object.assign(context, { ticketCategories: [earlyBird, regular] });
+      });
+
+      Given('a regular user is logged in', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const regularUserToken = await registerUser(apiServer);
+        Object.assign(context, { regularUserToken });
+      });
+
+      When('try to view inventory of a session', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        try {
+          await getSessionTickets(apiServer, context.exhibition.id, context.sessions[0].id, context.regularUserToken);
+        } catch (error) {
+          Object.assign(context, { lastError: error });
+        }
+      });
+
+      Then('permission denied error is returned', () => {
+        expect(context.lastError).toBeTruthy();
+        expect(context.lastError).toBeInstanceOf(APIError);
+        const apiError = context.lastError as APIError;
+        expect(apiError.status).toBe(403);
+      });
+    }
+  );
+
+  Scenario.skip(
+    'non-admin user cannot update inventory',
+    (s: StepTest<{
+      exhibition: ExhibitionType;
+      sessions: SessionType[];
+      ticketCategories: TicketCategoryType[];
+      regularUserToken?: string;
+      lastError?: unknown;
+    }>) => {
+      const { Given, When, Then, And, context } = s;
+
+      Given('created exhibition with 2 sessions by admin', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const exhibition = await createExhibition(apiServer, {
+          name: `inventory_test_${random_text(5)}`,
+          description: 'Inventory test exhibition',
+          start_date: '2026-01-01',
+          end_date: '2026-01-02',
+          opening_time: '10:00',
+          closing_time: '18:00',
+          last_entry_time: '17:00',
+          location: 'Shanghai'
+        }, scenarioContext.adminToken);
+
+        const sessions = await getSessions(apiServer, exhibition.id, scenarioContext.adminToken);
+        Object.assign(context, { exhibition, sessions });
+      });
+
+      And('created 2 ticket categories for the exhibition by admin', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const earlyBird = await addTicketCategory(apiServer, context.exhibition.id, {
+          name: 'early_bird',
+          price: 100,
+          valid_duration_days: 1,
+          refund_policy: 'NON_REFUNDABLE',
+          admittance: 1,
+        }, scenarioContext.adminToken);
+
+        const regular = await addTicketCategory(apiServer, context.exhibition.id, {
+          name: 'regular',
+          price: 150,
+          valid_duration_days: 1,
+          refund_policy: 'REFUNDABLE_48H_BEFORE',
+          admittance: 1,
+        }, scenarioContext.adminToken);
+
+        Object.assign(context, { ticketCategories: [earlyBird, regular] });
+      });
+
+      Given('a regular user is logged in', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const regularUserToken = await registerUser(apiServer);
+        Object.assign(context, { regularUserToken });
+      });
+
+      When('try to update inventory of ticket category', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        try {
+          await updateTicketCategoryMaxInventory(
+            apiServer,
+            context.exhibition.id,
+            context.ticketCategories[0].id,
+            50,
+            context.regularUserToken
+          );
+        } catch (error) {
+          Object.assign(context, { lastError: error });
+        }
+      });
+
+      Then('permission denied error is returned', () => {
+        expect(context.lastError).toBeTruthy();
+        expect(context.lastError).toBeInstanceOf(APIError);
+        const apiError = context.lastError as APIError;
+        expect(apiError.status).toBe(403);
+      });
     }
   );
 });
