@@ -25,6 +25,10 @@ function handleOrderError(error: unknown): never {
     throw new MoleculerClientError('库存不足', 409, 'INVENTORY_NOT_ENOUGH');
   }
 
+  if (error.code === 'SESSION_EXPIRED') {
+    throw new MoleculerClientError('场次已过期', 410, 'SESSION_EXPIRED');
+  }
+
   if (
     error.code === 'INVALID_ARGUMENT'
     || error.code === 'SESSION_NOT_FOUND'

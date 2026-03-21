@@ -119,14 +119,15 @@ describeFeature(feature, ({
   async function prepareExhibitionWithTickets(
     context: Partial<OrderCaseContext>,
     names: string[],
+    sessionDate: string = '2026-07-01',
   ) {
     const { apiServer } = scenarioContext.fixtures.values;
 
     const exhibition = await createExhibition(apiServer, {
       name: `order_test_${random_text(5)}`,
       description: 'Order inventory test exhibition',
-      start_date: '2026-07-01',
-      end_date: '2026-07-01',
+      start_date: sessionDate,
+      end_date: sessionDate,
       opening_time: '10:00',
       closing_time: '18:00',
       last_entry_time: '17:00',
@@ -428,6 +429,38 @@ describeFeature(feature, ({
     });
 
     And('场次 "2026-07-01" 的 "成人票" 库存为 2', async () => {
+      const quantity = await availableInventoryByTicketName(context, '成人票');
+      expect(quantity).toBe(2);
+    });
+  });
+
+  Scenario('预订已过期场次的门票', (s: StepTest<Partial<OrderCaseContext>>) => {
+    const { Given, When, Then, And, context } = s;
+
+    Given('展览活动 "艺术展" 已创建，包含场次 "2025-07-01" 和票种 "成人票"', async () => {
+      await prepareExhibitionWithTickets(context, ['成人票'], '2025-07-01');
+    });
+
+    And('场次 "2025-07-01" 的 "成人票" 库存初始为 2', async () => {
+      await setInitialInventory(context, '成人票', 2);
+    });
+
+    When('用户预订 1 张 "艺术展" 的 "2025-07-01" 场次的 "成人票"', async () => {
+      try {
+        await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }]);
+      } catch (error) {
+        rememberError(context, error);
+      }
+    });
+
+    Then('创建失败，提示场次已过期', () => {
+      assertLastAPIError(context, {
+        status: 410,
+        messageIncludes: '场次已过期',
+      });
+    });
+
+    And('场次 "2025-07-01" 的 "成人票" 库存为 2', async () => {
       const quantity = await availableInventoryByTicketName(context, '成人票');
       expect(quantity).toBe(2);
     });

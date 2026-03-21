@@ -48,6 +48,7 @@ export type ORDER_DATA_ERROR_CODES =
   | 'ORDER_STATUS_INVALID'
   | 'INVENTORY_NOT_ENOUGH'
   | 'SESSION_NOT_FOUND'
+  | 'SESSION_EXPIRED'
   | 'TICKET_CATEGORY_NOT_FOUND'
   | 'INVALID_ARGUMENT';
 
@@ -92,8 +93,10 @@ async function ensureSessionBelongsToExhibition(
   exhibitId: string,
   sessionId: string,
 ) {
-  const { rows } = await client.query(
-    `SELECT id
+  const { rows } = await client.query<{ id: string; is_expired: boolean }>(
+    `SELECT
+      id,
+      (session_date < CURRENT_DATE) AS is_expired
     FROM ${schema}.exhibit_sessions
     WHERE id = $1
       AND session_id = $2`,
@@ -102,6 +105,10 @@ async function ensureSessionBelongsToExhibition(
 
   if (rows.length === 0) {
     throw new OrderDataError('Session not found', 'SESSION_NOT_FOUND');
+  }
+
+  if (rows[0].is_expired) {
+    throw new OrderDataError('Session expired', 'SESSION_EXPIRED');
   }
 }
 
