@@ -99,10 +99,19 @@ const routes = [
   ),
   routeConfig(
     '/exhibition',
-    ['cr7.exhibition.*', 'cr7.order.create'],
+    ['cr7.exhibition.*'],
     {
       authorization: false,
       autoAliases: true,
+    }
+  ),
+  routeConfig(
+    '/exhibition/:eid/sessions/:sid/order',
+    ['cr7.order.create'],
+    {
+      aliases: {
+        'POST /': 'cr7.order.create'
+      }
     }
   ),
   routeConfig(
