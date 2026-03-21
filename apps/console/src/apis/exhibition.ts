@@ -41,20 +41,50 @@ export async function getExhibitionSessionsApi(
   return raw as unknown as ExhibitionTypes.Session[];
 }
 
+export type CreateTicketCategoryInput = Omit<
+  ExhibitionTypes.TicketCategory,
+  "id" | "exhibit_id" | "created_at" | "updated_at"
+>;
+
+export async function listExhibitionTicketsApi(
+  eid: string,
+): Promise<ExhibitionTypes.TicketCategory[]> {
+  const raw = await request.get(
+    `/exhibition/${encodeURIComponent(eid)}/tickets`,
+  );
+  return raw as unknown as ExhibitionTypes.TicketCategory[];
+}
+
+export async function createExhibitionTicketCategoryApi(
+  eid: string,
+  data: CreateTicketCategoryInput,
+): Promise<ExhibitionTypes.TicketCategory> {
+  const raw = await request.post(
+    `/exhibition/${encodeURIComponent(eid)}/tickets`,
+    data,
+  );
+  return raw as unknown as ExhibitionTypes.TicketCategory;
+}
+
 export async function getExhibitionApi(
   eid: string,
 ): Promise<
-  ExhibitionTypes.Exhibition & { sessions: ExhibitionTypes.Session[] }
+  ExhibitionTypes.Exhibition & {
+    sessions: ExhibitionTypes.Session[];
+    ticket_categories: ExhibitionTypes.TicketCategory[];
+  }
 > {
-  // const raw = await request.get(`/exhibition/${encodeURIComponent(eid)}`);
-  const [exhibition, sessions] = await Promise.all([
+  const [exhibition, sessions, ticket_categories] = await Promise.all([
     request.get(`/exhibition/${encodeURIComponent(eid)}`),
     request.get(`/exhibition/${encodeURIComponent(eid)}/sessions`),
+    request.get(`/exhibition/${encodeURIComponent(eid)}/tickets`),
   ]);
   return {
     ...exhibition,
     sessions: sessions,
+    ticket_categories: ticket_categories,
   } as unknown as ExhibitionTypes.Exhibition & {
     sessions: ExhibitionTypes.Session[];
+    ticket_categories: ExhibitionTypes.TicketCategory[];
   };
 }

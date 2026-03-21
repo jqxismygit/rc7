@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import type { ColumnsType } from "antd/es/table";
 import {
@@ -10,17 +10,55 @@ import {
   Spin,
   Table,
   Typography,
+  message,
   theme,
 } from "antd";
-import { ArrowLeftOutlined, HomeOutlined } from "@ant-design/icons";
+import {
+  ArrowLeftOutlined,
+  HomeOutlined,
+  PlusOutlined,
+} from "@ant-design/icons";
+import {
+  ModalForm,
+  ProFormDigit,
+  ProFormSelect,
+  ProFormText,
+} from "@ant-design/pro-components";
 import type { Exhibition as ExhibitionTypes } from "@cr7/types";
-import { getExhibitionApi } from "@/apis/exhibition";
+import {
+  createExhibitionTicketCategoryApi,
+  getExhibitionApi,
+  type CreateTicketCategoryInput,
+} from "@/apis/exhibition";
 import { formatDateTime, formatSessionDateTime } from "@/utils/format-datetime";
 import dayjs from "dayjs";
 import "./exhibition.less";
 
 type ExhibitionDetailData = ExhibitionTypes.Exhibition & {
   sessions?: ExhibitionTypes.Session[];
+  ticket_categories?: ExhibitionTypes.TicketCategory[];
+};
+
+const REFUND_POLICY_OPTIONS: {
+  label: string;
+  value: ExhibitionTypes.TicketCategory["refund_policy"];
+}[] = [
+  { label: "不可退票", value: "NON_REFUNDABLE" },
+  { label: "开场前 48 小时可退", value: "REFUNDABLE_48H_BEFORE" },
+];
+
+function refundPolicyText(
+  v: ExhibitionTypes.TicketCategory["refund_policy"],
+): string {
+  return REFUND_POLICY_OPTIONS.find((o) => o.value === v)?.label ?? v;
+}
+
+const ticketFormInitial: CreateTicketCategoryInput = {
+  name: "",
+  price: 0,
+  valid_duration_days: 1,
+  refund_policy: "NON_REFUNDABLE",
+  admittance: 1,
 };
 
 export default function ExhibitionDetailPage() {
@@ -30,6 +68,33 @@ export default function ExhibitionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ExhibitionDetailData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ticketModalOpen, setTicketModalOpen] = useState(false);
+  const [ticketSubmitting, setTicketSubmitting] = useState(false);
+
+  const loadDetail = useCallback(async () => {
+    if (!eid) {
+      setLoading(false);
+      setError("缺少展会 ID");
+      setData(null);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await getExhibitionApi(eid);
+      setData(res);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg || "加载失败");
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [eid]);
+
+  useEffect(() => {
+    void loadDetail();
+  }, [loadDetail]);
 
   const sessionColumns = useMemo<ColumnsType<ExhibitionTypes.Session>>(
     () => [
@@ -60,37 +125,80 @@ export default function ExhibitionDetailPage() {
     [],
   );
 
-  useEffect(() => {
-    if (!eid) {
-      setLoading(false);
-      setError("缺少展会 ID");
-      return;
+  const ticketColumns = useMemo<ColumnsType<ExhibitionTypes.TicketCategory>>(
+    () => [
+      {
+        title: "序号",
+        key: "index",
+        width: 64,
+        align: "center",
+        render: (_, __, index) => index + 1,
+      },
+      {
+        title: "票种名称",
+        dataIndex: "name",
+        width: 160,
+        ellipsis: true,
+      },
+      {
+        title: "价格（元）",
+        dataIndex: "price",
+        width: 110,
+        render: (p: number) => (typeof p === "number" ? String(p) : p),
+      },
+      {
+        title: "有效天数",
+        dataIndex: "valid_duration_days",
+        width: 96,
+      },
+      {
+        title: "退票政策",
+        dataIndex: "refund_policy",
+        width: 200,
+        render: (v: ExhibitionTypes.TicketCategory["refund_policy"]) =>
+          refundPolicyText(v),
+      },
+      {
+        title: "可入场人数",
+        dataIndex: "admittance",
+        width: 120,
+      },
+      {
+        title: "票种 ID",
+        dataIndex: "id",
+        ellipsis: true,
+        render: (id: string) => (
+          <Typography.Text copyable={{ text: id }} ellipsis>
+            {id}
+          </Typography.Text>
+        ),
+      },
+      {
+        title: "创建时间",
+        dataIndex: "created_at",
+        width: 170,
+        render: (v: string) => formatDateTime(v),
+      },
+    ],
+    [],
+  );
+
+  async function handleTicketModalFinish(values: CreateTicketCategoryInput) {
+    if (!eid) return false;
+    try {
+      setTicketSubmitting(true);
+      await createExhibitionTicketCategoryApi(eid, values);
+      message.success("票种已添加");
+      await loadDetail();
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      message.error(msg ? `添加失败：${msg}` : "添加票种失败");
+      return false;
+    } finally {
+      setTicketSubmitting(false);
     }
-    let cancelled = false;
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await getExhibitionApi(eid);
-        if (!cancelled) {
-          setData(res);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          const msg = err instanceof Error ? err.message : String(err);
-          setError(msg || "加载失败");
-          setData(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [eid]);
+  }
 
   return (
     <div className="exhibition-admin-page exhibition-detail-page">
@@ -195,32 +303,123 @@ export default function ExhibitionDetailPage() {
       </Card>
 
       {!loading && !error && data ? (
-        <Card
-          className="exhibition-detail-sessions-card"
-          variant="borderless"
-          title="场次列表"
-          style={{
-            marginTop: token.marginMD,
-            borderRadius: token.borderRadiusLG,
-            boxShadow: token.boxShadowSecondary,
-          }}
-        >
-          <Table<ExhibitionTypes.Session>
-            className="exhibition-detail-sessions-table"
-            rowKey="id"
-            columns={sessionColumns}
-            dataSource={data.sessions ?? []}
-            pagination={{
-              pageSize: 20,
-              showSizeChanger: true,
-              pageSizeOptions: [10, 20, 50, 100],
-              showTotal: (total) => `共 ${total} 场`,
+        <>
+          <Card
+            className="exhibition-detail-tickets-card"
+            variant="borderless"
+            title="票种列表"
+            extra={
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => setTicketModalOpen(true)}
+              >
+                添加票种
+              </Button>
+            }
+            style={{
+              marginTop: token.marginMD,
+              borderRadius: token.borderRadiusLG,
+              boxShadow: token.boxShadowSecondary,
             }}
-            locale={{ emptyText: "暂无场次数据" }}
-            scroll={{ x: "max-content" }}
-          />
-        </Card>
+          >
+            <Table<ExhibitionTypes.TicketCategory>
+              className="exhibition-detail-tickets-table"
+              rowKey="id"
+              columns={ticketColumns}
+              dataSource={data.ticket_categories ?? []}
+              pagination={{
+                pageSize: 10,
+                showSizeChanger: true,
+                pageSizeOptions: [10, 20, 50],
+                showTotal: (total) => `共 ${total} 种`,
+              }}
+              locale={{ emptyText: "暂无票种，请点击右上角「添加票种」" }}
+              scroll={{ x: "max-content" }}
+            />
+          </Card>
+
+          <Card
+            className="exhibition-detail-sessions-card"
+            variant="borderless"
+            title="场次列表"
+            style={{
+              marginTop: token.marginMD,
+              borderRadius: token.borderRadiusLG,
+              boxShadow: token.boxShadowSecondary,
+            }}
+          >
+            <Table<ExhibitionTypes.Session>
+              className="exhibition-detail-sessions-table"
+              rowKey="id"
+              columns={sessionColumns}
+              dataSource={data.sessions ?? []}
+              pagination={{
+                pageSize: 20,
+                showSizeChanger: true,
+                pageSizeOptions: [10, 20, 50, 100],
+                showTotal: (total) => `共 ${total} 场`,
+              }}
+              locale={{ emptyText: "暂无场次数据" }}
+              scroll={{ x: "max-content" }}
+            />
+          </Card>
+        </>
       ) : null}
+
+      <ModalForm<CreateTicketCategoryInput>
+        title="添加票种"
+        open={ticketModalOpen}
+        onOpenChange={setTicketModalOpen}
+        initialValues={ticketFormInitial}
+        modalProps={{
+          destroyOnClose: true,
+          maskClosable: false,
+        }}
+        submitter={{
+          searchConfig: {
+            submitText: ticketSubmitting ? "提交中…" : "确定",
+          },
+          resetButtonProps: { children: "取消" },
+        }}
+        onFinish={handleTicketModalFinish}
+        width={520}
+        layout="vertical"
+      >
+        <ProFormText
+          name="name"
+          label="票种名称"
+          placeholder="请输入票种名称"
+          rules={[{ required: true, message: "请输入票种名称" }]}
+        />
+        <ProFormDigit
+          name="price"
+          label="价格（元）"
+          placeholder="0"
+          fieldProps={{ min: 0, precision: 0, style: { width: "100%" } }}
+          rules={[{ required: true, message: "请输入价格" }]}
+        />
+        <ProFormDigit
+          name="valid_duration_days"
+          label="有效天数"
+          placeholder="1"
+          fieldProps={{ min: 1, precision: 0, style: { width: "100%" } }}
+          rules={[{ required: true, message: "请输入有效天数" }]}
+        />
+        <ProFormSelect
+          name="refund_policy"
+          label="退票政策"
+          options={REFUND_POLICY_OPTIONS}
+          rules={[{ required: true, message: "请选择退票政策" }]}
+        />
+        <ProFormDigit
+          name="admittance"
+          label="可入场人数"
+          placeholder="1"
+          fieldProps={{ min: 1, precision: 0, style: { width: "100%" } }}
+          rules={[{ required: true, message: "请输入可入场人数" }]}
+        />
+      </ModalForm>
     </div>
   );
 }
