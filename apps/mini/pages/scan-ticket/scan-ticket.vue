@@ -1,37 +1,34 @@
 <template>
   <view class="scan-page">
-    <!-- 设计稿 Body 背景 750×1700，1px=1rpx -->
-    <image
-      class="page-bg"
-      src="/static/images/scan-ticket-bg.jpg"
-      mode="aspectFill"
-    />
-
     <!-- 自定义导航 -->
     <view class="nav-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
       <view class="nav-inner">
         <view class="nav-back" @click="goBack">
           <text class="nav-back-icon">‹</text>
         </view>
-        <text class="nav-title">扫码核销</text>
+        <text class="nav-title">票码兑换</text>
         <view class="nav-placeholder"></view>
       </view>
     </view>
 
-    <view class="main" :style="{ paddingTop: navBlockPx + 'px' }">
-      <!-- 核销成功横幅（Figma：w ~680 / radius 28 / pad 21，左右 51） -->
-      <view v-if="showSuccessBanner" class="success-banner">
-        <view class="success-row">
-          <view class="success-icon-wrap">
-            <view class="success-icon-bg"></view>
-            <view class="success-tick">
-              <text class="success-tick-char">✓</text>
-            </view>
+    <!-- 核销成功横幅：悬浮 overlay，不影响主体布局（Figma：w ~680 / radius 28 / pad 21） -->
+    <view
+      v-if="showSuccessBanner"
+      class="success-banner success-banner-float"
+      :style="{ top: navBlockPx + 24 + 'px' }"
+    >
+      <view class="success-row">
+        <view class="success-icon-wrap">
+          <view class="success-icon-bg"></view>
+          <view class="success-tick">
+            <text class="success-tick-char">✓</text>
           </view>
-          <text class="success-text">核销成功，电子票已使用</text>
         </view>
+        <text class="success-text">核销成功，电子票已使用</text>
       </view>
-      <!-- #ifdef MP-WEIXIN -->
+    </view>
+
+    <view class="main" :style="{ paddingTop: navBlockPx + 'px' }">
       <view v-if="useInlineCamera" class="camera-box">
         <camera
           class="camera"
@@ -41,11 +38,11 @@
           @scancode="onScanCode"
           @error="onCameraError"
         />
-        <view class="scan-dim" aria-hidden="true">
+        <!-- <view class="scan-dim" aria-hidden="true">
           <view class="scan-hole-anchor">
             <view class="scan-hole-shadow"></view>
           </view>
-        </view>
+        </view> -->
         <view class="scan-frame" aria-hidden="true">
           <view class="scan-frame-inner">
             <view class="corner corner-tl"></view>
@@ -56,35 +53,25 @@
           </view>
         </view>
       </view>
-      <!-- #endif -->
 
-      <!-- #ifndef MP-WEIXIN -->
-      <view class="fallback-scan">
-        <text class="fallback-tip">当前端不支持相机扫码，请使用下方按钮</text>
-        <button class="fallback-btn" @click="openSystemScan">打开扫码</button>
-      </view>
-      <!-- #endif -->
-
-      <!-- #ifdef MP-WEIXIN -->
       <view v-if="!useInlineCamera" class="fallback-scan">
         <text class="fallback-tip">无法使用相机时，可改用系统扫码</text>
         <button class="fallback-btn" @click="openSystemScan">打开扫码</button>
       </view>
-      <!-- #endif -->
 
-      <text class="status-primary">{{
-        useInlineCamera ? "正在扫描..." : "点击按钮开始扫码"
-      }}</text>
-      <text class="status-sub">请将二维码/条形码置于框内</text>
+      <view class="status-wrap">
+        <text class="status-primary">{{
+          useInlineCamera ? "正在扫描..." : "点击按钮开始扫码"
+        }}</text>
+        <text class="status-sub">请将二维码/条形码置于框内</text>
+      </view>
 
-      <!-- #ifdef MP-WEIXIN -->
       <view v-if="useInlineCamera" class="torch-wrap" @click="toggleTorch">
         <view class="torch-btn">
           <view class="torch-glyph"></view>
         </view>
         <text class="torch-label">轻点照亮</text>
       </view>
-      <!-- #endif -->
     </view>
   </view>
 </template>
@@ -124,9 +111,6 @@ export default {
     this.statusBarHeight = sys.statusBarHeight || 0;
     const winW = sys.windowWidth || 375;
     this.navInnerPx = (88 * winW) / 750;
-    // #ifndef MP-WEIXIN
-    this.useInlineCamera = false;
-    // #endif
   },
 
   methods: {
@@ -196,7 +180,7 @@ export default {
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  background: $cr7-black;
+  background: #090a07;
 }
 
 .page-bg {
@@ -259,9 +243,17 @@ export default {
   height: 70rpx;
 }
 
+/* 悬浮成功横幅：不参与文档流，不影响扫码区域布局 */
+.success-banner-float {
+  position: fixed;
+  left: 51rpx;
+  right: 51rpx;
+  z-index: 25;
+  pointer-events: none;
+}
+
 .success-banner {
-  width: 648rpx;
-  margin: 0 auto 24rpx;
+  width: 100%;
   box-sizing: border-box;
   background: $cr7-dark;
   border-radius: 28rpx;
@@ -332,28 +324,44 @@ export default {
   flex-direction: column;
   align-items: center;
   padding-bottom: 48rpx;
+  overflow: hidden;
 }
 
+/* camera-box 作为居中容器；camera 固定 504rpx 与 scan-frame 完全重叠 */
 .camera-box {
   position: relative;
   width: 100%;
   flex: 1;
   min-height: 400rpx;
   margin-top: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden; /* 裁剪 scan-dim 遮罩，避免遮住下方状态文字和手电筒 */
 }
 
+/* camera 固定尺寸 504rpx 与扫码框一致，完全重叠 */
 .camera {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  width: 504rpx;
+  height: 504rpx;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
 }
 
-.scan-dim {
+.scan-dim,
+.scan-frame {
   position: absolute;
   left: 0;
   top: 0;
   right: 0;
   bottom: 0;
   pointer-events: none;
+}
+
+.scan-dim {
   z-index: 2;
 }
 
@@ -375,12 +383,6 @@ export default {
 }
 
 .scan-frame {
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
   z-index: 3;
   display: flex;
   align-items: center;
@@ -464,8 +466,15 @@ export default {
   }
 }
 
-.status-primary {
+.status-wrap {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   margin-top: 32rpx;
+}
+
+.status-primary {
   font-size: 30rpx;
   line-height: 42rpx;
   color: $cr7-gold;
@@ -482,6 +491,7 @@ export default {
 }
 
 .torch-wrap {
+  flex-shrink: 0;
   margin-top: auto;
   padding-top: 40rpx;
   display: flex;
