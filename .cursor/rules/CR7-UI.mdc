@@ -1,0 +1,11 @@
+---
+description: 
+alwaysApply: true
+---
+
+---
+description: CR7 Figma UI Rule
+globs:
+alwaysApply: true
+---
+-  figma设计稿画布的宽度就是750px，所以在还原设计稿的回收直接读取设计稿里面的px信息，直接1:1转换成小程序的rpx单位即可，不需要做转换

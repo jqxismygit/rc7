@@ -82,7 +82,7 @@ export default {
     return {
       statusBarHeight: 0,
       navInnerPx: 44,
-      showSuccessBanner: false,
+      showSuccessBanner: true,
       torchOn: false,
       useInlineCamera: true,
       scanLocked: false,
@@ -248,12 +248,12 @@ export default {
   position: fixed;
   left: 51rpx;
   right: 51rpx;
+  height: 85rpx;
   z-index: 25;
   pointer-events: none;
 }
 
 .success-banner {
-  width: 100%;
   box-sizing: border-box;
   background: $cr7-dark;
   border-radius: 28rpx;
@@ -264,8 +264,8 @@ export default {
 .success-row {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
-  justify-content: flex-start;
+  align-items: center;
+  justify-content: center;
   gap: 14rpx;
 }
 
@@ -307,7 +307,6 @@ export default {
 }
 
 .success-text {
-  flex: 1;
   font-size: 30rpx;
   line-height: 42rpx;
   color: $text-white;
@@ -327,42 +326,36 @@ export default {
   overflow: hidden;
 }
 
-/* camera-box 作为居中容器；camera 固定 504rpx 与 scan-frame 完全重叠 */
+/* camera-box 固定 504rpx，与扫码框一致，不占满整屏 */
 .camera-box {
   position: relative;
-  width: 100%;
-  flex: 1;
-  min-height: 400rpx;
-  margin-top: 24rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden; /* 裁剪 scan-dim 遮罩，避免遮住下方状态文字和手电筒 */
+  width: 554rpx;
+  height: 554rpx;
+  margin-top: 250rpx;
+  flex-shrink: 0;
 }
 
-/* camera 固定尺寸 504rpx 与扫码框一致，完全重叠 */
-.camera {
-  position: absolute;
-  width: 504rpx;
-  height: 504rpx;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 1;
-}
-
-.scan-dim,
+/* camera 与 scan-frame 完全重叠填充 camera-box */
+.camera,
 .scan-frame {
   position: absolute;
   left: 0;
   top: 0;
-  right: 0;
-  bottom: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
 }
 
-.scan-dim {
-  z-index: 2;
+.camera {
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.scan-frame {
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .scan-hole-anchor {
@@ -377,22 +370,15 @@ export default {
 }
 
 .scan-hole-shadow {
-  width: 504rpx;
-  height: 504rpx;
+  width: 554rpx;
+  height: 554rpx;
   box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.72);
-}
-
-.scan-frame {
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .scan-frame-inner {
   position: relative;
-  width: 504rpx;
-  height: 504rpx;
+  width: 554rpx;
+  height: 554rpx;
 }
 
 .corner {
@@ -471,7 +457,7 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 32rpx;
+  margin-top: 61rpx;
 }
 
 .status-primary {
@@ -492,8 +478,7 @@ export default {
 
 .torch-wrap {
   flex-shrink: 0;
-  margin-top: auto;
-  padding-top: 40rpx;
+  padding-top: 114rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
