@@ -77,20 +77,24 @@ export async function prepareAdminToken(
   apiServer: Server,
   schema: string
 ): Promise<string> {
+
   const adminPhone = `admin_${random_text(5)}`;
   const adminPassword = 'admin_password_test';
-  await initAdminHandler({
-    schema,
+  const admin = {
     phone: adminPhone,
     password: adminPassword,
     countryCode: '+86',
-  });
+  };
+
+  await initAdminHandler({ schema, ...admin });
+
   const { token } = await passwordLogin(
     apiServer,
     '+86',
     adminPhone,
     adminPassword
   );
+
   return token;
 }
 

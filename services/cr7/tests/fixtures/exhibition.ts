@@ -2,14 +2,12 @@ import { Server } from "http";
 import { getJSON, postJSON } from "../lib/api.js";
 import { Exhibition } from "@cr7/types";
 import { expect } from "vitest";
-import { StepTest } from "@amiceli/vitest-cucumber";
 import { random_text } from "../lib/random.js";
-import { APIServerFixture } from "./services.js";
 
 export async function createExhibition(
   server: Server,
+  token: string,
   exhibition: Omit<Exhibition.Exhibition, 'id' | 'created_at' | 'updated_at'>,
-  token?: string
 ) {
   return postJSON<Exhibition.Exhibition>(
     server,
@@ -21,7 +19,7 @@ export async function createExhibition(
 export async function getExhibition(
   server: Server,
   eid: string,
-  token?: string
+  token?: string,
 ) {
   return getJSON<Exhibition.Exhibition>(
     server,
@@ -32,8 +30,8 @@ export async function getExhibition(
 
 export async function listExhibitions(
   server: Server,
+  token: string,
   options?: { limit?: number; offset?: number },
-  token?: string
 ) {
   return getJSON<{
     data: Exhibition.Exhibition[]
@@ -83,9 +81,9 @@ export async function getSessions(
 
 export async function addTicketCategory(
   server: Server,
+  token: string,
   eid: string,
-  category: Omit<Exhibition.TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>,
-  token?: string
+  category: Omit<Exhibition.TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>
 ) {
   return postJSON<Exhibition.TicketCategory>(
     server,
@@ -127,16 +125,13 @@ export interface ExhibitionContext {
   sessions: Exhibition.Session[];
 }
 
-export function prepareInventoryExhibitionData(
-  Step: StepTest['Given'] | StepTest['And'],
-  scenarioContext: { fixtures: APIServerFixture },
-  context: ExhibitionContext,
-  token?: string,
-) {
-  Step('created exhibition with 2 sessions', async () => {
-    const { apiServer } = scenarioContext.fixtures.values;
-
-    const exhibition = await createExhibition(apiServer, {
+export async function prepareExhibition(
+  apiServer: Server,
+  token: string,
+  overrides?: Partial<Omit<Exhibition.Exhibition, 'id' | 'created_at' | 'updated_at'>>
+): Promise<Exhibition.Exhibition> {
+  const exhibition_fixture = Object.assign(
+    {
       name: `inventory_test_${random_text(5)}`,
       description: 'Inventory test exhibition',
       start_date: '2026-01-01',
@@ -144,48 +139,71 @@ export function prepareInventoryExhibitionData(
       opening_time: '10:00',
       closing_time: '18:00',
       last_entry_time: '17:00',
-      location: 'Shanghai'
-    }, token);
-
-    const sessions = await getSessions(apiServer, exhibition.id, token);
-
-    Object.assign(context, {
-      exhibition,
-      sessions,
-    });
-  });
+      location: 'Shanghai',
+    },
+    overrides
+  );
+  return createExhibition(apiServer, token, exhibition_fixture);
 }
 
-export function prepareInventoryTicketData(
-  Step: StepTest['Given'] | StepTest['And'],
-  scenarioContext: { fixtures: APIServerFixture },
-  context: ExhibitionContext & { ticketCategories: Exhibition.TicketCategory[]; },
-  token?: string,
-) {
-  Step('created 2 ticket categories for the exhibition', async () => {
-    const { apiServer } = scenarioContext.fixtures.values;
-    expect(context.exhibition).toBeTruthy();
-
-    const earlyBird = await addTicketCategory(apiServer, context.exhibition!.id, {
-      name: 'early_bird',
+export async function prepareTicketCategory(
+  apiServer: Server,
+  token: string,
+  eid: string,
+  overrides?: Partial<Omit<Exhibition.TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>>
+): Promise<Exhibition.TicketCategory> {
+  const categoryFixture = Object.assign(
+    {
+      name: `ticket_category_${random_text(5)}`,
       price: 100,
       valid_duration_days: 1,
       refund_policy: 'NON_REFUNDABLE',
       admittance: 1,
-    }, token);
+    },
+    overrides
+  );
+  return addTicketCategory(apiServer, token, eid, categoryFixture);
+}
 
-    const regular = await addTicketCategory(apiServer, context.exhibition!.id, {
-      name: 'regular',
-      price: 150,
-      valid_duration_days: 1,
-      refund_policy: 'REFUNDABLE_48H_BEFORE',
-      admittance: 1,
-    }, token);
+export async function prepareEarlyBirdTicketCategory(
+  apiServer: Server,
+  token: string,
+  eid: string,
+  ticketCategoryOverrides?: Partial<Omit<Exhibition.TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>>
+): Promise<Exhibition.TicketCategory> {
+  return prepareTicketCategory(
+    apiServer,
+    token,
+    eid,
+    Object.assign(
+      {
+        name: 'early_bird',
+        valid_duration_days: 1,
+        refund_policy: 'NON_REFUNDABLE',
+        admittance: 1,
+      },
+      ticketCategoryOverrides
+    )
+  );
+}
 
-    Object.assign(context, {
-      ticketCategories: [earlyBird, regular],
-    });
-  });
+export async function prepareRegularTicketCategory(
+  apiServer: Server,
+  token: string,
+  eid: string,
+  ticketCategoryOverrides?: Partial<Omit<Exhibition.TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>>
+): Promise<Exhibition.TicketCategory> {
+  return prepareTicketCategory(
+    apiServer, token, eid,
+    Object.assign(
+      {
+        name: 'regular',
+        price: 150,
+        refund_policy: 'REFUNDABLE_48H_BEFORE',
+      },
+      ticketCategoryOverrides
+    )
+  );
 }
 
 // Session related functions

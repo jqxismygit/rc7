@@ -7,9 +7,9 @@ import { TicketCategory } from "@cr7/types/exhibition.js";
 
 export async function getSessionTickets(
   server: Server,
+  token: string,
   eid: string,
   sid: string,
-  token?: string
 ) {
   return getJSON<Inventory.SessionTicketsInventory[]>(
     server,
@@ -20,10 +20,10 @@ export async function getSessionTickets(
 
 export async function updateTicketCategoryMaxInventory(
   server: Server,
+  token: string,
   eid: string,
   tid: string,
   quantity: number,
-  token?: string
 ) {
   return putJSON(
     server,

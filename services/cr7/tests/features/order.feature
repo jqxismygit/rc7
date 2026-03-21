@@ -1,5 +1,6 @@
 Feature: Order ticket
   Background:
+    Given 系统管理员已经创建并登录
     Given 用户 "Alice" 已注册并登录
 
   Scenario: 创建订单成功

@@ -11,7 +11,7 @@ import { Pool } from 'pg';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
 import { assertAPIError } from './lib/api.js';
 import { services_fixtures } from './fixtures/services.js';
-import { registerUser } from './fixtures/user.js';
+import { prepareAdminToken, registerUser } from './fixtures/user.js';
 import {
   addTicketCategory,
   createExhibition,
@@ -49,6 +49,7 @@ type OrderCaseContext = {
 
 interface ScenarioContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer' | 'broker'>;
+  adminToken: string;
   userToken: string;
   bobToken: string;
   tokensByName: Record<string, string>;
@@ -122,8 +123,9 @@ describeFeature(feature, ({
     sessionDate: string = '2026-07-01',
   ) {
     const { apiServer } = scenarioContext.fixtures.values;
+    const { adminToken } = scenarioContext;
 
-    const exhibition = await createExhibition(apiServer, {
+    const exhibition = await createExhibition(apiServer, adminToken, {
       name: `order_test_${random_text(5)}`,
       description: 'Order inventory test exhibition',
       start_date: sessionDate,
@@ -139,7 +141,7 @@ describeFeature(feature, ({
 
     for (let i = 0; i < names.length; i += 1) {
       const ticketName = names[i];
-      const ticket = await addTicketCategory(apiServer, exhibition.id, {
+      const ticket = await addTicketCategory(apiServer, adminToken, exhibition.id, {
         name: ticketName,
         price: 100 + i * 50,
         valid_duration_days: 1,
@@ -162,11 +164,13 @@ describeFeature(feature, ({
     quantity: number,
   ) {
     const { apiServer } = scenarioContext.fixtures.values;
+    const { adminToken } = scenarioContext;
     const ticket = context.ticketByName?.[ticketName];
     expect(ticket).toBeTruthy();
 
     await updateTicketCategoryMaxInventory(
       apiServer,
+      adminToken,
       context.exhibition!.id,
       ticket!.id,
       quantity,
@@ -180,6 +184,7 @@ describeFeature(feature, ({
     const { apiServer } = scenarioContext.fixtures.values;
     const tickets = await getSessionTickets(
       apiServer,
+      scenarioContext.userToken,
       context.exhibition!.id,
       context.session!.id,
     );
@@ -299,6 +304,12 @@ describeFeature(feature, ({
   }
 
   Background(({ Given }) => {
+    Given('系统管理员已经创建并登录', async () => {
+      const { apiServer } = scenarioContext.fixtures.values;
+      const adminToken = await prepareAdminToken(apiServer, schema);
+      Object.assign(scenarioContext, { adminToken });
+      expect(scenarioContext.adminToken).toBeTruthy();
+    });
     Given('用户 "Alice" 已注册并登录', async () => {
       await registerScenarioUser('Alice', 'userToken');
     });

@@ -44,7 +44,7 @@ async function createExhibitionsForTest(
   const exhibitions: ExhibitionType[] = [];
 
   for (let i = 0; i < count; i++) {
-    const exhibition = await createExhibition(apiServer, {
+    const exhibition = await createExhibition(apiServer, token, {
       name: `${namePrefix}_${i + 1}_${random_text(5)}`,
       description: `Test exhibition ${i + 1}`,
       start_date: '2026-01-01',
@@ -53,7 +53,7 @@ async function createExhibitionsForTest(
       closing_time: '18:00',
       last_entry_time: '17:00',
       location: 'Test Location'
-    }, token);
+    });
     exhibitions.push(exhibition);
   }
 
@@ -62,7 +62,6 @@ async function createExhibitionsForTest(
 
 interface ScenarioContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
-  currentUser?: { id: string; role: string };
   adminToken?: string;
 }
 
@@ -80,13 +79,6 @@ describeFeature(feature, ({
       ['apiServer']
     );
     Object.assign(scenarioContext, { fixtures });
-
-    const { apiServer } = fixtures.values;
-
-    // Create admin user and get token
-    const adminToken = await prepareAdminToken(apiServer, schema);
-    Object.assign(scenarioContext, { adminToken });
-
   });
 
   AfterAllScenarios(async () => {
@@ -94,9 +86,10 @@ describeFeature(feature, ({
   });
 
   Background(({ Given }) => {
-    Given('a user with role admin is logged in', () => {
-      scenarioContext.currentUser = { id: 'admin_user_1', role: 'admin' };
-      expect(scenarioContext.currentUser.role).toBe('admin');
+    Given('a user with role admin is logged in', async () => {
+      const { apiServer } = scenarioContext.fixtures.values;
+      const adminToken = await prepareAdminToken(apiServer, schema);
+      Object.assign(scenarioContext, { adminToken });
       expect(scenarioContext.adminToken).toBeTruthy();
     });
   });
@@ -149,7 +142,7 @@ describeFeature(feature, ({
       When('create exhibition', async () => {
         const { draftExhibition } = context;
         const { apiServer } = scenarioContext.fixtures.values;
-        const exhibition = await createExhibition(apiServer, draftExhibition, scenarioContext.adminToken);
+        const exhibition = await createExhibition(apiServer, scenarioContext.adminToken, draftExhibition);
         Object.assign(context, { exhibition });
       });
 
@@ -207,9 +200,9 @@ describeFeature(feature, ({
         const { apiServer } = scenarioContext.fixtures.values;
         const category = await addTicketCategory(
           apiServer,
+          scenarioContext.adminToken,
           exhibition!.id,
           draftTicket,
-          scenarioContext.adminToken
         );
 
         Object.assign(context, { addedCategory: category });
@@ -276,9 +269,9 @@ describeFeature(feature, ({
         const { apiServer } = scenarioContext.fixtures.values;
         const ticket = await addTicketCategory(
           apiServer,
+          scenarioContext.adminToken,
           exhibition!.id,
           draftTicket as Omit<TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>,
-          scenarioContext.adminToken
         );
 
         Object.assign(context, { addedCategory: ticket });
@@ -367,7 +360,7 @@ describeFeature(feature, ({
 
       When('list exhibitions with limit {int} and offset {int}', async (ctx, limit: number, offset: number) => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const listResult = await listExhibitions(apiServer, { limit, offset }, scenarioContext.adminToken);
+        const listResult = await listExhibitions(apiServer, scenarioContext.adminToken, { limit, offset });
         Object.assign(context, { listResult });
       });
 
@@ -401,7 +394,7 @@ describeFeature(feature, ({
 
       When('list exhibitions with limit {int} and offset {int}', async (ctx, limit: number, offset: number) => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const listResult = await listExhibitions(apiServer, { limit, offset }, scenarioContext.adminToken);
+        const listResult = await listExhibitions(apiServer, scenarioContext.adminToken, { limit, offset });
         Object.assign(context, { listResult });
       });
 
@@ -424,7 +417,7 @@ describeFeature(feature, ({
 
       When('list exhibitions with limit {int} and offset {int}', async (ctx, limit: number, offset: number) => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const listResult = await listExhibitions(apiServer, { limit, offset }, scenarioContext.adminToken);
+        const listResult = await listExhibitions(apiServer, scenarioContext.adminToken, { limit, offset });
         Object.assign(context, { listResult });
       });
 
@@ -445,7 +438,7 @@ describeFeature(feature, ({
 
       Given('a regular user is logged in', async () => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const regularUserToken = await registerUser(apiServer, random_text());
+        const regularUserToken = await registerUser(apiServer);
         Object.assign(context, { regularUserToken });
       });
 
@@ -465,7 +458,7 @@ describeFeature(feature, ({
         });
 
         try {
-          await createExhibition(apiServer, context.draftExhibition, context.regularUserToken);
+          await createExhibition(apiServer, context.regularUserToken, context.draftExhibition);
         } catch (error) {
           Object.assign(context, { lastError: error });
         }
@@ -498,7 +491,7 @@ describeFeature(feature, ({
 
       Given('a regular user is logged in', async () => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const regularUserToken = await registerUser(apiServer, random_text());
+        const regularUserToken = await registerUser(apiServer);
         Object.assign(context, { regularUserToken });
       });
 
@@ -517,9 +510,9 @@ describeFeature(feature, ({
         try {
           await addTicketCategory(
             apiServer,
+            context.regularUserToken,
             context.exhibition.id,
             context.draftTicket,
-            context.regularUserToken
           );
         } catch (error) {
           Object.assign(context, { lastError: error });
