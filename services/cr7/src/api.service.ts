@@ -106,7 +106,7 @@ const routes = [
     }
   ),
   routeConfig(
-    '/exhibition/:eid/sessions/:sid/order',
+    '/exhibition/:eid/sessions/:sid/orders',
     ['cr7.order.create'],
     {
       aliases: {
