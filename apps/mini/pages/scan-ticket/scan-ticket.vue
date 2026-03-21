@@ -1,38 +1,90 @@
 <template>
-  <view class="container">
-    <view class="scan-area">
-      <view class="scan-frame">
-        <view class="corner corner-tl"></view>
-        <view class="corner corner-tr"></view>
-        <view class="corner corner-bl"></view>
-        <view class="corner corner-br"></view>
-        <view class="scan-line"></view>
-      </view>
-      <text class="scan-tip">将二维码放入框内，即可自动扫描</text>
-    </view>
+  <view class="scan-page">
+    <!-- 设计稿 Body 背景 750×1700，1px=1rpx -->
+    <image
+      class="page-bg"
+      src="/static/images/scan-ticket-bg.jpg"
+      mode="aspectFill"
+    />
 
-    <view class="info-section">
-      <text class="info-title">扫码验票说明</text>
-      <text class="info-text">
-        1. 对准票券二维码进行扫描
-        2. 系统自动识别并验证票券
-        3. 验证成功后票券自动核销
-        4. 每张票券仅可核销一次
-      </text>
-    </view>
-
-    <button class="scan-btn" @click="handleScan">开始扫码</button>
-
-    <!-- 扫描结果弹窗 -->
-    <view v-if="showResult" class="result-modal" @click="closeResult">
-      <view class="result-content" @click.stop>
-        <view class="result-icon" :class="resultSuccess ? 'success' : 'fail'">
-          {{ resultSuccess ? '✓' : '✗' }}
+    <!-- 自定义导航 -->
+    <view class="nav-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
+      <view class="nav-inner">
+        <view class="nav-back" @click="goBack">
+          <text class="nav-back-icon">‹</text>
         </view>
-        <text class="result-title">{{ resultTitle }}</text>
-        <text class="result-desc">{{ resultDesc }}</text>
-        <button class="close-btn" @click="closeResult">确定</button>
+        <text class="nav-title">扫码核销</text>
+        <view class="nav-placeholder"></view>
       </view>
+    </view>
+
+    <view class="main" :style="{ paddingTop: navBlockPx + 'px' }">
+      <!-- 核销成功横幅（Figma：w ~680 / radius 28 / pad 21，左右 51） -->
+      <view v-if="showSuccessBanner" class="success-banner">
+        <view class="success-row">
+          <view class="success-icon-wrap">
+            <view class="success-icon-bg"></view>
+            <view class="success-tick">
+              <text class="success-tick-char">✓</text>
+            </view>
+          </view>
+          <text class="success-text">核销成功，电子票已使用</text>
+        </view>
+      </view>
+      <!-- #ifdef MP-WEIXIN -->
+      <view v-if="useInlineCamera" class="camera-box">
+        <camera
+          class="camera"
+          device-position="back"
+          :flash="torchFlash"
+          mode="scanCode"
+          @scancode="onScanCode"
+          @error="onCameraError"
+        />
+        <view class="scan-dim" aria-hidden="true">
+          <view class="scan-hole-anchor">
+            <view class="scan-hole-shadow"></view>
+          </view>
+        </view>
+        <view class="scan-frame" aria-hidden="true">
+          <view class="scan-frame-inner">
+            <view class="corner corner-tl"></view>
+            <view class="corner corner-tr"></view>
+            <view class="corner corner-bl"></view>
+            <view class="corner corner-br"></view>
+            <view class="scan-line"></view>
+          </view>
+        </view>
+      </view>
+      <!-- #endif -->
+
+      <!-- #ifndef MP-WEIXIN -->
+      <view class="fallback-scan">
+        <text class="fallback-tip">当前端不支持相机扫码，请使用下方按钮</text>
+        <button class="fallback-btn" @click="openSystemScan">打开扫码</button>
+      </view>
+      <!-- #endif -->
+
+      <!-- #ifdef MP-WEIXIN -->
+      <view v-if="!useInlineCamera" class="fallback-scan">
+        <text class="fallback-tip">无法使用相机时，可改用系统扫码</text>
+        <button class="fallback-btn" @click="openSystemScan">打开扫码</button>
+      </view>
+      <!-- #endif -->
+
+      <text class="status-primary">{{
+        useInlineCamera ? "正在扫描..." : "点击按钮开始扫码"
+      }}</text>
+      <text class="status-sub">请将二维码/条形码置于框内</text>
+
+      <!-- #ifdef MP-WEIXIN -->
+      <view v-if="useInlineCamera" class="torch-wrap" @click="toggleTorch">
+        <view class="torch-btn">
+          <view class="torch-glyph"></view>
+        </view>
+        <text class="torch-label">轻点照亮</text>
+      </view>
+      <!-- #endif -->
     </view>
   </view>
 </template>
@@ -41,235 +93,474 @@
 export default {
   data() {
     return {
-      showResult: false,
-      resultSuccess: false,
-      resultTitle: '',
-      resultDesc: ''
+      statusBarHeight: 0,
+      navInnerPx: 44,
+      showSuccessBanner: false,
+      torchOn: false,
+      useInlineCamera: true,
+      scanLocked: false,
+      bannerTimer: null,
+    };
+  },
+
+  computed: {
+    navBlockPx() {
+      return (this.statusBarHeight || 0) + this.navInnerPx;
+    },
+    torchFlash() {
+      return this.torchOn ? "torch" : "off";
+    },
+  },
+
+  onUnload() {
+    if (this.bannerTimer) {
+      clearTimeout(this.bannerTimer);
+      this.bannerTimer = null;
     }
   },
-  
+
+  onLoad() {
+    const sys = uni.getSystemInfoSync();
+    this.statusBarHeight = sys.statusBarHeight || 0;
+    const winW = sys.windowWidth || 375;
+    this.navInnerPx = (88 * winW) / 750;
+    // #ifndef MP-WEIXIN
+    this.useInlineCamera = false;
+    // #endif
+  },
+
   methods: {
-    handleScan() {
-      // 模拟扫码
-      uni.showLoading({ title: '扫描中...' })
-      
-      setTimeout(() => {
-        uni.hideLoading()
-        
-        // 随机模拟成功或失败
-        const success = Math.random() > 0.3
-        
-        this.resultSuccess = success
-        this.resultTitle = success ? '验票成功' : '验票失败'
-        this.resultDesc = success 
-          ? '票券已核销，请入场' 
-          : '票券无效或已使用'
-        this.showResult = true
-      }, 1500)
+    goBack() {
+      const pages = getCurrentPages();
+      if (pages.length > 1) {
+        uni.navigateBack();
+      } else {
+        uni.switchTab({ url: "/pages/index/index" });
+      }
     },
-    
-    closeResult() {
-      this.showResult = false
-    }
-  }
-}
+
+    onCameraError() {
+      this.useInlineCamera = false;
+    },
+
+    toggleTorch() {
+      this.torchOn = !this.torchOn;
+    },
+
+    openSystemScan() {
+      uni.scanCode({
+        onlyFromCamera: true,
+        scanType: ["qrCode", "barCode"],
+        success: (res) => {
+          this.handleScanResult(res.result || "");
+        },
+        fail: () => {
+          uni.showToast({ title: "已取消扫码", icon: "none" });
+        },
+      });
+    },
+
+    onScanCode(e) {
+      if (this.scanLocked) return;
+      const detail = e.detail || {};
+      const code = detail.result || "";
+      if (!code) return;
+      this.handleScanResult(code);
+    },
+
+    handleScanResult(code) {
+      if (this.scanLocked || !code) return;
+      this.scanLocked = true;
+      uni.showLoading({ title: "核销中..." });
+
+      setTimeout(() => {
+        uni.hideLoading();
+        this.showSuccessBanner = true;
+        if (this.bannerTimer) clearTimeout(this.bannerTimer);
+        this.bannerTimer = setTimeout(() => {
+          this.showSuccessBanner = false;
+          this.scanLocked = false;
+          this.bannerTimer = null;
+        }, 4000);
+      }, 600);
+    },
+  },
+};
 </script>
 
-<style scoped>
-.container {
+<style lang="scss" scoped>
+@import "@/uni.scss";
+
+.scan-page {
+  position: relative;
   width: 100%;
-  min-height: 100vh;
-  background: #000;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 60rpx 30rpx;
+  height: 100vh;
+  overflow: hidden;
+  background: $cr7-black;
 }
 
-.scan-area {
+.page-bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 750rpx;
+  height: 1700rpx;
+  max-width: 100%;
+  min-height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.35;
+}
+
+.nav-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 30;
+  background: transparent;
+}
+
+.nav-inner {
+  height: 88rpx;
+  padding: 0 35rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-back {
+  width: 70rpx;
+  height: 70rpx;
+  border-radius: 50%;
+  background: $cr7-dark;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-back-icon {
+  color: $text-white;
+  font-size: 44rpx;
+  line-height: 1;
+  margin-top: -6rpx;
+}
+
+.nav-title {
+  flex: 1;
+  text-align: center;
+  font-size: 36rpx;
+  font-weight: 600;
+  color: $text-white;
+}
+
+.nav-placeholder {
+  width: 70rpx;
+  height: 70rpx;
+}
+
+.success-banner {
+  width: 648rpx;
+  margin: 0 auto 24rpx;
+  box-sizing: border-box;
+  background: $cr7-dark;
+  border-radius: 28rpx;
+  padding: 21rpx;
+  flex-shrink: 0;
+}
+
+.success-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 14rpx;
+}
+
+.success-icon-wrap {
+  position: relative;
+  width: 42rpx;
+  height: 42rpx;
+  flex-shrink: 0;
+}
+
+.success-icon-bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 42rpx;
+  height: 42rpx;
+  border-radius: 50%;
+  background: rgba(4, 177, 85, 0.25);
+}
+
+.success-tick {
+  position: absolute;
+  left: 11rpx;
+  top: 11rpx;
+  width: 21rpx;
+  height: 21rpx;
+  border-radius: 4rpx;
+  background: $cr7-success;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.success-tick-char {
+  font-size: 14rpx;
+  color: #fff;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.success-text {
+  flex: 1;
+  font-size: 30rpx;
+  line-height: 42rpx;
+  color: $text-white;
+  font-weight: 400;
+}
+
+.main {
+  position: relative;
+  z-index: 5;
   width: 100%;
+  height: 100vh;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 80rpx;
+  padding-bottom: 48rpx;
+}
+
+.camera-box {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 400rpx;
+  margin-top: 24rpx;
+}
+
+.camera {
+  width: 100%;
+  height: 100%;
+}
+
+.scan-dim {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.scan-hole-anchor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scan-hole-shadow {
+  width: 504rpx;
+  height: 504rpx;
+  box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.72);
 }
 
 .scan-frame {
-  width: 500rpx;
-  height: 500rpx;
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scan-frame-inner {
   position: relative;
-  margin-bottom: 40rpx;
+  width: 504rpx;
+  height: 504rpx;
 }
 
 .corner {
   position: absolute;
-  width: 60rpx;
-  height: 60rpx;
-  border: 6rpx solid #D8FC0F;
+  width: 48rpx;
+  height: 48rpx;
+  border-color: $cr7-gold;
+  border-style: solid;
+  border-width: 6rpx;
 }
 
 .corner-tl {
-  top: 0;
   left: 0;
+  top: 0;
   border-right: none;
   border-bottom: none;
+  border-top-left-radius: 8rpx;
 }
 
 .corner-tr {
-  top: 0;
   right: 0;
+  top: 0;
   border-left: none;
   border-bottom: none;
+  border-top-right-radius: 8rpx;
 }
 
 .corner-bl {
-  bottom: 0;
   left: 0;
+  bottom: 0;
   border-right: none;
   border-top: none;
+  border-bottom-left-radius: 8rpx;
 }
 
 .corner-br {
-  bottom: 0;
   right: 0;
+  bottom: 0;
   border-left: none;
   border-top: none;
+  border-bottom-right-radius: 8rpx;
 }
 
 .scan-line {
   position: absolute;
-  width: 100%;
+  left: 32rpx;
+  right: 32rpx;
+  top: 50%;
   height: 4rpx;
-  background: linear-gradient(90deg, transparent, #D8FC0F, transparent);
-  animation: scan 2s linear infinite;
+  margin-top: -2rpx;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    $cr7-gold-light,
+    $cr7-gold,
+    $cr7-gold-light,
+    transparent
+  );
+  animation: scan-move 2.2s ease-in-out infinite;
 }
 
-@keyframes scan {
-  0% {
-    top: 0;
-  }
+@keyframes scan-move {
+  0%,
   100% {
-    top: 100%;
+    transform: translateY(-200rpx);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translateY(200rpx);
+    opacity: 1;
   }
 }
 
-.scan-tip {
-  font-size: 28rpx;
-  color: #fff;
+.status-primary {
+  margin-top: 32rpx;
+  font-size: 30rpx;
+  line-height: 42rpx;
+  color: $cr7-gold;
+  font-weight: 500;
+}
+
+.status-sub {
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  line-height: 38rpx;
+  color: $text-muted;
   text-align: center;
+  padding: 0 48rpx;
 }
 
-.info-section {
-  background: rgba(255,255,255,0.1);
-  padding: 30rpx;
-  border-radius: 16rpx;
-  margin-bottom: 60rpx;
+.torch-wrap {
+  margin-top: auto;
+  padding-top: 40rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16rpx;
 }
 
-.info-title {
-  font-size: 28rpx;
-  font-weight: bold;
-  color: #fff;
-  display: block;
-  margin-bottom: 20rpx;
-}
-
-.info-text {
-  font-size: 24rpx;
-  color: rgba(255,255,255,0.8);
-  line-height: 1.8;
-  white-space: pre-line;
-}
-
-.scan-btn {
-  width: 500rpx;
-  height: 90rpx;
-  background: linear-gradient(135deg, #D8FC0F 0%, #A8C00C 100%);
-  color: #fff;
-  border-radius: 45rpx;
-  font-size: 32rpx;
-  border: none;
+.torch-btn {
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 50%;
+  background: $cr7-dark;
   display: flex;
   align-items: center;
   justify-content: center;
-  line-height: normal;
 }
 
-.scan-btn::after {
-  border: none;
+.torch-glyph {
+  width: 28rpx;
+  height: 40rpx;
+  border-radius: 6rpx 6rpx 14rpx 14rpx;
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #ffffff 55%,
+    rgba(255, 255, 255, 0.35) 100%
+  );
+  position: relative;
 }
 
-.result-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0,0,0,0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 999;
+.torch-glyph::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -14rpx;
+  width: 20rpx;
+  height: 12rpx;
+  margin-left: -10rpx;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 10rpx 10rpx 4rpx 4rpx;
 }
 
-.result-content {
-  width: 600rpx;
-  background: #fff;
-  border-radius: 20rpx;
-  padding: 60rpx;
-  text-align: center;
+.torch-label {
+  font-size: 26rpx;
+  color: $text-light;
 }
 
-.result-icon {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 60rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 80rpx;
-  color: #fff;
-  margin: 0 auto 30rpx;
-}
-
-.result-icon.success {
-  background: #4caf50;
-}
-
-.result-icon.fail {
-  background: #f44336;
-}
-
-.result-title {
-  font-size: 36rpx;
-  font-weight: bold;
-  color: #333;
-  display: block;
-  margin-bottom: 20rpx;
-}
-
-.result-desc {
-  font-size: 28rpx;
-  color: #666;
-  display: block;
-  margin-bottom: 40rpx;
-}
-
-.close-btn {
+.fallback-scan {
+  flex: 1;
   width: 100%;
-  height: 80rpx;
-  background: linear-gradient(135deg, #D8FC0F 0%, #A8C00C 100%);
-  color: #fff;
-  border-radius: 40rpx;
-  font-size: 28rpx;
-  border: none;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  line-height: normal;
+  padding: 48rpx;
+  box-sizing: border-box;
 }
 
-.close-btn::after {
+.fallback-tip {
+  font-size: 28rpx;
+  color: $text-muted;
+  text-align: center;
+  margin-bottom: 32rpx;
+}
+
+.fallback-btn {
+  width: 400rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  background: $cr7-gold;
+  color: #0f2316;
+  font-size: 30rpx;
+  font-weight: 600;
+  border-radius: 44rpx;
+  border: none;
+}
+
+.fallback-btn::after {
   border: none;
 }
 </style>

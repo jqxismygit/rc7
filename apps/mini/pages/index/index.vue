@@ -6,12 +6,20 @@
         <view class="navbar-row">
           <view class="navbar-left">
             <view class="navbar-notification" @click="goToMessages">
-              <image src="/static/icons/notification.svg" class="nav-icon" mode="aspectFit" />
+              <image
+                src="/static/icons/notification.svg"
+                class="nav-icon"
+                mode="aspectFit"
+              />
               <view v-if="unreadCount > 0" class="notification-dot"></view>
             </view>
           </view>
           <view class="navbar-logo">
-            <image src="/static/icons/logo.svg" class="logo-img" mode="aspectFit" />
+            <image
+              src="/static/icons/logo.svg"
+              class="logo-img"
+              mode="aspectFit"
+            />
           </view>
           <view class="navbar-placeholder"></view>
         </view>
@@ -19,10 +27,21 @@
 
       <!-- Hero 轮播 -->
       <view class="hero-section">
-        <swiper class="hero-swiper" circular autoplay :interval="4000" :duration="500" @change="onSwiperChange">
+        <swiper
+          class="hero-swiper"
+          circular
+          autoplay
+          :interval="4000"
+          :duration="500"
+          @change="onSwiperChange"
+        >
           <swiper-item v-for="(item, index) in heroBanners" :key="index">
             <view class="hero-slide">
-              <image :src="item.cover || '/static/images/event-card.jpg'" class="hero-image" mode="aspectFill" />
+              <image
+                :src="item.cover || '/static/images/event-card.jpg'"
+                class="hero-image"
+                mode="aspectFill"
+              />
             </view>
           </swiper-item>
         </swiper>
@@ -42,7 +61,11 @@
         </view>
         <view class="event-card" @click="openTicketEvent">
           <view class="event-image-wrap">
-            <image :src="ticketEvent.cover || '/static/images/event-card.jpg'" class="event-image" mode="aspectFill" />
+            <image
+              :src="ticketEvent.cover || '/static/images/event-card.jpg'"
+              class="event-image"
+              mode="aspectFill"
+            />
           </view>
           <view class="event-info-bottom">
             <view class="event-info-left">
@@ -67,8 +90,16 @@
                 <text class="ticket-desc">{{ ticket.description }}</text>
               </view>
               <view class="ticket-right">
-                <text v-if="ticket.originalPrice > ticket.price" class="ticket-price-origin">￥{{ ticket.originalPrice }}</text>
-                <text class="ticket-price-now" :class="{ 'price-gold': ticket.originalPrice > ticket.price }">¥{{ ticket.price }}</text>
+                <text
+                  v-if="ticket.originalPrice > ticket.price"
+                  class="ticket-price-origin"
+                  >￥{{ ticket.originalPrice }}</text
+                >
+                <text
+                  class="ticket-price-now"
+                  :class="{ 'price-gold': ticket.originalPrice > ticket.price }"
+                  >¥{{ ticket.price }}</text
+                >
               </view>
             </view>
           </view>
@@ -88,13 +119,21 @@
             @click="openNewsItem(item)"
           >
             <view class="news-thumb">
-              <image :src="item.cover || '/static/images/event-card.jpg'" class="news-thumb-img" mode="aspectFill" />
+              <image
+                :src="item.cover || '/static/images/event-card.jpg'"
+                class="news-thumb-img"
+                mode="aspectFill"
+              />
             </view>
             <view class="news-content">
               <text class="news-title">{{ item.title }}</text>
               <text class="news-desc">{{ item.desc }}</text>
             </view>
-            <image src="/static/icons/arrow-right.svg" class="news-arrow" mode="aspectFit" />
+            <image
+              src="/static/icons/arrow-right.svg"
+              class="news-arrow"
+              mode="aspectFit"
+            />
           </view>
         </view>
       </view>
@@ -113,7 +152,11 @@
             @click="openBrand(brand)"
           >
             <view class="brand-logo-area">
-              <image :src="brand.logo || '/static/images/event-card.jpg'" class="brand-logo-img" mode="aspectFit" />
+              <image
+                :src="brand.logo || '/static/images/event-card.jpg'"
+                class="brand-logo-img"
+                mode="aspectFit"
+              />
             </view>
             <text class="brand-name">{{ brand.name }}</text>
             <text class="brand-tagline">{{ brand.tagline }}</text>
@@ -124,20 +167,25 @@
       <!-- 底部占位 -->
       <view class="bottom-spacer"></view>
     </scroll-view>
+
+    <!-- 悬浮核销入口 → 扫码核销页 -->
+    <view class="fab-verify" @click="goToScanTicket">
+      <text class="fab-verify-text">核销</text>
+    </view>
   </view>
 </template>
 
 <script>
-import { useUserStore } from '@/stores/user'
-import { fetchUnreadCount } from '@/services/messages.js'
+import { useUserStore } from "@/stores/user";
+import { fetchUnreadCount } from "@/services/messages.js";
 import {
   fetchHeroBanners,
   fetchTicketEvent,
   fetchTicketTypes,
   fetchCr7News,
-  fetchBrands
-} from '@/services/home.js'
-import createTabBarMixin from '@/mixins/tabBar.js'
+  fetchBrands,
+} from "@/services/home.js";
+import createTabBarMixin from "@/mixins/tabBar.js";
 
 export default {
   mixins: [createTabBarMixin(0)],
@@ -148,41 +196,41 @@ export default {
       currentBannerIndex: 0,
       heroBanners: [],
       ticketEvent: {
-        title: 'C罗博物馆 · 中国上海馆',
-        time: '03/16·10:00-22:00·上海黄浦区外滩1号',
-        cover: '/static/images/event-card.jpg'
+        title: "C罗博物馆 · 中国上海馆",
+        time: "03/16·10:00-22:00·上海黄浦区外滩1号",
+        cover: "/static/images/event-card.jpg",
       },
       ticketTypes: [],
       cr7News: [],
-      brands: []
-    }
+      brands: [],
+    };
   },
 
   onLoad() {
-    const systemInfo = uni.getSystemInfoSync()
-    this.statusBarHeight = systemInfo.statusBarHeight || 0
-    this.loadHomeData()
+    const systemInfo = uni.getSystemInfoSync();
+    this.statusBarHeight = systemInfo.statusBarHeight || 0;
+    this.loadHomeData();
   },
 
   onShow() {
-    this.checkLogin()
-    this.loadUnreadCount()
+    this.checkLogin();
+    this.loadUnreadCount();
   },
 
   methods: {
     checkLogin() {
-      const userStore = useUserStore()
+      const userStore = useUserStore();
       if (!userStore.isLoggedIn) {
-        uni.navigateTo({ url: '/pages/login/login' })
+        uni.navigateTo({ url: "/pages/login/login" });
       }
     },
 
     async loadUnreadCount() {
       try {
-        const count = await fetchUnreadCount()
-        this.unreadCount = count
+        const count = await fetchUnreadCount();
+        this.unreadCount = count;
       } catch (e) {
-        console.error('加载未读消息数量失败', e)
+        console.error("加载未读消息数量失败", e);
       }
     },
 
@@ -193,69 +241,77 @@ export default {
           fetchTicketEvent(),
           fetchTicketTypes(),
           fetchCr7News(),
-          fetchBrands()
-        ])
-        this.heroBanners = hero.length ? hero : [{ cover: '' }, { cover: '' }]
-        this.ticketEvent = event
-        this.ticketTypes = tickets
-        this.cr7News = news
+          fetchBrands(),
+        ]);
+        this.heroBanners = hero.length ? hero : [{ cover: "" }, { cover: "" }];
+        this.ticketEvent = event;
+        this.ticketTypes = tickets;
+        this.cr7News = news;
         this.brands = brandList.map((b) => ({
           ...b,
-          tagline: b.description || '官方合作品牌'
-        }))
+          tagline: b.description || "官方合作品牌",
+        }));
       } catch (e) {
-        console.error('加载首页数据失败', e)
-        uni.showToast({ title: '首页数据加载失败', icon: 'none' })
+        console.error("加载首页数据失败", e);
+        uni.showToast({ title: "首页数据加载失败", icon: "none" });
       }
     },
 
     onSwiperChange(e) {
-      this.currentBannerIndex = e.detail.current
+      this.currentBannerIndex = e.detail.current;
     },
 
     goToMessages() {
-      uni.navigateTo({ url: '/pages/messages/messages' })
+      uni.navigateTo({ url: "/pages/messages/messages" });
     },
 
     openTicketEvent() {
-      uni.navigateTo({ url: `/pages/ticket-purchase/ticket-purchase?id=${this.ticketEvent.id || 1}` })
+      uni.navigateTo({
+        url: `/pages/ticket-purchase/ticket-purchase?id=${this.ticketEvent.id || 1}`,
+      });
     },
 
     selectTicket(ticket) {
       if (ticket.stock > 0) {
-        const eventId = this.ticketEvent.id || 1
-        const ticketId = ticket.id
-        uni.navigateTo({ url: `/pages/ticket-purchase/ticket-purchase?eventId=${eventId}&ticketId=${ticketId}` })
+        const eventId = this.ticketEvent.id || 1;
+        const ticketId = ticket.id;
+        uni.navigateTo({
+          url: `/pages/ticket-purchase/ticket-purchase?eventId=${eventId}&ticketId=${ticketId}`,
+        });
       } else {
-        uni.showToast({ title: '该票种已售罄', icon: 'none' })
+        uni.showToast({ title: "该票种已售罄", icon: "none" });
       }
     },
 
     openNewsItem(item) {
       if (item.route) {
-        uni.navigateTo({ url: item.route })
-      } else if (item.type === 'video') {
-        uni.navigateTo({ url: '/pages/schedule/schedule' })
-      } else if (item.type === 'career') {
-        uni.navigateTo({ url: '/pages/schedule/schedule' })
+        uni.navigateTo({ url: item.route });
+      } else if (item.type === "video") {
+        uni.navigateTo({ url: "/pages/schedule/schedule" });
+      } else if (item.type === "career") {
+        uni.navigateTo({ url: "/pages/schedule/schedule" });
       } else {
-        uni.showToast({ title: '详情页即将上线', icon: 'none' })
+        uni.showToast({ title: "详情页即将上线", icon: "none" });
       }
     },
 
     openBrandAll() {
-      uni.navigateTo({ url: '/pages/brands/brands' })
+      uni.navigateTo({ url: "/pages/brands/brands" });
     },
 
     openBrand(brand) {
-      uni.navigateTo({ url: '/pages/brands/brands' })
-    }
-  }
-}
+      uni.navigateTo({ url: "/pages/brands/brands" });
+    },
+
+    goToScanTicket() {
+      uni.navigateTo({ url: "/pages/scan-ticket/scan-ticket" });
+    },
+  },
+};
 </script>
 
 <style lang="scss" scoped>
-@import '@/uni.scss';
+@import "@/uni.scss";
 /* 设计稿 750px 画布，1px = 1rpx 严格对应 */
 
 .home-page {
@@ -685,5 +741,27 @@ export default {
 /* 底部占位 - 为底部导航留空 */
 .bottom-spacer {
   height: 260rpx;
+}
+
+/* 首页悬浮核销（避让自定义 tabBar） */
+.fab-verify {
+  position: fixed;
+  right: 35rpx;
+  bottom: 300rpx;
+  z-index: 50;
+  padding: 22rpx 40rpx;
+  background: $cr7-gold;
+  border-radius: 60rpx;
+  box-shadow: 0 12rpx 32rpx rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fab-verify-text {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #0f2316;
+  line-height: 1;
 }
 </style>
