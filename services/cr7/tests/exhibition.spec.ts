@@ -427,7 +427,7 @@ describeFeature(feature, ({
     }
   );
 
-  Scenario.skip(
+  Scenario(
     'non-admin user cannot create exhibition',
     (s: StepTest<{
       draftExhibition: DraftExhibition;
@@ -473,7 +473,7 @@ describeFeature(feature, ({
     }
   );
 
-  Scenario.skip(
+  Scenario(
     'non-admin user cannot add ticket category to exhibition',
     (s: StepTest<{
       exhibition: ExhibitionType;

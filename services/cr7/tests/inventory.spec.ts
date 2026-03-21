@@ -293,49 +293,7 @@ describeFeature(feature, ({
     }
   );
 
-  Scenario.skip(
-    'non-admin user cannot view inventory of a session',
-    (s: StepTest<{
-      exhibition: ExhibitionType;
-      sessions: SessionType[];
-      ticketCategories: TicketCategoryType[];
-      regularUserToken?: string;
-      lastError?: unknown;
-    }>) => {
-      const { Given, When, Then, And, context } = s;
-      Given('created exhibition with 2 sessions by admin', async () => {
-        await prepareInventoryExhibitionData(context, scenarioContext.adminToken);
-      });
-
-      And('created 2 ticket categories for the exhibition by admin', async () => {
-        await prepareInventoryTicketData(context, scenarioContext.adminToken);
-      });
-
-      Given('a regular user is logged in', async () => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        const regularUserToken = await registerUser(apiServer);
-        Object.assign(context, { regularUserToken });
-      });
-
-      When('try to view inventory of a session', async () => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        try {
-          await getSessionTickets(apiServer, context.regularUserToken!, context.exhibition.id, context.sessions[0].id);
-        } catch (error) {
-          Object.assign(context, { lastError: error });
-        }
-      });
-
-      Then('permission denied error is returned', () => {
-        expect(context.lastError).toBeTruthy();
-        expect(context.lastError).toBeInstanceOf(APIError);
-        const apiError = context.lastError as APIError;
-        expect(apiError.status).toBe(403);
-      });
-    }
-  );
-
-  Scenario.skip(
+  Scenario(
     'non-admin user cannot update inventory',
     (s: StepTest<{
       exhibition: ExhibitionType;
