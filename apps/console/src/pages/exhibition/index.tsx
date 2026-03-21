@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import {
   Alert,
   Breadcrumb,
@@ -13,6 +13,7 @@ import {
 import {
   DeleteOutlined,
   EditOutlined,
+  EyeOutlined,
   HomeOutlined,
   PlusOutlined,
 } from "@ant-design/icons";
@@ -62,6 +63,7 @@ const initialCreateValues: Partial<ExhibitionCreateFormValues> = {
 
 const ExhibitionPage = () => {
   const { token } = theme.useToken();
+  const navigate = useNavigate();
   const actionRef = useRef<ActionType>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -144,17 +146,26 @@ const ExhibitionPage = () => {
       {
         title: "操作",
         key: "option",
-        width: 140,
+        width: 200,
         fixed: "right",
         search: false,
-        render: () => (
+        render: (_, row) => (
           <Space size="middle">
+            <Button
+              type="link"
+              size="small"
+              icon={<EyeOutlined />}
+              style={{ padding: 0, height: "auto" }}
+              onClick={() => navigate(`/exhibition/${row.id}`)}
+            >
+              查看
+            </Button>
             <Button
               type="link"
               size="small"
               icon={<EditOutlined />}
               style={{ padding: 0, height: "auto" }}
-              onClick={() => message.info("编辑能力开发中")}
+              disabled
             >
               编辑
             </Button>
@@ -164,7 +175,7 @@ const ExhibitionPage = () => {
               danger
               icon={<DeleteOutlined />}
               style={{ padding: 0, height: "auto" }}
-              onClick={() => message.info("删除能力开发中")}
+              disabled
             >
               删除
             </Button>
@@ -172,7 +183,7 @@ const ExhibitionPage = () => {
         ),
       },
     ],
-    [rowIndexBase],
+    [rowIndexBase, navigate],
   );
 
   async function handleCreateModalFinish(values: ExhibitionCreateFormValues) {
@@ -243,8 +254,7 @@ const ExhibitionPage = () => {
               </Link>
             ),
           },
-          { title: <span style={{ color: token.colorText }}>展会管理</span> },
-          { title: <span style={{ color: token.colorText }}>展览列表</span> },
+          { title: <span style={{ color: token.colorText }}>展会</span> },
         ]}
       />
 

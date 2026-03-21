@@ -1,13 +1,28 @@
-import { Suspense } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router";
+import { Suspense, useMemo } from "react";
+import { BrowserRouter, Navigate, useRoutes } from "react-router";
+import type { RouteObject } from "react-router";
 import { Spin, ConfigProvider } from "antd";
 import Login from "./pages/login";
 import BasicLayout from "./layout";
-import { flattenRoutes, routes } from "./routes";
-
-const flatRoutes = flattenRoutes(routes);
+import { routeConfigToRouteObject, routes } from "./routes";
 import zhCN from "antd/locale/zh_CN";
 import "./App.less";
+
+function AppRoutes() {
+  const appRouteObjects = useMemo((): RouteObject[] => {
+    return [
+      { path: "/login", element: <Login /> },
+      {
+        path: "/",
+        element: <BasicLayout />,
+        children: routes.map(routeConfigToRouteObject),
+      },
+      { path: "*", element: <Navigate to="/" replace /> },
+    ];
+  }, []);
+
+  return useRoutes(appRouteObjects);
+}
 
 function App() {
   return (
@@ -33,19 +48,7 @@ function App() {
             </div>
           }
         >
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={<BasicLayout />}>
-              {flatRoutes.map((route) => (
-                <Route
-                  key={route.path}
-                  path={route.path}
-                  element={route.element}
-                />
-              ))}
-            </Route>
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <AppRoutes />
         </Suspense>
       </BrowserRouter>
     </ConfigProvider>

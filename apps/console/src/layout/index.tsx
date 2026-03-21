@@ -12,7 +12,12 @@ import {
 // import { useAuthStore } from "@/stores/auth";
 // import { useThemeStore } from "@/stores/theme";
 import { useShallow } from "zustand/react/shallow";
-import { getMenuData, routes, filterRoutesByPermission } from "../routes";
+import {
+  getMenuData,
+  routes,
+  routesForMenu,
+  filterRoutesByPermission,
+} from "../routes";
 import { TOKEN_KEY } from "@/constants/index";
 import { useEffect, useState } from "react";
 import { UserServiceProvider, useUserService } from "@/services/user";
@@ -105,7 +110,7 @@ const BasicLayout = () => {
         location={{ pathname: location.pathname }}
         route={{
           path: "/",
-          children: routes,
+          children: routesForMenu(routes),
         }}
         menuItemRender={(item, dom) => (
           <div

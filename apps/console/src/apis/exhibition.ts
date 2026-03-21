@@ -32,3 +32,10 @@ export async function createExhibitionApi(
   return raw as unknown as ExhibitionTypes.Exhibition;
 }
 
+export async function getExhibitionApi(
+  eid: string,
+): Promise<ExhibitionTypes.Exhibition> {
+  const raw = await request.get(`/exhibition/${encodeURIComponent(eid)}`);
+  return raw as unknown as ExhibitionTypes.Exhibition;
+}
+

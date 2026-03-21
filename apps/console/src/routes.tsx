@@ -1,5 +1,5 @@
 import React from "react";
-import { Navigate } from "react-router";
+import type { RouteObject } from "react-router";
 import {
   DashboardOutlined,
   UserOutlined,
@@ -38,10 +38,15 @@ const GRAFANA_PREFIX_URL = window.location.origin.includes("localhost")
 const Banners = React.lazy(() => import("./pages/banners"));
 const News = React.lazy(() => import("./pages/news"));
 const Exhibition = React.lazy(() => import("./pages/exhibition"));
+const ExhibitionLayout = React.lazy(() => import("./pages/exhibition/layout"));
+const ExhibitionDetail = React.lazy(() => import("./pages/exhibition/detail"));
 
 // 路由配置类型
 export interface RouteConfig {
-  path: string;
+  /** 路由路径；`index: true` 的叶子可省略 */
+  path?: string;
+  /** 是否为父路由下的 index（对应 `/exhibition` 本页） */
+  index?: boolean;
   name: string;
   icon?: React.ReactNode;
   element?: React.ReactNode;
@@ -69,7 +74,21 @@ export const routes: RouteConfig[] = [
     path: "/exhibition",
     name: "展会",
     icon: <CalendarOutlined />,
-    element: <Exhibition />,
+    element: <ExhibitionLayout />,
+    children: [
+      {
+        index: true,
+        name: "展览列表",
+        hideInMenu: true,
+        element: <Exhibition />,
+      },
+      {
+        path: ":eid",
+        name: "展会详情",
+        hideInMenu: true,
+        element: <ExhibitionDetail />,
+      },
+    ],
   },
 ];
 
@@ -120,47 +139,64 @@ export function filterRoutesByPermission(
     });
 }
 
+/** 侧栏菜单中展示的路由（排除 hideInMenu） */
+export function routesForMenu(routeList: RouteConfig[] = routes): RouteConfig[] {
+  return routeList
+    .filter((r) => !r.hideInMenu)
+    .map((r) => ({
+      ...r,
+      children: r.children?.length
+        ? routesForMenu(r.children)
+        : undefined,
+    }));
+}
+
 // 将路由配置转换为菜单数据（供 ProLayout 使用）
 export function getMenuData(routeList: RouteConfig[] = routes): MenuData[] {
   return routeList.map(
-    ({ path, name, icon, children, linkUrl }): MenuData => ({
-      path,
-      name,
-      icon,
-      linkUrl,
-      children: children ? getMenuData(children) : undefined,
+    (route): MenuData => ({
+      path: route.path ?? "",
+      name: route.name,
+      icon: route.icon,
+      linkUrl: route.linkUrl,
+      children: route.children ? getMenuData(route.children) : undefined,
     }),
   );
 }
 
-// 扁平化路由配置（供 react-router 使用）
-export function flattenRoutes(
-  routeList: RouteConfig[] = routes,
-): RouteConfig[] {
-  return routeList.reduce<RouteConfig[]>((acc, route) => {
-    // 如果有 element，直接添加
-    if (route.element) {
-      acc.push(route);
+/** 去掉前导 /，供作为父级 `/` 下的子 path 使用 */
+function stripLeadingSlash(p: string): string {
+  return p.replace(/^\/+/, "");
+}
+
+/**
+ * 将菜单用 RouteConfig 转为 react-router 的 RouteObject（用于 useRoutes，避免 JSX 子节点只能是 Route 的限制）
+ */
+export function routeConfigToRouteObject(config: RouteConfig): RouteObject {
+  if (config.children?.length) {
+    const parentPath = config.path;
+    if (!parentPath || !config.element) {
+      throw new Error("带 children 的路由必须提供 path 与 element（布局）");
     }
-    // 如果没有 element 但有 children，添加一个重定向到第一个子路由的路由
-    else if (route.children && route.children.length > 0) {
-      // 找到第一个有 element 的子路由
-      const firstChildWithElement = route.children.find(
-        (child) => child.element,
-      );
-      if (firstChildWithElement) {
-        acc.push({
-          path: route.path,
-          name: route.name,
-          icon: route.icon,
-          element: <Navigate to={firstChildWithElement.path} replace />,
-        });
-      }
-    }
-    // 递归处理子路由
-    if (route.children) {
-      acc.push(...flattenRoutes(route.children));
-    }
-    return acc;
-  }, []);
+    return {
+      path: stripLeadingSlash(parentPath),
+      element: config.element,
+      children: config.children.map((child): RouteObject => {
+        if (child.index) {
+          return { index: true, element: child.element };
+        }
+        if (!child.path || !child.element) {
+          throw new Error("子路由须为 index 或提供 path + element");
+        }
+        return { path: child.path, element: child.element };
+      }),
+    };
+  }
+  if (!config.path || !config.element) {
+    throw new Error("叶子路由必须提供 path 与 element");
+  }
+  return {
+    path: stripLeadingSlash(config.path),
+    element: config.element,
+  };
 }
