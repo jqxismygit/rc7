@@ -8,7 +8,6 @@ export interface Role {
 export interface Profile {
   id: string;
   name: string;
-  roles?: Role[];
   /** 拼合格式如 "+86 12345678901"，未绑定时为 null */
   phone?: string | null;
   /** 未绑定微信时为 null */
@@ -24,9 +23,4 @@ export interface PhoneBinding {
   phone: string;
   created_at: string;
   updated_at: string;
-}
-
-export interface PasswordCredential {
-  country_code: string;
-  phone: string;
 }

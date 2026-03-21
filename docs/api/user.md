@@ -28,13 +28,13 @@
   - 首次登录自动创建 `users` 与 `user_wechat` 记录
   - 已存在的微信身份再次登录时复用同一用户
 
-## 用户名密码登录
+## 手机号密码登录
 
 - URL: `/user/login/password`
 - Method: `POST`
 - Request Body:
   ```ts
-  User.PasswordCredential & { password: string }
+  Pick<User.PhoneBinding, 'country_code' | 'phone'> & { password: string }
   ```
 - Response Body:
   ```ts
@@ -101,12 +101,11 @@
   ```
 - Response Status:
   - `200 OK`：查询成功
-  - `401 Unauthorized`：未认证
-  - `404 Not Found`：用户不存在
+-  - `400 Bad Request`：手机号或密码为空
+-  - `401 Unauthorized`：手机号不存在或密码错误
 
 - 说明：
-  - `roles` 返回当前用户已绑定的角色列表
+  - 手机号密码登录与微信登录共享同一套 `users` 主表
   - `openid` 对未绑定微信的用户为 `null`
   - `phone` 对未绑定手机号的用户为 `null`，绑定后返回完整格式如 `+86 12345678901`
-  - `username` 对未绑定密码的用户为 `null`
   - `auth_methods` 返回当前用户已绑定的认证方式列表，如 `['WECHAT_MINI', 'PASSWORD']`
