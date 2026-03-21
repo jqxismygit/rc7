@@ -33,6 +33,7 @@ import {
   type CreateExhibitionInput,
 } from "@/apis/exhibition";
 import { useTableQuery } from "@/hooks/use-table-query";
+import { formatDateTime, formatSessionDateTime } from "@/utils/format-datetime";
 import "./exhibition.less";
 
 type DayjsLike = {
@@ -105,20 +106,21 @@ const ExhibitionPage = () => {
       {
         title: "展期",
         search: false,
-        width: 200,
+        width: 280,
         render: (_, row) => (
           <Typography.Text type="secondary">
-            {row.start_date} ~ {row.end_date}
+            {formatDateTime(row.start_date)} ~ {formatDateTime(row.end_date)}
           </Typography.Text>
         ),
       },
       {
         title: "开场 / 闭场",
         search: false,
-        width: 160,
+        width: 280,
         render: (_, row) => (
           <Typography.Text type="secondary">
-            {row.opening_time} — {row.closing_time}
+            {formatSessionDateTime(row.start_date, row.opening_time)} —{" "}
+            {formatSessionDateTime(row.start_date, row.closing_time)}
           </Typography.Text>
         ),
       },
@@ -126,8 +128,12 @@ const ExhibitionPage = () => {
         title: "最晚入场",
         dataIndex: "last_entry_time",
         search: false,
-        width: 110,
-        render: (t) => <Typography.Text type="secondary">{t}</Typography.Text>,
+        width: 150,
+        render: (_, row) => (
+          <Typography.Text type="secondary">
+            {formatSessionDateTime(row.start_date, row.last_entry_time)}
+          </Typography.Text>
+        ),
       },
       {
         title: "地点",
@@ -139,9 +145,13 @@ const ExhibitionPage = () => {
       {
         title: "创建时间",
         dataIndex: "created_at",
-        valueType: "dateTime",
         search: false,
         width: 170,
+        render: (_, row) => (
+          <Typography.Text type="secondary">
+            {formatDateTime(row.created_at)}
+          </Typography.Text>
+        ),
       },
       {
         title: "操作",

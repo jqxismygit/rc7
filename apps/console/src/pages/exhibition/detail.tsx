@@ -13,6 +13,7 @@ import {
 import { ArrowLeftOutlined, HomeOutlined } from "@ant-design/icons";
 import type { Exhibition as ExhibitionTypes } from "@cr7/types";
 import { getExhibitionApi } from "@/apis/exhibition";
+import { formatDateTime, formatSessionDateTime } from "@/utils/format-datetime";
 import "./exhibition.less";
 
 export default function ExhibitionDetailPage() {
@@ -116,7 +117,14 @@ export default function ExhibitionDetailPage() {
             <Typography.Title level={4} style={{ marginTop: 0 }}>
               {data.name}
             </Typography.Title>
-            <Descriptions column={{ xs: 1, sm: 1, md: 2 }} bordered size="middle">
+            <Descriptions
+              column={{ xs: 1, sm: 1, md: 2 }}
+              bordered
+              size="middle"
+            >
+              <Descriptions.Item label="展会 ID" span={2}>
+                <Typography.Text copyable>{data.id}</Typography.Text>
+              </Descriptions.Item>
               <Descriptions.Item label="展会名称" span={2}>
                 {data.name}
               </Descriptions.Item>
@@ -124,23 +132,24 @@ export default function ExhibitionDetailPage() {
                 {data.description}
               </Descriptions.Item>
               <Descriptions.Item label="展期">
-                {data.start_date} ~ {data.end_date}
+                {formatDateTime(data.start_date)} ~{" "}
+                {formatDateTime(data.end_date)}
               </Descriptions.Item>
               <Descriptions.Item label="开场 / 闭场">
-                {data.opening_time} — {data.closing_time}
+                {formatSessionDateTime(data.start_date, data.opening_time)} —{" "}
+                {formatSessionDateTime(data.start_date, data.closing_time)}
               </Descriptions.Item>
               <Descriptions.Item label="最晚入场">
-                {data.last_entry_time}
+                {formatSessionDateTime(data.start_date, data.last_entry_time)}
               </Descriptions.Item>
-              <Descriptions.Item label="地点">{data.location}</Descriptions.Item>
+              <Descriptions.Item label="地点">
+                {data.location}
+              </Descriptions.Item>
               <Descriptions.Item label="创建时间">
-                {data.created_at}
+                {formatDateTime(data.created_at)}
               </Descriptions.Item>
               <Descriptions.Item label="更新时间">
-                {data.updated_at}
-              </Descriptions.Item>
-              <Descriptions.Item label="展会 ID" span={2}>
-                <Typography.Text copyable>{data.id}</Typography.Text>
+                {formatDateTime(data.updated_at)}
               </Descriptions.Item>
             </Descriptions>
           </>

@@ -32,10 +32,29 @@ export async function createExhibitionApi(
   return raw as unknown as ExhibitionTypes.Exhibition;
 }
 
-export async function getExhibitionApi(
+export async function getExhibitionSessionsApi(
   eid: string,
-): Promise<ExhibitionTypes.Exhibition> {
-  const raw = await request.get(`/exhibition/${encodeURIComponent(eid)}`);
-  return raw as unknown as ExhibitionTypes.Exhibition;
+): Promise<ExhibitionTypes.Session[]> {
+  const raw = await request.get(
+    `/exhibition/${encodeURIComponent(eid)}/sessions`,
+  );
+  return raw as unknown as ExhibitionTypes.Session[];
 }
 
+export async function getExhibitionApi(
+  eid: string,
+): Promise<
+  ExhibitionTypes.Exhibition & { sessions: ExhibitionTypes.Session[] }
+> {
+  // const raw = await request.get(`/exhibition/${encodeURIComponent(eid)}`);
+  const [exhibition, sessions] = await Promise.all([
+    request.get(`/exhibition/${encodeURIComponent(eid)}`),
+    request.get(`/exhibition/${encodeURIComponent(eid)}/sessions`),
+  ]);
+  return {
+    ...exhibition,
+    sessions: sessions,
+  } as unknown as ExhibitionTypes.Exhibition & {
+    sessions: ExhibitionTypes.Session[];
+  };
+}
