@@ -34,6 +34,7 @@ import {
   updateTicketCategoryInventoryMaxApi,
   type CreateTicketCategoryInput,
 } from "@/apis/exhibition";
+import { useModal } from "@/hooks/use-modal";
 import { formatDateTime, formatSessionDateTime } from "@/utils/format-datetime";
 import dayjs from "dayjs";
 import "./exhibition.less";
@@ -72,19 +73,30 @@ export default function ExhibitionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ExhibitionDetailData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [ticketModalOpen, setTicketModalOpen] = useState(false);
+  const {
+    visible: addTicketVisible,
+    open: openAddTicketModal,
+    close: closeAddTicketModal,
+  } = useModal();
+
+  const {
+    visible: ticketInvVisible,
+    data: ticketInvData,
+    open: openTicketInvModal,
+    close: closeTicketInvModal,
+  } = useModal<ExhibitionTypes.TicketCategory>();
+
+  const {
+    visible: sessionInvVisible,
+    data: sessionInvData,
+    open: openSessionInvModal,
+    close: closeSessionInvModal,
+  } = useModal<ExhibitionTypes.Session>();
+
   const [ticketSubmitting, setTicketSubmitting] = useState(false);
-
-  const [ticketInvModalOpen, setTicketInvModalOpen] = useState(false);
-  const [ticketInvCategory, setTicketInvCategory] =
-    useState<ExhibitionTypes.TicketCategory | null>(null);
   const [ticketInvSubmitting, setTicketInvSubmitting] = useState(false);
-
-  const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
-  const [inventoryLoading, setInventoryLoading] = useState(false);
-  const [inventorySession, setInventorySession] =
-    useState<ExhibitionTypes.Session | null>(null);
-  const [inventoryRows, setInventoryRows] = useState<
+  const [sessionInvLoading, setSessionInvLoading] = useState(false);
+  const [sessionInvRows, setSessionInvRows] = useState<
     InventoryTypes.SessionTicketsInventory[]
   >([]);
 
@@ -113,25 +125,43 @@ export default function ExhibitionDetailPage() {
     void loadDetail();
   }, [loadDetail]);
 
-  const openSessionInventory = useCallback(
-    async (session: ExhibitionTypes.Session) => {
-      if (!eid) return;
-      setInventorySession(session);
-      setInventoryModalOpen(true);
-      setInventoryLoading(true);
-      setInventoryRows([]);
+  /** 场次库存弹窗打开后拉取列表 */
+  useEffect(() => {
+    if (!sessionInvVisible || !sessionInvData || !eid) {
+      if (!sessionInvVisible) {
+        setSessionInvRows([]);
+        setSessionInvLoading(false);
+      }
+      return;
+    }
+    const session = sessionInvData;
+    let cancelled = false;
+    setSessionInvLoading(true);
+    setSessionInvRows([]);
+    (async () => {
       try {
         const rows = await listExhibitionSessionTicketsApi(eid, session.id);
-        setInventoryRows(rows);
+        if (!cancelled) setSessionInvRows(rows);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        message.error(msg ? `加载库存失败：${msg}` : "加载场次库存失败");
-        setInventoryRows([]);
+        if (!cancelled) {
+          const msg = err instanceof Error ? err.message : String(err);
+          message.error(msg ? `加载库存失败：${msg}` : "加载场次库存失败");
+          setSessionInvRows([]);
+        }
       } finally {
-        setInventoryLoading(false);
+        if (!cancelled) setSessionInvLoading(false);
       }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionInvVisible, sessionInvData, eid]);
+
+  const openSessionInventory = useCallback(
+    (session: ExhibitionTypes.Session) => {
+      openSessionInvModal(session);
     },
-    [eid],
+    [openSessionInvModal],
   );
 
   const sessionColumns = useMemo<ColumnsType<ExhibitionTypes.Session>>(
@@ -169,7 +199,7 @@ export default function ExhibitionDetailPage() {
             type="link"
             size="small"
             style={{ padding: 0, height: "auto" }}
-            onClick={() => void openSessionInventory(row)}
+            onClick={() => openSessionInventory(row)}
           >
             查看库存
           </Button>
@@ -231,10 +261,9 @@ export default function ExhibitionDetailPage() {
 
   const openTicketInventoryModal = useCallback(
     (row: ExhibitionTypes.TicketCategory) => {
-      setTicketInvCategory(row);
-      setTicketInvModalOpen(true);
+      openTicketInvModal(row);
     },
-    [],
+    [openTicketInvModal],
   );
 
   const ticketColumns = useMemo<ColumnsType<ExhibitionTypes.TicketCategory>>(
@@ -317,6 +346,7 @@ export default function ExhibitionDetailPage() {
       setTicketSubmitting(true);
       await createExhibitionTicketCategoryApi(eid, values);
       message.success("票种已添加");
+      closeAddTicketModal();
       await loadDetail();
       return true;
     } catch (err) {
@@ -329,17 +359,17 @@ export default function ExhibitionDetailPage() {
   }
 
   async function handleTicketInventoryFinish(values: { quantity: number }) {
-    if (!eid || !ticketInvCategory) return false;
+    const category = ticketInvData;
+    if (!eid || !category) return false;
     try {
       setTicketInvSubmitting(true);
       await updateTicketCategoryInventoryMaxApi(
         eid,
-        ticketInvCategory.id,
+        category.id,
         values.quantity,
       );
       message.success("该票种在所有场次的库存上限已更新");
-      setTicketInvModalOpen(false);
-      setTicketInvCategory(null);
+      closeTicketInvModal();
       await loadDetail();
       return true;
     } catch (err) {
@@ -383,7 +413,7 @@ export default function ExhibitionDetailPage() {
         ]}
       />
 
-      <div style={{ marginBottom: token.marginMD }}>
+      {/* <div style={{ marginBottom: token.marginMD }}>
         <Button
           type="link"
           icon={<ArrowLeftOutlined />}
@@ -392,7 +422,7 @@ export default function ExhibitionDetailPage() {
         >
           返回列表
         </Button>
-      </div>
+      </div> */}
 
       <Card
         variant="borderless"
@@ -463,7 +493,7 @@ export default function ExhibitionDetailPage() {
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
-                onClick={() => setTicketModalOpen(true)}
+                onClick={() => openAddTicketModal()}
               >
                 添加票种
               </Button>
@@ -520,16 +550,12 @@ export default function ExhibitionDetailPage() {
 
       <Modal
         title={
-          inventorySession
-            ? `场次库存 · ${dayjs(inventorySession.session_date).format("YYYY-MM-DD")}`
+          sessionInvData
+            ? `场次库存 · ${dayjs(sessionInvData.session_date).format("YYYY-MM-DD")}`
             : "场次库存"
         }
-        open={inventoryModalOpen}
-        onCancel={() => {
-          setInventoryModalOpen(false);
-          setInventorySession(null);
-          setInventoryRows([]);
-        }}
+        open={sessionInvVisible}
+        onCancel={closeSessionInvModal}
         footer={null}
         width={880}
         destroyOnClose
@@ -539,15 +565,15 @@ export default function ExhibitionDetailPage() {
           展示该场次下各票种的库存数量（接口：GET
           /exhibition/:eid/sessions/:sid/tickets）。
         </Typography.Paragraph>
-        <Spin spinning={inventoryLoading}>
+        <Spin spinning={sessionInvLoading}>
           <Table<InventoryTypes.SessionTicketsInventory>
             rowKey="id"
             size="small"
             columns={inventoryColumns}
-            dataSource={inventoryRows}
+            dataSource={sessionInvRows}
             pagination={false}
             locale={{
-              emptyText: inventoryLoading ? "加载中…" : "暂无票种或库存数据",
+              emptyText: sessionInvLoading ? "加载中…" : "暂无票种或库存数据",
             }}
             scroll={{ x: "max-content" }}
           />
@@ -555,15 +581,10 @@ export default function ExhibitionDetailPage() {
       </Modal>
 
       <ModalForm<{ quantity: number }>
-        title={
-          ticketInvCategory
-            ? `设置库存 · ${ticketInvCategory.name}`
-            : "设置库存"
-        }
-        open={ticketInvModalOpen}
+        title={ticketInvData ? `设置库存 · ${ticketInvData.name}` : "设置库存"}
+        open={ticketInvVisible}
         onOpenChange={(open) => {
-          setTicketInvModalOpen(open);
-          if (!open) setTicketInvCategory(null);
+          if (!open) closeTicketInvModal();
         }}
         initialValues={{ quantity: 0 }}
         modalProps={{
@@ -581,7 +602,8 @@ export default function ExhibitionDetailPage() {
         layout="vertical"
       >
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          将为本票种在<strong>全部场次</strong>下设置相同的库存上限数量（对应接口 PUT
+          将为本票种在<strong>全部场次</strong>
+          下设置相同的库存上限数量（对应接口 PUT
           /exhibition/:eid/sessions/tickets/:tid/inventory/max）。
         </Typography.Paragraph>
         <ProFormDigit
@@ -595,8 +617,10 @@ export default function ExhibitionDetailPage() {
 
       <ModalForm<CreateTicketCategoryInput>
         title="添加票种"
-        open={ticketModalOpen}
-        onOpenChange={setTicketModalOpen}
+        open={addTicketVisible}
+        onOpenChange={(open) => {
+          if (!open) closeAddTicketModal();
+        }}
         initialValues={ticketFormInitial}
         modalProps={{
           destroyOnClose: true,

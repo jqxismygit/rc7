@@ -5,3 +5,4 @@ export {
   type TableListParams,
   type UseTableQueryOptions,
 } from "./use-table-query";
+export { useModal, type UseModalReturn } from "./use-modal";
