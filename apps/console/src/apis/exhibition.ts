@@ -1,5 +1,10 @@
-import type { Exhibition as ExhibitionTypes } from "@cr7/types";
+import type {
+  Exhibition as ExhibitionTypes,
+  Inventory as InventoryTypes,
+} from "@cr7/types";
 import { request } from "@/utils/request";
+
+export type SessionTicketsInventory = InventoryTypes.SessionTicketsInventory;
 
 export type CreateExhibitionInput = Omit<
   ExhibitionTypes.Exhibition,
@@ -66,9 +71,7 @@ export async function createExhibitionTicketCategoryApi(
   return raw as unknown as ExhibitionTypes.TicketCategory;
 }
 
-export async function getExhibitionApi(
-  eid: string,
-): Promise<
+export async function getExhibitionApi(eid: string): Promise<
   ExhibitionTypes.Exhibition & {
     sessions: ExhibitionTypes.Session[];
     ticket_categories: ExhibitionTypes.TicketCategory[];
@@ -87,4 +90,30 @@ export async function getExhibitionApi(
     sessions: ExhibitionTypes.Session[];
     ticket_categories: ExhibitionTypes.TicketCategory[];
   };
+}
+
+// /exhibition/:eid/sessions/:sid/tickets
+export async function listExhibitionSessionTicketsApi(
+  eid: string,
+  sid: string,
+): Promise<InventoryTypes.SessionTicketsInventory[]> {
+  const raw = await request.get(
+    `/exhibition/${encodeURIComponent(eid)}/sessions/${encodeURIComponent(sid)}/tickets`,
+  );
+  return raw as unknown as InventoryTypes.SessionTicketsInventory[];
+}
+
+export async function createExhibitionSessionTicketApi(
+  eid: string,
+  sid: string,
+  data: Omit<
+    InventoryTypes.SessionTicketsInventory,
+    "id" | "session_id" | "created_at" | "updated_at"
+  >,
+): Promise<InventoryTypes.SessionTicketsInventory> {
+  const raw = await request.post(
+    `/exhibition/${encodeURIComponent(eid)}/sessions/${encodeURIComponent(sid)}/tickets`,
+    data,
+  );
+  return raw as unknown as InventoryTypes.SessionTicketsInventory;
 }

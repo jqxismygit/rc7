@@ -7,6 +7,7 @@ import {
   Card,
   Descriptions,
   Empty,
+  Modal,
   Spin,
   Table,
   Typography,
@@ -25,9 +26,11 @@ import {
   ProFormText,
 } from "@ant-design/pro-components";
 import type { Exhibition as ExhibitionTypes } from "@cr7/types";
+import type { Inventory as InventoryTypes } from "@cr7/types";
 import {
   createExhibitionTicketCategoryApi,
   getExhibitionApi,
+  listExhibitionSessionTicketsApi,
   type CreateTicketCategoryInput,
 } from "@/apis/exhibition";
 import { formatDateTime, formatSessionDateTime } from "@/utils/format-datetime";
@@ -71,6 +74,14 @@ export default function ExhibitionDetailPage() {
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [ticketSubmitting, setTicketSubmitting] = useState(false);
 
+  const [inventoryModalOpen, setInventoryModalOpen] = useState(false);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventorySession, setInventorySession] =
+    useState<ExhibitionTypes.Session | null>(null);
+  const [inventoryRows, setInventoryRows] = useState<
+    InventoryTypes.SessionTicketsInventory[]
+  >([]);
+
   const loadDetail = useCallback(async () => {
     if (!eid) {
       setLoading(false);
@@ -96,6 +107,27 @@ export default function ExhibitionDetailPage() {
     void loadDetail();
   }, [loadDetail]);
 
+  const openSessionInventory = useCallback(
+    async (session: ExhibitionTypes.Session) => {
+      if (!eid) return;
+      setInventorySession(session);
+      setInventoryModalOpen(true);
+      setInventoryLoading(true);
+      setInventoryRows([]);
+      try {
+        const rows = await listExhibitionSessionTicketsApi(eid, session.id);
+        setInventoryRows(rows);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        message.error(msg ? `加载库存失败：${msg}` : "加载场次库存失败");
+        setInventoryRows([]);
+      } finally {
+        setInventoryLoading(false);
+      }
+    },
+    [eid],
+  );
+
   const sessionColumns = useMemo<ColumnsType<ExhibitionTypes.Session>>(
     () => [
       {
@@ -113,6 +145,72 @@ export default function ExhibitionDetailPage() {
       },
       {
         title: "场次 ID",
+        dataIndex: "id",
+        ellipsis: true,
+        render: (id: string) => (
+          <Typography.Text copyable={{ text: id }} ellipsis>
+            {id}
+          </Typography.Text>
+        ),
+      },
+      {
+        title: "操作",
+        key: "action",
+        width: 108,
+        fixed: "right",
+        render: (_, row) => (
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0, height: "auto" }}
+            onClick={() => void openSessionInventory(row)}
+          >
+            查看库存
+          </Button>
+        ),
+      },
+    ],
+    [openSessionInventory],
+  );
+
+  const inventoryColumns = useMemo<
+    ColumnsType<InventoryTypes.SessionTicketsInventory>
+  >(
+    () => [
+      {
+        title: "票种名称",
+        dataIndex: "name",
+        width: 140,
+        ellipsis: true,
+      },
+      {
+        title: "库存数量",
+        dataIndex: "quantity",
+        width: 100,
+        render: (q: number) => (
+          <Typography.Text strong>{q ?? 0}</Typography.Text>
+        ),
+      },
+      {
+        title: "价格（元）",
+        dataIndex: "price",
+        width: 100,
+        render: (p: number) => (typeof p === "number" ? String(p) : p),
+      },
+      {
+        title: "退票政策",
+        dataIndex: "refund_policy",
+        width: 180,
+        render: (v: ExhibitionTypes.TicketCategory["refund_policy"]) =>
+          refundPolicyText(v),
+      },
+      {
+        title: "可入场人数",
+        dataIndex: "admittance",
+        width: 110,
+      },
+      {
+        title: "票种 ID",
         dataIndex: "id",
         ellipsis: true,
         render: (id: string) => (
@@ -366,6 +464,40 @@ export default function ExhibitionDetailPage() {
           </Card>
         </>
       ) : null}
+
+      <Modal
+        title={
+          inventorySession
+            ? `场次库存 · ${dayjs(inventorySession.session_date).format("YYYY-MM-DD")}`
+            : "场次库存"
+        }
+        open={inventoryModalOpen}
+        onCancel={() => {
+          setInventoryModalOpen(false);
+          setInventorySession(null);
+          setInventoryRows([]);
+        }}
+        footer={null}
+        width={880}
+        destroyOnClose
+        maskClosable={false}
+      >
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
+          展示该场次下各票种的库存数量（接口：GET
+          /exhibition/:eid/sessions/:sid/tickets）。
+        </Typography.Paragraph>
+        <Spin spinning={inventoryLoading}>
+          <Table<InventoryTypes.SessionTicketsInventory>
+            rowKey="id"
+            size="small"
+            columns={inventoryColumns}
+            dataSource={inventoryRows}
+            pagination={false}
+            locale={{ emptyText: inventoryLoading ? "加载中…" : "暂无票种或库存数据" }}
+            scroll={{ x: "max-content" }}
+          />
+        </Spin>
+      </Modal>
 
       <ModalForm<CreateTicketCategoryInput>
         title="添加票种"
