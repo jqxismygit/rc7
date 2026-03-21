@@ -11,7 +11,6 @@
   - `PAID`：已支付
   - `CANCELLED`：已取消
   - `EXPIRED`：已过期
-  - 状态由 data 层查询订单时基于 `paid_at`、`cancelled_at`、`expires_at` 动态计算
 
 ## 创建订单
 
