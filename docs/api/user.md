@@ -1,35 +1,112 @@
 # 用户相关接口
 
+基于 `User` 类型（来自 `@cr7/types`）定义。
+
+## 设计目标
+
+- `users` 作为统一用户实体，支持一个用户绑定多种登录方式。
+- 管理员账号只是绑定了 `ADMIN` 角色的普通用户，不单独拆出另一套账号体系。
+
 ## 微信小程序登录/注册
 
-- URL: `/api/user/login/wechat/mini`
+- URL: `/user/login/wechat/mini`
 - Method: `POST`
 - Request Body:
   ```ts
-  {
-    code: string
-  }
+  { code: string }
   ```
 - Response Body:
   ```ts
   { token: string }
   ```
+- Response Status:
+  - `200 OK`：登录成功，首次登录时自动注册用户
+  - `400 Bad Request`：code 参数无效
+  - `401 Unauthorized`：微信授权失败
 
-## 获取用户信息
+- 说明：
+  - 首次登录自动创建 `users` 与 `user_wechat` 记录
+  - 已存在的微信身份再次登录时复用同一用户
 
-- URL: `/api/user/profile`
+## 用户名密码登录
+
+- URL: `/user/login/password`
+- Method: `POST`
+- Request Body:
+  ```ts
+  User.PasswordCredential & { password: string }
+  ```
+- Response Body:
+  ```ts
+  { token: string }
+  ```
+- Response Status:
+  - `200 OK`：登录成功
+  - `400 Bad Request`：用户名或密码为空
+  - `401 Unauthorized`：用户名不存在或密码错误
+
+- 说明：
+  - 用户名登录与微信登录共享同一套 `users` 主表
+  - 后续微信用户可补绑密码后使用该接口登录
+
+## 初始化管理员账号
+
+该能力优先通过 CLI 提供，不暴露公开 HTTP 接口。
+
+- Command: `pnpm -w s cr7 user init-admin --phone <phone> --password <password>`
+- 行为：
+  - `--phone` 只需提供本地号码，如 `12345678901`，国别码默认 `+86` 由系统补全
+  - 若手机号已存在于 `user_phone`，则设置其对应用户为系统管理员
+  - 创建 `users(name = 'system admin')`
+  - 创建 `user_phone(country_code = '+86', phone = <phone>)`
+  - 绑定 `ADMIN` 角色
+  - 创建 `user_password`，供管理员使用密码登录
+
+## 修改当前用户密码
+
+- URL: `/user/password`
+- Method: `PUT`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Body:
+  ```ts
+  {
+    current_password: string;
+    new_password: string;
+  }
+  ```
+- Response Status:
+  - `204 No Content`：修改成功
+  - `400 Bad Request`：参数不合法或新旧密码相同
+  - `401 Unauthorized`：未认证或当前密码错误
+  - `404 Not Found`：当前用户未绑定密码认证方式
+
+- 说明：
+  - 只有已绑定密码的用户才能修改密码
+  - 微信用户后续绑定密码后，也复用该接口
+
+## 获取当前用户信息
+
+- URL: `/user/profile`
 - Method: `GET`
-- Response Header:
+- Request Header:
   ```ts
   { Authorization: `Bearer ${token}` }
   ```
 - Response Body:
   ```ts
-  {
-    id: number;
-    name: string;
-    openid: string;
-    created_at: string;
-    updated_at: string;
-  }
+  User.Profile
   ```
+- Response Status:
+  - `200 OK`：查询成功
+  - `401 Unauthorized`：未认证
+  - `404 Not Found`：用户不存在
+
+- 说明：
+  - `roles` 返回当前用户已绑定的角色列表
+  - `openid` 对未绑定微信的用户为 `null`
+  - `phone` 对未绑定手机号的用户为 `null`，绑定后返回完整格式如 `+86 12345678901`
+  - `username` 对未绑定密码的用户为 `null`
+  - `auth_methods` 返回当前用户已绑定的认证方式列表，如 `['WECHAT_MINI', 'PASSWORD']`
