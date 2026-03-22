@@ -617,6 +617,7 @@ export default {
 .info-row-time .info-icon {
   /* 首行行高 38rpx、图标 24rpx，与第一行视觉中线对齐 */
   margin-top: 7rpx;
+  flex-shrink: 0;
 }
 
 .info-icon {
