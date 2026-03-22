@@ -729,13 +729,14 @@ export default {
   width: 24rpx;
   height: 24rpx;
   flex-shrink: 0;
-  margin-right: 18rpx;
+  margin-right: 9rpx;
 }
 
 .chip-main {
   font-size: 24rpx;
   color: $text-white;
   font-weight: 400;
+  margin-left: 9rpx;
 }
 
 .chip-sub {

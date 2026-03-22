@@ -42,7 +42,7 @@ export default defineConfig(({ mode }) => {
       host: true,
       proxy: {
         "/api": {
-          target: VITE_API_HOST,
+          target: `${VITE_API_HOST}`,
           changeOrigin: true,
         },
       },
