@@ -12,9 +12,10 @@
     <!-- 工具栏：票码兑换 / 三方票同步 -->
     <view class="ticket-toolbar" @click.stop>
       <view class="tool-item" @click="goToExchange">
-        <view class="tool-icon-box">
+        <!-- <view class="tool-icon-box">
           <text class="tool-icon-text">🎫</text>
-        </view>
+        </view> -->
+        <sx-svg name="ticket-white" />
         <text class="tool-label">票码兑换</text>
       </view>
       <view class="tool-item" @click="syncThirdTickets">
