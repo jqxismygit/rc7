@@ -9,6 +9,7 @@ Feature: 微信支付订单
     Given 用户预订了 1 张 "CR7" 展会 的 "2026-07-01" 场次的 "成人票"
     When 在微信小程序中向 cr7 支付服务发起支付
     Then 微信支付服务收到支付请求
+     And 支付人 openid 为 "wechat_user_1" 的微信用户的 openid
      And 订单号 out-trade-no 为订单号去掉 - 符号后的字符串
      And 商品描述 description 为 "CR7 展会 成人票 2026-07-01 场次"
      And 价格 amount 为订单金额，单位为分
