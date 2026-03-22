@@ -75,9 +75,7 @@
               <text class="event-title">{{
                 ticketSection.ticketEvent.title
               }}</text>
-              <text class="event-meta">{{
-                ticketSection.ticketEvent.time
-              }}</text>
+              <text class="event-meta">{{ ticketEventCardLine }}</text>
             </view>
           </view>
         </view>
@@ -192,9 +190,19 @@ import {
   loadHomeTicketSection,
 } from "@/services/home.js";
 import createTabBarMixin from "@/mixins/tabBar.js";
+import { HOME_TICKET_SECTION_EVENT } from "@/utils/eventBus.js";
+import { formatTicketEventCardMetaLine } from "@/utils/ticketEventDisplay.js";
 
 export default {
   mixins: [createTabBarMixin(0)],
+  computed: {
+    ticketEventCardLine() {
+      const line = formatTicketEventCardMetaLine(
+        this.ticketSection.ticketEvent,
+      );
+      return line || "-";
+    },
+  },
   data() {
     return {
       statusBarHeight: 0,
@@ -204,8 +212,16 @@ export default {
       ticketSection: {
         ticketEvent: {
           title: "-",
-          time: "-",
           cover: "/static/images/event-card.jpg",
+          start_date: "",
+          end_date: "",
+          opening_time: "",
+          closing_time: "",
+          last_entry_time: "",
+          location: "",
+          session_date: null,
+          has_today_session: false,
+          contact_phone: "",
         },
         ticketTypes: [],
       },
@@ -256,13 +272,11 @@ export default {
           ...b,
           tagline: b.description || "官方合作品牌",
         }));
-        // loadHomeTicketSection 返回 { ticketEvent, ticketTypes }，不是顶层的 title/time/cover
         const ev = ticketSection?.ticketEvent;
-        console.log("ticketSection ===============>>", ticketSection);
         this.ticketSection.ticketEvent = {
+          ...this.ticketSection.ticketEvent,
           ...(ev || {}),
           title: ev?.title ?? this.ticketSection.ticketEvent.title,
-          time: ev?.time ?? this.ticketSection.ticketEvent.time,
           cover: ev?.cover || this.ticketSection.ticketEvent.cover,
         };
         this.ticketSection.ticketTypes = Array.isArray(
@@ -286,16 +300,21 @@ export default {
 
     openTicketEvent() {
       uni.navigateTo({
-        url: `/pages/ticket-purchase/ticket-purchase?id=${this.ticketSection.ticketEvent.id || 1}`,
+        url: "/pages/ticket-purchase/ticket-purchase?prefill=home",
+        success: () => {
+          this.$bus.emit(HOME_TICKET_SECTION_EVENT, this.ticketSection);
+        },
       });
     },
 
     selectTicket(ticket) {
       if (ticket.stock > 0) {
-        const eventId = this.ticketSection.ticketEvent.id || 1;
-        const ticketId = ticket.id;
+        const q = `prefill=home&ticketId=${encodeURIComponent(ticket.id)}`;
         uni.navigateTo({
-          url: `/pages/ticket-purchase/ticket-purchase?eventId=${eventId}&ticketId=${ticketId}`,
+          url: `/pages/ticket-purchase/ticket-purchase?${q}`,
+          success: () => {
+            this.$bus.emit(HOME_TICKET_SECTION_EVENT, this.ticketSection);
+          },
         });
       } else {
         uni.showToast({ title: "该票种已售罄", icon: "none" });

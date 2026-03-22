@@ -15,6 +15,7 @@ app.$mount()
 import { createSSRApp } from 'vue'
 import { createPinia } from 'pinia'
 import createPersistPlugin from '@/utils/createPersistPlugin.js'
+import { createEventBus } from '@/utils/eventBus.js'
 
 export function createApp() {
   const app = createSSRApp(App)
@@ -24,6 +25,7 @@ export function createApp() {
   pinia.use(createPersistPlugin({ ids: ['user'] }))
 
   app.use(pinia)
+  app.config.globalProperties.$bus = createEventBus()
   return {
     app
   }

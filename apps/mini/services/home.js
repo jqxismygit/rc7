@@ -69,29 +69,31 @@ function refundHint(policy) {
   return "不可退票";
 }
 
-function formatTicketEventMeta(exhibition, todaySession) {
-  const cover = "/static/images/event-card.jpg";
-  const open = (exhibition.opening_time || "").slice(0, 5);
-  const close = (exhibition.closing_time || "").slice(0, 5);
-  const loc = exhibition.location || "";
+/**
+ * 展览 + 场次元信息：时间、地点等分字段存储，展示层再拼接（见 ticketEventDisplay.js）
+ */
+function buildTicketEvent(exhibition, todaySession) {
+  const defaultCover = "/static/images/event-card.jpg";
+  const cover =
+    exhibition.cover_url ||
+    exhibition.cover_image ||
+    exhibition.cover ||
+    defaultCover;
 
-  if (todaySession) {
-    const md = dayjs(todaySession.session_date).format("MM/DD");
-    return {
-      id: exhibition.id,
-      title: exhibition.name,
-      time: `${md}·${open}-${close}·${loc}`,
-      cover,
-    };
-  }
-
-  const start = dayjs(exhibition.start_date).format("MM/DD");
-  const end = dayjs(exhibition.end_date).format("MM/DD");
   return {
     id: exhibition.id,
     title: exhibition.name,
-    time: `展期 ${start}-${end}·${open}-${close}·${loc}（今日无场次）`,
     cover,
+    start_date: exhibition.start_date || "",
+    end_date: exhibition.end_date || "",
+    opening_time: exhibition.opening_time || "",
+    closing_time: exhibition.closing_time || "",
+    last_entry_time: exhibition.last_entry_time || "",
+    location: exhibition.location || "",
+    session_date: todaySession ? sessionDateKey(todaySession) : null,
+    has_today_session: Boolean(todaySession),
+    /** 接口暂无则空串，购票页用默认电话 */
+    contact_phone: exhibition.contact_phone || "",
   };
 }
 
@@ -123,7 +125,7 @@ export async function loadHomeTicketSection() {
 
   const list = Array.isArray(sessions) ? sessions : [];
   const todaySession = findTodaySession(list);
-  const ticketEvent = formatTicketEventMeta(exhibition, todaySession);
+  const ticketEvent = buildTicketEvent(exhibition, todaySession);
 
   let ticketTypes = [];
   if (todaySession?.id) {

@@ -14,15 +14,15 @@
       <view class="hero-section">
         <image
           class="hero-bg"
-          src="/static/images/event-card.jpg"
+          :src="heroCover"
           mode="aspectFill"
         />
         <view class="hero-gradient"></view>
 
-        <!-- 标题/副标题叠加在图片底部 -->
+        <!-- 标题/副标题叠加在图片底部（首页传入 ticketSection 时使用真实文案） -->
         <view class="hero-bottom">
-          <text class="hero-title">C罗博物馆 • 上海博物馆门票</text>
-          <text class="hero-sub">亚洲首个CR7@LIFE 沉浸式博物馆</text>
+          <text class="hero-title">{{ heroTitle }}</text>
+          <text class="hero-sub">{{ heroSub }}</text>
         </view>
       </view>
 
@@ -31,19 +31,21 @@
         <view class="info-row info-row-time">
           <text class="info-icon">⏱</text>
           <view class="info-text-col">
-            <text class="info-text">2026.05.01-12.31</text>
-            <text class="info-text info-text-indent"
-              >10:00 AM - 22:00 PM(最晚入场21:00)</text
+            <text class="info-text">{{ infoTimePrimary }}</text>
+            <text
+              v-if="infoTimeSecondary"
+              class="info-text info-text-indent"
+              >{{ infoTimeSecondary }}</text
             >
           </view>
         </view>
         <view class="info-row">
           <text class="info-icon">📍</text>
-          <text class="info-text">上海市黄浦区王府井大街123号</text>
+          <text class="info-text">{{ infoMuseumLocation }}</text>
         </view>
         <view class="info-row">
           <text class="info-icon">📞</text>
-          <text class="info-text">021-8888888</text>
+          <text class="info-text">{{ contactPhone }}</text>
         </view>
       </view>
 
@@ -193,10 +195,17 @@
 
 <script>
 import { mockTicketTypes, mockHomeCards } from "@/utils/mockData.js";
+import { HOME_TICKET_SECTION_EVENT } from "@/utils/eventBus.js";
+import {
+  formatExhibitionDateRangeLine,
+  formatOpenHoursLine,
+} from "@/utils/ticketEventDisplay.js";
 
 export default {
   data() {
     return {
+      /** 首页 setStorage 传入的 { ticketEvent, ticketTypes } */
+      homeTicketSection: null,
       eventId: "",
       eventName: "",
       eventDate: "",
@@ -211,6 +220,55 @@ export default {
   },
 
   computed: {
+    heroCover() {
+      return (
+        this.homeTicketSection?.ticketEvent?.cover || "/static/images/event-card.jpg"
+      );
+    },
+    heroTitle() {
+      return (
+        this.homeTicketSection?.ticketEvent?.title || "C罗博物馆 • 上海博物馆门票"
+      );
+    },
+    heroSub() {
+      if (this.homeTicketSection?.ticketEvent) {
+        return "亚洲首个 CR7® LIFE 沉浸式博物馆";
+      }
+      return "亚洲首个CR7@LIFE 沉浸式博物馆";
+    },
+    infoTimePrimary() {
+      const ev = this.homeTicketSection?.ticketEvent;
+      if (ev?.start_date && ev?.end_date) {
+        return formatExhibitionDateRangeLine(ev) || "—";
+      }
+      if (ev) return "—";
+      return "2026.05.01-12.31";
+    },
+    infoTimeSecondary() {
+      const ev = this.homeTicketSection?.ticketEvent;
+      if (ev) {
+        const line = formatOpenHoursLine(ev);
+        return line || "";
+      }
+      return "10:00 AM - 22:00 PM(最晚入场21:00)";
+    },
+    infoMuseumLocation() {
+      if (this.homeTicketSection?.ticketEvent) {
+        return (
+          this.homeTicketSection.ticketEvent.location ||
+          "上海市黄浦区王府井大街123号"
+        );
+      }
+      return this.museumLocation;
+    },
+    contactPhone() {
+      const p = this.homeTicketSection?.ticketEvent?.contact_phone;
+      if (this.homeTicketSection?.ticketEvent) {
+        return p || "021-8888888";
+      }
+      return "021-8888888";
+    },
+
     totalPrice() {
       if (!this.selectedTicket) return 199;
       return this.selectedTicket.price * this.quantity;
@@ -253,19 +311,41 @@ export default {
   },
 
   onLoad(options) {
-    this.eventId = options.eventId || options.id;
-    this.loadEventInfo();
-    this.loadTicketTypes();
-    // 从首页点击票种进入时，预选对应票种
-    if (options.ticketId) {
-      this.$nextTick(() => {
-        const ticket = this.ticketTypes.find(
-          (t) => String(t.id) === String(options.ticketId),
-        );
-        if (ticket && ticket.stock > 0) {
-          this.selectedTicket = ticket;
+    if (options.prefill === "home") {
+      this.$bus.once(HOME_TICKET_SECTION_EVENT, (section) => {
+        if (section?.ticketEvent) {
+          this.homeTicketSection = section;
+          this.ticketTypes = Array.isArray(section.ticketTypes)
+            ? section.ticketTypes
+            : [];
+          this.eventId =
+            section.ticketEvent.id || options.eventId || options.id || "";
+        } else {
+          this.applyDefaultEventAndTickets(options);
+        }
+        if (options.ticketId) {
+          this.$nextTick(() => {
+            const ticket = this.ticketTypes.find(
+              (t) => String(t.id) === String(options.ticketId),
+            );
+            if (ticket && ticket.stock > 0) {
+              this.selectedTicket = ticket;
+            }
+          });
         }
       });
+    } else {
+      this.applyDefaultEventAndTickets(options);
+      if (options.ticketId) {
+        this.$nextTick(() => {
+          const ticket = this.ticketTypes.find(
+            (t) => String(t.id) === String(options.ticketId),
+          );
+          if (ticket && ticket.stock > 0) {
+            this.selectedTicket = ticket;
+          }
+        });
+      }
     }
   },
 
@@ -276,6 +356,12 @@ export default {
       } else {
         uni.switchTab({ url: "/pages/index/index" });
       }
+    },
+
+    applyDefaultEventAndTickets(options) {
+      this.eventId = options.eventId || options.id;
+      this.loadEventInfo();
+      this.loadTicketTypes();
     },
 
     formatDate(d) {
