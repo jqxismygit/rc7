@@ -5,7 +5,10 @@ ignoreWords:
   - Jscode
   - Descriibe
 words:
+  - mchid
   - moleculer
   - TSTZRANGE
   - Wechat
-  - wepay
+  - wechat
+  - wechatpay
+
