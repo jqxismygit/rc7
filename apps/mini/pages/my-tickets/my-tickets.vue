@@ -36,11 +36,7 @@
 
     <!-- 票券列表 -->
     <scroll-view v-else class="ticket-scroll" scroll-y>
-      <view
-        v-for="ticket in tickets"
-        :key="ticket.id"
-        class="ticket-card"
-      >
+      <view v-for="ticket in tickets" :key="ticket.id" class="ticket-card">
         <!-- 票面大图 + 状态胶囊 -->
         <view class="ticket-cover-wrap" @click="goToDetail(ticket)">
           <image
@@ -48,7 +44,10 @@
             src="/static/images/event-card.jpg"
             mode="aspectFill"
           />
-          <view class="ticket-status-pill" :class="getStatusPillClass(ticket.status)">
+          <view
+            class="ticket-status-pill"
+            :class="getStatusPillClass(ticket.status)"
+          >
             <text class="pill-text">{{ getStatusText(ticket.status) }}</text>
           </view>
         </view>
@@ -58,9 +57,15 @@
           <!-- 标题 + 标签 -->
           <view class="ticket-title-row">
             <text class="ticket-event-name">{{ ticket.eventName }}</text>
-            <view class="ticket-type-tag" :class="ticket.isThird ? 'tag-third' : 'tag-official'">
-              <text class="tag-text" :class="ticket.isThird ? 'tag-text-third' : 'tag-text-official'">
-                {{ ticket.isThird ? '三方票' : '官方票' }}
+            <view
+              class="ticket-type-tag"
+              :class="ticket.isThird ? 'tag-third' : 'tag-official'"
+            >
+              <text
+                class="tag-text"
+                :class="ticket.isThird ? 'tag-text-third' : 'tag-text-official'"
+              >
+                {{ ticket.isThird ? "三方票" : "官方票" }}
               </text>
             </view>
           </view>
@@ -68,16 +73,31 @@
           <!-- 信息行 -->
           <view class="ticket-info-list" @click="goToDetail(ticket)">
             <view class="info-row">
-              <text class="info-icon">⏱</text>
+              <image
+                class="info-icon"
+                src="/static/ui-icons/time-white.svg"
+                mode="aspectFit"
+              />
               <text class="info-text">{{ ticket.eventDate }}</text>
             </view>
             <view class="info-row">
-              <text class="info-icon">📍</text>
+              <image
+                class="info-icon"
+                src="/static/ui-icons/location-white.svg"
+                mode="aspectFit"
+              />
               <text class="info-text">{{ getEventLocation(ticket) }}</text>
             </view>
             <view class="info-row">
-              <text class="info-icon">🎟</text>
-              <text class="info-text">{{ ticket.ticketType }} × {{ ticket.quantity }}    {{ ticket.refundRule || '开场前48小时可退' }}</text>
+              <image
+                class="info-icon"
+                src="/static/ui-icons/ticket-white.svg"
+                mode="aspectFit"
+              />
+              <text class="info-text"
+                >{{ ticket.ticketType }} × {{ ticket.quantity }}
+                {{ ticket.refundRule || "开场前48小时可退" }}</text
+              >
             </view>
           </view>
 
@@ -90,25 +110,39 @@
                 <button
                   v-if="showRefundButton(ticket)"
                   class="act-btn act-btn-outline"
-                  :class="{ 'act-btn-disabled': !canApplyRefund(ticket) || ticket.status === 'refunding' }"
-                  :disabled="!canApplyRefund(ticket) || ticket.status === 'refunding'"
+                  :class="{
+                    'act-btn-disabled':
+                      !canApplyRefund(ticket) || ticket.status === 'refunding',
+                  }"
+                  :disabled="
+                    !canApplyRefund(ticket) || ticket.status === 'refunding'
+                  "
                   @click.stop="onRefundClick(ticket)"
-                >{{ getRefundButtonText(ticket) }}</button>
+                >
+                  {{ getRefundButtonText(ticket) }}
+                </button>
                 <button
-                  v-else-if="ticket.status === 'used' || ticket.status === 'refunded'"
+                  v-else-if="
+                    ticket.status === 'used' || ticket.status === 'refunded'
+                  "
                   class="act-btn act-btn-outline"
                   @click.stop="handleDelete(ticket)"
-                >删除票券</button>
+                >
+                  删除票券
+                </button>
 
                 <button
                   class="act-btn act-btn-primary"
                   :class="{
-                    'act-btn-primary-muted': ticket.status === 'used' || ticket.status === 'refunded',
-                    'act-btn-primary-disabled': ticket.status === 'refunding'
+                    'act-btn-primary-muted':
+                      ticket.status === 'used' || ticket.status === 'refunded',
+                    'act-btn-primary-disabled': ticket.status === 'refunding',
                   }"
                   :disabled="ticket.status === 'refunding'"
                   @click.stop="goToDetail(ticket)"
-                >查看券码</button>
+                >
+                  查看券码
+                </button>
               </view>
             </view>
           </view>
@@ -121,120 +155,124 @@
 </template>
 
 <script>
-import { mockMyTickets, mockHomeCards } from '@/utils/mockData.js'
-import createTabBarMixin from '@/mixins/tabBar.js'
+import { mockMyTickets, mockHomeCards } from "@/utils/mockData.js";
+import createTabBarMixin from "@/mixins/tabBar.js";
 
 export default {
   mixins: [createTabBarMixin(1)],
   data() {
     return {
-      tickets: []
-    }
+      tickets: [],
+    };
   },
 
   onShow() {
-    this.loadTickets()
+    this.loadTickets();
   },
 
   methods: {
     loadTickets() {
-      this.tickets = mockMyTickets
+      this.tickets = mockMyTickets;
     },
 
     getStatusText(status) {
       const statusMap = {
-        unused: '待入场',
-        used: '已完成',
-        refunding: '退款中',
-        refunded: '已退款'
-      }
-      return statusMap[status] || status
+        unused: "待入场",
+        used: "已完成",
+        refunding: "退款中",
+        refunded: "已退款",
+      };
+      return statusMap[status] || status;
     },
 
     getStatusPillClass(status) {
       return {
-        'pill-active': status === 'unused',
-        'pill-done': status === 'used',
-        'pill-refunding': status === 'refunding',
-        'pill-refunded': status === 'refunded'
-      }
+        "pill-active": status === "unused",
+        "pill-done": status === "used",
+        "pill-refunding": status === "refunding",
+        "pill-refunded": status === "refunded",
+      };
     },
 
     showRefundButton(ticket) {
-      return ticket.canRefund && (ticket.status === 'unused' || ticket.status === 'refunding')
+      return (
+        ticket.canRefund &&
+        (ticket.status === "unused" || ticket.status === "refunding")
+      );
     },
 
     canApplyRefund(ticket) {
-      if (!ticket.canRefund) return false
-      if (ticket.status !== 'unused') return false
-      if (!ticket.eventDate) return false
-      const eventTime = new Date(ticket.eventDate.replace(/-/g, '/')).getTime()
-      if (!eventTime) return false
-      const now = Date.now()
-      const hoursDiff = (eventTime - now) / (1000 * 60 * 60)
-      return hoursDiff > 48
+      if (!ticket.canRefund) return false;
+      if (ticket.status !== "unused") return false;
+      if (!ticket.eventDate) return false;
+      const eventTime = new Date(ticket.eventDate.replace(/-/g, "/")).getTime();
+      if (!eventTime) return false;
+      const now = Date.now();
+      const hoursDiff = (eventTime - now) / (1000 * 60 * 60);
+      return hoursDiff > 48;
     },
 
     getRefundButtonText(ticket) {
-      if (ticket.status === 'refunding') return '退款中'
-      return '申请退票'
+      if (ticket.status === "refunding") return "退款中";
+      return "申请退票";
     },
 
     getEventLocation(ticket) {
-      const event = mockHomeCards.find(item => item.id == ticket.eventId)
-      return event && event.location ? event.location : '上海体育场'
+      const event = mockHomeCards.find((item) => item.id == ticket.eventId);
+      return event && event.location ? event.location : "上海体育场";
     },
 
     goToDetail(ticket) {
       uni.navigateTo({
-        url: `/pages/ticket-detail/ticket-detail?id=${ticket.id}`
-      })
+        url: `/pages/ticket-detail/ticket-detail?id=${ticket.id}`,
+      });
     },
 
     onRefundClick(ticket) {
-      if (!this.canApplyRefund(ticket)) return
+      if (!this.canApplyRefund(ticket)) return;
       uni.navigateTo({
-        url: `/pages/ticket-refund/ticket-refund?id=${ticket.id}`
-      })
+        url: `/pages/ticket-refund/ticket-refund?id=${ticket.id}`,
+      });
     },
 
     handleDelete(ticket) {
       uni.showModal({
-        title: '删除票券',
-        content: '删除后将无法在票夹中看到该票券记录，确认删除？',
+        title: "删除票券",
+        content: "删除后将无法在票夹中看到该票券记录，确认删除？",
         success: (res) => {
           if (res.confirm) {
-            this.tickets = this.tickets.filter(t => t.id !== ticket.id)
+            this.tickets = this.tickets.filter((t) => t.id !== ticket.id);
           }
-        }
-      })
+        },
+      });
     },
 
     goToBuy() {
       uni.switchTab({
-        url: '/pages/index/index'
-      })
+        url: "/pages/index/index",
+      });
     },
 
     goToExchange() {
       uni.navigateTo({
-        url: '/pages/vote/vote'
-      })
+        url: "/pages/vote/vote",
+      });
     },
 
     syncThirdTickets() {
       uni.showModal({
-        title: '三方票同步说明',
-        content: '即将支持从第三方平台（如票务网站、小程序）同步购票记录，请留意后续版本更新。',
-        showCancel: false
-      })
+        title: "三方票同步说明",
+        content:
+          "即将支持从第三方平台（如票务网站、小程序）同步购票记录，请留意后续版本更新。",
+        showCancel: false,
+      });
     },
 
     goBack() {
-      uni.navigateBack({ delta: 1 })
-    }
-  }
-}
+      uni.navigateBack({ delta: 1 });
+    },
+  },
+};
 </script>
 
 <style lang="scss" scoped>
@@ -410,7 +448,7 @@ export default {
 
 .pill-text {
   font-size: 24rpx;
-  color: #0F2316;
+  color: #0f2316;
   font-weight: 500;
 }
 
@@ -459,11 +497,11 @@ export default {
 }
 
 .tag-text-official {
-  color: #EAB308;
+  color: #eab308;
 }
 
 .tag-text-third {
-  color: #3A61FF;
+  color: #3a61ff;
 }
 
 /* 信息列表 */
@@ -481,9 +519,8 @@ export default {
 }
 
 .info-icon {
-  font-size: 28rpx;
-  width: 36rpx;
-  text-align: center;
+  width: 28rpx;
+  height: 28rpx;
   flex-shrink: 0;
 }
 
@@ -550,13 +587,13 @@ export default {
 
 .act-btn-primary {
   background: $cr7-gold;
-  color: #0F2316;
+  color: #0f2316;
   border: none;
 }
 
 .act-btn-primary-muted {
   background: $text-disabled;
-  color: #0F2316;
+  color: #0f2316;
 }
 
 .act-btn-primary-disabled {
