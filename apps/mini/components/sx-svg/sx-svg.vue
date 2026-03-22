@@ -235,7 +235,6 @@ export default {
 
       // 普通颜色
       if (!this.color) {
-        console.log("fsafsafasf");
         return html;
       }
 

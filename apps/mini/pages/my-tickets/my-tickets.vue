@@ -12,15 +12,14 @@
     <!-- 工具栏：票码兑换 / 三方票同步 -->
     <view class="ticket-toolbar" @click.stop>
       <view class="tool-item" @click="goToExchange">
-        <!-- <view class="tool-icon-box">
-          <text class="tool-icon-text">🎫</text>
-        </view> -->
-        <sx-svg name="ticket-white" />
+        <view class="tool-icon-box">
+          <sx-svg name="ticket" :width="36" :height="36" color="#FFFFFF" />
+        </view>
         <text class="tool-label">票码兑换</text>
       </view>
       <view class="tool-item" @click="syncThirdTickets">
         <view class="tool-icon-box">
-          <text class="tool-icon-text">🏷</text>
+          <sx-svg name="sync" :width="36" :height="36" color="#FFFFFF" />
         </view>
         <text class="tool-label">三方票同步</text>
       </view>
@@ -74,26 +73,32 @@
           <!-- 信息行 -->
           <view class="ticket-info-list" @click="goToDetail(ticket)">
             <view class="info-row">
-              <image
+              <sx-svg
                 class="info-icon"
-                src="/static/ui-icons/time-white.svg"
-                mode="aspectFit"
+                name="time"
+                :width="28"
+                :height="28"
+                color="#ADADAD"
               />
               <text class="info-text">{{ ticket.eventDate }}</text>
             </view>
             <view class="info-row">
-              <image
+              <sx-svg
                 class="info-icon"
-                src="/static/ui-icons/location-white.svg"
-                mode="aspectFit"
+                name="location"
+                :width="28"
+                :height="28"
+                color="#ADADAD"
               />
               <text class="info-text">{{ getEventLocation(ticket) }}</text>
             </view>
             <view class="info-row">
-              <image
+              <sx-svg
                 class="info-icon"
-                src="/static/ui-icons/ticket-white.svg"
-                mode="aspectFit"
+                name="ticket"
+                :width="28"
+                :height="28"
+                color="#ADADAD"
               />
               <text class="info-text"
                 >{{ ticket.ticketType }} × {{ ticket.quantity }}

@@ -25,10 +25,12 @@
       <!-- 信息区域 -->
       <view class="info-section">
         <view class="info-row info-row-time">
-          <image
+          <sx-svg
             class="info-icon"
-            src="/static/ui-icons/time.svg"
-            mode="aspectFit"
+            name="time"
+            :width="24"
+            :height="20"
+            color="#D8FC0F"
           />
           <view class="info-text-col">
             <text class="info-text">{{ infoTimePrimary }}</text>
@@ -38,18 +40,22 @@
           </view>
         </view>
         <view class="info-row">
-          <image
+          <sx-svg
             class="info-icon"
-            src="/static/ui-icons/location.svg"
-            mode="aspectFit"
+            name="location"
+            :width="24"
+            :height="20"
+            color="#D8FC0F"
           />
           <text class="info-text">{{ infoMuseumLocation }}</text>
         </view>
         <view class="info-row">
-          <image
+          <sx-svg
             class="info-icon"
-            src="/static/ui-icons/phone.svg"
-            mode="aspectFit"
+            name="phone"
+            :width="24"
+            :height="20"
+            color="#D8FC0F"
           />
           <text class="info-text">{{ contactPhone }}</text>
         </view>
@@ -88,15 +94,17 @@
                   activeDateKey === chip.key ? 'active' : '',
                 ]"
               >
-                <image
+                <sx-svg
                   v-if="chip.icon"
                   class="chip-icon"
-                  :src="
+                  name="date-range"
+                  :width="24"
+                  :height="24"
+                  :color="
                     chip.key === 'all' && activeDateKey === 'all'
-                      ? '/static/ui-icons/date-range-active.svg'
-                      : '/static/ui-icons/date-range.svg'
+                      ? '#D8FC0F'
+                      : '#FFFFFF'
                   "
-                  mode="aspectFit"
                 />
                 <text class="chip-main">{{ chip.main }}</text>
                 <text v-if="chip.sub" class="chip-sub">{{ chip.sub }}</text>
@@ -113,15 +121,17 @@
               ]"
               @click="onChipClick(chip)"
             >
-              <image
+              <sx-svg
                 v-if="chip.icon"
                 class="chip-icon"
-                :src="
+                name="date-range"
+                :width="24"
+                :height="24"
+                :color="
                   chip.key === 'all' && activeDateKey === 'all'
-                    ? '/static/ui-icons/date-range-active.svg'
-                    : '/static/ui-icons/date-range.svg'
+                    ? '#D8FC0F'
+                    : '#FFFFFF'
                 "
-                mode="aspectFit"
               />
               <text class="chip-main">{{ chip.main }}</text>
               <text v-if="chip.sub" class="chip-sub">{{ chip.sub }}</text>

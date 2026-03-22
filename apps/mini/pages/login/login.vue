@@ -18,10 +18,12 @@
         <view class="login-navbar-row">
           <view class="login-navbar-side"></view>
           <view class="login-navbar-logo">
-            <image
+            <sx-svg
               class="login-logo-img"
-              src="/static/icons/logo-white.svg"
-              mode="aspectFit"
+              name="logo"
+              :width="156"
+              :height="35"
+              color="#FFFFFF"
             />
           </view>
           <view class="login-navbar-side"></view>

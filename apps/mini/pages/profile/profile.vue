@@ -14,19 +14,23 @@
         <view class="navbar-row">
           <view class="navbar-left">
             <view class="navbar-notification" @click="goToMessages">
-              <image
-                src="/static/icons/notification.svg"
+              <sx-svg
                 class="nav-icon"
-                mode="aspectFit"
+                name="notification"
+                :width="42"
+                :height="42"
+                color="#FFFFFF"
               />
               <view v-if="unreadCount > 0" class="notification-dot"></view>
             </view>
           </view>
           <view class="navbar-logo">
-            <image
-              src="/static/icons/logo.svg"
+            <sx-svg
               class="logo-img"
-              mode="aspectFit"
+              name="logo"
+              :width="156"
+              :height="35"
+              color="#D8FC0F"
             />
           </view>
           <view class="navbar-placeholder"></view>
@@ -62,10 +66,12 @@
       <view class="menu-list">
         <view class="menu-item" @click="goToTickets">
           <view class="menu-icon-wrap">
-            <image
-              src="/static/icons/ticket.svg"
+            <sx-svg
               class="menu-icon"
-              mode="aspectFit"
+              name="ticket"
+              :width="42"
+              :height="42"
+              color="#D8FC0F"
             />
           </view>
           <text class="menu-text">我的票夹</text>
@@ -78,10 +84,12 @@
 
         <view class="menu-item" @click="goToMessages">
           <view class="menu-icon-wrap">
-            <image
-              src="/static/icons/notification.svg"
+            <sx-svg
               class="menu-icon"
-              mode="aspectFit"
+              name="notification"
+              :width="42"
+              :height="42"
+              color="#D8FC0F"
             />
           </view>
           <text class="menu-text">消息中心</text>
@@ -129,10 +137,12 @@
 
         <view class="menu-item" @click="contactService">
           <view class="menu-icon-wrap">
-            <image
-              src="/static/icons/phone.svg"
+            <sx-svg
               class="menu-icon"
-              mode="aspectFit"
+              name="phone"
+              :width="42"
+              :height="42"
+              color="#D8FC0F"
             />
           </view>
           <text class="menu-text">联系客服</text>

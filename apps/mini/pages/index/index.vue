@@ -6,19 +6,23 @@
         <view class="navbar-row">
           <view class="navbar-left">
             <view class="navbar-notification" @click="goToMessages">
-              <image
-                src="/static/ui-icons/notification.svg"
+              <sx-svg
                 class="nav-icon"
-                mode="aspectFit"
+                name="notification"
+                :width="42"
+                :height="42"
+                color="#FFFFFF"
               />
               <view v-if="unreadCount > 0" class="notification-dot"></view>
             </view>
           </view>
           <view class="navbar-logo">
-            <image
-              src="/static/ui-icons/logo.svg"
+            <sx-svg
               class="logo-img"
-              mode="aspectFit"
+              name="logo"
+              :width="156"
+              :height="35"
+              color="#D8FC0F"
             />
           </view>
           <view class="navbar-placeholder"></view>
