@@ -62,21 +62,28 @@
         <view class="event-card" @click="openTicketEvent">
           <view class="event-image-wrap">
             <image
-              :src="ticketEvent.cover || '/static/images/event-card.jpg'"
+              :src="
+                ticketSection.ticketEvent.cover ||
+                '/static/images/event-card.jpg'
+              "
               class="event-image"
               mode="aspectFill"
             />
           </view>
           <view class="event-info-bottom">
             <view class="event-info-left">
-              <text class="event-title">{{ ticketEvent.title }}</text>
-              <text class="event-meta">{{ ticketEvent.time }}</text>
+              <text class="event-title">{{
+                ticketSection.ticketEvent.title
+              }}</text>
+              <text class="event-meta">{{
+                ticketSection.ticketEvent.time
+              }}</text>
             </view>
           </view>
         </view>
         <view class="ticket-list">
           <view
-            v-for="ticket in ticketTypes"
+            v-for="ticket in ticketSection.ticketTypes"
             :key="ticket.id"
             class="ticket-card"
             @click="selectTicket(ticket)"
@@ -194,12 +201,14 @@ export default {
       unreadCount: 0,
       currentBannerIndex: 0,
       heroBanners: [],
-      ticketEvent: {
-        title: "-",
-        time: "-",
-        cover: "/static/images/event-card.jpg",
+      ticketSection: {
+        ticketEvent: {
+          title: "-",
+          time: "-",
+          cover: "/static/images/event-card.jpg",
+        },
+        ticketTypes: [],
       },
-      ticketTypes: [],
       cr7News: [],
       brands: [],
     };
@@ -250,15 +259,17 @@ export default {
         // loadHomeTicketSection 返回 { ticketEvent, ticketTypes }，不是顶层的 title/time/cover
         const ev = ticketSection?.ticketEvent;
         console.log("ticketSection ===============>>", ticketSection);
-        this.ticketEvent = {
+        this.ticketSection.ticketEvent = {
           ...(ev || {}),
-          title: ev?.title ?? this.ticketEvent.title,
-          time: ev?.time ?? this.ticketEvent.time,
-          cover: ev?.cover || this.ticketEvent.cover,
+          title: ev?.title ?? this.ticketSection.ticketEvent.title,
+          time: ev?.time ?? this.ticketSection.ticketEvent.time,
+          cover: ev?.cover || this.ticketSection.ticketEvent.cover,
         };
-        this.ticketTypes = Array.isArray(ticketSection?.ticketTypes)
+        this.ticketSection.ticketTypes = Array.isArray(
+          ticketSection?.ticketTypes,
+        )
           ? ticketSection.ticketTypes
-          : [];
+          : this.ticketSection.ticketTypes;
       } catch (e) {
         console.error("加载首页数据失败", e);
         uni.showToast({ title: "首页数据加载失败", icon: "none" });
@@ -275,13 +286,13 @@ export default {
 
     openTicketEvent() {
       uni.navigateTo({
-        url: `/pages/ticket-purchase/ticket-purchase?id=${this.ticketEvent.id || 1}`,
+        url: `/pages/ticket-purchase/ticket-purchase?id=${this.ticketSection.ticketEvent.id || 1}`,
       });
     },
 
     selectTicket(ticket) {
       if (ticket.stock > 0) {
-        const eventId = this.ticketEvent.id || 1;
+        const eventId = this.ticketSection.ticketEvent.id || 1;
         const ticketId = ticket.id;
         uni.navigateTo({
           url: `/pages/ticket-purchase/ticket-purchase?eventId=${eventId}&ticketId=${ticketId}`,
