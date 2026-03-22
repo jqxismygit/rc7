@@ -7,151 +7,157 @@
       <text class="page-state-text">{{ pageError }}</text>
     </view>
     <template v-else>
-    <scroll-view
-      class="detail-scroll"
-      scroll-y
-      :style="{ paddingBottom: detailScrollPadding }"
-    >
-      <!-- 状态标签 + 票号 -->
-      <view class="status-row">
-        <view class="status-tag" :class="'tag-' + ticket.status">
-          <view class="status-dot" :class="'dot-' + ticket.status" />
-          <text class="status-label">{{ getStatusText(ticket.status) }}</text>
+      <scroll-view
+        class="detail-scroll"
+        scroll-y
+        :style="{ paddingBottom: detailScrollPadding }"
+      >
+        <!-- 状态标签 + 票号 -->
+        <view class="status-row">
+          <view class="status-tag" :class="'tag-' + ticket.status">
+            <!-- <view class="status-dot" :class="'dot-' + ticket.status" /> -->
+            <text class="status-label">{{ getStatusText(ticket.status) }}</text>
+          </view>
+          <view class="ticket-no-wrap">
+            <text class="ticket-no"
+              >{{ ticket._fromOrderApi ? "订单号:" : "票号:"
+              }}{{ ticket.id }}</text
+            >
+          </view>
         </view>
-        <view class="ticket-no-wrap">
-          <text class="ticket-no">{{
-            ticket._fromOrderApi ? "订单号:" : "票号:"
-          }}{{ ticket.id }}</text>
-        </view>
-      </view>
 
-      <!-- 活动主卡片 -->
-      <view class="event-main-card">
-        <view class="event-card-inner card-dark">
-          <image
-            :src="ticket.eventCover || '/static/images/event-card.jpg'"
-            mode="aspectFill"
-            class="event-cover"
-          />
-          <view class="event-info-wrap">
-            <text class="event-title">{{ ticket.eventName }}</text>
-            <view class="event-meta-item">
-              <sx-svg
-                class="meta-icon"
-                name="time"
-                :width="28"
-                :height="28"
-                color="#ADADAD"
-              />
-              <text class="meta-text">{{ ticket.eventDate }}</text>
-            </view>
-            <view class="event-meta-item">
-              <sx-svg
-                class="meta-icon"
-                name="location"
-                :width="28"
-                :height="28"
-                color="#ADADAD"
-              />
-              <text class="meta-text">{{ ticket.eventLocation }}</text>
+        <!-- 活动主卡片 -->
+        <view class="event-main-card">
+          <view class="event-card-inner card-dark">
+            <image
+              :src="ticket.eventCover || '/static/images/event-card.jpg'"
+              mode="aspectFill"
+              class="event-cover"
+            />
+            <view class="event-info-wrap">
+              <text class="event-title">{{ ticket.eventName }}</text>
+              <view class="event-meta-item">
+                <sx-svg
+                  class="meta-icon"
+                  name="time"
+                  :width="28"
+                  :height="28"
+                  color="#ADADAD"
+                />
+                <text class="meta-text">{{ ticket.eventDate }}</text>
+              </view>
+              <view class="event-meta-item">
+                <sx-svg
+                  class="meta-icon"
+                  name="location"
+                  :width="28"
+                  :height="28"
+                  color="#ADADAD"
+                />
+                <text class="meta-text">{{ ticket.eventLocation }}</text>
+              </view>
             </view>
           </view>
         </view>
-      </view>
 
-      <!-- 电子票二维码 -->
-      <view v-if="showQrBlock" class="qr-section">
-        <view class="qr-card">
-          <text class="qr-title">电子票二维码</text>
-          <view class="qr-code-wrap">
-            <view class="qr-code-placeholder" />
+        <!-- 电子票二维码 -->
+        <view v-if="showQrBlock" class="qr-section">
+          <view class="qr-card">
+            <text class="qr-title">电子票二维码</text>
+            <view class="qr-code-wrap">
+              <view class="qr-code-placeholder" />
+            </view>
+            <text class="qr-id">ID: {{ formatTicketId(ticket.id) }}</text>
+            <text class="qr-hint">使用时请向工作人员出示此码</text>
           </view>
-          <text class="qr-id">ID: {{ formatTicketId(ticket.id) }}</text>
-          <text class="qr-hint">使用时请向工作人员出示此码</text>
+        </view>
+        <view v-else-if="ticket._fromOrderApi" class="qr-section">
+          <view class="qr-card qr-card-muted">
+            <text class="qr-hint"
+              >支付完成后可在此查看入场凭证（二维码待核销接口对接）</text
+            >
+          </view>
+        </view>
+
+        <!-- 票务详情列表 -->
+        <view class="detail-list card-dark">
+          <view class="detail-row">
+            <text class="detail-label">票种</text>
+            <text class="detail-value">{{ ticket.ticketType }}</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-label">数量</text>
+            <text class="detail-value">{{ ticket.quantity }} 张</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-label">购买时间</text>
+            <text class="detail-value">{{ ticket.purchaseTime }}</text>
+          </view>
+          <view class="detail-row detail-row-last">
+            <text class="detail-label">订单总额</text>
+            <text class="detail-value price"
+              >¥ {{ formatPrice(ticket.price) }}</text
+            >
+          </view>
+        </view>
+
+        <!-- 使用说明 -->
+        <view class="instructions-section">
+          <view class="instructions-header">
+            <text class="info-icon">ⓘ</text>
+            <text class="instructions-title">使用说明</text>
+          </view>
+          <view class="instructions-card card-dark">
+            <text
+              v-for="(item, index) in noticeList"
+              :key="index"
+              class="instruction-item"
+              >{{ item }}</text
+            >
+          </view>
+        </view>
+
+        <view class="scroll-bottom-space" />
+      </scroll-view>
+
+      <!-- 底部：待支付 -->
+      <view
+        v-if="ticket.orderStatus === 'PENDING_PAYMENT'"
+        class="bottom-bar bottom-bar-pay safe-area-bottom"
+      >
+        <view class="bottom-bar-inner bottom-bar-inner-single">
+          <button class="action-btn primary-pay-btn" @click="goPay">
+            前往支付
+          </button>
         </view>
       </view>
-      <view v-else-if="ticket._fromOrderApi" class="qr-section">
-        <view class="qr-card qr-card-muted">
-          <text class="qr-hint"
-            >支付完成后可在此查看入场凭证（二维码待核销接口对接）</text
+
+      <!-- 底部：待使用 / 已使用 / 过期等 -->
+      <view
+        v-else-if="showDetailActionsBar"
+        class="bottom-bar safe-area-bottom"
+      >
+        <view class="bottom-bar-inner">
+          <button class="action-btn outline-btn" @click="handleLeftAction">
+            {{ detailLeftLabel }}
+          </button>
+          <button
+            class="action-btn outline-btn"
+            :class="{ 'outline-btn-disabled': invoiceDisabled }"
+            :disabled="invoiceDisabled"
+            @click="handleInvoice"
           >
+            开具发票
+          </button>
         </view>
       </view>
-
-      <!-- 票务详情列表 -->
-      <view class="detail-list card-dark">
-        <view class="detail-row">
-          <text class="detail-label">票种</text>
-          <text class="detail-value">{{ ticket.ticketType }}</text>
-        </view>
-        <view class="detail-row">
-          <text class="detail-label">数量</text>
-          <text class="detail-value">{{ ticket.quantity }} 张</text>
-        </view>
-        <view class="detail-row">
-          <text class="detail-label">购买时间</text>
-          <text class="detail-value">{{ ticket.purchaseTime }}</text>
-        </view>
-        <view class="detail-row detail-row-last">
-          <text class="detail-label">订单总额</text>
-          <text class="detail-value price"
-            >¥ {{ formatPrice(ticket.price) }}</text
-          >
-        </view>
-      </view>
-
-      <!-- 使用说明 -->
-      <view class="instructions-section">
-        <view class="instructions-header">
-          <text class="info-icon">ⓘ</text>
-          <text class="instructions-title">使用说明</text>
-        </view>
-        <view class="instructions-card card-dark">
-          <text
-            v-for="(item, index) in noticeList"
-            :key="index"
-            class="instruction-item"
-            >{{ item }}</text
-          >
-        </view>
-      </view>
-
-      <view class="scroll-bottom-space" />
-    </scroll-view>
-
-    <!-- 底部：待支付 -->
-    <view
-      v-if="ticket.orderStatus === 'PENDING_PAYMENT'"
-      class="bottom-bar bottom-bar-pay safe-area-bottom"
-    >
-      <view class="bottom-bar-inner bottom-bar-inner-single">
-        <button class="action-btn primary-pay-btn" @click="goPay">
-          前往支付
-        </button>
-      </view>
-    </view>
-
-    <!-- 底部操作栏（仅旧 mock 未核销票） -->
-    <view
-      v-else-if="ticket.status === 'unused' && !ticket._fromOrderApi"
-      class="bottom-bar safe-area-bottom"
-    >
-      <view class="bottom-bar-inner">
-        <button class="action-btn outline-btn" @click="handleRefund">
-          申请退票
-        </button>
-        <button class="action-btn outline-btn" @click="handleInvoice">
-          开具发票
-        </button>
-      </view>
-    </view>
     </template>
   </view>
 </template>
 
 <script>
 import { mockMyTickets } from "@/utils/mockData.js";
-import { getOrderDetail } from "@/services/order.js";
+import { getOrderDetail, cancelOrder } from "@/services/order.js";
 import request from "@/utils/request.js";
 import { buildTicketDetailFromOrder } from "@/utils/orderDisplay.js";
 
@@ -178,11 +184,34 @@ export default {
       if (!this.ticket._fromOrderApi) return true;
       return this.ticket.orderStatus === "PAID";
     },
+    /** 除待支付外，待使用/已使用/过期/取消等展示双按钮底栏 */
+    showDetailActionsBar() {
+      if (this.ticket.orderStatus === "PENDING_PAYMENT") return false;
+      if (!this.ticket || !this.ticket.id) return false;
+      const s = this.ticket.status;
+      return [
+        "unused",
+        "used",
+        "expired",
+        "cancelled",
+        "refunding",
+        "refunded",
+      ].includes(s);
+    },
+    /** 左侧：仅待使用(unused)为申请退票，其余为删除订单 */
+    detailLeftIsRefund() {
+      return this.ticket.status === "unused";
+    },
+    detailLeftLabel() {
+      return this.detailLeftIsRefund ? "申请退票" : "删除订单";
+    },
+    /** 仅已入场(used)可点开具发票；未使用/过期等为禁用 */
+    invoiceDisabled() {
+      return this.ticket.status !== "used";
+    },
     detailScrollPadding() {
       if (this.ticket.orderStatus === "PENDING_PAYMENT") return "180rpx";
-      if (this.ticket.status === "unused" && !this.ticket._fromOrderApi) {
-        return "180rpx";
-      }
+      if (this.showDetailActionsBar) return "180rpx";
       return "40rpx";
     },
   },
@@ -253,6 +282,14 @@ export default {
         .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     },
 
+    handleLeftAction() {
+      if (this.detailLeftIsRefund) {
+        this.handleRefund();
+        return;
+      }
+      this.handleDeleteOrder();
+    },
+
     handleRefund() {
       uni.navigateTo({
         url: "/pages/ticket-refund/ticket-refund?id=" + this.ticketId,
@@ -260,7 +297,44 @@ export default {
     },
 
     handleInvoice() {
+      if (this.invoiceDisabled) return;
       uni.showToast({ title: "发票功能开发中", icon: "none" });
+    },
+
+    handleDeleteOrder() {
+      if (!this.ticket._fromOrderApi) {
+        uni.showModal({
+          title: "删除票券",
+          content: "确认删除该票券记录？",
+          success: (res) => {
+            if (res.confirm) {
+              uni.navigateBack();
+            }
+          },
+        });
+        return;
+      }
+      uni.showModal({
+        title: "取消订单",
+        content: "确认取消该订单？取消后将释放占用库存。",
+        success: async (res) => {
+          if (!res.confirm) return;
+          try {
+            uni.showLoading({ title: "处理中...", mask: true });
+            await cancelOrder(this.ticketId);
+            uni.hideLoading();
+            uni.showToast({ title: "已取消", icon: "success" });
+            setTimeout(() => {
+              uni.navigateBack();
+            }, 800);
+          } catch (e) {
+            uni.hideLoading();
+            const msg =
+              (e && e.data && e.data.message) || "当前订单无法取消";
+            uni.showToast({ title: msg, icon: "none" });
+          }
+        },
+      });
     },
   },
 };
@@ -567,6 +641,13 @@ export default {
 
 .outline-btn::after {
   border: none;
+}
+
+.outline-btn-disabled,
+.outline-btn[disabled] {
+  opacity: 0.42;
+  border-color: rgba(216, 252, 15, 0.28);
+  color: $text-muted;
 }
 
 .page-state {

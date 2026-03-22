@@ -26,6 +26,16 @@ export function getOrderDetail(orderId) {
 }
 
 /**
+ * 取消订单（仅待支付可取消；重复取消 204 幂等）
+ * @param {string} orderId
+ * @see docs/api/order.md
+ */
+export function cancelOrder(orderId) {
+  const oid = encodeURIComponent(orderId);
+  return request.delete(`/orders/${oid}`);
+}
+
+/**
  * 当前用户订单列表（分页）
  * @param {{ status?: string; page?: number; limit?: number }} [params]
  * @returns {Promise<{ orders: object[]; total: number; page: number; limit: number }>}
