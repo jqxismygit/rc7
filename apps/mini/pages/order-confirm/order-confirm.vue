@@ -22,8 +22,8 @@
     <scroll-view v-else class="order-scroll" scroll-y>
       <view class="section section-title-block">
         <text class="order-title">{{ eventTitle }}</text>
-        <text v-if="statusLabel" class="order-status">{{ statusLabel }}</text>
-        <text v-if="expireHint" class="order-expire">{{ expireHint }}</text>
+        <!-- <text v-if="statusLabel" class="order-status">{{ statusLabel }}</text>
+        <text v-if="expireHint" class="order-expire">{{ expireHint }}</text> -->
       </view>
 
       <view class="section">
@@ -31,7 +31,7 @@
           <view class="ticket-card-main">
             <text class="museum-address">{{ museumLocation }}</text>
             <text class="valid-text">有效期：{{ validDateText }}</text>
-            <view
+            <!-- <view
               v-for="line in displayLines"
               :key="line.id"
               class="ticket-line-row"
@@ -39,17 +39,16 @@
               <text class="ticket-line-name"
                 >{{ line.name }} × {{ line.quantity }}</text
               >
-              <text class="ticket-line-price">¥{{ formatMoney(line.subtotal) }}</text>
-            </view>
+              <text class="ticket-line-price"
+                >¥{{ formatMoney(line.subtotal) }}</text
+              >
+            </view> -->
             <view class="ticket-meta-row">
-              <text class="ticket-meta">共 {{ totalTicketCount }} 张</text>
+              <sx-svg name="ticket" :width="24" :height="24" color="#ADADAD" />
+              <text class="ticket-meta">数量：{{ totalTicketCount }}</text>
             </view>
           </view>
-          <image
-            class="ticket-cover"
-            :src="coverSrc"
-            mode="aspectFill"
-          />
+          <image class="ticket-cover" :src="coverSrc" mode="aspectFill" />
         </view>
       </view>
 
@@ -57,21 +56,21 @@
         <text class="section-title">预约详情</text>
         <view class="detail-row">
           <view class="detail-left">
-            <text class="detail-icon">⚠️</text>
+            <sx-svg name="info" :width="24" :height="24" color="#d8fc0f" />
             <text class="detail-label">不支持退</text>
           </view>
           <text class="detail-value">电子票、电子发票</text>
         </view>
         <view class="detail-row">
           <view class="detail-left">
-            <text class="detail-icon">📱</text>
+            <sx-svg name="telphone" :width="24" :height="24" color="#d8fc0f" />
             <text class="detail-label">联系电话</text>
           </view>
           <text class="detail-value">{{ contactPhone }}</text>
         </view>
         <view class="detail-row">
           <view class="detail-left">
-            <text class="detail-icon">🚚</text>
+            <sx-svg name="delivery" :width="24" :height="24" color="#d8fc0f" />
             <text class="detail-label">配送方式</text>
           </view>
           <text class="detail-value">直接入场</text>
@@ -92,23 +91,20 @@
             <view class="pay-icon-wrap">
               <image
                 class="pay-icon"
-                src="/static/images/wechat-pay.png"
+                src="/static/images/wechat.png"
                 mode="aspectFill"
               />
             </view>
             <text class="pay-name">微信支付</text>
           </view>
-          <text class="pay-checked">✔</text>
+          <sx-svg name="success" :width="32" :height="32" color="#d8fc0f" />
         </view>
       </view>
 
       <view class="safe-bottom"></view>
     </scroll-view>
 
-    <view
-      v-if="!loading && !loadError"
-      class="footer-wrap safe-area-bottom"
-    >
+    <view v-if="!loading && !loadError" class="footer-wrap safe-area-bottom">
       <view class="footer-inner">
         <view class="footer-total">
           <text class="total-label">总额</text>
@@ -156,22 +152,17 @@ export default {
   computed: {
     eventTitle() {
       if (this.legacyOrder) {
-        return (
-          this.legacyOrder.eventName || "C罗博物馆 CR7LIFE上海博物馆门票"
-        );
+        return this.legacyOrder.eventName || "C罗博物馆 CR7LIFE上海博物馆门票";
       }
       const t = this.sectionCtx?.ticketEvent?.title;
       return t || "C罗博物馆 CR7LIFE上海博物馆门票";
     },
     museumLocation() {
       if (this.legacyOrder) {
-        return (
-          this.legacyOrder.museumLocation || "上海市黄浦区王府井大街123号"
-        );
+        return this.legacyOrder.museumLocation || "上海市黄浦区王府井大街123号";
       }
       return (
-        this.sectionCtx?.ticketEvent?.location ||
-        "上海市黄浦区王府井大街123号"
+        this.sectionCtx?.ticketEvent?.location || "上海市黄浦区王府井大街123号"
       );
     },
     coverSrc() {
@@ -187,6 +178,11 @@ export default {
           this.legacyOrder.visitDate ||
           "2026.02.28"
         );
+      }
+      // 接口订单：订单支付截止时间日期（与 docs 中 expires_at 一致）
+      const exp = this.order?.expires_at;
+      if (exp) {
+        return String(exp).slice(0, 10);
       }
       const v = this.sectionCtx?.visitDate;
       if (v) return v;
@@ -241,8 +237,7 @@ export default {
       if (!this.order?.items?.length) return [];
       return this.order.items.map((it) => ({
         id: it.id,
-        name:
-          this.nameByCategoryId[String(it.ticket_category_id)] || "门票",
+        name: this.nameByCategoryId[String(it.ticket_category_id)] || "门票",
         quantity: it.quantity,
         subtotal: it.subtotal,
       }));
@@ -265,9 +260,7 @@ export default {
   },
 
   onLoad(options) {
-    const oid = options.orderId
-      ? decodeURIComponent(options.orderId)
-      : "";
+    const oid = options.orderId ? decodeURIComponent(options.orderId) : "";
 
     if (oid) {
       this.orderId = oid;
@@ -473,6 +466,9 @@ export default {
 
 .ticket-card-main {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   padding-right: 24rpx;
 }
 
@@ -516,6 +512,7 @@ export default {
 .ticket-meta {
   font-size: 24rpx;
   color: $text-muted;
+  margin-left: 8rpx;
 }
 
 .ticket-cover {
@@ -553,6 +550,7 @@ export default {
 .detail-label {
   font-size: 26rpx;
   color: $text-disabled;
+  margin-left: 16rpx;
 }
 
 .detail-value {
