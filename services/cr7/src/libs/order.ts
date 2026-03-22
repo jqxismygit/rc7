@@ -155,6 +155,7 @@ export class OrderService extends RC7BaseService {
     const schema = await this.getSchema();
     const dbClient = await this.pool.connect();
 
+    await ctx.call('cr7.wechatpay.close_order', { oid });
     try {
       await dbClient.query('BEGIN');
       await cancelOrder(dbClient, schema, oid, uid);

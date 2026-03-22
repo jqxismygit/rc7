@@ -6,6 +6,7 @@ import type { Payment } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
 import {
   createWechatPayCallback,
+  getOutTradeNoByOrderId,
   getOrderPaymentInfo,
   markOrderPaidByOutTradeNo,
   markWechatPayCallbackProcessed,
@@ -39,6 +40,10 @@ interface WechatPayJSAPIRequestBody {
 
 interface WechatPayJSAPIResponse {
   prepay_id: string;
+}
+
+interface WechatPayCloseOrderRequestBody {
+  mchid: string;
 }
 
 interface WechatCallbackNotification {
@@ -97,6 +102,13 @@ export class PaymentService extends RC7BaseService {
         },
       },
       handler: this.handleWechatCallback,
+    },
+
+    'wechatpay.close_order': {
+      params: {
+        oid: 'string',
+      },
+      handler: this.closeWechatOrderByOrderId,
     }
   };
 
@@ -224,6 +236,44 @@ export class PaymentService extends RC7BaseService {
     }
 
     ctx.meta.$statusCode = 204;
+    return null;
+  }
+
+  async closeWechatOrderByOrderId(
+    ctx: Context<{ oid: string }, { user: UserMeta }>
+  ) {
+    const { oid } = ctx.params;
+    const uid = ctx.meta.user.uid;
+
+    const schema = await this.getSchema();
+    const closeOrderInfo = await getOutTradeNoByOrderId(this.pool, schema, oid);
+    if (closeOrderInfo === null) {
+      return null;
+    }
+
+    if (closeOrderInfo.user_id !== uid) {
+      return null;
+    }
+
+    const {
+      mchid,
+      base_url,
+      client_key_serial_no,
+      client_key_path,
+    } = await this.getWechatPayConfig();
+
+    const privateKey = await this.getWechatPayClientPrimaryKey(client_key_path);
+    const closeOrderRequestBody: WechatPayCloseOrderRequestBody = { mchid };
+    await wePayPostJSON<null>(
+      `${base_url}/v3/pay/transactions/out-trade-no/${closeOrderInfo.out_trade_no}/close`,
+      {
+        body: closeOrderRequestBody,
+        mchid,
+        serialNo: client_key_serial_no,
+        privateKey,
+      },
+    );
+
     return null;
   }
 

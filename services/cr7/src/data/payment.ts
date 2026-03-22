@@ -221,12 +221,15 @@ export async function getOutTradeNoByOrderId(
   client: DBClient,
   schema: string,
   orderId: string,
-): Promise<string | null> {
-  const { rows } = await client.query<{ out_trade_no: string }>(
-    `SELECT out_trade_no
-    FROM ${schema}.wechat_pay_transactions
-    WHERE order_id = $1
-    ORDER BY created_at DESC
+): Promise<{ out_trade_no: string; user_id: string } | null> {
+  const { rows } = await client.query<{ out_trade_no: string; user_id: string }>(
+    `SELECT
+      t.out_trade_no,
+      o.user_id
+    FROM ${schema}.wechat_pay_transactions t
+    JOIN ${schema}.exhibit_orders o ON o.id = t.order_id
+    WHERE t.order_id = $1
+    ORDER BY t.created_at DESC
     LIMIT 1`,
     [orderId],
   );
@@ -235,5 +238,5 @@ export async function getOutTradeNoByOrderId(
     return null;
   }
 
-  return rows[0].out_trade_no;
+  return rows[0];
 }
