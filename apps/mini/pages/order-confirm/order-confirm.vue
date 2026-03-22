@@ -113,7 +113,7 @@
         <view class="bottom-bar">
           <button
             class="btn-gold pay-btn"
-            :disabled="!canPay"
+            :disabled="payDisabled"
             @click="handlePay"
           >
             立即支付
@@ -126,6 +126,7 @@
 
 <script>
 import { getOrderDetail, ORDER_CONFIRM_CONTEXT_KEY } from "@/services/order.js";
+import { initiateWechatPay } from "@/services/payment.js";
 import { useUserStore } from "@/stores/user.js";
 
 const STATUS_LABEL = {
@@ -146,6 +147,7 @@ export default {
       sectionCtx: null,
       /** 无 orderId 时的旧版 URL 参数模式 */
       legacyOrder: null,
+      paying: false,
     };
   },
 
@@ -257,6 +259,9 @@ export default {
       if (this.legacyOrder) return true;
       return this.order?.status === "PENDING_PAYMENT";
     },
+    payDisabled() {
+      return !this.canPay || this.paying;
+    },
   },
 
   onLoad(options) {
@@ -324,19 +329,77 @@ export default {
       }
     },
 
-    handlePay() {
+    pickPayErrorMessage(err) {
+      const data = err?.data;
+      if (data && typeof data === "object" && data.message) {
+        return String(data.message);
+      }
+      if (typeof data === "string") return data;
+      const code = err?.statusCode;
+      if (code === 409) return "请先使用微信登录并授权，以完成支付";
+      if (code === 400) return "订单状态不可支付，请返回刷新后再试";
+      if (code === 404) return "订单不存在或无权操作";
+      if (code === 401) return "请先登录";
+      return "发起支付失败，请稍后重试";
+    },
+
+    isUserCancelPayment(err) {
+      const msg = String(err?.errMsg || err?.message || "");
+      return /cancel|取消/i.test(msg);
+    },
+
+    async handlePay() {
+      if (this.legacyOrder || !this.orderId) {
+        uni.showToast({
+          title: "请从购票页下单后再支付",
+          icon: "none",
+        });
+        return;
+      }
       if (!this.canPay) {
         uni.showToast({ title: "当前订单不可支付", icon: "none" });
         return;
       }
-      uni.showLoading({ title: "发起支付..." });
-      setTimeout(() => {
+
+      this.paying = true;
+      try {
+        uni.showLoading({ title: "发起支付...", mask: true });
+        const paySign = await initiateWechatPay(this.orderId);
         uni.hideLoading();
+
+        await new Promise((resolve, reject) => {
+          uni.requestPayment({
+            provider: "wxpay",
+            timeStamp: paySign.timeStamp,
+            nonceStr: paySign.nonceStr,
+            package: paySign.package,
+            signType: paySign.signType,
+            paySign: paySign.paySign,
+            success: () => resolve(),
+            fail: (e) => reject(e),
+          });
+        });
+
         uni.showToast({ title: "支付成功", icon: "success" });
         setTimeout(() => {
           uni.switchTab({ url: "/pages/my-tickets/my-tickets" });
-        }, 1500);
-      }, 1500);
+        }, 1200);
+      } catch (err) {
+        uni.hideLoading();
+        if (this.isUserCancelPayment(err)) {
+          uni.showToast({ title: "已取消支付", icon: "none" });
+        } else if (err?.statusCode != null) {
+          uni.showToast({
+            title: this.pickPayErrorMessage(err),
+            icon: "none",
+          });
+        } else {
+          console.error("handlePay", err);
+          uni.showToast({ title: "支付失败，请重试", icon: "none" });
+        }
+      } finally {
+        this.paying = false;
+      }
     },
   },
 };
