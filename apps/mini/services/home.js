@@ -100,18 +100,20 @@ function mapSessionInventoryToHomeTickets(rows) {
     id: row.id,
     name: row.name,
     price: row.price,
-    originalPrice: row.price,
+    originalPrice:
+      row.name === "早鸟票" ? parseInt(row.price * 1.2) : row.price,
     description: `${refundHint(row.refund_policy)} · ${row.valid_duration_days} 天有效 · 可入场 ${row.admittance} 人`,
     stock: typeof row.quantity === "number" ? row.quantity : 0,
     canRefund: row.refund_policy === "REFUNDABLE_48H_BEFORE",
-    tag:
-      typeof row.quantity === "number" && row.quantity > 0 && row.quantity < 20
-        ? "限量"
-        : "",
+    // tag:
+    //   typeof row.quantity === "number" && row.quantity > 0 && row.quantity < 20
+    //     ? "限量"
+    //     : "",
+    tag: row.name === "早鸟票" ? "限量" : "",
   }));
 }
 
-async function loadHomeTicketSection() {
+export async function loadHomeTicketSection() {
   const eid = HOME_EXHIBITION_ID;
 
   const [exhibition, sessions] = await Promise.all([

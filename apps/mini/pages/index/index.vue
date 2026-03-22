@@ -180,10 +180,9 @@ import { useUserStore } from "@/stores/user";
 import { fetchUnreadCount } from "@/services/messages.js";
 import {
   fetchHeroBanners,
-  fetchTicketEvent,
-  fetchTicketTypes,
   fetchCr7News,
   fetchBrands,
+  loadHomeTicketSection,
 } from "@/services/home.js";
 import createTabBarMixin from "@/mixins/tabBar.js";
 
@@ -196,8 +195,8 @@ export default {
       currentBannerIndex: 0,
       heroBanners: [],
       ticketEvent: {
-        title: "C罗博物馆 · 中国上海馆",
-        time: "03/16·10:00-22:00·上海黄浦区外滩1号",
+        title: "-",
+        time: "-",
         cover: "/static/images/event-card.jpg",
       },
       ticketTypes: [],
@@ -236,21 +235,30 @@ export default {
 
     async loadHomeData() {
       try {
-        const [hero, event, tickets, news, brandList] = await Promise.all([
+        const [hero, news, brandList, ticketSection] = await Promise.all([
           fetchHeroBanners(),
-          fetchTicketEvent(),
-          fetchTicketTypes(),
           fetchCr7News(),
           fetchBrands(),
+          loadHomeTicketSection(),
         ]);
         this.heroBanners = hero.length ? hero : [{ cover: "" }, { cover: "" }];
-        this.ticketEvent = event;
-        this.ticketTypes = tickets;
         this.cr7News = news;
         this.brands = brandList.map((b) => ({
           ...b,
           tagline: b.description || "官方合作品牌",
         }));
+        // loadHomeTicketSection 返回 { ticketEvent, ticketTypes }，不是顶层的 title/time/cover
+        const ev = ticketSection?.ticketEvent;
+        console.log("ticketSection ===============>>", ticketSection);
+        this.ticketEvent = {
+          ...(ev || {}),
+          title: ev?.title ?? this.ticketEvent.title,
+          time: ev?.time ?? this.ticketEvent.time,
+          cover: ev?.cover || this.ticketEvent.cover,
+        };
+        this.ticketTypes = Array.isArray(ticketSection?.ticketTypes)
+          ? ticketSection.ticketTypes
+          : [];
       } catch (e) {
         console.error("加载首页数据失败", e);
         uni.showToast({ title: "首页数据加载失败", icon: "none" });

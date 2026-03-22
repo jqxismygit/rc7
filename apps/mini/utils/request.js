@@ -46,7 +46,7 @@ request.interceptors.request.use(
       ...config.header,
       ...getCommonHeaders(),
     };
-    console.log("请求拦截器处理后的配置:", config);
+    // console.log("请求拦截器处理后的配置:", config);
 
     return config;
   },
@@ -69,7 +69,7 @@ function isLoginApiRequest(response) {
 request.interceptors.response.use(
   (response) => {
     /* 对响应成功做点什么 可使用async await 做异步操作*/
-    console.log("响应拦截器数据:", response);
+    // console.log("响应拦截器数据:", response);
 
     // 默认返回后端 data 字段，如果没有则返回原始响应
     const data = response?.data ?? response;
