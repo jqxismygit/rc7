@@ -45,7 +45,10 @@ export async function mockServer(
 
 export async function mockJSONServer(
   mockResponse: (data: {
-    body: unknown; query: Record<string, string>
+    body: unknown;
+    query: Record<string, string>;
+    path: string;
+    method: string;
   }) => unknown
 ): Promise<MockServer> {
   return mockServer((req, res) => {
@@ -62,7 +65,12 @@ export async function mockJSONServer(
 
       try {
         const jsonBody = body_data ? JSON.parse(body_data) : null;
-        const response = await mockResponse({ body: jsonBody, query });
+        const response = await mockResponse({
+          body: jsonBody,
+          query,
+          path: url.pathname,
+          method: req.method ?? 'GET',
+        });
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(response));
       } catch (error) {

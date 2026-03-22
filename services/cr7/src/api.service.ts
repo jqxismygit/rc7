@@ -118,9 +118,20 @@ const routes = [
   ),
   routeConfig(
     '/orders',
-    ['cr7.order.get', 'cr7.order.list', 'cr7.order.cancel'],
+    ['cr7.order.get', 'cr7.order.list', 'cr7.order.cancel', 'cr7.order.wechatpay'],
     {
       autoAliases: true,
+    }
+  ),
+  routeConfig(
+    '/payment',
+    ['cr7.wechatpay.callback'],
+    {
+      authentication: false,
+      authorization: false,
+      aliases: {
+        'POST /wechat/callback': 'cr7.wechatpay.callback',
+      }
     }
   )
 ]
