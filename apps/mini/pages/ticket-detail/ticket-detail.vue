@@ -1,11 +1,16 @@
 <template>
   <view class="ticket-detail-page">
+    <view v-if="pageLoading" class="page-state">
+      <text class="page-state-text">加载中...</text>
+    </view>
+    <view v-else-if="pageError" class="page-state">
+      <text class="page-state-text">{{ pageError }}</text>
+    </view>
+    <template v-else>
     <scroll-view
       class="detail-scroll"
       scroll-y
-      :style="{
-        paddingBottom: ticket.status === 'unused' ? '180rpx' : '40rpx',
-      }"
+      :style="{ paddingBottom: detailScrollPadding }"
     >
       <!-- 状态标签 + 票号 -->
       <view class="status-row">
@@ -14,7 +19,9 @@
           <text class="status-label">{{ getStatusText(ticket.status) }}</text>
         </view>
         <view class="ticket-no-wrap">
-          <text class="ticket-no">票号:{{ ticket.id }}</text>
+          <text class="ticket-no">{{
+            ticket._fromOrderApi ? "订单号:" : "票号:"
+          }}{{ ticket.id }}</text>
         </view>
       </view>
 
@@ -22,7 +29,7 @@
       <view class="event-main-card">
         <view class="event-card-inner card-dark">
           <image
-            :src="'/static/images/event-card.jpg'"
+            :src="ticket.eventCover || '/static/images/event-card.jpg'"
             mode="aspectFill"
             class="event-cover"
           />
@@ -53,7 +60,7 @@
       </view>
 
       <!-- 电子票二维码 -->
-      <view class="qr-section">
+      <view v-if="showQrBlock" class="qr-section">
         <view class="qr-card">
           <text class="qr-title">电子票二维码</text>
           <view class="qr-code-wrap">
@@ -61,6 +68,13 @@
           </view>
           <text class="qr-id">ID: {{ formatTicketId(ticket.id) }}</text>
           <text class="qr-hint">使用时请向工作人员出示此码</text>
+        </view>
+      </view>
+      <view v-else-if="ticket._fromOrderApi" class="qr-section">
+        <view class="qr-card qr-card-muted">
+          <text class="qr-hint"
+            >支付完成后可在此查看入场凭证（二维码待核销接口对接）</text
+          >
         </view>
       </view>
 
@@ -105,8 +119,23 @@
       <view class="scroll-bottom-space" />
     </scroll-view>
 
-    <!-- 底部操作栏 -->
-    <view v-if="ticket.status === 'unused'" class="bottom-bar safe-area-bottom">
+    <!-- 底部：待支付 -->
+    <view
+      v-if="ticket.orderStatus === 'PENDING_PAYMENT'"
+      class="bottom-bar bottom-bar-pay safe-area-bottom"
+    >
+      <view class="bottom-bar-inner bottom-bar-inner-single">
+        <button class="action-btn primary-pay-btn" @click="goPay">
+          前往支付
+        </button>
+      </view>
+    </view>
+
+    <!-- 底部操作栏（仅旧 mock 未核销票） -->
+    <view
+      v-else-if="ticket.status === 'unused' && !ticket._fromOrderApi"
+      class="bottom-bar safe-area-bottom"
+    >
       <view class="bottom-bar-inner">
         <button class="action-btn outline-btn" @click="handleRefund">
           申请退票
@@ -116,11 +145,15 @@
         </button>
       </view>
     </view>
+    </template>
   </view>
 </template>
 
 <script>
 import { mockMyTickets } from "@/utils/mockData.js";
+import { getOrderDetail } from "@/services/order.js";
+import request from "@/utils/request.js";
+import { buildTicketDetailFromOrder } from "@/utils/orderDisplay.js";
 
 const NOTICE_LIST = [
   "1. 入场时请向工作人员出示此二维码，核销后即可入场；",
@@ -135,7 +168,23 @@ export default {
       ticketId: "",
       ticket: {},
       noticeList: NOTICE_LIST,
+      pageLoading: true,
+      pageError: "",
     };
+  },
+
+  computed: {
+    showQrBlock() {
+      if (!this.ticket._fromOrderApi) return true;
+      return this.ticket.orderStatus === "PAID";
+    },
+    detailScrollPadding() {
+      if (this.ticket.orderStatus === "PENDING_PAYMENT") return "180rpx";
+      if (this.ticket.status === "unused" && !this.ticket._fromOrderApi) {
+        return "180rpx";
+      }
+      return "40rpx";
+    },
   },
 
   onLoad(options) {
@@ -144,11 +193,38 @@ export default {
   },
 
   methods: {
-    loadTicketDetail() {
-      const ticket = mockMyTickets.find((item) => item.id === this.ticketId);
-      if (ticket) {
-        this.ticket = ticket;
+    async loadTicketDetail() {
+      this.pageLoading = true;
+      this.pageError = "";
+      try {
+        const order = await getOrderDetail(this.ticketId);
+        let exhibition = null;
+        try {
+          exhibition = await request.get(
+            `/exhibition/${encodeURIComponent(order.exhibit_id)}`,
+          );
+        } catch (e) {
+          exhibition = null;
+        }
+        this.ticket = buildTicketDetailFromOrder(order, exhibition);
+        this.pageLoading = false;
+      } catch (e) {
+        const legacy = mockMyTickets.find((item) => item.id === this.ticketId);
+        if (legacy) {
+          this.ticket = legacy;
+          this.pageLoading = false;
+          return;
+        }
+        this.pageLoading = false;
+        this.pageError = "票券不存在或已失效";
+        console.error("ticket detail", e);
       }
+    },
+
+    goPay() {
+      uni.navigateTo({
+        url: `/pages/order-confirm/order-confirm?orderId=${encodeURIComponent(this.ticketId)}`,
+      });
     },
 
     getStatusText(status) {
@@ -157,6 +233,9 @@ export default {
         used: "已入场",
         refunding: "退款中",
         refunded: "已退款",
+        pending_payment: "待支付",
+        cancelled: "已取消",
+        expired: "已过期",
       };
       return statusMap[status] || status;
     },
@@ -487,6 +566,85 @@ export default {
 }
 
 .outline-btn::after {
+  border: none;
+}
+
+.page-state {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48rpx;
+}
+
+.page-state-text {
+  font-size: 28rpx;
+  color: $text-muted;
+}
+
+.tag-pending_payment {
+  background: rgba(243, 156, 18, 0.2);
+  border: 2rpx solid rgba(243, 156, 18, 0.35);
+}
+
+.dot-pending_payment {
+  background: $cr7-warning;
+}
+
+.tag-pending_payment .status-label {
+  color: $cr7-warning;
+}
+
+.tag-cancelled {
+  background: rgba(120, 120, 120, 0.25);
+  border: 2rpx solid rgba(160, 160, 160, 0.4);
+}
+
+.dot-cancelled {
+  background: #9e9e9e;
+}
+
+.tag-cancelled .status-label {
+  color: #bdbdbd;
+}
+
+.tag-expired {
+  background: rgba(90, 90, 90, 0.3);
+  border: 2rpx solid rgba(110, 110, 110, 0.45);
+}
+
+.dot-expired {
+  background: #757575;
+}
+
+.tag-expired .status-label {
+  color: #9e9e9e;
+}
+
+.qr-card-muted {
+  padding: 40rpx 32rpx;
+  align-items: flex-start;
+}
+
+.qr-card-muted .qr-hint {
+  text-align: left;
+  line-height: 1.6;
+  margin-top: 0;
+}
+
+.bottom-bar-inner-single {
+  width: 100%;
+}
+
+.primary-pay-btn {
+  flex: 1;
+  background: $cr7-gold;
+  color: $cr7-black;
+  border: none;
+  font-weight: 700;
+}
+
+.primary-pay-btn::after {
   border: none;
 }
 </style>

@@ -25,6 +25,11 @@
       </view>
     </view>
 
+    <view v-if="loading" class="loading-wrap">
+      <text class="loading-text">加载订单中...</text>
+    </view>
+
+    <template v-else>
     <!-- 空状态 -->
     <view v-if="tickets.length === 0" class="empty">
       <view class="empty-badge">
@@ -41,7 +46,7 @@
         <view class="ticket-cover-wrap" @click="goToDetail(ticket)">
           <image
             class="ticket-cover"
-            src="/static/images/event-card.jpg"
+            :src="ticket.eventCover || '/static/images/event-card.jpg'"
             mode="aspectFill"
           />
           <view
@@ -100,10 +105,7 @@
                 :height="28"
                 color="#ADADAD"
               />
-              <text class="info-text"
-                >{{ ticket.ticketType }} × {{ ticket.quantity }}
-                {{ ticket.refundRule || "开场前48小时可退" }}</text
-              >
+              <text class="info-text">{{ ticketLineSummary(ticket) }}</text>
             </view>
           </view>
 
@@ -129,7 +131,8 @@
                 </button>
                 <button
                   v-else-if="
-                    ticket.status === 'used' || ticket.status === 'refunded'
+                    !ticket._fromOrderApi &&
+                    (ticket.status === 'used' || ticket.status === 'refunded')
                   "
                   class="act-btn act-btn-outline"
                   @click.stop="handleDelete(ticket)"
@@ -141,13 +144,20 @@
                   class="act-btn act-btn-primary"
                   :class="{
                     'act-btn-primary-muted':
-                      ticket.status === 'used' || ticket.status === 'refunded',
+                      ticket.status === 'used' ||
+                      ticket.status === 'refunded' ||
+                      ticket.status === 'cancelled' ||
+                      ticket.status === 'expired',
                     'act-btn-primary-disabled': ticket.status === 'refunding',
                   }"
                   :disabled="ticket.status === 'refunding'"
                   @click.stop="goToDetail(ticket)"
                 >
-                  查看券码
+                  {{
+                    ticket.orderStatus === "PENDING_PAYMENT"
+                      ? "去支付"
+                      : "查看券码"
+                  }}
                 </button>
               </view>
             </view>
@@ -157,17 +167,24 @@
 
       <view class="safe-bottom safe-area-bottom"></view>
     </scroll-view>
+    </template>
   </view>
 </template>
 
 <script>
-import { mockMyTickets, mockHomeCards } from "@/utils/mockData.js";
+import { mockHomeCards } from "@/utils/mockData.js";
 import createTabBarMixin from "@/mixins/tabBar.js";
+import { listOrders } from "@/services/order.js";
+import {
+  loadExhibitionsMap,
+  buildTicketRowFromOrder,
+} from "@/utils/orderDisplay.js";
 
 export default {
   mixins: [createTabBarMixin(1)],
   data() {
     return {
+      loading: true,
       tickets: [],
     };
   },
@@ -177,8 +194,36 @@ export default {
   },
 
   methods: {
-    loadTickets() {
-      this.tickets = mockMyTickets;
+    async loadTickets() {
+      this.loading = true;
+      try {
+        const res = await listOrders({ page: 1, limit: 50 });
+        const orders = Array.isArray(res?.orders) ? res.orders : [];
+        orders.sort(
+          (a, b) =>
+            new Date(b.created_at || 0) - new Date(a.created_at || 0),
+        );
+        const exMap = await loadExhibitionsMap(
+          orders.map((o) => o.exhibit_id),
+        );
+        this.tickets = orders.map((o) =>
+          buildTicketRowFromOrder(o, exMap[o.exhibit_id] || null),
+        );
+      } catch (e) {
+        console.error("listOrders", e);
+        uni.showToast({ title: "订单加载失败", icon: "none" });
+        this.tickets = [];
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    ticketLineSummary(ticket) {
+      const extra = ticket.refundRule || "开场前48小时可退";
+      if (ticket._fromOrderApi) {
+        return `${ticket.ticketType} · ${extra}`;
+      }
+      return `${ticket.ticketType} × ${ticket.quantity} ${extra}`;
     },
 
     getStatusText(status) {
@@ -187,6 +232,9 @@ export default {
         used: "已完成",
         refunding: "退款中",
         refunded: "已退款",
+        pending_payment: "待支付",
+        cancelled: "已取消",
+        expired: "已过期",
       };
       return statusMap[status] || status;
     },
@@ -197,6 +245,9 @@ export default {
         "pill-done": status === "used",
         "pill-refunding": status === "refunding",
         "pill-refunded": status === "refunded",
+        "pill-pending": status === "pending_payment",
+        "pill-cancelled": status === "cancelled",
+        "pill-expired": status === "expired",
       };
     },
 
@@ -224,13 +275,20 @@ export default {
     },
 
     getEventLocation(ticket) {
+      if (ticket.eventLocation) return ticket.eventLocation;
       const event = mockHomeCards.find((item) => item.id == ticket.eventId);
       return event && event.location ? event.location : "上海体育场";
     },
 
     goToDetail(ticket) {
+      if (ticket.orderStatus === "PENDING_PAYMENT") {
+        uni.navigateTo({
+          url: `/pages/order-confirm/order-confirm?orderId=${encodeURIComponent(ticket.id)}`,
+        });
+        return;
+      }
       uni.navigateTo({
-        url: `/pages/ticket-detail/ticket-detail?id=${ticket.id}`,
+        url: `/pages/ticket-detail/ticket-detail?id=${encodeURIComponent(ticket.id)}`,
       });
     },
 
@@ -450,6 +508,18 @@ export default {
 
 .pill-refunded {
   background: rgba(142, 142, 142, 0.4);
+}
+
+.pill-pending {
+  background: rgba(243, 156, 18, 0.55);
+}
+
+.pill-cancelled {
+  background: rgba(120, 120, 120, 0.55);
+}
+
+.pill-expired {
+  background: rgba(90, 90, 90, 0.55);
 }
 
 .pill-text {

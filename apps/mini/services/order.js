@@ -24,3 +24,23 @@ export function getOrderDetail(orderId) {
   const oid = encodeURIComponent(orderId);
   return request.get(`/orders/${oid}`);
 }
+
+/**
+ * 当前用户订单列表（分页）
+ * @param {{ status?: string; page?: number; limit?: number }} [params]
+ * @returns {Promise<{ orders: object[]; total: number; page: number; limit: number }>}
+ * @see docs/api/order.md
+ */
+export function listOrders(params = {}) {
+  const q = {};
+  if (params.status != null && params.status !== "") {
+    q.status = params.status;
+  }
+  if (params.page != null) {
+    q.page = params.page;
+  }
+  if (params.limit != null) {
+    q.limit = params.limit;
+  }
+  return request.get("/orders", { params: q });
+}
