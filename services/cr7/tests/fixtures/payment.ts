@@ -1,6 +1,5 @@
 import { Server } from 'node:http';
 import { createCipheriv, randomBytes } from 'node:crypto';
-import { fetch } from 'undici';
 import { postJSON } from '../lib/api.js';
 import { Payment } from '@cr7/types';
 
@@ -92,35 +91,21 @@ export async function sendWechatCallback(
   server: Server,
   notification: ReturnType<typeof buildCallbackNotification>,
   headers: Record<string, string> = {},
-): Promise<{ status: number; body: unknown }> {
-  const { address, port } = server.address() as { address: string; port: number };
-  const host = address === '::' ? 'localhost' : address;
-  const url = `http://${host}:${port}/payment/wechat/callback`;
-
+): Promise<unknown> {
   const timestamp = String(Math.floor(Date.now() / 1000));
   const nonce = randomBytes(16).toString('hex').toUpperCase();
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: Object.assign(
-      {
-        'content-type': 'application/json',
-        'wechatpay-timestamp': timestamp,
-        'wechatpay-nonce': nonce,
-        'wechatpay-serial': 'TEST_SERIAL',
-        'wechatpay-signature': 'TEST_SIGNATURE',
-      },
-      headers,
-    ),
-    body: JSON.stringify(notification),
-  });
+  const wechatHeaders = {
+    'wechatpay-timestamp': timestamp,
+    'wechatpay-nonce': nonce,
+    'wechatpay-serial': 'TEST_SERIAL',
+    'wechatpay-signature': 'TEST_SIGNATURE',
+    ...headers,
+  };
 
-  const contentType = res.headers.get('content-type') || '';
-  const body = res.status === 204
-    ? null
-    : contentType.includes('application/json')
-      ? await res.json()
-      : await res.text();
-
-  return { status: res.status, body };
+  return postJSON<unknown>(
+    server,
+    '/payment/wechat/callback',
+    { body: notification, headers: wechatHeaders }
+  );
 }

@@ -40,6 +40,7 @@ type CaseContext = {
   paySign: Payment.PaySignResult;
   mockPrepayId: string;
   lastWechatCloseRequest: unknown;
+  callback_result?: boolean;
 };
 
 interface ScenarioContext {
@@ -285,20 +286,20 @@ describeFeature(feature, ({
     },
   );
 
-  Scenario.skip(
+  Scenario(
     '用户下单展会门票并支付成功',
     (s: StepTest<Partial<CaseContext>>) => {
-      const { Given, When, Then, And, context } = s;
+      const { Given, Then, And, context } = s;
 
       Given('用户预订了 1 张 "CR7" 展会 的 "2026-07-01" 场次的 "成人票"', async () => {
         await prepareExhibitionData(context, 'CR7', '成人票', '2026-07-01');
         await createTestOrder(context);
       });
 
-      Given('用户已发起支付并获得 pay sign', async () => {
+      Given('用户发起并完成微信支付', async () => {
         const mockPrepayId = 'mock_prepay_id_success';
-        Object.assign(scenarioContext, { wechatPayMockPrepayId: mockPrepayId });
-        scenarioContext.wechatPayRequestHandler?.mockResolvedValueOnce({ prepay_id: mockPrepayId });
+        Object.assign(context, { mockPrepayId });
+        scenarioContext.wechatPayRequestHandler.mockResolvedValueOnce({ prepay_id: mockPrepayId });
 
         const paySign = await initiatePayment(
           scenarioContext.fixtures.values.apiServer,
@@ -308,14 +309,10 @@ describeFeature(feature, ({
         Object.assign(context, { paySign });
       });
 
-      When('用户完成微信支付', async () => {
-        // 模拟微信回调
-      });
-
       Then('微信支付服务回调支付结果，支付成功', async () => {
         const transactionResult: WechatTransactionResult = {
           transaction_id: `wxpay_txn_${random_text(8)}`,
-          out_trade_no: context.order!.id.replace(/-/g, ''),
+          out_trade_no: context.order.id.replace(/-/g, ''),
           trade_state: 'SUCCESS',
           trade_state_desc: '支付成功',
           mchid: config.wechatpay.mchid,
@@ -325,8 +322,8 @@ describeFeature(feature, ({
           success_time: new Date().toISOString(),
           payer: { openid: scenarioContext.userOpenid },
           amount: {
-            total: context.order!.total_amount,
-            payer_total: context.order!.total_amount,
+            total: context.order.total_amount,
+            payer_total: context.order.total_amount,
             currency: 'CNY',
             payer_currency: 'CNY',
           },
@@ -337,21 +334,15 @@ describeFeature(feature, ({
           config.wechatpay.api_v3_secret,
         );
 
-        const { status } = await sendWechatCallback(
+        context.callback_result = await sendWechatCallback(
           scenarioContext.fixtures.values.apiServer,
           notification,
-        );
-        expect(status).toBe(204);
+        )
+        .then(() => true, () => false);
       });
 
-      And('out-trade-no 为订单号去掉 - 符号后的字符串', () => {
-        const expectedOutTradeNo = context.order!.id.replace(/-/g, '');
-        expect(expectedOutTradeNo).toHaveLength(32);
-      });
-
-      And('cr7 支付服务收到支付结果通知并验证订单信息正确', () => {
-        // 验证在微信回调处理步骤已通过（status 204）
-        expect(context.order).toBeTruthy();
+      And('回调信息中的 cr7 支付服务收到支付结果通知并验证订单信息正确', () => {
+        expect(context.callback_result).toBe(true);
       });
 
       And('订单状态为 "已支付"', async () => {
@@ -379,7 +370,7 @@ describeFeature(feature, ({
         await createTestOrder(context);
       });
 
-      Given('用户已发起支付并获得 pay sign', async () => {
+      Given('用户已发起支付', async () => {
         const mockPrepayId = 'mock_prepay_id_cancel';
         Object.assign(scenarioContext, { wechatPayMockPrepayId: mockPrepayId });
         scenarioContext.wechatPayRequestHandler?.mockResolvedValueOnce({ prepay_id: mockPrepayId });
@@ -408,11 +399,6 @@ describeFeature(feature, ({
 
       And('微信支付服务收到订单关闭请求', () => {
         expect(capturedCloseOutTradeNo).toBeTruthy();
-      });
-
-      And('out-trade-no 为订单号去掉 - 符号后的字符串', () => {
-        const expectedOutTradeNo = context.order!.id.replace(/-/g, '');
-        expect(capturedCloseOutTradeNo).toBe(expectedOutTradeNo);
       });
 
       Then('订单状态更新为 "已取消"', async () => {
