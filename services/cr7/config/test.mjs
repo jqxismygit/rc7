@@ -1,3 +1,9 @@
+import path from 'node:path';
+import { URL } from 'node:url';
+
+const __dirname = path.dirname(new URL(import.meta.url).pathname);
+const fixtures_path = path.resolve(__dirname, '../tests/fixtures');
+
 export default {
   api: {
     port: 0
@@ -27,5 +33,10 @@ export default {
     base_url: 'https://1.1.1.1',
     appid: 'test_appid',
     secret: 'test_secret',
+  },
+  wechatpay: {
+    base_url: 'https://1.1.1.1',
+    callback_url: 'https://1.1.1.1',
+    client_key_path: path.resolve(fixtures_path, 'wechatpay/apiclient_key.pem'),
   }
 }
