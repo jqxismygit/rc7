@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildWechatPayAuthorization } from '../src/libs/wepay.js';
+import { buildWechatPayAuthorization, signPay } from '../src/libs/wepay.js';
 import { primary_key_fixture } from './fixtures/pyment.js';
 
 describe('wechat payment', () => {
@@ -48,4 +48,32 @@ describe('wechat payment', () => {
 		expect(signature.endsWith('8iqQzbpxOlEVoOe2kalSYM5kApQb3nZcxdUtoE0liJGW3RGUNE0t4v01A==')).toBe(true);
 	});
 
+	it('build paySign with doc sample inputs', () => {
+		const appid = 'wx2421b1c4370ec43b';
+		const prepay_id = 'wx201410272009395522657a690389285100';
+		const timestamp = 1554208460;
+		const nonceStr = '593BEC0C930BF1AFEB40B4A08C8FB242';
+
+		const result = signPay(prepay_id, {
+			appid,
+			privateKey: primary_key_fixture,
+			timestamp,
+			nonceStr,
+		});
+
+		expect(result.timeStamp).toBe(String(timestamp));
+		expect(result.nonceStr).toBe(nonceStr);
+		expect(result.package).toBe(`prepay_id=${prepay_id}`);
+		expect(result.signType).toBe('RSA');
+		expect(result.message).toBe(
+			`${appid}\n`
+			+ `${timestamp}\n`
+			+ `${nonceStr}\n`
+			+ `prepay_id=${prepay_id}\n`
+		);
+
+		// 使用文档中的同一组 mock 数据验证签名结果。
+		expect(result.paySign.startsWith('mI35pfNEQV6777ke/1T+LJLQDNTm7yeoUJH+j/adPGhmCCi0PbgkvYQTRcXH0uib')).toBe(true);
+		expect(result.paySign.endsWith('KJ+qk5N61J7caYoepHFaxw==')).toBe(true);
+	});
 });

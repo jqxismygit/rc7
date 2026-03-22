@@ -35,6 +35,22 @@ interface WechatPayPostOptions extends Omit<RequestInit, 'method' | 'body'>, Wec
 	body?: unknown;
 }
 
+interface SignPayOptions {
+	appid: string;
+	privateKey: string;
+	nonceStr?: string;
+	timestamp?: number;
+}
+
+interface SignPayResult {
+	timeStamp: string;
+	nonceStr: string;
+	package: string;
+	signType: 'RSA';
+	paySign: string;
+	message: string;
+}
+
 function buildSignMessage(
 	method: string,
 	url: URL,
@@ -51,6 +67,32 @@ function signMessage(message: string, privateKey: string): string {
 	signer.update(message);
 	signer.end();
 	return signer.sign(privateKey, 'base64');
+}
+
+function buildPaySignMessage(
+	appid: string,
+	timestamp: string,
+	nonceStr: string,
+	pkg: string,
+) {
+	return `${appid}\n${timestamp}\n${nonceStr}\n${pkg}\n`;
+}
+
+export function signPay(prepay_id: string, options: SignPayOptions): SignPayResult {
+	const timestamp = String(options.timestamp ?? Math.floor(Date.now() / 1000));
+	const nonceStr = options.nonceStr ?? randomBytes(16).toString('hex').toUpperCase();
+	const pkg = `prepay_id=${prepay_id}`;
+	const message = buildPaySignMessage(options.appid, timestamp, nonceStr, pkg);
+	const paySign = signMessage(message, options.privateKey);
+
+	return {
+		timeStamp: timestamp,
+		nonceStr,
+		package: pkg,
+		signType: 'RSA',
+		paySign,
+		message,
+	};
 }
 
 export function buildWechatPayAuthorization(
