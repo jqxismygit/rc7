@@ -322,6 +322,7 @@ const ExhibitionPage = () => {
           actionRef={actionRef}
           rowKey="id"
           columns={columns}
+          scroll={{ x: "max-content" }}
           ghost
           cardProps={{ bodyStyle: { padding: 0 } }}
           options={false}
