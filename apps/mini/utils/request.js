@@ -57,6 +57,15 @@ request.interceptors.request.use(
   },
 );
 
+/** 与 services/auth.js 中登录请求 path 一致；登录失败 401 不应再跳转登录页 */
+const LOGIN_API_PATH = "/user/login/wechat/mini";
+
+function isLoginApiRequest(response) {
+  const url = response?.config?.url ?? "";
+  const fullPath = response?.config?.fullPath ?? "";
+  return url.includes(LOGIN_API_PATH) || fullPath.includes(LOGIN_API_PATH);
+}
+
 request.interceptors.response.use(
   (response) => {
     /* 对响应成功做点什么 可使用async await 做异步操作*/
@@ -69,12 +78,13 @@ request.interceptors.response.use(
   (response) => {
     /*  对响应错误做点什么 （statusCode !== 200）*/
     // console.error('响应拦截器错误:', response)
-    if (response?.statusCode === 401) {
+    if (response?.statusCode === 401 && !isLoginApiRequest(response)) {
       console.log("登录过期，需要重新登录");
       uni.showToast({
         title: "登录过期，请重新登录",
         icon: "none",
       });
+      persistStorage.removeItem("user");
       uni.navigateTo({
         url: "/pages/login/login",
       });
