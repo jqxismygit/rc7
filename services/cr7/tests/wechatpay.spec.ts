@@ -49,7 +49,6 @@ interface ScenarioContext {
   userOpenid: string;
   wechatPayMockServer?: MockServer;
   wechatPayRequestHandler?: Mock;
-  wechatPayMockPrepayId?: string;
 }
 
 const feature = await loadFeature('tests/features/wechatpay.feature');
@@ -118,14 +117,14 @@ describeFeature(feature, ({
     Object.assign(context, { exhibition, session, ticket });
   }
 
-  async function createTestOrder(context: Partial<CaseContext>, token?: string) {
+  async function createTestOrder(context: Partial<CaseContext>) {
     const { apiServer } = scenarioContext.fixtures.values;
     const order = await createOrderByApi(
       apiServer,
       context.exhibition!.id,
       context.session!.id,
       [{ ticket_category_id: context.ticket!.id, quantity: 1 }],
-      token ?? scenarioContext.userToken,
+      scenarioContext.userToken,
     );
     Object.assign(context, { order });
   }
@@ -147,16 +146,9 @@ describeFeature(feature, ({
         await scenarioContext.wechatPayMockServer.close();
       }
 
-      const wechatPayRequestHandler = vi.fn(async ({ body: _body, query: _query, path: _path }) => {
-        return { prepay_id: scenarioContext.wechatPayMockPrepayId };
-      });
-
-      Object.assign(scenarioContext, {
-        wechatPayMockPrepayId: 'mock_prepay_id_12345',
-        wechatPayRequestHandler,
-      });
-
+      const wechatPayRequestHandler = vi.fn();
       const mockServer = await mockJSONServer(wechatPayRequestHandler);
+      Object.assign(scenarioContext, { wechatPayRequestHandler });
 
       vi.spyOn(config.wechatpay, 'base_url', 'get').mockReturnValue(mockServer.address);
       Object.assign(scenarioContext, { wechatPayMockServer: mockServer });
@@ -171,7 +163,7 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario.skip(
+  Scenario(
     '用户下单展会门票并发起支付',
     (s: StepTest<Partial<CaseContext>>) => {
       const { Given, When, Then, And, context } = s;
@@ -183,10 +175,8 @@ describeFeature(feature, ({
 
       When('在微信小程序中向 cr7 支付服务发起支付', async () => {
         const mockPrepayId = 'mock_prepay_id_12345';
-        Object.assign(scenarioContext, { wechatPayMockPrepayId: mockPrepayId });
         Object.assign(context, { mockPrepayId });
-
-        scenarioContext.wechatPayRequestHandler?.mockResolvedValueOnce({ prepay_id: mockPrepayId });
+        scenarioContext.wechatPayRequestHandler.mockResolvedValueOnce({ prepay_id: mockPrepayId });
 
         const paySign = await initiatePayment(
           scenarioContext.fixtures.values.apiServer,
@@ -231,9 +221,7 @@ describeFeature(feature, ({
       And('商品描述 description 为 {string}', (ctx, description: string) => {
         expect(scenarioContext.wechatPayRequestHandler).toHaveBeenCalledWith(
           expect.objectContaining({
-            body: expect.objectContaining({
-              description: expect.stringContaining(description),
-            }),
+            body: expect.objectContaining({ description })
           }),
         );
       });
