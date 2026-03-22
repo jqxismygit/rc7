@@ -8,25 +8,25 @@ import {
   mockHotEvents,
   mockHotWorldcup,
   mockCr7ZoneEntries,
-  mockTicketEvent,
   mockCr7News,
-  mockTicketTypes
-} from '@/utils/mockData.js'
+} from "@/utils/mockData.js";
+import dayjs from "dayjs";
+import request from "@/utils/request.js";
 
-const MOCK_DELAY = 200
+const MOCK_DELAY = 200;
 
 const delay = (result) =>
   new Promise((resolve) => {
-    setTimeout(() => resolve(result), MOCK_DELAY)
-  })
+    setTimeout(() => resolve(result), MOCK_DELAY);
+  });
 
 /**
  * 获取首页 Banner / 信息流卡片
  * 后续接真接口时，可直接改为 request.get('/cms/home/banners')
  */
 export function fetchHomeCards() {
-  const list = mockHomeCards.map((item) => ({ ...item }))
-  return delay(list)
+  const list = mockHomeCards.map((item) => ({ ...item }));
+  return delay(list);
 }
 
 /**
@@ -34,56 +34,131 @@ export function fetchHomeCards() {
  * 对齐 PRD「联名品牌墙」
  */
 export function fetchBrands() {
-  const list = mockBrands.map((item) => ({ ...item }))
-  return delay(list)
+  const list = mockBrands.map((item) => ({ ...item }));
+  return delay(list);
 }
 
 /**
  * 获取首页 Hero Banners
  */
 export function fetchHeroBanners() {
-  const list = mockHeroBanners.map((item) => ({ ...item }))
-  return delay(list)
+  const list = mockHeroBanners.map((item) => ({ ...item }));
+  return delay(list);
 }
 
 /**
- * 获取首页马上购票主推活动
+ * 首页马上购票使用的展览 ID（与后台创建的展会一致；后续可改为配置/接口首条）
+ * @see docs/api/exhibition.md、docs/api/inventory.md
  */
-export function fetchTicketEvent() {
-  return delay({ ...mockTicketEvent })
+const HOME_EXHIBITION_ID = "e0c47ea5-8b48-45b8-b52c-cc985871d6e4";
+
+function sessionDateKey(session) {
+  const raw = session?.session_date;
+  if (!raw) return "";
+  return String(raw).slice(0, 10);
 }
 
-/**
- * 获取票种列表（首页展示）
- */
-export function fetchTicketTypes() {
-  return delay(mockTicketTypes.map((item) => ({ ...item })))
+/** 按当前本地日期匹配场次 session_date（YYYY-MM-DD） */
+function findTodaySession(sessions) {
+  const today = dayjs().format("YYYY-MM-DD");
+  return sessions.find((s) => sessionDateKey(s) === today);
+}
+
+function refundHint(policy) {
+  if (policy === "REFUNDABLE_48H_BEFORE") return "开场前 48 小时可退";
+  return "不可退票";
+}
+
+function formatTicketEventMeta(exhibition, todaySession) {
+  const cover = "/static/images/event-card.jpg";
+  const open = (exhibition.opening_time || "").slice(0, 5);
+  const close = (exhibition.closing_time || "").slice(0, 5);
+  const loc = exhibition.location || "";
+
+  if (todaySession) {
+    const md = dayjs(todaySession.session_date).format("MM/DD");
+    return {
+      id: exhibition.id,
+      title: exhibition.name,
+      time: `${md}·${open}-${close}·${loc}`,
+      cover,
+    };
+  }
+
+  const start = dayjs(exhibition.start_date).format("MM/DD");
+  const end = dayjs(exhibition.end_date).format("MM/DD");
+  return {
+    id: exhibition.id,
+    title: exhibition.name,
+    time: `展期 ${start}-${end}·${open}-${close}·${loc}（今日无场次）`,
+    cover,
+  };
+}
+
+function mapSessionInventoryToHomeTickets(rows) {
+  return (rows || []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    price: row.price,
+    originalPrice: row.price,
+    description: `${refundHint(row.refund_policy)} · ${row.valid_duration_days} 天有效 · 可入场 ${row.admittance} 人`,
+    stock: typeof row.quantity === "number" ? row.quantity : 0,
+    canRefund: row.refund_policy === "REFUNDABLE_48H_BEFORE",
+    tag:
+      typeof row.quantity === "number" && row.quantity > 0 && row.quantity < 20
+        ? "限量"
+        : "",
+  }));
+}
+
+async function loadHomeTicketSection() {
+  const eid = HOME_EXHIBITION_ID;
+
+  const [exhibition, sessions] = await Promise.all([
+    request.get(`/exhibition/${eid}`),
+    request.get(`/exhibition/${eid}/sessions`),
+  ]);
+
+  const list = Array.isArray(sessions) ? sessions : [];
+  const todaySession = findTodaySession(list);
+  const ticketEvent = formatTicketEventMeta(exhibition, todaySession);
+
+  let ticketTypes = [];
+  if (todaySession?.id) {
+    const sid = encodeURIComponent(todaySession.id);
+    const inv = await request.get(`/exhibition/${eid}/sessions/${sid}/tickets`);
+    ticketTypes = mapSessionInventoryToHomeTickets(
+      Array.isArray(inv) ? inv : [],
+    );
+  }
+
+  return { ticketEvent, ticketTypes };
 }
 
 /**
  * 获取 CR7 News 列表
  */
 export function fetchCr7News() {
-  return delay(mockCr7News.map((item) => ({ ...item })))
+  return delay(mockCr7News.map((item) => ({ ...item })));
 }
 
 /**
  * 获取首页热门活动数据
  */
 export function fetchHotTickets() {
-  return delay(mockHotTickets.map((item) => ({ ...item })))
+  return delay(mockHotTickets.map((item) => ({ ...item })));
 }
 
 export function fetchHotEvents() {
-  return delay(mockHotEvents.map((item) => ({ ...item })))
+  return delay(mockHotEvents.map((item) => ({ ...item })));
 }
 
 export function fetchHotWorldcup() {
-  return delay(mockHotWorldcup.map((item) => ({ ...item })))
+  return delay(mockHotWorldcup.map((item) => ({ ...item })));
 }
 
 export function fetchCr7Zone() {
-  return delay(mockCr7ZoneEntries.map((item) => ({ ...item })))
+  return delay(mockCr7ZoneEntries.map((item) => ({ ...item })));
 }
 
 /**
@@ -91,7 +166,6 @@ export function fetchCr7Zone() {
  * 这里复用消息 mock，方便 index 与 messages 逻辑统一
  */
 export async function fetchHomeUnreadCount() {
-  const unread = mockMessages.filter((item) => !item.isRead).length
-  return delay(unread)
+  const unread = mockMessages.filter((item) => !item.isRead).length;
+  return delay(unread);
 }
-
