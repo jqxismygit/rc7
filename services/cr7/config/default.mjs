@@ -1,5 +1,5 @@
 import path from 'node:path';
-import URL from 'node:url';
+import { URL } from 'node:url';
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
 const etc_path = path.resolve(__dirname, '../../../etc');
