@@ -231,18 +231,29 @@ export default {
       },
       cr7News: [],
       brands: [],
+      /** 用于 onShow 判断 token 是否变化（重新登录后需重拉首页） */
+      _lastHomeDataToken: "",
     };
   },
 
   onLoad() {
     const systemInfo = uni.getSystemInfoSync();
     this.statusBarHeight = systemInfo.statusBarHeight || 0;
+    const userStore = useUserStore();
+    this._lastHomeDataToken = userStore.token || "";
     this.loadHomeData();
   },
 
   onShow() {
     this.checkLogin();
     this.loadUnreadCount();
+    // 登录成功 switchTab 回首页不会触发 onLoad，需根据 token 变化补拉数据（含 401 后重新登录）
+    const userStore = useUserStore();
+    const t = userStore.token || "";
+    if (t && t !== this._lastHomeDataToken) {
+      this._lastHomeDataToken = t;
+      this.loadHomeData();
+    }
   },
 
   methods: {

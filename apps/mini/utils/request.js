@@ -1,5 +1,6 @@
 import Request from "@/js_sdk/luch-request/luch-request/index.js";
 import persistStorage from "@/utils/persistStorage.js";
+import { useUserStore } from "@/stores/user.js";
 
 const request = new Request();
 
@@ -85,6 +86,11 @@ request.interceptors.response.use(
         icon: "none",
       });
       persistStorage.removeItem("user");
+      try {
+        useUserStore().logout();
+      } catch (e) {
+        /* Pinia 未就绪时忽略 */
+      }
       uni.navigateTo({
         url: "/pages/login/login",
       });
