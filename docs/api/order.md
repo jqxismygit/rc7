@@ -149,42 +149,6 @@ PENDING_PAYMENT
   - 重复取消同一订单返回 204，幂等
   - 仅允许取消自己的订单
 
-## 订单支付（待实现）
-
-- URL: `/orders/:oid/pay`
-- Method: `POST`
-- Request Header:
-  ```ts
-  { Authorization: `Bearer ${token}` }
-  ```
-- Request Params:
-  ```ts
-  { oid: string }
-  ```
-- Request Body:
-  ```ts
-  {
-    payment_method: string;  // 支付方式
-    payment_data: any;       // 支付相关数据
-  }
-  ```
-- Response Body:
-  ```ts
-  Order.Order
-  ```
-- Response Status:
-  - `200 OK`：支付成功
-  - `400 Bad Request`：订单状态不允许支付
-  - `401 Unauthorized`：未认证
-  - `403 Forbidden`：无权限支付他人订单
-  - `404 Not Found`：订单不存在
-
-- 说明：
-  - 支付成功后订单状态变为 `PAID`，`paid_at` 被写入
-  - 只有 `PENDING_PAYMENT` 状态的订单可以支付
-  - 已过期订单无法支付
-  - 此接口需要与支付服务集成，待后续实现
-
 ## 订单过期处理
 
 订单过期由系统定时任务自动处理，无需手动调用。
