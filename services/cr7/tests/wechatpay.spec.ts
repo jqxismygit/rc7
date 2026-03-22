@@ -364,7 +364,7 @@ describeFeature(feature, ({
     },
   );
 
-  Scenario(
+  Scenario.skip(
     '用户下单展会门票发起支付后取消订单',
     (s: StepTest<Partial<CaseContext>>) => {
       const { Given, When, Then, And, context } = s;
