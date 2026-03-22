@@ -33,6 +33,15 @@ export default [
           allow: ['warn', 'error'],
         },
       ],
+      'max-len': [
+        'warn',
+        {
+          code: 120,
+          ignoreComments: true,
+          ignoreStrings: true,
+          ignoreTemplateLiterals: true,
+        },
+      ],
     },
   },
   {
