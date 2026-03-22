@@ -7,7 +7,7 @@
           <view class="navbar-left">
             <view class="navbar-notification" @click="goToMessages">
               <image
-                src="/static/icons/notification.svg"
+                src="/static/ui-icons/notification.svg"
                 class="nav-icon"
                 mode="aspectFit"
               />
@@ -16,7 +16,7 @@
           </view>
           <view class="navbar-logo">
             <image
-              src="/static/icons/logo.svg"
+              src="/static/ui-icons/logo.svg"
               class="logo-img"
               mode="aspectFit"
             />
