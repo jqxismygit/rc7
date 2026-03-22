@@ -1,3 +1,10 @@
+import path from 'node:path';
+import URL from 'node:url';
+
+const __dirname = path.dirname(new URL(import.meta.url).pathname);
+const etc_path = path.resolve(__dirname, '../../../etc');
+const host = 'https://dev.cr7life.cn';
+
 export default {
   broker: {
     logger: true,
@@ -32,5 +39,16 @@ export default {
     base_url: 'https://api.weixin.qq.com',
     appid: 'wx8e0cd522cf168035',
     secret: '__APP_SECRET__',
+  },
+  wechatpay: {
+    base_url: 'https://api.mch.weixin.qq.com',
+    appid: 'wx8e0cd522cf168035',
+    mchid: 'your_mchid',
+    api_v3_secret: 'your_api_v3_secret',
+    client_cert_serial_no: 'your_key_serial_no',
+    client_cert_path: path.resolve(etc_path, 'wechatpay/apiclient_cert.pem'),
+    wechat_pay_serial: 'your_wechat_pay_serial',
+    wechat_pay_public_key_path: path.resolve(etc_path, 'wechatpay/wechatpay_pub_key.pem'),
+    callback_url: `${host}/payment/wechatpay/callback`
   }
 }
