@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildWechatPayAuthorization, signPay } from '../src/libs/wepay.js';
+import { buildWechatPayAuthorization, signPay } from '../src/libs/wechatpay.js';
 import { primary_key_fixture } from './fixtures/pyment.js';
 
 describe('wechat payment', () => {
