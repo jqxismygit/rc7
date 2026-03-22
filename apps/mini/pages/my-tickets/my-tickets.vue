@@ -26,147 +26,150 @@
     </view>
 
     <view v-if="loading" class="loading-wrap">
-      <text class="loading-text">加载订单中...</text>
+      <text class="loading-text">加载中...</text>
     </view>
 
     <template v-else>
-    <!-- 空状态 -->
-    <view v-if="tickets.length === 0" class="empty">
-      <view class="empty-badge">
-        <text class="empty-cr7">CR7</text>
-      </view>
-      <text class="empty-text">暂无票券，先去解锁一次传奇体验吧</text>
-      <button class="btn-gold empty-btn" @click="goToBuy">立即购票</button>
-    </view>
-
-    <!-- 票券列表 -->
-    <scroll-view v-else class="ticket-scroll" scroll-y>
-      <view v-for="ticket in tickets" :key="ticket.id" class="ticket-card">
-        <!-- 票面大图 + 状态胶囊 -->
-        <view class="ticket-cover-wrap" @click="goToDetail(ticket)">
-          <image
-            class="ticket-cover"
-            :src="ticket.eventCover || '/static/images/event-card.jpg'"
-            mode="aspectFill"
-          />
-          <view
-            class="ticket-status-pill"
-            :class="getStatusPillClass(ticket.status)"
-          >
-            <text class="pill-text">{{ getStatusText(ticket.status) }}</text>
-          </view>
+      <!-- 空状态 -->
+      <view v-if="tickets.length === 0" class="empty">
+        <view class="empty-badge">
+          <text class="empty-cr7">CR7</text>
         </view>
+        <text class="empty-text">暂无票券，先去解锁一次传奇体验吧</text>
+        <button class="btn-gold empty-btn" @click="goToBuy">立即购票</button>
+      </view>
 
-        <!-- 内容区域 -->
-        <view class="ticket-body">
-          <!-- 标题 + 标签 -->
-          <view class="ticket-title-row">
-            <text class="ticket-event-name">{{ ticket.eventName }}</text>
+      <!-- 票券列表 -->
+      <scroll-view v-else class="ticket-scroll" scroll-y>
+        <view v-for="ticket in tickets" :key="ticket.id" class="ticket-card">
+          <!-- 票面大图 + 状态胶囊 -->
+          <view class="ticket-cover-wrap" @click="goToDetail(ticket)">
+            <image
+              class="ticket-cover"
+              :src="ticket.eventCover || '/static/images/event-card.jpg'"
+              mode="aspectFill"
+            />
             <view
-              class="ticket-type-tag"
-              :class="ticket.isThird ? 'tag-third' : 'tag-official'"
+              class="ticket-status-pill"
+              :class="getStatusPillClass(ticket.status)"
             >
-              <text
-                class="tag-text"
-                :class="ticket.isThird ? 'tag-text-third' : 'tag-text-official'"
+              <text class="pill-text">{{ getStatusText(ticket.status) }}</text>
+            </view>
+          </view>
+
+          <!-- 内容区域 -->
+          <view class="ticket-body">
+            <!-- 标题 + 标签 -->
+            <view class="ticket-title-row">
+              <text class="ticket-event-name">{{ ticket.eventName }}</text>
+              <view
+                class="ticket-type-tag"
+                :class="ticket.isThird ? 'tag-third' : 'tag-official'"
               >
-                {{ ticket.isThird ? "三方票" : "官方票" }}
-              </text>
-            </view>
-          </view>
-
-          <!-- 信息行 -->
-          <view class="ticket-info-list" @click="goToDetail(ticket)">
-            <view class="info-row">
-              <sx-svg
-                class="info-icon"
-                name="time"
-                :width="28"
-                :height="28"
-                color="#ADADAD"
-              />
-              <text class="info-text">{{ ticket.eventDate }}</text>
-            </view>
-            <view class="info-row">
-              <sx-svg
-                class="info-icon"
-                name="location"
-                :width="28"
-                :height="28"
-                color="#ADADAD"
-              />
-              <text class="info-text">{{ getEventLocation(ticket) }}</text>
-            </view>
-            <view class="info-row">
-              <sx-svg
-                class="info-icon"
-                name="ticket"
-                :width="28"
-                :height="28"
-                color="#ADADAD"
-              />
-              <text class="info-text">{{ ticketLineSummary(ticket) }}</text>
-            </view>
-          </view>
-
-          <!-- 底部操作栏 -->
-          <view class="ticket-actions">
-            <view class="action-divider"></view>
-            <view class="action-bar">
-              <text class="action-price">￥{{ ticket.price }}</text>
-              <view class="action-btns">
-                <button
-                  v-if="showRefundButton(ticket)"
-                  class="act-btn act-btn-outline"
-                  :class="{
-                    'act-btn-disabled':
-                      !canApplyRefund(ticket) || ticket.status === 'refunding',
-                  }"
-                  :disabled="
-                    !canApplyRefund(ticket) || ticket.status === 'refunding'
+                <text
+                  class="tag-text"
+                  :class="
+                    ticket.isThird ? 'tag-text-third' : 'tag-text-official'
                   "
-                  @click.stop="onRefundClick(ticket)"
                 >
-                  {{ getRefundButtonText(ticket) }}
-                </button>
-                <button
-                  v-else-if="
-                    !ticket._fromOrderApi &&
-                    (ticket.status === 'used' || ticket.status === 'refunded')
-                  "
-                  class="act-btn act-btn-outline"
-                  @click.stop="handleDelete(ticket)"
-                >
-                  删除票券
-                </button>
+                  {{ ticket.isThird ? "三方票" : "官方票" }}
+                </text>
+              </view>
+            </view>
 
-                <button
-                  class="act-btn act-btn-primary"
-                  :class="{
-                    'act-btn-primary-muted':
-                      ticket.status === 'used' ||
-                      ticket.status === 'refunded' ||
-                      ticket.status === 'cancelled' ||
-                      ticket.status === 'expired',
-                    'act-btn-primary-disabled': ticket.status === 'refunding',
-                  }"
-                  :disabled="ticket.status === 'refunding'"
-                  @click.stop="goToDetail(ticket)"
-                >
-                  {{
-                    ticket.orderStatus === "PENDING_PAYMENT"
-                      ? "去支付"
-                      : "查看券码"
-                  }}
-                </button>
+            <!-- 信息行 -->
+            <view class="ticket-info-list" @click="goToDetail(ticket)">
+              <view class="info-row">
+                <sx-svg
+                  class="info-icon"
+                  name="time"
+                  :width="28"
+                  :height="28"
+                  color="#ADADAD"
+                />
+                <text class="info-text">{{ ticket.eventDate }}</text>
+              </view>
+              <view class="info-row">
+                <sx-svg
+                  class="info-icon"
+                  name="location"
+                  :width="28"
+                  :height="28"
+                  color="#ADADAD"
+                />
+                <text class="info-text">{{ getEventLocation(ticket) }}</text>
+              </view>
+              <view class="info-row">
+                <sx-svg
+                  class="info-icon"
+                  name="ticket"
+                  :width="28"
+                  :height="28"
+                  color="#ADADAD"
+                />
+                <text class="info-text">{{ ticketLineSummary(ticket) }}</text>
+              </view>
+            </view>
+
+            <!-- 底部操作栏 -->
+            <view class="ticket-actions">
+              <view class="action-divider"></view>
+              <view class="action-bar">
+                <text class="action-price">￥{{ ticket.price }}</text>
+                <view class="action-btns">
+                  <button
+                    v-if="showRefundButton(ticket)"
+                    class="act-btn act-btn-outline"
+                    :class="{
+                      'act-btn-disabled':
+                        !canApplyRefund(ticket) ||
+                        ticket.status === 'refunding',
+                    }"
+                    :disabled="
+                      !canApplyRefund(ticket) || ticket.status === 'refunding'
+                    "
+                    @click.stop="onRefundClick(ticket)"
+                  >
+                    {{ getRefundButtonText(ticket) }}
+                  </button>
+                  <button
+                    v-else-if="
+                      !ticket._fromOrderApi &&
+                      (ticket.status === 'used' || ticket.status === 'refunded')
+                    "
+                    class="act-btn act-btn-outline"
+                    @click.stop="handleDelete(ticket)"
+                  >
+                    删除票券
+                  </button>
+
+                  <button
+                    class="act-btn act-btn-primary"
+                    :class="{
+                      'act-btn-primary-muted':
+                        ticket.status === 'used' ||
+                        ticket.status === 'refunded' ||
+                        ticket.status === 'cancelled' ||
+                        ticket.status === 'expired',
+                      'act-btn-primary-disabled': ticket.status === 'refunding',
+                    }"
+                    :disabled="ticket.status === 'refunding'"
+                    @click.stop="goToDetail(ticket)"
+                  >
+                    {{
+                      ticket.orderStatus === "PENDING_PAYMENT"
+                        ? "去支付"
+                        : "查看券码"
+                    }}
+                  </button>
+                </view>
               </view>
             </view>
           </view>
         </view>
-      </view>
 
-      <view class="safe-bottom safe-area-bottom"></view>
-    </scroll-view>
+        <view class="safe-bottom safe-area-bottom"></view>
+      </scroll-view>
     </template>
   </view>
 </template>
@@ -184,8 +187,10 @@ export default {
   mixins: [createTabBarMixin(1)],
   data() {
     return {
-      loading: true,
+      loading: false,
       tickets: [],
+      /** 延迟展示 loading 的定时器，避免接口很快时整页闪一下 */
+      _loadingDelayTimer: null,
     };
   },
 
@@ -193,19 +198,38 @@ export default {
     this.loadTickets();
   },
 
+  onUnload() {
+    this.clearLoadingDelayTimer();
+  },
+
   methods: {
+    clearLoadingDelayTimer() {
+      if (this._loadingDelayTimer != null) {
+        clearTimeout(this._loadingDelayTimer);
+        this._loadingDelayTimer = null;
+      }
+    },
+
     async loadTickets() {
-      this.loading = true;
+      const hasCachedList = this.tickets.length > 0;
+      this.clearLoadingDelayTimer();
+      this.loading = false;
+
+      // 已有列表：后台刷新，不挡整页（解决每次进 tab 快请求闪屏）
+      if (!hasCachedList) {
+        this._loadingDelayTimer = setTimeout(() => {
+          this._loadingDelayTimer = null;
+          this.loading = true;
+        }, 320);
+      }
+
       try {
         const res = await listOrders({ page: 1, limit: 50 });
         const orders = Array.isArray(res?.orders) ? res.orders : [];
         orders.sort(
-          (a, b) =>
-            new Date(b.created_at || 0) - new Date(a.created_at || 0),
+          (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
         );
-        const exMap = await loadExhibitionsMap(
-          orders.map((o) => o.exhibit_id),
-        );
+        const exMap = await loadExhibitionsMap(orders.map((o) => o.exhibit_id));
         this.tickets = orders.map((o) =>
           buildTicketRowFromOrder(o, exMap[o.exhibit_id] || null),
         );
@@ -214,6 +238,7 @@ export default {
         uni.showToast({ title: "订单加载失败", icon: "none" });
         this.tickets = [];
       } finally {
+        this.clearLoadingDelayTimer();
         this.loading = false;
       }
     },
@@ -344,6 +369,25 @@ export default {
   min-height: 100vh;
   background: $cr7-black;
   padding: 0 32rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== 加载中（占满工具栏下方剩余区域并居中） ===== */
+.loading-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 400rpx;
+  box-sizing: border-box;
+}
+
+.loading-text {
+  font-size: 28rpx;
+  color: $text-muted;
+  text-align: center;
 }
 
 /* ===== 顶部标题栏 ===== */
@@ -499,7 +543,8 @@ export default {
 }
 
 .pill-done {
-  background: rgba(216, 252, 15, 0.4);
+  // background: rgba(216, 252, 15, 0.4);
+  background: #787878;
 }
 
 .pill-refunding {
@@ -507,19 +552,22 @@ export default {
 }
 
 .pill-refunded {
-  background: rgba(142, 142, 142, 0.4);
+  // background: rgba(142, 142, 142, 0.4);
+  background: #787878;
 }
 
 .pill-pending {
-  background: rgba(243, 156, 18, 0.55);
+  // background: rgba(243, 156, 18, 0.55);
+  background: $cr7-gold;
 }
 
 .pill-cancelled {
-  background: rgba(120, 120, 120, 0.55);
+  // background: rgba(120, 120, 120, 0.55);
+  background: #787878;
 }
 
 .pill-expired {
-  background: rgba(90, 90, 90, 0.55);
+  background: #787878;
 }
 
 .pill-text {
