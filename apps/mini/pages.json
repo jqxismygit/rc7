@@ -132,25 +132,25 @@
       {
         "pagePath": "pages/index/index",
         "iconPath": "static/home.png",
-        "selectedIconPath": "static/home.png",
+        "selectedIconPath": "static/home-active.png",
         "text": "首页"
       },
       {
         "pagePath": "pages/my-tickets/my-tickets",
         "iconPath": "static/ticket.png",
-        "selectedIconPath": "static/ticket.png",
+        "selectedIconPath": "static/ticket-active.png",
         "text": "票夹"
       },
       {
         "pagePath": "pages/game/game",
         "iconPath": "static/game.png",
-        "selectedIconPath": "static/game.png",
+        "selectedIconPath": "static/game-active.png",
         "text": "互动"
       },
       {
         "pagePath": "pages/profile/profile",
         "iconPath": "static/profile.png",
-        "selectedIconPath": "static/profile.png",
+        "selectedIconPath": "static/profile-active.png",
         "text": "我的"
       }
     ]
