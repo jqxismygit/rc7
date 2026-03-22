@@ -45,8 +45,8 @@ export default {
     appid: 'wx8e0cd522cf168035',
     mchid: 'your_mchid',
     api_v3_secret: 'your_api_v3_secret',
-    client_cert_serial_no: 'your_key_serial_no',
-    client_cert_path: path.resolve(etc_path, 'wechatpay/apiclient_cert.pem'),
+    client_key_serial_no: 'your_key_serial_no',
+    client_key_path: path.resolve(etc_path, 'wechatpay/apiclient_key.pem'),
     wechat_pay_serial: 'your_wechat_pay_serial',
     wechat_pay_public_key_path: path.resolve(etc_path, 'wechatpay/wechatpay_pub_key.pem'),
     callback_url: `${host}/payment/wechatpay/callback`

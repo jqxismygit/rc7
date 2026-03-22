@@ -86,7 +86,7 @@ describeFeature(feature, ({
     const { adminToken } = scenarioContext;
 
     const exhibition = await createExhibition(apiServer, adminToken, {
-      name: `${exhibitionName}_${random_text(4)}`,
+      name: exhibitionName,
       description: 'wechatpay test exhibition',
       start_date: sessionDate,
       end_date: sessionDate,

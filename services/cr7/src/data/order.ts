@@ -34,7 +34,7 @@ type ExpiredOrderRow = {
   session_id: string;
 };
 
-const ORDER_STATUS_CASE = `
+export const ORDER_STATUS_CASE = `
   CASE
     WHEN paid_at IS NOT NULL THEN 'PAID'
     WHEN cancelled_at IS NOT NULL THEN 'CANCELLED'

@@ -2,6 +2,7 @@ import { Errors } from 'moleculer';
 import { RC7BaseService } from "./libs/cr7.base.js";
 import { ExhibitionService } from "./libs/exhibition.js";
 import { OrderService } from "./libs/order.js";
+import { PaymentService } from "./libs/payment.js";
 
 const { MoleculerClientError } = Errors;
 
@@ -14,6 +15,7 @@ export default class RC7Service extends RC7BaseService {
     super(broker);
     const exhibitionService = new ExhibitionService(broker);
     const orderService = new OrderService(broker);
+    const { actions_payment, methods: payment_methods } = new PaymentService(broker);
 
     this.parseServiceSchema({
       name: 'cr7',
@@ -28,9 +30,14 @@ export default class RC7Service extends RC7BaseService {
         }
       },
 
+      methods: {
+        ...payment_methods,
+      },
+
       actions: {
         ...exhibitionService.actions_exhibition,
-        ...orderService.actions_order
+        ...orderService.actions_order,
+        ...actions_payment,
       },
 
       async started() {
@@ -39,7 +46,7 @@ export default class RC7Service extends RC7BaseService {
 
       async stopped() {
         await this.closePool();
-      }
+      },
     });
   }
 

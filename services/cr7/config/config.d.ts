@@ -36,10 +36,10 @@ declare module 'config' {
       mchid: string;
       // APIv3密钥
       api_v3_secret: string;
-      // 商户API证书序列号
-      client_cert_serial_no: string;
-      // 商户API证书路径
-      client_cert_path: string;
+      // 商户API私钥序列号
+      client_key_serial_no: string;
+      // 商户API私钥路径
+      client_key_path: string;
       // 微信支付公钥id
       wechat_pay_serial: string;
       // 微信支付公钥路径
