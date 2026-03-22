@@ -25,13 +25,15 @@
       <!-- 信息区域 -->
       <view class="info-section">
         <view class="info-row info-row-time">
-          <sx-svg
-            class="info-icon"
-            name="time"
-            :width="24"
-            :height="20"
-            color="#D8FC0F"
-          />
+          <view style="margin-top: 4px">
+            <sx-svg
+              class="info-icon"
+              name="time"
+              :width="24"
+              :height="24"
+              color="#D8FC0F"
+            />
+          </view>
           <view class="info-text-col">
             <text class="info-text">{{ infoTimePrimary }}</text>
             <text v-if="infoTimeSecondary" class="info-text info-text-indent">{{
@@ -44,7 +46,7 @@
             class="info-icon"
             name="location"
             :width="24"
-            :height="20"
+            :height="24"
             color="#D8FC0F"
           />
           <text class="info-text">{{ infoMuseumLocation }}</text>
@@ -54,7 +56,7 @@
             class="info-icon"
             name="phone"
             :width="24"
-            :height="20"
+            :height="24"
             color="#D8FC0F"
           />
           <text class="info-text">{{ contactPhone }}</text>
@@ -602,20 +604,23 @@ export default {
 
 .info-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  gap: 14rpx;
   margin-bottom: 12rpx;
 }
 
+/* 两行时间：图标与第一行文字垂直对齐，不与整块居中 */
 .info-row-time {
   align-items: flex-start;
 }
 
+.info-row-time .info-icon {
+  /* 首行行高 38rpx、图标 24rpx，与第一行视觉中线对齐 */
+  margin-top: 7rpx;
+}
+
 .info-icon {
-  width: 24rpx;
-  height: 20rpx;
   flex-shrink: 0;
-  margin-top: 9rpx;
-  margin-right: 15rpx;
 }
 
 .info-text-col {

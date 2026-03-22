@@ -255,6 +255,7 @@ export default {
 /* #ifdef MP */
 .sx-svg {
   background-repeat: no-repeat;
+  background-position: center;
   background-size: contain;
 }
 /* #endif */

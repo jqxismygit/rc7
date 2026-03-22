@@ -1,6 +1,12 @@
 <template>
   <view class="ticket-detail-page">
-    <scroll-view class="detail-scroll" scroll-y :style="{ paddingBottom: ticket.status === 'unused' ? '180rpx' : '40rpx' }">
+    <scroll-view
+      class="detail-scroll"
+      scroll-y
+      :style="{
+        paddingBottom: ticket.status === 'unused' ? '180rpx' : '40rpx',
+      }"
+    >
       <!-- 状态标签 + 票号 -->
       <view class="status-row">
         <view class="status-tag" :class="'tag-' + ticket.status">
@@ -23,11 +29,23 @@
           <view class="event-info-wrap">
             <text class="event-title">{{ ticket.eventName }}</text>
             <view class="event-meta-item">
-              <text class="meta-icon">🕐</text>
+              <sx-svg
+                class="meta-icon"
+                name="time"
+                :width="28"
+                :height="28"
+                color="#ADADAD"
+              />
               <text class="meta-text">{{ ticket.eventDate }}</text>
             </view>
             <view class="event-meta-item">
-              <text class="meta-icon">📍</text>
+              <sx-svg
+                class="meta-icon"
+                name="location"
+                :width="28"
+                :height="28"
+                color="#ADADAD"
+              />
               <text class="meta-text">{{ ticket.eventLocation }}</text>
             </view>
           </view>
@@ -62,7 +80,9 @@
         </view>
         <view class="detail-row detail-row-last">
           <text class="detail-label">订单总额</text>
-          <text class="detail-value price">¥ {{ formatPrice(ticket.price) }}</text>
+          <text class="detail-value price"
+            >¥ {{ formatPrice(ticket.price) }}</text
+          >
         </view>
       </view>
 
@@ -73,7 +93,12 @@
           <text class="instructions-title">使用说明</text>
         </view>
         <view class="instructions-card card-dark">
-          <text v-for="(item, index) in noticeList" :key="index" class="instruction-item">{{ item }}</text>
+          <text
+            v-for="(item, index) in noticeList"
+            :key="index"
+            class="instruction-item"
+            >{{ item }}</text
+          >
         </view>
       </view>
 
@@ -95,69 +120,71 @@
 </template>
 
 <script>
-import { mockMyTickets } from '@/utils/mockData.js'
+import { mockMyTickets } from "@/utils/mockData.js";
 
 const NOTICE_LIST = [
-  '1. 入场时请向工作人员出示此二维码，核销后即可入场；',
-  '2. 每张票券仅可核销一次，截图或复制无效；',
-  '3. 建议提前30分钟到达现场，以免错过参观时段；',
-  '4. 入场需携带本人身份证件，部分场次可能进行安检。'
-]
+  "1. 入场时请向工作人员出示此二维码，核销后即可入场；",
+  "2. 每张票券仅可核销一次，截图或复制无效；",
+  "3. 建议提前30分钟到达现场，以免错过参观时段；",
+  "4. 入场需携带本人身份证件，部分场次可能进行安检。",
+];
 
 export default {
   data() {
     return {
-      ticketId: '',
+      ticketId: "",
       ticket: {},
-      noticeList: NOTICE_LIST
-    }
+      noticeList: NOTICE_LIST,
+    };
   },
 
   onLoad(options) {
-    this.ticketId = options.id
-    this.loadTicketDetail()
+    this.ticketId = options.id;
+    this.loadTicketDetail();
   },
 
   methods: {
     loadTicketDetail() {
-      const ticket = mockMyTickets.find(item => item.id === this.ticketId)
+      const ticket = mockMyTickets.find((item) => item.id === this.ticketId);
       if (ticket) {
-        this.ticket = ticket
+        this.ticket = ticket;
       }
     },
 
     getStatusText(status) {
       const statusMap = {
-        unused: '待使用',
-        used: '已入场',
-        refunding: '退款中',
-        refunded: '已退款'
-      }
-      return statusMap[status] || status
+        unused: "待使用",
+        used: "已入场",
+        refunding: "退款中",
+        refunded: "已退款",
+      };
+      return statusMap[status] || status;
     },
 
     formatTicketId(id) {
-      if (!id) return ''
-      const raw = id.replace(/\D/g, '')
-      return raw.replace(/(.{4})/g, '$1 ').trim()
+      if (!id) return "";
+      const raw = id.replace(/\D/g, "");
+      return raw.replace(/(.{4})/g, "$1 ").trim();
     },
 
     formatPrice(price) {
-      if (!price && price !== 0) return '0.00'
-      return Number(price).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+      if (!price && price !== 0) return "0.00";
+      return Number(price)
+        .toFixed(2)
+        .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     },
 
     handleRefund() {
       uni.navigateTo({
-        url: '/pages/ticket-refund/ticket-refund?id=' + this.ticketId
-      })
+        url: "/pages/ticket-refund/ticket-refund?id=" + this.ticketId,
+      });
     },
 
     handleInvoice() {
-      uni.showToast({ title: '发票功能开发中', icon: 'none' })
-    }
-  }
-}
+      uni.showToast({ title: "发票功能开发中", icon: "none" });
+    },
+  },
+};
 </script>
 
 <style lang="scss" scoped>
@@ -214,20 +241,36 @@ export default {
   border-radius: 50%;
 }
 
-.dot-unused { background: $cr7-gold; }
-.dot-used { background: $cr7-success; }
-.dot-refunding { background: $cr7-warning; }
-.dot-refunded { background: $cr7-red; }
+.dot-unused {
+  background: $cr7-gold;
+}
+.dot-used {
+  background: $cr7-success;
+}
+.dot-refunding {
+  background: $cr7-warning;
+}
+.dot-refunded {
+  background: $cr7-red;
+}
 
 .status-label {
   font-size: 28rpx;
   font-weight: 500;
 }
 
-.tag-unused .status-label { color: $cr7-gold; }
-.tag-used .status-label { color: $cr7-success; }
-.tag-refunding .status-label { color: $cr7-warning; }
-.tag-refunded .status-label { color: $cr7-red; }
+.tag-unused .status-label {
+  color: $cr7-gold;
+}
+.tag-used .status-label {
+  color: $cr7-success;
+}
+.tag-refunding .status-label {
+  color: $cr7-warning;
+}
+.tag-refunded .status-label {
+  color: $cr7-red;
+}
 
 .ticket-no-wrap {
   display: flex;
@@ -275,9 +318,7 @@ export default {
 }
 
 .meta-icon {
-  font-size: 22rpx;
-  width: 28rpx;
-  text-align: center;
+  flex-shrink: 0;
 }
 
 .meta-text {
