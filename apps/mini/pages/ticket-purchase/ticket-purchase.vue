@@ -236,6 +236,11 @@ import {
   formatExhibitionDateRangeLine,
   formatOpenHoursLine,
 } from "@/utils/ticketEventDisplay.js";
+import {
+  createOrder,
+  ORDER_CONFIRM_CONTEXT_KEY,
+} from "@/services/order.js";
+import persistStorage from "@/utils/persistStorage.js";
 
 export default {
   data() {
@@ -252,6 +257,8 @@ export default {
       activeDateKey: "today",
       allDateLabel: "",
       quantity: 1,
+      /** 与首页 loadHomeTicketSection 返回的 sessionId 一致，用于创建订单 */
+      sessionId: "",
     };
   },
 
@@ -358,6 +365,7 @@ export default {
             : [];
           this.eventId =
             section.ticketEvent.id || options.eventId || options.id || "";
+          this.sessionId = section.sessionId || "";
         } else {
           this.applyDefaultEventAndTickets(options);
         }
@@ -471,24 +479,100 @@ export default {
       }
     },
 
-    handlePurchase() {
+    getToken() {
+      const raw = persistStorage.getItem("user");
+      if (!raw) return "";
+      try {
+        const state = typeof raw === "string" ? JSON.parse(raw) : raw;
+        return state?.token || "";
+      } catch (e) {
+        return "";
+      }
+    },
+
+    pickApiErrorMessage(err) {
+      const data = err?.data;
+      if (data && typeof data === "object" && data.message) {
+        return String(data.message);
+      }
+      if (typeof data === "string") return data;
+      const code = err?.statusCode;
+      if (code === 409) return "库存不足，请减少张数或稍后再试";
+      if (code === 410) return "该场次已过期";
+      if (code === 404) return "展览或场次不存在";
+      if (code === 400) return "参数错误，请重新选择";
+      return "创建订单失败";
+    },
+
+    async handlePurchase() {
       if (!this.selectedTicket) {
         uni.showToast({ title: "请选择票种", icon: "none" });
         return;
       }
 
-      const query = [
-        `eventName=${encodeURIComponent("C罗博物馆 CR7LIFE上海博物馆门票")}`,
-        `museumLocation=${encodeURIComponent(this.museumLocation)}`,
-        `visitDate=${this.selectedDate}`,
-        `ticketName=${encodeURIComponent(this.selectedTicket.name)}`,
-        `quantity=${this.quantity}`,
-        `amount=${this.totalPrice}`,
-      ].join("&");
+      const eid =
+        this.eventId ||
+        this.homeTicketSection?.ticketEvent?.id ||
+        "";
+      const sid = this.sessionId || this.homeTicketSection?.sessionId || "";
 
-      uni.navigateTo({
-        url: `/pages/order-confirm/order-confirm?${query}`,
-      });
+      if (!eid || !sid) {
+        uni.showToast({
+          title: "缺少场次信息，请从首页进入购票",
+          icon: "none",
+        });
+        return;
+      }
+
+      if (!this.getToken()) {
+        uni.showToast({ title: "请先登录", icon: "none" });
+        uni.navigateTo({ url: "/pages/login/login" });
+        return;
+      }
+
+      try {
+        uni.showLoading({ title: "创建订单...", mask: true });
+        const order = await createOrder(eid, sid, [
+          {
+            ticket_category_id: String(this.selectedTicket.id),
+            quantity: this.quantity,
+          },
+        ]);
+        uni.hideLoading();
+
+        const ev = this.homeTicketSection?.ticketEvent;
+        const sectionCtx = {
+          ticketEvent: ev
+            ? { ...ev }
+            : {
+                title: this.heroTitle,
+                cover: this.heroCover,
+                location: this.infoMuseumLocation,
+                contact_phone: this.contactPhone,
+                session_date: null,
+              },
+          ticketTypes: (this.ticketTypes || []).map((t) => ({
+            id: t.id,
+            name: t.name,
+          })),
+          visitDate: this.selectedDate || "",
+        };
+        try {
+          uni.setStorageSync(ORDER_CONFIRM_CONTEXT_KEY, sectionCtx);
+        } catch (e) {
+          console.error("order_confirm_context setStorage", e);
+        }
+
+        uni.navigateTo({
+          url: `/pages/order-confirm/order-confirm?orderId=${encodeURIComponent(order.id)}`,
+        });
+      } catch (err) {
+        uni.hideLoading();
+        uni.showToast({
+          title: this.pickApiErrorMessage(err),
+          icon: "none",
+        });
+      }
     },
   },
 };

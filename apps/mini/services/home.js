@@ -136,7 +136,12 @@ export async function loadHomeTicketSection() {
     );
   }
 
-  return { ticketEvent, ticketTypes };
+  return {
+    ticketEvent,
+    ticketTypes,
+    /** 当前用于加载票价的场次，创建订单时作为 :sid */
+    sessionId: todaySession?.id || "",
+  };
 }
 
 /**

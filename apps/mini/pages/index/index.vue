@@ -228,6 +228,7 @@ export default {
           contact_phone: "",
         },
         ticketTypes: [],
+        sessionId: "",
       },
       cr7News: [],
       brands: [],
@@ -299,6 +300,7 @@ export default {
         )
           ? ticketSection.ticketTypes
           : this.ticketSection.ticketTypes;
+        this.ticketSection.sessionId = ticketSection?.sessionId || "";
       } catch (e) {
         console.error("加载首页数据失败", e);
         uni.showToast({ title: "首页数据加载失败", icon: "none" });

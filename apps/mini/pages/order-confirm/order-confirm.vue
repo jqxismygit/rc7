@@ -1,45 +1,58 @@
 <template>
   <view class="order-page">
-    <!-- 悬浮导航栏 -->
     <view class="nav-bar safe-area-top">
       <view class="nav-back" @click="goBack">
         <text class="nav-back-icon">‹</text>
       </view>
-      <text class="nav-title">购票</text>
+      <text class="nav-title">订单确认</text>
       <view class="nav-placeholder"></view>
     </view>
 
-    <scroll-view class="order-scroll" scroll-y>
-      <!-- 标题 -->
+    <view v-if="loading" class="state-wrap">
+      <text class="state-text">加载订单中...</text>
+    </view>
+
+    <view v-else-if="loadError" class="state-wrap">
+      <text class="state-text">{{ loadError }}</text>
+      <button v-if="orderId" class="btn-retry" @click="loadOrderDetail">
+        重试
+      </button>
+    </view>
+
+    <scroll-view v-else class="order-scroll" scroll-y>
       <view class="section section-title-block">
-        <text class="order-title">
-          {{ order.eventName || 'C罗博物馆 CR7LIFE上海博物馆门票' }}
-        </text>
+        <text class="order-title">{{ eventTitle }}</text>
+        <text v-if="statusLabel" class="order-status">{{ statusLabel }}</text>
+        <text v-if="expireHint" class="order-expire">{{ expireHint }}</text>
       </view>
 
-      <!-- 展馆卡片 -->
       <view class="section">
         <view class="ticket-card card-dark">
           <view class="ticket-card-main">
-            <text class="museum-address">
-              {{ order.museumLocation || '上海市黄浦区王府井大街123号' }}
-            </text>
-            <text class="valid-text">
-              有效期：{{ order.validDate || order.visitDate || '2026.02.28' }}
-            </text>
+            <text class="museum-address">{{ museumLocation }}</text>
+            <text class="valid-text">有效期：{{ validDateText }}</text>
+            <view
+              v-for="line in displayLines"
+              :key="line.id"
+              class="ticket-line-row"
+            >
+              <text class="ticket-line-name"
+                >{{ line.name }} × {{ line.quantity }}</text
+              >
+              <text class="ticket-line-price">¥{{ formatMoney(line.subtotal) }}</text>
+            </view>
             <view class="ticket-meta-row">
-              <text class="ticket-meta">数量：{{ order.quantity || 1 }}</text>
+              <text class="ticket-meta">共 {{ totalTicketCount }} 张</text>
             </view>
           </view>
           <image
             class="ticket-cover"
-            src="/static/images/event-card.jpg"
+            :src="coverSrc"
             mode="aspectFill"
           />
         </view>
       </view>
 
-      <!-- 预约详情 -->
       <view class="section">
         <text class="section-title">预约详情</text>
         <view class="detail-row">
@@ -54,9 +67,7 @@
             <text class="detail-icon">📱</text>
             <text class="detail-label">联系电话</text>
           </view>
-          <text class="detail-value">
-            {{ order.phone || '+86 138 0000 0000' }}
-          </text>
+          <text class="detail-value">{{ contactPhone }}</text>
         </view>
         <view class="detail-row">
           <view class="detail-left">
@@ -72,10 +83,8 @@
         </view>
       </view>
 
-      <!-- 分割线 -->
       <view class="divider-line"></view>
 
-      <!-- 支付方式 -->
       <view class="section">
         <text class="section-title">支付方式</text>
         <view class="pay-method card-dark">
@@ -96,15 +105,21 @@
       <view class="safe-bottom"></view>
     </scroll-view>
 
-    <!-- 底部总额 + 立即支付（同一条 bar 内） -->
-    <view class="footer-wrap safe-area-bottom">
+    <view
+      v-if="!loading && !loadError"
+      class="footer-wrap safe-area-bottom"
+    >
       <view class="footer-inner">
         <view class="footer-total">
           <text class="total-label">总额</text>
-          <text class="total-value">¥ {{ order.amount || '125.00' }}</text>
+          <text class="total-value">¥ {{ footerAmount }}</text>
         </view>
         <view class="bottom-bar">
-          <button class="btn-gold pay-btn" @click="handlePay">
+          <button
+            class="btn-gold pay-btn"
+            :disabled="!canPay"
+            @click="handlePay"
+          >
             立即支付
           </button>
         </view>
@@ -114,50 +129,224 @@
 </template>
 
 <script>
+import { getOrderDetail, ORDER_CONFIRM_CONTEXT_KEY } from "@/services/order.js";
+import { useUserStore } from "@/stores/user.js";
+
+const STATUS_LABEL = {
+  PENDING_PAYMENT: "待支付",
+  PAID: "已支付",
+  CANCELLED: "已取消",
+  EXPIRED: "已过期",
+};
+
 export default {
   data() {
     return {
-      order: {
-        eventName: '',
-        museumLocation: '',
-        visitDate: '',
-        ticketName: '',
-        quantity: 1,
-        amount: '',
-        phone: ''
+      loading: true,
+      loadError: "",
+      orderId: "",
+      order: null,
+      /** 购票页写入：{ ticketEvent, ticketTypes, visitDate } */
+      sectionCtx: null,
+      /** 无 orderId 时的旧版 URL 参数模式 */
+      legacyOrder: null,
+    };
+  },
+
+  computed: {
+    eventTitle() {
+      if (this.legacyOrder) {
+        return (
+          this.legacyOrder.eventName || "C罗博物馆 CR7LIFE上海博物馆门票"
+        );
       }
-    }
+      const t = this.sectionCtx?.ticketEvent?.title;
+      return t || "C罗博物馆 CR7LIFE上海博物馆门票";
+    },
+    museumLocation() {
+      if (this.legacyOrder) {
+        return (
+          this.legacyOrder.museumLocation || "上海市黄浦区王府井大街123号"
+        );
+      }
+      return (
+        this.sectionCtx?.ticketEvent?.location ||
+        "上海市黄浦区王府井大街123号"
+      );
+    },
+    coverSrc() {
+      if (this.legacyOrder) return "/static/images/event-card.jpg";
+      return (
+        this.sectionCtx?.ticketEvent?.cover || "/static/images/event-card.jpg"
+      );
+    },
+    validDateText() {
+      if (this.legacyOrder) {
+        return (
+          this.legacyOrder.validDate ||
+          this.legacyOrder.visitDate ||
+          "2026.02.28"
+        );
+      }
+      const v = this.sectionCtx?.visitDate;
+      if (v) return v;
+      const sd = this.sectionCtx?.ticketEvent?.session_date;
+      if (sd) return String(sd).slice(0, 10);
+      return "—";
+    },
+    contactPhone() {
+      if (this.legacyOrder) {
+        return this.legacyOrder.phone || "+86 138 0000 0000";
+      }
+      const p = this.sectionCtx?.ticketEvent?.contact_phone;
+      if (p) return p;
+      const store = useUserStore();
+      return store.profile?.phone || "+86 138 0000 0000";
+    },
+    statusLabel() {
+      if (this.legacyOrder || !this.order) return "";
+      return STATUS_LABEL[this.order.status] || this.order.status;
+    },
+    expireHint() {
+      if (!this.order || this.order.status !== "PENDING_PAYMENT") return "";
+      const raw = this.order.expires_at;
+      if (!raw) return "";
+      const d = new Date(String(raw).replace(/-/g, "/"));
+      if (Number.isNaN(d.getTime())) return "";
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      return `请在 ${hh}:${mm} 前完成支付`;
+    },
+    nameByCategoryId() {
+      const map = {};
+      const rows = this.sectionCtx?.ticketTypes;
+      if (Array.isArray(rows)) {
+        rows.forEach((t) => {
+          if (t && t.id != null) map[String(t.id)] = t.name || "门票";
+        });
+      }
+      return map;
+    },
+    displayLines() {
+      if (this.legacyOrder) {
+        return [
+          {
+            id: "legacy",
+            name: this.legacyOrder.ticketName || "门票",
+            quantity: this.legacyOrder.quantity || 1,
+            subtotal: Number(this.legacyOrder.amount) || 0,
+          },
+        ];
+      }
+      if (!this.order?.items?.length) return [];
+      return this.order.items.map((it) => ({
+        id: it.id,
+        name:
+          this.nameByCategoryId[String(it.ticket_category_id)] || "门票",
+        quantity: it.quantity,
+        subtotal: it.subtotal,
+      }));
+    },
+    totalTicketCount() {
+      return this.displayLines.reduce((s, l) => s + (l.quantity || 0), 0);
+    },
+    footerAmount() {
+      if (this.legacyOrder) {
+        const a = this.legacyOrder.amount;
+        return typeof a === "number" ? a.toFixed(2) : String(a || "0.00");
+      }
+      if (!this.order) return "0.00";
+      return this.formatMoney(this.order.total_amount);
+    },
+    canPay() {
+      if (this.legacyOrder) return true;
+      return this.order?.status === "PENDING_PAYMENT";
+    },
   },
 
   onLoad(options) {
-    this.order = {
-      eventName: decodeURIComponent(options.eventName || '') || 'C罗博物馆 CR7LIFE上海博物馆门票',
-      museumLocation: decodeURIComponent(options.museumLocation || '') || '上海市黄浦区王府井大街123号',
-      visitDate: options.visitDate || '',
-      ticketName: decodeURIComponent(options.ticketName || ''),
-      quantity: Number(options.quantity || 1),
-      amount: options.amount || '125.00',
-      phone: options.phone || '+86 138 0000 0000'
+    const oid = options.orderId
+      ? decodeURIComponent(options.orderId)
+      : "";
+
+    if (oid) {
+      this.orderId = oid;
+      try {
+        this.sectionCtx = uni.getStorageSync(ORDER_CONFIRM_CONTEXT_KEY) || null;
+      } catch (e) {
+        this.sectionCtx = null;
+      }
+      try {
+        uni.removeStorageSync(ORDER_CONFIRM_CONTEXT_KEY);
+      } catch (e) {
+        /* ignore */
+      }
+      this.loadOrderDetail();
+      return;
     }
+
+    this.loading = false;
+    this.legacyOrder = {
+      eventName:
+        decodeURIComponent(options.eventName || "") ||
+        "C罗博物馆 CR7LIFE上海博物馆门票",
+      museumLocation:
+        decodeURIComponent(options.museumLocation || "") ||
+        "上海市黄浦区王府井大街123号",
+      visitDate: options.visitDate || "",
+      ticketName: decodeURIComponent(options.ticketName || ""),
+      quantity: Number(options.quantity || 1),
+      amount: options.amount || "125.00",
+      phone: options.phone || "+86 138 0000 0000",
+    };
   },
 
   methods: {
+    formatMoney(n) {
+      if (n == null || n === "") return "0.00";
+      const num = Number(n);
+      if (Number.isNaN(num)) return String(n);
+      return num.toFixed(2);
+    },
+
+    async loadOrderDetail() {
+      this.loading = true;
+      this.loadError = "";
+      try {
+        const data = await getOrderDetail(this.orderId);
+        this.order = data;
+        this.loading = false;
+      } catch (e) {
+        this.loading = false;
+        this.loadError = "订单加载失败，请返回重试";
+        console.error("getOrderDetail", e);
+      }
+    },
+
     goBack() {
-      uni.navigateBack()
+      if (getCurrentPages().length > 1) {
+        uni.navigateBack();
+      } else {
+        uni.switchTab({ url: "/pages/index/index" });
+      }
     },
 
     handlePay() {
-      uni.showLoading({ title: '发起支付...' })
+      if (!this.canPay) {
+        uni.showToast({ title: "当前订单不可支付", icon: "none" });
+        return;
+      }
+      uni.showLoading({ title: "发起支付..." });
       setTimeout(() => {
-        uni.hideLoading()
-        uni.showToast({ title: '支付成功', icon: 'success' })
+        uni.hideLoading();
+        uni.showToast({ title: "支付成功", icon: "success" });
         setTimeout(() => {
-          uni.switchTab({ url: '/pages/my-tickets/my-tickets' })
-        }, 1500)
-      }, 1500)
-    }
-  }
-}
+          uni.switchTab({ url: "/pages/my-tickets/my-tickets" });
+        }, 1500);
+      }, 1500);
+    },
+  },
+};
 </script>
 
 <style lang="scss" scoped>
@@ -166,6 +355,28 @@ export default {
   min-height: 100vh;
   background: $cr7-black;
   position: relative;
+}
+
+.state-wrap {
+  padding: 280rpx 48rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.state-text {
+  font-size: 28rpx;
+  color: $text-muted;
+  text-align: center;
+}
+
+.btn-retry {
+  margin-top: 32rpx;
+  font-size: 28rpx;
+  color: $cr7-black;
+  background: $cr7-gold;
+  border-radius: $radius-md;
+  padding: 16rpx 48rpx;
 }
 
 .order-scroll {
@@ -230,7 +441,21 @@ export default {
   font-size: 38rpx;
   color: $text-white;
   font-weight: 500;
-  line-height: 40rpx;
+  line-height: 48rpx;
+}
+
+.order-status {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  color: $cr7-gold;
+}
+
+.order-expire {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: $text-muted;
 }
 
 .card-dark {
@@ -259,6 +484,25 @@ export default {
 
 .valid-text {
   margin-top: 8rpx;
+  font-size: 26rpx;
+  color: $cr7-gold;
+}
+
+.ticket-line-row {
+  margin-top: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ticket-line-name {
+  flex: 1;
+  font-size: 26rpx;
+  color: $text-white;
+  padding-right: 16rpx;
+}
+
+.ticket-line-price {
   font-size: 26rpx;
   color: $cr7-gold;
 }
@@ -396,7 +640,6 @@ export default {
   bottom: 0;
   border-top: 1rpx solid $cr7-border;
   background: $cr7-dark;
-
 }
 
 .footer-inner {
@@ -424,5 +667,9 @@ export default {
   font-size: 32rpx;
   font-weight: 700;
   color: $cr7-black;
+}
+
+.pay-btn[disabled] {
+  opacity: 0.45;
 }
 </style>
