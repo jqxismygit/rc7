@@ -5,12 +5,20 @@ import { addMinutes } from 'date-fns';
 import type { Payment } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
 import {
+  createWechatPayCallback,
   getOrderPaymentInfo,
+  markOrderPaidByOutTradeNo,
+  markWechatPayCallbackProcessed,
   upsertWechatPayTransaction,
   updateWechatPayTransactionPrepayId,
   PaymentDataError,
 } from '../data/payment.js';
-import { wePayPostJSON, signPay } from './wechatpay.js';
+import {
+  decryptWechatCallbackResource,
+  wePayPostJSON,
+  signPay,
+  WechatCallbackResource,
+} from './wechatpay.js';
 
 const { MoleculerClientError } = Errors;
 
@@ -31,6 +39,12 @@ interface WechatPayJSAPIRequestBody {
 
 interface WechatPayJSAPIResponse {
   prepay_id: string;
+}
+
+interface WechatCallbackNotification {
+  id: string;
+  event_type: string;
+  resource: WechatCallbackResource;
 }
 
 function handlePaymentDataError(error: unknown): never {
@@ -70,6 +84,18 @@ export class PaymentService extends RC7BaseService {
     },
 
     'wechatpay.callback': {
+      params: {
+        id: 'string',
+        event_type: 'string',
+        resource: {
+          type: 'object',
+          props: {
+            ciphertext: 'string',
+            nonce: 'string',
+            associated_data: { type: 'string', optional: true },
+          },
+        },
+      },
       handler: this.handleWechatCallback,
     }
   };
@@ -155,9 +181,47 @@ export class PaymentService extends RC7BaseService {
   }
 
   async handleWechatCallback(
-    ctx: Context<unknown, { $statusCode?: number }>
+    ctx: Context<WechatCallbackNotification, { $statusCode?: number }>
   ) {
-    // TODO: implement callback handling
+    const notification = ctx.params;
+    const schema = await this.getSchema();
+
+    const { api_v3_secret } = await this.getWechatPayConfig();
+    const transactionResult = decryptWechatCallbackResource(notification.resource, api_v3_secret);
+
+    const dbClient = await this.pool.connect();
+    try {
+      await dbClient.query('BEGIN');
+
+      await createWechatPayCallback(dbClient, schema, {
+        wechat_notification_id: notification.id,
+        event_type: notification.event_type,
+        out_trade_no: transactionResult.out_trade_no,
+        transaction_id: transactionResult.transaction_id,
+        trade_state: transactionResult.trade_state,
+        raw_payload: notification,
+      });
+
+      if (
+        notification.event_type === 'TRANSACTION.SUCCESS'
+        && transactionResult.trade_state === 'SUCCESS'
+      ) {
+        await markOrderPaidByOutTradeNo(
+          dbClient,
+          schema,
+          transactionResult.out_trade_no,
+        );
+      }
+
+      await markWechatPayCallbackProcessed(dbClient, schema, notification.id);
+      await dbClient.query('COMMIT');
+    } catch (error) {
+      await dbClient.query('ROLLBACK');
+      throw error;
+    } finally {
+      dbClient.release();
+    }
+
     ctx.meta.$statusCode = 204;
     return null;
   }

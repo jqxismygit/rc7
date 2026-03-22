@@ -147,3 +147,93 @@ export async function updateWechatPayTransactionPrepayId(
     [outTradeNo, prepayId],
   );
 }
+
+type CreateWechatPayCallbackInput = {
+  wechat_notification_id: string;
+  event_type: string;
+  out_trade_no: string | null;
+  transaction_id: string | null;
+  trade_state: string | null;
+  raw_payload: unknown;
+};
+
+export async function createWechatPayCallback(
+  client: DBClient,
+  schema: string,
+  input: CreateWechatPayCallbackInput,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO ${schema}.wechat_pay_callbacks (
+      wechat_notification_id,
+      event_type,
+      out_trade_no,
+      transaction_id,
+      trade_state,
+      raw_payload,
+      processed_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, NULL)`,
+    [
+      input.wechat_notification_id,
+      input.event_type,
+      input.out_trade_no,
+      input.transaction_id,
+      input.trade_state,
+      input.raw_payload,
+    ],
+  );
+}
+
+export async function markWechatPayCallbackProcessed(
+  client: DBClient,
+  schema: string,
+  wechatNotificationId: string,
+): Promise<void> {
+  await client.query(
+    `UPDATE ${schema}.wechat_pay_callbacks
+    SET processed_at = COALESCE(processed_at, NOW())
+    WHERE wechat_notification_id = $1`,
+    [wechatNotificationId],
+  );
+}
+
+/**
+ * 根据 out_trade_no 将订单置为已支付。重复回调不会重复修改 paid_at（幂等）。
+ */
+export async function markOrderPaidByOutTradeNo(
+  client: DBClient,
+  schema: string,
+  outTradeNo: string,
+): Promise<void> {
+  await client.query(
+    `UPDATE ${schema}.exhibit_orders o
+    SET
+      paid_at = COALESCE(o.paid_at, NOW()),
+      updated_at = NOW()
+    FROM ${schema}.wechat_pay_transactions t
+    WHERE t.out_trade_no = $1
+      AND o.id = t.order_id
+      AND o.cancelled_at IS NULL`,
+    [outTradeNo],
+  );
+}
+
+export async function getOutTradeNoByOrderId(
+  client: DBClient,
+  schema: string,
+  orderId: string,
+): Promise<string | null> {
+  const { rows } = await client.query<{ out_trade_no: string }>(
+    `SELECT out_trade_no
+    FROM ${schema}.wechat_pay_transactions
+    WHERE order_id = $1
+    ORDER BY created_at DESC
+    LIMIT 1`,
+    [orderId],
+  );
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return rows[0].out_trade_no;
+}

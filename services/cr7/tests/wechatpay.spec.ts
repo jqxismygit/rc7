@@ -20,6 +20,7 @@ import {
 import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 import {
   createOrder as createOrderByApi,
+  cancelOrder,
 } from './fixtures/order.js';
 import {
   initiatePayment,
@@ -292,7 +293,12 @@ describeFeature(feature, ({
       const { Given, Then, And, context } = s;
 
       Given('用户预订了 1 张 "CR7" 展会 的 "2026-07-01" 场次的 "成人票"', async () => {
-        await prepareExhibitionData(context, 'CR7', '成人票', '2026-07-01');
+        await prepareExhibitionData(
+          context,
+          `CR7_${random_text(4)}`,
+          '成人票',
+          '2026-07-01',
+        );
         await createTestOrder(context);
       });
 
@@ -358,7 +364,7 @@ describeFeature(feature, ({
     },
   );
 
-  Scenario.skip(
+  Scenario(
     '用户下单展会门票发起支付后取消订单',
     (s: StepTest<Partial<CaseContext>>) => {
       const { Given, When, Then, And, context } = s;
@@ -366,7 +372,12 @@ describeFeature(feature, ({
       let capturedCloseOutTradeNo: string | null = null;
 
       Given('用户预订了 1 张 "CR7" 展会 的 "2026-07-01" 场次的 "成人票"', async () => {
-        await prepareExhibitionData(context, 'CR7', '成人票', '2026-07-01');
+        await prepareExhibitionData(
+          context,
+          `CR7_${random_text(4)}`,
+          '成人票',
+          '2026-07-01',
+        );
         await createTestOrder(context);
       });
 
@@ -389,7 +400,6 @@ describeFeature(feature, ({
           return null;
         });
 
-        const { cancelOrder } = await import('./fixtures/order.js');
         await cancelOrder(
           scenarioContext.fixtures.values.apiServer,
           context.order!.id,
