@@ -24,9 +24,9 @@
   "license": "ISC",
   "packageManager": "pnpm@10.19.0",
   "devDependencies": {
-    "@amiceli/vitest-cucumber": "^6.2.0",
-    "@eslint/js": "^9.39.2",
+    "@amiceli/vitest-cucumber": "^6.3.0",
     "@cr7/types": "workspace:*",
+    "@eslint/js": "^9.39.2",
     "@types/config": "^3.3.5",
     "@types/lodash": "^4.17.23",
     "@types/node": "^24.10.13",
