@@ -15,7 +15,7 @@
     "lint:fix": "eslint . --fix",
     "type-check": "tsc --noEmit",
     "format": "prettier --write .",
-    "prepare": "husky",
+    "prepare": "cd ../.. && husky",
     "cr7": "node dist/scripts/cr7.js",
     "spec:gen": "npx @amiceli/vitest-cucumber"
   },
