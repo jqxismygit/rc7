@@ -66,7 +66,19 @@ export default class UserService extends Service {
           handler: this.profile
         },
 
-        roles: this.getRoleNames
+        roles: this.getRoleNames,
+
+        su: {
+          rest: 'POST /su',
+          roles: ['admin'],
+          params: {
+            uid: 'uuid',
+          },
+          handler(ctx) {
+            const { uid } = ctx.params;
+            return { token: { uid } };
+          }
+        }
       },
 
       async started() {

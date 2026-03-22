@@ -92,11 +92,12 @@ const routes = [
   ),
   routeConfig(
     '/user',
-    ['user.profile', 'user.password_update'],
+    ['user.profile', 'user.password_update', 'user.su'],
     {
       aliases: {
         'GET /profile': 'user.profile',
-        'PUT /password': 'user.password_update'
+        'PUT /password': 'user.password_update',
+        'POST /su': 'user.su'
       }
     }
   ),
@@ -190,12 +191,6 @@ export default {
       }
 
       const user = { ...decoded, uid, scope };
-      const userProfile = await ctx.call('user.profile', {}, { meta: { user } })
-      .catch(error => {
-        return Promise.reject(new UnAuthorizedError(ERR_INVALID_TOKEN, error.message));
-      });
-      const { email } = userProfile;
-      Object.assign(user, { email });
       return user;
     },
 
