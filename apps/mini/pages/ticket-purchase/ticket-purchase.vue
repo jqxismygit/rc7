@@ -12,11 +12,7 @@
     <scroll-view class="purchase-scroll" scroll-y>
       <!-- 背景大图区域 -->
       <view class="hero-section">
-        <image
-          class="hero-bg"
-          :src="heroCover"
-          mode="aspectFill"
-        />
+        <image class="hero-bg" :src="heroCover" mode="aspectFill" />
         <view class="hero-gradient"></view>
 
         <!-- 标题/副标题叠加在图片底部（首页传入 ticketSection 时使用真实文案） -->
@@ -29,22 +25,32 @@
       <!-- 信息区域 -->
       <view class="info-section">
         <view class="info-row info-row-time">
-          <text class="info-icon">⏱</text>
+          <image
+            class="info-icon"
+            src="/static/ui-icons/time.svg"
+            mode="aspectFit"
+          />
           <view class="info-text-col">
             <text class="info-text">{{ infoTimePrimary }}</text>
-            <text
-              v-if="infoTimeSecondary"
-              class="info-text info-text-indent"
-              >{{ infoTimeSecondary }}</text
-            >
+            <text v-if="infoTimeSecondary" class="info-text info-text-indent">{{
+              infoTimeSecondary
+            }}</text>
           </view>
         </view>
         <view class="info-row">
-          <text class="info-icon">📍</text>
+          <image
+            class="info-icon"
+            src="/static/ui-icons/location.svg"
+            mode="aspectFit"
+          />
           <text class="info-text">{{ infoMuseumLocation }}</text>
         </view>
         <view class="info-row">
-          <text class="info-icon">📞</text>
+          <image
+            class="info-icon"
+            src="/static/ui-icons/phone.svg"
+            mode="aspectFit"
+          />
           <text class="info-text">{{ contactPhone }}</text>
         </view>
       </view>
@@ -82,7 +88,16 @@
                   activeDateKey === chip.key ? 'active' : '',
                 ]"
               >
-                <text v-if="chip.icon" class="chip-icon">📅</text>
+                <image
+                  v-if="chip.icon"
+                  class="chip-icon"
+                  :src="
+                    chip.key === 'all' && activeDateKey === 'all'
+                      ? '/static/ui-icons/date-range-active.svg'
+                      : '/static/ui-icons/date-range.svg'
+                  "
+                  mode="aspectFit"
+                />
                 <text class="chip-main">{{ chip.main }}</text>
                 <text v-if="chip.sub" class="chip-sub">{{ chip.sub }}</text>
               </view>
@@ -98,7 +113,16 @@
               ]"
               @click="onChipClick(chip)"
             >
-              <text v-if="chip.icon" class="chip-icon">📅</text>
+              <image
+                v-if="chip.icon"
+                class="chip-icon"
+                :src="
+                  chip.key === 'all' && activeDateKey === 'all'
+                    ? '/static/ui-icons/date-range-active.svg'
+                    : '/static/ui-icons/date-range.svg'
+                "
+                mode="aspectFit"
+              />
               <text class="chip-main">{{ chip.main }}</text>
               <text v-if="chip.sub" class="chip-sub">{{ chip.sub }}</text>
             </view>
@@ -222,12 +246,14 @@ export default {
   computed: {
     heroCover() {
       return (
-        this.homeTicketSection?.ticketEvent?.cover || "/static/images/event-card.jpg"
+        this.homeTicketSection?.ticketEvent?.cover ||
+        "/static/images/event-card.jpg"
       );
     },
     heroTitle() {
       return (
-        this.homeTicketSection?.ticketEvent?.title || "C罗博物馆 • 上海博物馆门票"
+        this.homeTicketSection?.ticketEvent?.title ||
+        "C罗博物馆 • 上海博物馆门票"
       );
     },
     heroSub() {
@@ -575,10 +601,11 @@ export default {
 }
 
 .info-icon {
-  width: 44rpx;
+  width: 24rpx;
+  height: 20rpx;
   flex-shrink: 0;
-  font-size: 24rpx;
-  line-height: 38rpx;
+  margin-top: 9rpx;
+  margin-right: 15rpx;
 }
 
 .info-text-col {
@@ -661,7 +688,8 @@ export default {
 .date-chips {
   display: flex;
   align-items: center;
-  gap: $spacing-md;
+  // gap: $spacing-sm;
+  justify-content: space-between;
 }
 
 .date-chip {
@@ -674,14 +702,18 @@ export default {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  padding: 0 20rpx;
 }
 
 .date-chip-wide {
-  width: 197rpx;
+  // width: 197rpx;
+  padding: 0 18rpx;
 }
 
 .chip-icon {
-  font-size: 24rpx;
+  width: 24rpx;
+  height: 24rpx;
+  flex-shrink: 0;
   margin-right: 18rpx;
 }
 
