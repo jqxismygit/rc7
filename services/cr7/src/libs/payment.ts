@@ -198,6 +198,7 @@ export class PaymentService extends RC7BaseService {
   ) {
     const notification = ctx.params;
     const schema = await this.getSchema();
+    let paidOrderId: string | null = null;
 
     const { api_v3_secret } = await this.getWechatPayConfig();
     const transactionResult = decryptWechatCallbackResource(notification.resource, api_v3_secret);
@@ -219,7 +220,7 @@ export class PaymentService extends RC7BaseService {
         notification.event_type === 'TRANSACTION.SUCCESS'
         && transactionResult.trade_state === 'SUCCESS'
       ) {
-        await markOrderPaidByOutTradeNo(
+        paidOrderId = await markOrderPaidByOutTradeNo(
           dbClient,
           schema,
           transactionResult.out_trade_no,
@@ -233,6 +234,18 @@ export class PaymentService extends RC7BaseService {
       throw error;
     } finally {
       dbClient.release();
+    }
+
+    if (paidOrderId !== null) {
+      try {
+        await ctx.call('cr7.redemption.generateByOrder', { oid: paidOrderId });
+      } catch (error) {
+        this.logger.error('Failed to generate redemption code after payment', {
+          orderId: paidOrderId,
+          outTradeNo: transactionResult.out_trade_no,
+          error,
+        });
+      }
     }
 
     ctx.meta.$statusCode = 204;
