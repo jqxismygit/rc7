@@ -486,14 +486,33 @@ export default {
       if (!sid || !this.eventId) {
         this.ticketTypes = [];
         this.selectedTicket = null;
+        this.quantity = 1;
         return;
       }
+      const prevSelectedId = this.selectedTicket?.id
+        ? String(this.selectedTicket.id)
+        : "";
       const inv = await request.get(
         `/exhibition/${encodeURIComponent(this.eventId)}/sessions/${encodeURIComponent(sid)}/tickets`,
       );
       this.ticketTypes = this.mapInventoryToTicketTypes(
         Array.isArray(inv) ? inv : [],
       );
+      if (!prevSelectedId) {
+        this.selectedTicket = null;
+        this.quantity = 1;
+        return;
+      }
+      const matched = this.ticketTypes.find(
+        (t) => String(t.id) === prevSelectedId && t.stock > 0,
+      );
+      if (matched) {
+        this.selectedTicket = matched;
+        const max = matched.stock || 1;
+        if (this.quantity > max) this.quantity = max;
+        if (this.quantity < 1) this.quantity = 1;
+        return;
+      }
       this.selectedTicket = null;
       this.quantity = 1;
     },
