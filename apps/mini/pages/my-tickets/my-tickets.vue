@@ -133,17 +133,6 @@
                     {{ getRefundButtonText(ticket) }}
                   </button>
                   <button
-                    v-else-if="
-                      !ticket._fromOrderApi &&
-                      (ticket.status === 'used' || ticket.status === 'refunded')
-                    "
-                    class="act-btn act-btn-outline"
-                    @click.stop="handleDelete(ticket)"
-                  >
-                    删除票券
-                  </button>
-
-                  <button
                     class="act-btn act-btn-primary"
                     :class="{
                       'act-btn-primary-muted':
@@ -245,10 +234,7 @@ export default {
 
     ticketLineSummary(ticket) {
       const extra = ticket.refundRule || "开场前48小时可退";
-      if (ticket._fromOrderApi) {
-        return `${ticket.ticketType} · ${extra}`;
-      }
-      return `${ticket.ticketType} × ${ticket.quantity} ${extra}`;
+      return `${ticket.ticketType} · ${extra}`;
     },
 
     getStatusText(status) {

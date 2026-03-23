@@ -82,7 +82,6 @@ export function buildTicketRowFromOrder(order, exhibition) {
     status: orderStatusToUi(order.status),
     canRefund: false,
     isThird: false,
-    _fromOrderApi: true,
   };
 }
 

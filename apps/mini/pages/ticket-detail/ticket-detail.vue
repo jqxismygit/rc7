@@ -19,10 +19,8 @@
             <text class="status-label">{{ getStatusText(ticket.status) }}</text>
           </view>
           <view class="ticket-no-wrap">
-            <text class="ticket-no"
-              >{{ ticket._fromOrderApi ? "订单号:" : "票号:"
-              }}{{ ticket.id }}</text
-            >
+            <sx-svg name="ticket" :width="24" :height="24" color="#ADADAD" />
+            <text class="ticket-no">票号: {{ redemption.code }}</text>
           </view>
         </view>
 
@@ -71,7 +69,7 @@
             <text class="qr-hint">使用时请向工作人员出示此码</text>
           </view>
         </view>
-        <view v-else-if="ticket._fromOrderApi" class="qr-section">
+        <view v-else class="qr-section">
           <view class="qr-card qr-card-muted">
             <text class="qr-hint"
               >支付完成后可在此查看入场凭证（二维码待核销接口对接）</text
@@ -156,8 +154,8 @@
 </template>
 
 <script>
-import { mockMyTickets } from "@/utils/mockData.js";
 import { getOrderDetail, cancelOrder } from "@/services/order.js";
+import { getOrderRedemption } from "@/services/redeem.js";
 import request from "@/utils/request.js";
 import { buildTicketDetailFromOrder } from "@/utils/orderDisplay.js";
 
@@ -173,6 +171,8 @@ export default {
     return {
       ticketId: "",
       ticket: {},
+      redemption: null,
+      redemptionError: "",
       noticeList: NOTICE_LIST,
       pageLoading: true,
       pageError: "",
@@ -181,7 +181,6 @@ export default {
 
   computed: {
     showQrBlock() {
-      if (!this.ticket._fromOrderApi) return true;
       return this.ticket.orderStatus === "PAID";
     },
     /** 除待支付外，待使用/已使用/过期/取消等展示双按钮底栏 */
@@ -209,6 +208,21 @@ export default {
     invoiceDisabled() {
       return this.ticket.status !== "used";
     },
+    redemptionCode() {
+      return this.redemption?.code || "";
+    },
+    redemptionValidityText() {
+      const from = this.redemption?.valid_from;
+      const until = this.redemption?.valid_until;
+      if (!from || !until) return "";
+      return `${this.formatDateTime(from)} - ${this.formatDateTime(until)}`;
+    },
+    redemptionStatusText() {
+      const status = this.redemption?.status;
+      if (status === "REDEEMED") return "已核销";
+      if (status === "UNREDEEMED") return "待核销";
+      return "";
+    },
     detailScrollPadding() {
       if (this.ticket.orderStatus === "PENDING_PAYMENT") return "180rpx";
       if (this.showDetailActionsBar) return "180rpx";
@@ -225,6 +239,8 @@ export default {
     async loadTicketDetail() {
       this.pageLoading = true;
       this.pageError = "";
+      this.redemption = null;
+      this.redemptionError = "";
       try {
         const order = await getOrderDetail(this.ticketId);
         let exhibition = null;
@@ -236,17 +252,30 @@ export default {
           exhibition = null;
         }
         this.ticket = buildTicketDetailFromOrder(order, exhibition);
+        await this.loadRedemption(order);
         this.pageLoading = false;
       } catch (e) {
-        const legacy = mockMyTickets.find((item) => item.id === this.ticketId);
-        if (legacy) {
-          this.ticket = legacy;
-          this.pageLoading = false;
-          return;
-        }
         this.pageLoading = false;
         this.pageError = "票券不存在或已失效";
         console.error("ticket detail", e);
+      }
+    },
+
+    async loadRedemption(order) {
+      if (!order || order.status !== "PAID") return;
+      try {
+        this.redemption = await getOrderRedemption(order.id);
+      } catch (e) {
+        if (e?.statusCode === 410) {
+          this.redemptionError = "该订单暂未生成核销码，请稍后刷新";
+          return;
+        }
+        if (e?.statusCode === 404) {
+          this.redemptionError = "未查询到核销信息";
+          return;
+        }
+        this.redemptionError = "核销信息加载失败";
+        console.error("loadRedemption", e);
       }
     },
 
@@ -273,6 +302,25 @@ export default {
       if (!id) return "";
       const raw = id.replace(/\D/g, "");
       return raw.replace(/(.{4})/g, "$1 ").trim();
+    },
+
+    formatRedeemCode(code) {
+      if (!code) return "";
+      return String(code)
+        .replace(/(.{4})/g, "$1 ")
+        .trim();
+    },
+
+    formatDateTime(value) {
+      if (!value) return "";
+      const d = new Date(String(value).replace(/-/g, "/"));
+      if (Number.isNaN(d.getTime())) return String(value);
+      const yy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mi = String(d.getMinutes()).padStart(2, "0");
+      return `${yy}-${mm}-${dd} ${hh}:${mi}`;
     },
 
     formatPrice(price) {
@@ -302,18 +350,6 @@ export default {
     },
 
     handleDeleteOrder() {
-      if (!this.ticket._fromOrderApi) {
-        uni.showModal({
-          title: "删除票券",
-          content: "确认删除该票券记录？",
-          success: (res) => {
-            if (res.confirm) {
-              uni.navigateBack();
-            }
-          },
-        });
-        return;
-      }
       uni.showModal({
         title: "取消订单",
         content: "确认取消该订单？取消后将释放占用库存。",
@@ -329,8 +365,7 @@ export default {
             }, 800);
           } catch (e) {
             uni.hideLoading();
-            const msg =
-              (e && e.data && e.data.message) || "当前订单无法取消";
+            const msg = (e && e.data && e.data.message) || "当前订单无法取消";
             uni.showToast({ title: msg, icon: "none" });
           }
         },
@@ -433,6 +468,9 @@ export default {
 .ticket-no {
   font-size: 24rpx;
   color: $text-disabled;
+  margin-left: 10rpx;
+  //养起来居中显示
+  margin-top: 4rpx;
 }
 
 /* ===== 活动主卡片 ===== */
@@ -524,6 +562,18 @@ export default {
 .qr-hint {
   font-size: 20rpx;
   color: $text-light;
+  margin-top: 8rpx;
+}
+
+.qr-validity {
+  font-size: 20rpx;
+  color: $text-muted;
+  margin-top: 8rpx;
+}
+
+.qr-error {
+  font-size: 20rpx;
+  color: $cr7-warning;
   margin-top: 8rpx;
 }
 
