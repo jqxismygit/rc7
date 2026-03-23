@@ -4,6 +4,7 @@ export interface RedemptionCode {
   id: string;
   order_id: string;
   code: string;
+  exhibit_id: string;
   status: RedemptionStatus;
   quantity: number; // 准入人数
   valid_from: string; // ISO 8601 timestamp

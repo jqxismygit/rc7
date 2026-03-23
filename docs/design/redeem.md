@@ -11,6 +11,7 @@
 - 支持管理员通过扫码完成用户核销操作
 - 确保核销操作的幂等性和数据一致性
 - 支持核销码有效期管理
+- 核销操作必须在展会上下文中进行，验证核销码属于该展会
 
 ### 1.2 非目标
 
@@ -50,7 +51,8 @@ UNREDEEMED
 CREATE TABLE exhibit_redemption_codes (
   id                    UUID PRIMARY KEY DEFAULT GEN_RANDOM_UUID(),
   order_id              UUID NOT NULL UNIQUE REFERENCES exhibit_orders(id) ON DELETE CASCADE,
-  code                  VARCHAR(12) NOT NULL UNIQUE,
+  exhibit_id            UUID NOT NULL REFERENCES exhibitions(id) ON DELETE CASCADE,
+  code                  VARCHAR(12) NOT NULL,
   status                VARCHAR(20) NOT NULL DEFAULT 'UNREDEEMED',
 
   quantity              INTEGER NOT NULL,
@@ -69,8 +71,9 @@ CREATE TABLE exhibit_redemption_codes (
   CONSTRAINT chk_redemption_code_valid_period CHECK (valid_until > valid_from)
 );
 
-CREATE UNIQUE INDEX idx_redemption_code_code ON exhibit_redemption_codes(code);
+CREATE UNIQUE INDEX idx_redemption_code_exhibit_code ON exhibit_redemption_codes(exhibit_id, code);
 CREATE INDEX idx_redemption_code_order_id ON exhibit_redemption_codes(order_id);
+CREATE INDEX idx_redemption_code_exhibit_id ON exhibit_redemption_codes(exhibit_id);
 CREATE INDEX idx_redemption_code_status ON exhibit_redemption_codes(status);
 CREATE INDEX idx_redemption_code_valid_period ON exhibit_redemption_codes(valid_from, valid_until)
   WHERE status = 'UNREDEEMED';
@@ -79,8 +82,9 @@ CREATE INDEX idx_redemption_code_valid_period ON exhibit_redemption_codes(valid_
 ### 3.2 字段说明
 
 - `id`：核销码唯一标识
+- `exhibit_id`：展会 ID，核销码关联的展会
 - `order_id`：关联的订单，一对一关系
-- `code`：核销码字符串（唯一，可扫码），格式为 12 位：`R` + 9 位业务字符 + 2 位 Luhn 校验码
+- `code`：核销码字符串（展会内唯一，可扫码），格式为 12 位：`R` + 9 位业务字符 + 2 位 Luhn 校验码
 - `status`：核销状态，UNREDEEMED 或 REDEEMED
 - `quantity`：准入人数（等于订单购买的总票数）
 - `valid_from`：有效期起始时间（通常为场次当天 00:00:00）
@@ -117,15 +121,16 @@ CREATE INDEX idx_redemption_code_valid_period ON exhibit_redemption_codes(valid_
 **流程**：
 1. 验证当前用户具有管理员/运营权限
 2. 根据 code 查询 exhibit_redemption_codes 表
-3. 检查以下条件：
+3. 验证核销码属于指定的展会（exhibit_id 必须与请求参数中的 eid 相匹配）
+4. 检查以下条件：
    - 核销码存在
    - status = 'UNREDEEMED'
    - NOW() 在 valid_from 和 valid_until 范围内
    - quantity > 0（或 quantity <= redemption_code.quantity 如果支持分次核销）
-4. 更新表：
+5. 更新表：
    - SET status = 'REDEEMED', redeemed_at = NOW(), redeemed_by = current_user_id
    - WHERE id = redemption_code_id AND status = 'UNREDEEMED'
-5. 验证更新影响行数 >= 1，否则意味着并发冲突或状态已变
+6. 验证更新影响行数 >= 1，否则意味着并发冲突或状态已变
 
 **关键特性**：
 - 使用乐观锁或 WHERE 条件保证并发安全
@@ -160,13 +165,13 @@ CREATE INDEX idx_redemption_code_valid_period ON exhibit_redemption_codes(valid_
 - 第 1 位固定为 `R`（保留字）
 - 中间 9 位字符集为 `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`
 - 最后 2 位为 Luhn 校验码，校验失败的 code 不可核销
-- 需保证全局唯一，冲突时重新生成
+- 需保证同一展会内唯一，冲突时重新生成
 
 ### 5.3 权限控制
 
 - 用户只能查看自己订单的核销码
 - 管理员/运营可以查看任意核销码并完成核销
-- 核销操作（POST /redemptions/redeem）需要身份认证
+- 核销操作（POST /exhibition/:eid/redemptions/redeem）需要身份认证
 
 ### 5.4 错误处理
 

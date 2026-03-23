@@ -1,6 +1,7 @@
 -- Create redemption codes table
 CREATE TABLE exhibit_redemption_codes (
-	code                  VARCHAR(32) NOT NULL PRIMARY KEY,
+	code                  VARCHAR(32) NOT NULL,
+	exhibit_id            UUID NOT NULL REFERENCES exhibitions(id) ON DELETE CASCADE,
 	order_id              UUID NOT NULL UNIQUE REFERENCES exhibit_orders(id) ON DELETE CASCADE,
 	status                VARCHAR(20) NOT NULL DEFAULT 'UNREDEEMED',
 
@@ -21,8 +22,9 @@ CREATE TABLE exhibit_redemption_codes (
 );
 
 -- Create indexes for efficient queries
-CREATE UNIQUE INDEX idx_redemption_code_code ON exhibit_redemption_codes(code);
+CREATE UNIQUE INDEX idx_redemption_code_exhibit_code ON exhibit_redemption_codes(exhibit_id, code);
 CREATE INDEX idx_redemption_code_order_id ON exhibit_redemption_codes(order_id);
+CREATE INDEX idx_redemption_code_exhibit_id ON exhibit_redemption_codes(exhibit_id);
 CREATE INDEX idx_redemption_code_status ON exhibit_redemption_codes(status);
 CREATE INDEX idx_redemption_code_valid_period ON exhibit_redemption_codes(valid_from, valid_until)
 	WHERE status = 'UNREDEEMED';

@@ -86,6 +86,7 @@ export class RedemptionService extends RC7BaseService {
       rest: 'POST /redeem',
       roles: ['admin'],
       params: {
+        eid: 'string',
         code: 'string',
         quantity: {
           type: 'number',
@@ -134,9 +135,9 @@ export class RedemptionService extends RC7BaseService {
   }
 
   async redeem(
-    ctx: Context<Redeem.RedeemRequest, { user: UserMeta }>
+    ctx: Context<Redeem.RedeemRequest & { eid: string }, { user: UserMeta }>
   ): Promise<Redeem.RedemptionCodeWithOrder> {
-    const { code } = ctx.params;
+    const { eid, code } = ctx.params;
     const { uid } = ctx.meta.user;
     const schema = await this.getSchema();
     const dbClient = await this.pool.connect();
@@ -144,7 +145,7 @@ export class RedemptionService extends RC7BaseService {
     try {
       await dbClient.query('BEGIN');
 
-      const codeRow = await findRedemptionByCode(dbClient, schema, code);
+      const codeRow = await findRedemptionByCode(dbClient, schema, eid, code);
       if (codeRow === null) {
         throw new RedeemDataError('Redemption code not found', 'REDEMPTION_NOT_FOUND');
       }
@@ -153,7 +154,7 @@ export class RedemptionService extends RC7BaseService {
       const categories = await getTicketCategoriesByExhibitionId(dbClient, schema, order.exhibit_id);
       const items = buildItems(order.items, categories);
 
-      const redemption = await redeemCode(dbClient, schema, code, uid, order, items);
+      const redemption = await redeemCode(dbClient, schema, eid, code, uid, order, items);
 
       await dbClient.query('COMMIT');
       return redemption;

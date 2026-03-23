@@ -52,11 +52,15 @@
 
 ## 完成核销
 
-- URL: `/redemptions/redeem`
+- URL: `/exhibition/:eid/redemptions/redeem`
 - Method: `POST`
 - Request Header:
   ```ts
   { Authorization: `Bearer ${token}` }
+  ```
+- Request Params:
+  ```ts
+  { eid: string }
   ```
 - Request Body:
   ```ts
@@ -64,7 +68,7 @@
   ```
 - Response Body:
   ```ts
-  Redeem.RedemptionCode
+  Redeem.RedemptionCodeWithOrder
   ```
 - Response Status:
   - `200 OK`：核销成功
@@ -74,5 +78,6 @@
   - `409 Conflict`：核销码已核销或已过期
 - 关键特性：
   - 核销操作幂等
+  - 核销动作必须在指定展会下执行，并校验核销码所属展会
   - 自动记录核销人（`redeemed_by`）和核销时间（`redeemed_at`）
   - 仅管理员/运营人员可执行核销

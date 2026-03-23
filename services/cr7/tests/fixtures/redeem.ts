@@ -76,12 +76,13 @@ export async function getOrderRedemption(
 
 export async function redeemCode(
   server: Server,
+  exhibitionId: string,
   code: string,
   token: string,
 ) {
   return postJSON<Redeem.RedemptionCodeWithOrder>(
     server,
-    '/redemptions/redeem',
+    `/exhibition/${exhibitionId}/redemptions/redeem`,
     {
       token,
       body: { code },

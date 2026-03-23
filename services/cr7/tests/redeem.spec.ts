@@ -193,6 +193,7 @@ describeFeature(feature, ({
     const { apiServer } = scenarioContext.fixtures.values;
     const redeemed = await redeemCode(
       apiServer,
+      context.exhibition!.id,
       context.redemption!.code,
       scenarioContext.adminToken,
     );

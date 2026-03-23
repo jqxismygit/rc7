@@ -1,4 +1,4 @@
-import { addDays, addSeconds, parseISO } from 'date-fns';
+import { addDays, addSeconds } from 'date-fns';
 import { Pool, PoolClient } from 'pg';
 import type { Order, Redeem } from '@cr7/types';
 
@@ -113,6 +113,7 @@ function buildRedemptionWithOrder(
 ): Redeem.RedemptionCodeWithOrder {
   return {
     id: row.id,
+    exhibit_id: row.exhibit_id,
     order_id: row.order_id,
     code: row.code,
     status: row.status,
@@ -143,6 +144,7 @@ async function getRedemptionRowByOrderId(
   const { rows } = await client.query<RedemptionRow>(
     `SELECT
       code AS id,
+      exhibit_id,
       order_id,
       code,
       status,
@@ -165,11 +167,13 @@ async function getRedemptionRowByOrderId(
 async function getRedemptionRowByCode(
   client: DBClient,
   schema: string,
+  exhibitId: string,
   code: string,
 ) {
   const { rows } = await client.query<RedemptionRow>(
     `SELECT
       code AS id,
+      exhibit_id,
       order_id,
       code,
       status,
@@ -181,9 +185,10 @@ async function getRedemptionRowByCode(
       created_at,
       updated_at
     FROM ${schema}.exhibit_redemption_codes
-    WHERE code = $1
+    WHERE exhibit_id = $1
+      AND code = $2
     LIMIT 1`,
-    [code],
+    [exhibitId, code],
   );
 
   return rows[0] ?? null;
@@ -192,14 +197,16 @@ async function getRedemptionRowByCode(
 export async function findRedemptionByCode(
   client: DBClient,
   schema: string,
+  exhibitId: string,
   code: string,
 ): Promise<RedemptionRow | null> {
-  return getRedemptionRowByCode(client, schema, code);
+  return getRedemptionRowByCode(client, schema, exhibitId, code);
 }
 
 async function insertRedemptionCode(
   client: DBClient,
   schema: string,
+  exhibitId: string,
   orderId: string,
   quantity: number,
   sessionDate: Date,
@@ -214,15 +221,17 @@ async function insertRedemptionCode(
       const { rows } = await client.query<RedemptionRow>(
         `INSERT INTO ${schema}.exhibit_redemption_codes (
           code,
+          exhibit_id,
           order_id,
           status,
           quantity,
           valid_from,
           valid_until
         )
-        VALUES ($1, $2, 'UNREDEEMED', $3, $4, $5)
+        VALUES ($1, $2, $3, 'UNREDEEMED', $4, $5, $6)
         RETURNING
           code AS id,
+          exhibit_id,
           order_id,
           code,
           status,
@@ -233,7 +242,7 @@ async function insertRedemptionCode(
           redeemed_by,
           created_at,
           updated_at`,
-        [code, orderId, quantity, valid_from, valid_until],
+        [code, exhibitId, orderId, quantity, valid_from, valid_until],
       );
 
       return rows[0];
@@ -266,7 +275,15 @@ export async function getOrCreateRedemptionByOrderId(
   }
 
   const quantity = items.reduce((sum, item) => sum + item.quantity, 0);
-  await insertRedemptionCode(client, schema, order.id, quantity, sessionDate, validDurationDays);
+  await insertRedemptionCode(
+    client,
+    schema,
+    order.exhibit_id,
+    order.id,
+    quantity,
+    sessionDate,
+    validDurationDays,
+  );
 
   const created = await getRedemptionRowByOrderId(client, schema, order.id);
   if (created === null) {
@@ -279,12 +296,13 @@ export async function getOrCreateRedemptionByOrderId(
 export async function redeemCode(
   client: DBClient,
   schema: string,
+  exhibitId: string,
   code: string,
   redeemedBy: string,
   order: Order.OrderWithItems,
   items: RedemptionItemInput[],
 ): Promise<Redeem.RedemptionCodeWithOrder> {
-  const redemption = await getRedemptionRowByCode(client, schema, code);
+  const redemption = await getRedemptionRowByCode(client, schema, exhibitId, code);
   if (redemption === null) {
     throw new RedeemDataError('Redemption code not found', 'REDEMPTION_NOT_FOUND');
   }
@@ -305,13 +323,14 @@ export async function redeemCode(
     SET
       status = 'REDEEMED',
       redeemed_at = NOW(),
-      redeemed_by = $2,
+      redeemed_by = $3,
       updated_at = NOW()
-    WHERE code = $1`,
-    [code, redeemedBy],
+    WHERE exhibit_id = $1
+      AND code = $2`,
+    [exhibitId, code, redeemedBy],
   );
 
-  const updated = await getRedemptionRowByCode(client, schema, code);
+  const updated = await getRedemptionRowByCode(client, schema, exhibitId, code);
   if (updated === null) {
     throw new RedeemDataError('Redemption code not found', 'REDEMPTION_NOT_FOUND');
   }
