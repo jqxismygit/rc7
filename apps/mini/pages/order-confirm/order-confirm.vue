@@ -108,7 +108,7 @@
       <view class="footer-inner">
         <view class="footer-total">
           <text class="total-label">总额</text>
-          <text class="total-value">¥ {{ footerAmount }}</text>
+          <text class="total-value">¥ {{ footerAmount * 0.01 }}</text>
         </view>
         <view class="bottom-bar">
           <button

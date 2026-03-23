@@ -68,7 +68,7 @@
 
       <view v-if="useInlineCamera" class="torch-wrap" @click="toggleTorch">
         <view class="torch-btn">
-          <view class="torch-glyph"></view>
+          <sx-svg name="light" :width="22" :height="36" color="#FFFFFF" />
         </view>
         <text class="torch-label">轻点照亮</text>
       </view>

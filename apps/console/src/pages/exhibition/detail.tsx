@@ -303,7 +303,7 @@ export default function ExhibitionDetailPage() {
         title: "价格（元）",
         dataIndex: "price",
         width: 110,
-        render: (p: number) => (typeof p === "number" ? String(p) : p),
+        render: (p: number) => (typeof p === "number" ? String(p * 0.01) : p),
       },
       {
         title: "有效天数",
@@ -362,7 +362,10 @@ export default function ExhibitionDetailPage() {
     if (!eid) return false;
     try {
       setTicketSubmitting(true);
-      await createExhibitionTicketCategoryApi(eid, values);
+      await createExhibitionTicketCategoryApi(eid, {
+        ...values,
+        price: values.price * 100,
+      });
       message.success("票种已添加");
       closeAddTicketModal();
       await loadDetail();
@@ -664,7 +667,7 @@ export default function ExhibitionDetailPage() {
           name="price"
           label="价格（元）"
           placeholder="0"
-          fieldProps={{ min: 0, precision: 0, style: { width: "100%" } }}
+          fieldProps={{ min: 0, precision: 2, style: { width: "100%" } }}
           rules={[{ required: true, message: "请输入价格" }]}
         />
         <ProFormDigit

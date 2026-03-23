@@ -104,7 +104,7 @@
           <view class="detail-row detail-row-last">
             <text class="detail-label">订单总额</text>
             <text class="detail-value price"
-              >¥ {{ formatPrice(ticket.price) }}</text
+              >¥ {{ formatPrice(ticket.price * 0.01) }}</text
             >
           </view>
         </view>

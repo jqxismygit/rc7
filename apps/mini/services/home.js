@@ -51,7 +51,7 @@ export function fetchHeroBanners() {
  * @see docs/api/exhibition.md、docs/api/inventory.md
  */
 // const HOME_EXHIBITION_ID = "e0c47ea5-8b48-45b8-b52c-cc985871d6e4";
-const HOME_EXHIBITION_ID = "4ff09acd-72cf-44fd-8b73-dfad737f6cbf";
+const HOME_EXHIBITION_ID = "061ea274-365f-4e4f-99c9-762fcc1972d9";
 
 function sessionDateKey(session) {
   const raw = session?.session_date;

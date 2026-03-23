@@ -102,12 +102,12 @@
                 <text
                   v-if="ticket.originalPrice > ticket.price"
                   class="ticket-price-origin"
-                  >￥{{ ticket.originalPrice }}</text
+                  >￥{{ ticket.originalPrice * 0.01 }}</text
                 >
                 <text
                   class="ticket-price-now"
                   :class="{ 'price-gold': ticket.originalPrice > ticket.price }"
-                  >¥{{ ticket.price }}</text
+                  >¥{{ ticket.price * 0.01 }}</text
                 >
               </view>
             </view>

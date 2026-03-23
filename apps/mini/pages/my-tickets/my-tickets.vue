@@ -115,7 +115,7 @@
             <view class="ticket-actions">
               <view class="action-divider"></view>
               <view class="action-bar">
-                <text class="action-price">￥{{ ticket.price }}</text>
+                <text class="action-price">￥{{ ticket.price * 0.01 }}</text>
                 <view class="action-btns">
                   <button
                     v-if="showRefundButton(ticket)"

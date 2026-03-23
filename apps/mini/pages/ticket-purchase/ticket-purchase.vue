@@ -165,12 +165,12 @@
               <text
                 v-if="ticket.originalPrice > ticket.price"
                 class="ticket-price-origin"
-                >￥{{ ticket.originalPrice }}</text
+                >￥{{ ticket.originalPrice * 0.01 }}</text
               >
               <text
                 class="ticket-price-now"
                 :class="{ 'price-gold': ticket.originalPrice > ticket.price }"
-                >¥{{ ticket.price }}</text
+                >¥{{ ticket.price * 0.01 }}</text
               >
             </view>
           </view>
@@ -213,7 +213,7 @@
       <view class="purchase-footer-inner">
         <view class="footer-total">
           <text class="total-label">总额</text>
-          <text class="total-value">¥{{ totalPrice }}</text>
+          <text class="total-value">¥{{ totalPrice * 0.01 }}</text>
         </view>
         <view class="purchase-bottom-bar">
           <button
@@ -236,10 +236,7 @@ import {
   formatExhibitionDateRangeLine,
   formatOpenHoursLine,
 } from "@/utils/ticketEventDisplay.js";
-import {
-  createOrder,
-  ORDER_CONFIRM_CONTEXT_KEY,
-} from "@/services/order.js";
+import { createOrder, ORDER_CONFIRM_CONTEXT_KEY } from "@/services/order.js";
 import persistStorage from "@/utils/persistStorage.js";
 
 export default {
@@ -510,10 +507,7 @@ export default {
         return;
       }
 
-      const eid =
-        this.eventId ||
-        this.homeTicketSection?.ticketEvent?.id ||
-        "";
+      const eid = this.eventId || this.homeTicketSection?.ticketEvent?.id || "";
       const sid = this.sessionId || this.homeTicketSection?.sessionId || "";
 
       if (!eid || !sid) {
