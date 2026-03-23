@@ -1,4 +1,4 @@
-import { Context, Errors, ServiceSchema } from 'moleculer';
+import { Context, ServiceSchema } from 'moleculer';
 import type { Exhibition, Order, Redeem } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
 import {
@@ -8,14 +8,13 @@ import {
   redeemCode,
   RedeemDataError,
 } from '../data/redeem.js';
-import { getOrderById, getOrderByIdAdmin, OrderDataError } from '../data/order.js';
+import { getOrderById, getOrderByIdAdmin } from '../data/order.js';
 import { getSessionById, getTicketCategoriesByExhibitionId } from '../data/exhibition.js';
+import { handleOrderError, handleRedeemError } from './errors.js';
 
 interface UserMeta {
   uid: string;
 }
-
-const { MoleculerClientError } = Errors;
 
 function buildItems(
   orderItems: Order.OrderItem[],
@@ -37,36 +36,6 @@ function computeValidDurationDays(
 ): number {
   const categoryMap = new Map(categories.map(c => [c.id, c]));
   return Math.max(1, ...orderItems.map(item => categoryMap.get(item.ticket_category_id)?.valid_duration_days ?? 1));
-}
-
-function handleRedeemError(error: unknown): never {
-  if (error instanceof OrderDataError) {
-    if (error.code === 'ORDER_NOT_FOUND') {
-      throw new MoleculerClientError('资源不存在', 404, error.code);
-    }
-    throw error;
-  }
-
-  if ((error instanceof RedeemDataError) === false) {
-    throw error;
-  }
-
-  if (error.code === 'ORDER_NOT_FOUND' || error.code === 'REDEMPTION_NOT_FOUND') {
-    throw new MoleculerClientError('资源不存在', 404, error.code);
-  }
-
-  if (error.code === 'ORDER_NOT_REDEEMABLE') {
-    throw new MoleculerClientError('订单未支付或无核销码', 410, error.code);
-  }
-
-  if (
-    error.code === 'REDEMPTION_ALREADY_REDEEMED'
-    || error.code === 'REDEMPTION_EXPIRED'
-  ) {
-    throw new MoleculerClientError('核销码不可用', 409, error.code);
-  }
-
-  throw new MoleculerClientError('核销服务错误', 500, 'REDEEM_ERROR');
 }
 
 export class RedemptionService extends RC7BaseService {
@@ -115,7 +84,7 @@ export class RedemptionService extends RC7BaseService {
     const dbClient = this.pool;
 
     const order = await getOrderByIdAdmin(dbClient, schema, oid)
-      .catch(handleRedeemError);
+      .catch(handleOrderError);
     if (order.status !== 'PAID') {
       throw new RedeemDataError('Order has no redemption code', 'ORDER_NOT_REDEEMABLE');
     }
@@ -143,7 +112,7 @@ export class RedemptionService extends RC7BaseService {
     const schema = await this.getSchema();
 
     const order = await getOrderById(this.pool, schema, oid, uid)
-      .catch(handleRedeemError);
+      .catch(handleOrderError);
 
     if (order.status !== 'PAID') {
       handleRedeemError(new RedeemDataError('Order has no redemption code', 'ORDER_NOT_REDEEMABLE'));
@@ -182,7 +151,8 @@ export class RedemptionService extends RC7BaseService {
 
       const codeRow = await getRedemptionRowByCode(dbClient, schema, eid, code);
 
-      const order = await getOrderByIdAdmin(dbClient, schema, codeRow.order_id);
+      const order = await getOrderByIdAdmin(dbClient, schema, codeRow.order_id)
+        .catch(handleOrderError);
       const categories = await getTicketCategoriesByExhibitionId(dbClient, schema, order.exhibit_id);
       const items = buildItems(order.items, categories);
 

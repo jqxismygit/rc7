@@ -1,4 +1,4 @@
-import { Context, Errors, ServiceSchema } from 'moleculer';
+import { Context, ServiceSchema } from 'moleculer';
 import type { Order } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
 import {
@@ -7,45 +7,11 @@ import {
   getOrderById,
   getOrders,
   releaseExpiredOrders,
-  OrderDataError,
 } from '../data/order.js';
+import { handleOrderError } from './errors.js';
 
 interface UserMeta {
   uid: string;
-}
-
-const { MoleculerClientError } = Errors;
-
-function handleOrderError(error: unknown): never {
-  if ((error instanceof OrderDataError) === false) {
-    throw error;
-  }
-
-  if (error.code === 'INVENTORY_NOT_ENOUGH') {
-    throw new MoleculerClientError('库存不足', 409, 'INVENTORY_NOT_ENOUGH');
-  }
-
-  if (error.code === 'SESSION_EXPIRED') {
-    throw new MoleculerClientError('场次已过期', 410, 'SESSION_EXPIRED');
-  }
-
-  if (
-    error.code === 'INVALID_ARGUMENT'
-    || error.code === 'SESSION_NOT_FOUND'
-    || error.code === 'TICKET_CATEGORY_NOT_FOUND'
-  ) {
-    throw new MoleculerClientError('参数不合法', 400, error.code);
-  }
-
-  if (error.code === 'ORDER_NOT_FOUND') {
-    throw new MoleculerClientError('订单不存在或无权限', 404, 'ORDER_NOT_FOUND');
-  }
-
-  if (error.code === 'ORDER_STATUS_INVALID') {
-    throw new MoleculerClientError('订单状态不允许取消', 400, 'ORDER_STATUS_INVALID');
-  }
-
-  throw new MoleculerClientError('未知订单错误', 500, 'UNKNOWN_ORDER_ERROR');
 }
 
 export class OrderService extends RC7BaseService {

@@ -1,5 +1,5 @@
 import { promises as fsPromises } from 'node:fs';
-import { Context, Errors, ServiceSchema } from 'moleculer';
+import { Context, ServiceSchema } from 'moleculer';
 import { format } from 'date-fns';
 import { addMinutes } from 'date-fns';
 import type { Payment } from '@cr7/types';
@@ -12,16 +12,14 @@ import {
   markWechatPayCallbackProcessed,
   upsertWechatPayTransaction,
   updateWechatPayTransactionPrepayId,
-  PaymentDataError,
 } from '../data/payment.js';
+import { handlePaymentDataError } from './errors.js';
 import {
   decryptWechatCallbackResource,
   wePayPostJSON,
   signPay,
   WechatCallbackResource,
 } from './wechatpay.js';
-
-const { MoleculerClientError } = Errors;
 
 interface UserMeta {
   uid: string;
@@ -50,26 +48,6 @@ interface WechatCallbackNotification {
   id: string;
   event_type: string;
   resource: WechatCallbackResource;
-}
-
-function handlePaymentDataError(error: unknown): never {
-  if ((error instanceof PaymentDataError) === false) {
-    throw error;
-  }
-
-  if (error.code === 'ORDER_NOT_FOUND') {
-    throw new MoleculerClientError('订单不存在或无权限', 404, 'ORDER_NOT_FOUND');
-  }
-
-  if (error.code === 'ORDER_STATUS_INVALID') {
-    throw new MoleculerClientError('订单状态不允许支付', 400, 'ORDER_STATUS_INVALID');
-  }
-
-  if (error.code === 'USER_NO_OPENID') {
-    throw new MoleculerClientError('用户未绑定微信账号', 409, 'USER_NO_OPENID');
-  }
-
-  throw new MoleculerClientError('支付服务错误', 500, 'PAYMENT_ERROR');
 }
 
 export class PaymentService extends RC7BaseService {
