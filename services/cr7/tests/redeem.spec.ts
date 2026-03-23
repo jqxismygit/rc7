@@ -7,7 +7,10 @@ import {
 import config from 'config';
 import { Exhibition, Order, Redeem, User } from '@cr7/types';
 import { expect, vi } from 'vitest';
+import type { ServiceBroker } from 'moleculer';
+import type { Pool } from 'pg';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
+import { assertAPIError } from './lib/api.js';
 import { services_fixtures } from './fixtures/services.js';
 import { prepareAdminToken, registerUser, getUserProfile } from './fixtures/user.js';
 import {
@@ -42,13 +45,22 @@ type CaseContext = {
   ticket: Exhibition.TicketCategory;
   order: Order.OrderWithItems;
   redemption: Redeem.RedemptionCodeWithOrder;
+  lastError: unknown;
+};
+
+type RoleName = 'ADMIN' | 'OPERATOR';
+
+type ServiceWithPool = {
+  pool: Pick<Pool, 'query'>;
 };
 
 interface ScenarioContext {
-  fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
+  fixtures: FixturesResult<typeof services_fixtures, 'apiServer' | 'broker'>;
   adminToken: string;
   adminProfile: User.Profile;
   userToken: string;
+  operatorToken?: string;
+  operatorProfile?: User.Profile;
   usersByName: Record<string, { token: string; profile: User.Profile }>;
   wechatPayMockServer?: MockServer;
 }
@@ -64,7 +76,7 @@ describeFeature(feature, ({
     vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
     const fixtures = await useFixtures(
       { ...services_fixtures, schema, services },
-      ['apiServer'],
+      ['apiServer', 'broker'],
     );
 
     const wechatPayMockServer = await mockJSONServer(async () => ({
@@ -189,13 +201,127 @@ describeFeature(feature, ({
     Object.assign(context, { redemption });
   }
 
-  async function performRedeem(context: Partial<CaseContext>) {
+  function rememberError(context: Partial<CaseContext>, error: unknown) {
+    Object.assign(context, { lastError: error });
+  }
+
+  function clearLastError(context: Partial<CaseContext>) {
+    Object.assign(context, { lastError: null });
+  }
+
+  function assertLastAPIError(
+    context: Partial<CaseContext>,
+    options: {
+      status?: number;
+      method?: string;
+      messageIncludes?: string;
+    } = {},
+  ) {
+    expect(context.lastError).toBeTruthy();
+    return assertAPIError(context.lastError, options);
+  }
+
+  function assertLastAPIErrorType(
+    context: Partial<CaseContext>,
+    expectedType: string,
+  ) {
+    const error = assertLastAPIError(context);
+    expect(error.body).toBeTypeOf('object');
+    const body = error.body as { type?: string };
+    expect(body.type).toBe(expectedType);
+  }
+
+  function getCr7Pool() {
+    const broker = scenarioContext.fixtures.values.broker as ServiceBroker;
+    const cr7Service = broker.getLocalService('cr7') as unknown as ServiceWithPool;
+    expect(cr7Service).toBeTruthy();
+    return cr7Service.pool;
+  }
+
+  function resolveOperatorToken(operator: string) {
+    if (operator === '管理员') {
+      return scenarioContext.adminToken;
+    }
+
+    if (operator === '运营人员') {
+      expect(scenarioContext.operatorToken).toBeTruthy();
+      return scenarioContext.operatorToken!;
+    }
+
+    const user = scenarioContext.usersByName[operator];
+    expect(user).toBeTruthy();
+    return user.token;
+  }
+
+  function resolveOperatorProfileId(operator: string) {
+    if (operator === '管理员') {
+      return scenarioContext.adminProfile.id;
+    }
+
+    if (operator === '运营人员') {
+      expect(scenarioContext.operatorProfile).toBeTruthy();
+      return scenarioContext.operatorProfile!.id;
+    }
+
+    const user = scenarioContext.usersByName[operator];
+    expect(user).toBeTruthy();
+    return user.profile.id;
+  }
+
+  async function grantRoleToUser(
+    userName: string,
+    roleName: RoleName,
+  ) {
+    const user = scenarioContext.usersByName[userName];
+    expect(user).toBeTruthy();
+
+    const pool = getCr7Pool();
+    const { rows: roleRows } = await pool.query<{ id: string }>(
+      `SELECT id
+      FROM ${schema}.roles
+      WHERE name = $1
+      LIMIT 1`,
+      [roleName],
+    );
+    expect(roleRows[0]).toBeTruthy();
+
+    await pool.query(
+      `INSERT INTO ${schema}.user_roles (uid, role_id)
+      VALUES ($1, $2)
+      ON CONFLICT (uid, role_id) DO NOTHING`,
+      [user.profile.id, roleRows[0].id],
+    );
+
+    if (roleName === 'OPERATOR') {
+      Object.assign(scenarioContext, {
+        operatorToken: user.token,
+        operatorProfile: user.profile,
+      });
+    }
+  }
+
+  async function expireCurrentRedemption(context: Partial<CaseContext>) {
+    const pool = getCr7Pool();
+    await pool.query(
+      `UPDATE ${schema}.exhibit_redemption_codes
+      SET
+        valid_until = NOW() - INTERVAL '1 second',
+        updated_at = NOW()
+      WHERE order_id = $1`,
+      [context.order!.id],
+    );
+  }
+
+  async function performRedeem(
+    context: Partial<CaseContext>,
+    token: string,
+  ) {
     const { apiServer } = scenarioContext.fixtures.values;
     const redeemed = await redeemCode(
       apiServer,
       context.exhibition!.id,
       context.redemption!.code,
-      scenarioContext.adminToken,
+      token,
     );
 
     Object.assign(context, { redemption: redeemed });
@@ -219,7 +345,7 @@ describeFeature(feature, ({
       const profile = await getUserProfile(apiServer, token);
 
       Object.assign(scenarioContext, {
-        userToken: token,
+        userToken: userName === 'Alice' ? token : scenarioContext.userToken,
         usersByName: {
           ...scenarioContext.usersByName,
           [userName]: { token, profile },
@@ -255,6 +381,7 @@ describeFeature(feature, ({
       });
 
       When('用户查询订单核销信息', async () => {
+        clearLastError(context);
         await fetchOrderRedemption(context);
       });
 
@@ -339,12 +466,19 @@ describeFeature(feature, ({
       });
 
       When('{string}将用户 {string} 的订单核销码扫码核销', async (_ctx, operator: string, userName: string) => {
-        expect(operator).toBe('管理员');
         expect(scenarioContext.usersByName[userName]).toBeTruthy();
-        await performRedeem(context);
+        const token = resolveOperatorToken(operator);
+
+        try {
+          await performRedeem(context, token);
+          clearLastError(context);
+        } catch (error) {
+          rememberError(context, error);
+        }
       });
 
       Then('核销成功', () => {
+        expect(context.lastError).toBeFalsy();
         expect(context.redemption?.status).toBe('REDEEMED');
       });
 
@@ -358,21 +492,240 @@ describeFeature(feature, ({
       });
 
       And('核销码的核销人为 {string}', (_ctx, operator: string) => {
-        expect(operator).toBe('管理员');
-        expect(context.redemption?.redeemed_by).toBe(scenarioContext.adminProfile.id);
+        const operatorId = resolveOperatorProfileId(operator);
+        expect(context.redemption?.redeemed_by).toBe(operatorId);
       });
     },
   );
 
-  Scenario.skip('一个未完成支付的订单没有核销码', () => {
-  });
+  Scenario(
+    '一个未完成支付的订单没有核销码',
+    (s: StepTest<Partial<CaseContext>>) => {
+      const { Given, And, When, Then, context } = s;
 
-  Scenario.skip('已过期订单的核销码不可用', () => {
-  });
+      Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
+        await prepareExhibitionData(context, exhibitionName, sessionDate, ticketName, 1, 2);
+      });
 
-  Scenario.skip('已核销订单的核销码不可重复使用', () => {
-  });
+      And('{string} 票种的有效期为场次当天有效', (_ctx, _ticketName: string) => {
+        expect(context.ticket?.valid_duration_days).toBe(1);
+      });
 
-  Scenario.skip('只有运营人员才能核销', () => {
-  });
+      And('场次 {string} 的 {string} 库存初始为 {int}', (_ctx, _sessionDate: string, _ticketName: string, quantity: number) => {
+        expect(quantity).toBe(2);
+      });
+
+      Given('用户在一个未完成支付订单里购买了 {int} 张 {string} 的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
+        await createOrderForCurrentUser(context, quantity);
+      });
+
+      When('用户查询订单核销信息', async () => {
+        clearLastError(context);
+        try {
+          await fetchOrderRedemption(context);
+        } catch (error) {
+          rememberError(context, error);
+        }
+      });
+
+      Then('查询核销信息失败，状态码为 {int}', (_ctx, statusCode: number) => {
+        assertLastAPIError(context, { status: statusCode, method: 'GET' });
+      });
+
+      And('查询核销信息错误类型为 {string}', (_ctx, errorType: string) => {
+        assertLastAPIErrorType(context, errorType);
+      });
+    },
+  );
+
+  Scenario(
+    '已过期订单的核销码不可用',
+    (s: StepTest<Partial<CaseContext>>) => {
+      const { Given, And, When, Then, context } = s;
+
+      Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
+        await prepareExhibitionData(context, exhibitionName, sessionDate, ticketName, 1, 2);
+      });
+
+      And('{string} 票种的有效期为场次当天有效', (_ctx, _ticketName: string) => {
+        expect(context.ticket?.valid_duration_days).toBe(1);
+      });
+
+      And('场次 {string} 的 {string} 库存初始为 {int}', (_ctx, _sessionDate: string, _ticketName: string, quantity: number) => {
+        expect(quantity).toBe(2);
+      });
+
+      Given('用户在一个订单里购买了 {int} 张 {string} 的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
+        await createOrderForCurrentUser(context, quantity);
+        await payOrderForCurrentUser(context);
+        await fetchOrderRedemption(context);
+      });
+
+      And('核销码已过期', async () => {
+        await expireCurrentRedemption(context);
+      });
+
+      When('{string}将用户 {string} 的订单核销码扫码核销', async (_ctx, operator: string, userName: string) => {
+        expect(scenarioContext.usersByName[userName]).toBeTruthy();
+        const token = resolveOperatorToken(operator);
+
+        clearLastError(context);
+        try {
+          await performRedeem(context, token);
+        } catch (error) {
+          rememberError(context, error);
+        }
+      });
+
+      Then('核销失败，状态码为 {int}', (_ctx, statusCode: number) => {
+        assertLastAPIError(context, { status: statusCode, method: 'POST' });
+      });
+
+      And('核销失败错误类型为 {string}', (_ctx, errorType: string) => {
+        assertLastAPIErrorType(context, errorType);
+      });
+    },
+  );
+
+  Scenario(
+    '已核销订单的核销码不可重复使用',
+    (s: StepTest<Partial<CaseContext>>) => {
+      const { Given, And, When, Then, context } = s;
+
+      Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
+        await prepareExhibitionData(context, exhibitionName, sessionDate, ticketName, 1, 2);
+      });
+
+      And('{string} 票种的有效期为场次当天有效', (_ctx, _ticketName: string) => {
+        expect(context.ticket?.valid_duration_days).toBe(1);
+      });
+
+      And('场次 {string} 的 {string} 库存初始为 {int}', (_ctx, _sessionDate: string, _ticketName: string, quantity: number) => {
+        expect(quantity).toBe(2);
+      });
+
+      Given('用户在一个订单里购买了 {int} 张 {string} 的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
+        await createOrderForCurrentUser(context, quantity);
+        await payOrderForCurrentUser(context);
+        await fetchOrderRedemption(context);
+      });
+
+      When('{string}将用户 {string} 的订单核销码扫码核销', async (_ctx, operator: string, userName: string) => {
+        expect(scenarioContext.usersByName[userName]).toBeTruthy();
+        const token = resolveOperatorToken(operator);
+
+        clearLastError(context);
+        try {
+          await performRedeem(context, token);
+        } catch (error) {
+          rememberError(context, error);
+        }
+      });
+
+      And('{string}再次将用户 {string} 的订单核销码扫码核销', async (_ctx, operator: string, userName: string) => {
+        expect(scenarioContext.usersByName[userName]).toBeTruthy();
+        const token = resolveOperatorToken(operator);
+
+        clearLastError(context);
+        try {
+          await performRedeem(context, token);
+        } catch (error) {
+          rememberError(context, error);
+        }
+      });
+
+      Then('再次核销失败，状态码为 {int}', (_ctx, statusCode: number) => {
+        assertLastAPIError(context, { status: statusCode, method: 'POST' });
+      });
+
+      And('核销失败错误类型为 {string}', (_ctx, errorType: string) => {
+        assertLastAPIErrorType(context, errorType);
+      });
+    },
+  );
+
+  Scenario(
+    '只有运营人员才能核销',
+    (s: StepTest<Partial<CaseContext>>) => {
+      const { Given, And, When, Then, context } = s;
+
+      Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
+        await prepareExhibitionData(context, exhibitionName, sessionDate, ticketName, 1, 2);
+      });
+
+      And('{string} 票种的有效期为场次当天有效', (_ctx, _ticketName: string) => {
+        expect(context.ticket?.valid_duration_days).toBe(1);
+      });
+
+      And('场次 {string} 的 {string} 库存初始为 {int}', (_ctx, _sessionDate: string, _ticketName: string, quantity: number) => {
+        expect(quantity).toBe(2);
+      });
+
+      Given('用户在一个订单里购买了 {int} 张 {string} 的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
+        await createOrderForCurrentUser(context, quantity);
+        await payOrderForCurrentUser(context);
+        await fetchOrderRedemption(context);
+      });
+
+      And('用户 {string} 已注册并登录', async (_ctx, userName: string) => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const token = await registerUser(apiServer, `${userName}_${Date.now()}`);
+        const profile = await getUserProfile(apiServer, token);
+
+        Object.assign(scenarioContext, {
+          usersByName: {
+            ...scenarioContext.usersByName,
+            [userName]: { token, profile },
+          },
+        });
+      });
+
+      And('用户 {string} 被授予 {string} 角色', async (_ctx, userName: string, roleLabel: string) => {
+        expect(roleLabel).toBe('运营');
+        await grantRoleToUser(userName, 'OPERATOR');
+      });
+
+      When('用户 {string} 尝试核销用户 {string} 的订单核销码', async (_ctx, actorName: string, userName: string) => {
+        expect(scenarioContext.usersByName[userName]).toBeTruthy();
+        const token = resolveOperatorToken(actorName);
+
+        clearLastError(context);
+        try {
+          await performRedeem(context, token);
+        } catch (error) {
+          rememberError(context, error);
+        }
+      });
+
+      Then('核销失败，状态码为 {int}', (_ctx, statusCode: number) => {
+        assertLastAPIError(context, { status: statusCode, method: 'POST' });
+      });
+
+      And('核销失败错误类型为 {string}', (_ctx, errorType: string) => {
+        assertLastAPIErrorType(context, errorType);
+      });
+
+      When('{string}将用户 {string} 的订单核销码扫码核销', async (_ctx, operator: string, userName: string) => {
+        expect(scenarioContext.usersByName[userName]).toBeTruthy();
+        const token = resolveOperatorToken(operator);
+
+        clearLastError(context);
+        try {
+          await performRedeem(context, token);
+        } catch (error) {
+          rememberError(context, error);
+        }
+      });
+
+      Then('核销成功', () => {
+        expect(context.lastError).toBeFalsy();
+        expect(context.redemption?.status).toBe('REDEEMED');
+      });
+
+      And('核销码的核销人为 {string}', (_ctx, operator: string) => {
+        const operatorId = resolveOperatorProfileId(operator);
+        expect(context.redemption?.redeemed_by).toBe(operatorId);
+      });
+    },
+  );
 });

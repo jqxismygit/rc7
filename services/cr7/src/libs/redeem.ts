@@ -61,7 +61,7 @@ export class RedemptionService extends RC7BaseService {
 
     'redemption.redeem': {
       rest: 'POST /redeem',
-      roles: ['admin'],
+      roles: ['admin', 'operator'],
       params: {
         eid: 'string',
         code: 'string',
