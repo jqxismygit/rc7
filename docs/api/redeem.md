@@ -52,7 +52,7 @@
 
 ## 完成核销
 
-- URL: `/exhibition/:eid/redemptions/redeem`
+- URL: `/exhibition/:eid/redeem`
 - Method: `POST`
 - Request Header:
   ```ts

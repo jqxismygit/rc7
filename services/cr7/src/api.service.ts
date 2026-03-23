@@ -128,11 +128,9 @@ const routes = [
     }
   ),
   routeConfig(
-    '/exhibition/:eid/redemptions',
-    ['cr7.redemption.redeem'],
-    {
+    '/exhibition/:eid/redeem', ['cr7.redemption.redeem'], {
       aliases: {
-        'POST /redeem': 'cr7.redemption.redeem'
+        'POST /': 'cr7.redemption.redeem'
       }
     }
   ),

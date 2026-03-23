@@ -82,7 +82,7 @@ export async function redeemCode(
 ) {
   return postJSON<Redeem.RedemptionCodeWithOrder>(
     server,
-    `/exhibition/${exhibitionId}/redemptions/redeem`,
+    `/exhibition/${exhibitionId}/redeem`,
     {
       token,
       body: { code },
