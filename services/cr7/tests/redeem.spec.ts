@@ -427,11 +427,18 @@ describeFeature(feature, ({
       });
 
       And('核销码的有效期为场次当天', () => {
-        const fromDay = context.redemption!.valid_from.slice(0, 10);
-        const untilDay = context.redemption!.valid_until.slice(0, 10);
-        expect(fromDay).toBe(untilDay);
-        expect(context.redemption?.valid_from.endsWith('00:00:00.000Z')).toBe(true);
-        expect(context.redemption?.valid_until.endsWith('23:59:59.000Z')).toBe(true);
+        const validFrom = new Date(context.redemption!.valid_from);
+        const validUntil = new Date(context.redemption!.valid_until);
+        const padDate = (n: number) => String(n).padStart(2, '0');
+        const toLocalDateStr = (d: Date) =>
+          `${d.getFullYear()}-${padDate(d.getMonth() + 1)}-${padDate(d.getDate())}`;
+        expect(toLocalDateStr(validFrom)).toBe(toLocalDateStr(validUntil));
+        expect(validFrom.getHours()).toBe(0);
+        expect(validFrom.getMinutes()).toBe(0);
+        expect(validFrom.getSeconds()).toBe(0);
+        expect(validUntil.getHours()).toBe(23);
+        expect(validUntil.getMinutes()).toBe(59);
+        expect(validUntil.getSeconds()).toBe(59);
       });
     },
   );

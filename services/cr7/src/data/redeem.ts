@@ -89,11 +89,11 @@ function buildCandidateCode() {
 }
 
 function toValidityStartDate(sessionDate: Date) {
-  return new Date(Date.UTC(
+  return new Date(
     sessionDate.getFullYear(),
     sessionDate.getMonth(),
     sessionDate.getDate(),
-  ));
+  );
 }
 
 function buildValidity(sessionDate: Date, validDurationDays: number) {
