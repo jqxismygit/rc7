@@ -1,0 +1,377 @@
+import {
+  describeFeature,
+  FeatureDescriibeCallbackParams,
+  loadFeature,
+  StepTest,
+} from '@amiceli/vitest-cucumber';
+import config from 'config';
+import { Exhibition, Order, Redeem, User } from '@cr7/types';
+import { expect, vi } from 'vitest';
+import { FixturesResult, useFixtures } from './lib/fixtures.js';
+import { services_fixtures } from './fixtures/services.js';
+import { prepareAdminToken, registerUser, getUserProfile } from './fixtures/user.js';
+import {
+  addTicketCategory,
+  createExhibition,
+  getSessions,
+} from './fixtures/exhibition.js';
+import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
+import { createOrder as createOrderByApi } from './fixtures/order.js';
+import {
+  getOrderRedemption,
+  isValidRedemptionCodeLuhn,
+  redeemCode,
+  toSessionDateLabel,
+} from './fixtures/redeem.js';
+import {
+  buildCallbackNotification,
+  initiatePayment,
+  sendWechatCallback,
+  WechatTransactionResult,
+} from './fixtures/payment.js';
+import { MockServer, mockJSONServer } from './lib/server.js';
+
+const schema = 'test_redeem';
+const services = ['api', 'user', 'cr7'];
+
+const feature = await loadFeature('tests/features/redeem.feature');
+
+type CaseContext = {
+  exhibition: Exhibition.Exhibition;
+  session: Exhibition.Session;
+  ticket: Exhibition.TicketCategory;
+  order: Order.OrderWithItems;
+  redemption: Redeem.RedemptionCodeWithOrder;
+};
+
+interface ScenarioContext {
+  fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
+  adminToken: string;
+  adminProfile: User.Profile;
+  userToken: string;
+  usersByName: Record<string, { token: string; profile: User.Profile }>;
+  wechatPayMockServer?: MockServer;
+}
+
+describeFeature(feature, ({
+  BeforeAllScenarios,
+  AfterAllScenarios,
+  Background,
+  Scenario,
+  context: scenarioContext,
+}: FeatureDescriibeCallbackParams<ScenarioContext>) => {
+  BeforeAllScenarios(async () => {
+    vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
+    const fixtures = await useFixtures(
+      { ...services_fixtures, schema, services },
+      ['apiServer'],
+    );
+
+    const wechatPayMockServer = await mockJSONServer(async () => ({
+      prepay_id: `mock_prepay_${Date.now()}`,
+    }));
+
+    vi.spyOn(config.wechatpay, 'base_url', 'get').mockReturnValue(wechatPayMockServer.address);
+
+    Object.assign(scenarioContext, {
+      fixtures,
+      usersByName: {},
+      wechatPayMockServer,
+    });
+  });
+
+  AfterAllScenarios(async () => {
+    if (scenarioContext.wechatPayMockServer) {
+      await scenarioContext.wechatPayMockServer.close();
+    }
+    await scenarioContext.fixtures.close();
+  });
+
+  async function prepareExhibitionData(
+    context: Partial<CaseContext>,
+    exhibitionName: string,
+    sessionDateInput: string,
+    ticketName: string,
+    admittance: number,
+    inventory: number,
+  ) {
+    const { apiServer } = scenarioContext.fixtures.values;
+    const sessionDate = toSessionDateLabel(sessionDateInput);
+
+    const exhibition = await createExhibition(apiServer, scenarioContext.adminToken, {
+      name: `${exhibitionName}_${Date.now()}`,
+      description: 'redeem test exhibition',
+      start_date: sessionDate,
+      end_date: sessionDate,
+      opening_time: '10:00',
+      closing_time: '18:00',
+      last_entry_time: '17:00',
+      location: 'Shanghai',
+    });
+
+    const [session] = await getSessions(apiServer, exhibition.id, scenarioContext.adminToken);
+    const ticket = await addTicketCategory(apiServer, scenarioContext.adminToken, exhibition.id, {
+      name: ticketName,
+      price: 100,
+      valid_duration_days: 1,
+      refund_policy: 'NON_REFUNDABLE',
+      admittance,
+    });
+
+    await updateTicketCategoryMaxInventory(
+      apiServer,
+      scenarioContext.adminToken,
+      exhibition.id,
+      ticket.id,
+      inventory,
+    );
+
+    Object.assign(context, {
+      exhibition,
+      session,
+      ticket,
+    });
+  }
+
+  async function createOrderForCurrentUser(
+    context: Partial<CaseContext>,
+    quantity: number,
+  ) {
+    const { apiServer } = scenarioContext.fixtures.values;
+    const order = await createOrderByApi(
+      apiServer,
+      context.exhibition!.id,
+      context.session!.id,
+      [{ ticket_category_id: context.ticket!.id, quantity }],
+      scenarioContext.userToken,
+    );
+
+    Object.assign(context, { order });
+  }
+
+  async function payOrderForCurrentUser(context: Partial<CaseContext>) {
+    const { apiServer } = scenarioContext.fixtures.values;
+    const user = scenarioContext.usersByName.Alice;
+    expect(user).toBeTruthy();
+    expect(user.profile.openid).toBeTruthy();
+
+    await initiatePayment(apiServer, context.order!.id, scenarioContext.userToken);
+
+    const notification = buildCallbackNotification(
+      {
+        transaction_id: `wxpay_txn_${Date.now()}`,
+        out_trade_no: context.order!.id.replace(/-/g, ''),
+        trade_state: 'SUCCESS',
+        trade_state_desc: '支付成功',
+        mchid: config.wechatpay.mchid,
+        appid: config.wechatpay.appid,
+        trade_type: 'JSAPI',
+        bank_type: 'OTHERS',
+        success_time: new Date().toISOString(),
+        payer: { openid: user.profile.openid! },
+        amount: {
+          total: context.order!.total_amount,
+          payer_total: context.order!.total_amount,
+          currency: 'CNY',
+          payer_currency: 'CNY',
+        },
+      } satisfies WechatTransactionResult,
+      config.wechatpay.api_v3_secret,
+    );
+
+    await sendWechatCallback(apiServer, notification);
+  }
+
+  async function fetchOrderRedemption(context: Partial<CaseContext>) {
+    const { apiServer } = scenarioContext.fixtures.values;
+    const redemption = await getOrderRedemption(apiServer, context.order!.id, scenarioContext.userToken);
+
+    Object.assign(context, { redemption });
+  }
+
+  async function performRedeem(context: Partial<CaseContext>) {
+    const { apiServer } = scenarioContext.fixtures.values;
+    const redeemed = await redeemCode(
+      apiServer,
+      context.redemption!.code,
+      scenarioContext.adminToken,
+    );
+
+    Object.assign(context, { redemption: redeemed });
+  }
+
+  Background(({ Given }) => {
+    Given('系统管理员已经创建并登录', async () => {
+      const { apiServer } = scenarioContext.fixtures.values;
+      const adminToken = await prepareAdminToken(apiServer, schema);
+      const adminProfile = await getUserProfile(apiServer, adminToken);
+
+      Object.assign(scenarioContext, {
+        adminToken,
+        adminProfile,
+      });
+    });
+
+    Given('用户 {string} 已注册并登录', async (_ctx, userName: string) => {
+      const { apiServer } = scenarioContext.fixtures.values;
+      const token = await registerUser(apiServer, `${userName}_${Date.now()}`);
+      const profile = await getUserProfile(apiServer, token);
+
+      Object.assign(scenarioContext, {
+        userToken: token,
+        usersByName: {
+          ...scenarioContext.usersByName,
+          [userName]: { token, profile },
+        },
+      });
+    });
+  });
+
+  Scenario(
+    '一个完成支付的订单拥有一个核销码',
+    (s: StepTest<Partial<CaseContext>>) => {
+      const { Given, And, When, Then, context } = s;
+
+      Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
+        await prepareExhibitionData(context, exhibitionName, sessionDate, ticketName, 1, 2);
+      });
+
+      And('{string} 票种的有效期为场次当天有效', (_ctx, _ticketName: string) => {
+        expect(context.ticket?.valid_duration_days).toBe(1);
+      });
+
+      And('{string} 票种准入人数为 {string}', (_ctx, _ticketName: string, admittance: string) => {
+        expect(context.ticket?.admittance).toBe(Number(admittance));
+      });
+
+      And('场次 {string} 的 {string} 库存初始为 {int}', (_ctx, _sessionDate: string, _ticketName: string, quantity: number) => {
+        expect(quantity).toBe(2);
+      });
+
+      Given('用户在一个订单里购买了 {int} 张 {string} 的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
+        await createOrderForCurrentUser(context, quantity);
+        await payOrderForCurrentUser(context);
+      });
+
+      When('用户查询订单核销信息', async () => {
+        await fetchOrderRedemption(context);
+      });
+
+      Then('订单详情中包含一个核销码', () => {
+        expect(context.redemption).toBeTruthy();
+        expect(context.redemption?.order_id).toBe(context.order?.id);
+      });
+
+      And('核销码的长度为 {string} 位', (_ctx, length: string) => {
+        expect(context.redemption?.code).toHaveLength(Number(length));
+      });
+
+      And('核销码的第一位是 {string} 先做保留字', (_ctx, prefix: string) => {
+        expect(context.redemption?.code.startsWith(prefix)).toBe(true);
+      });
+
+      And('核销码最后两位是 Luhn 校验码且正确', () => {
+        expect(isValidRedemptionCodeLuhn(context.redemption!.code)).toBe(true);
+      });
+
+      And(
+        '核销码中间的9位字符集 {string} 组成, 不包含易混淆的字符如 {string}, {string}, {string}, {string}',
+        (_ctx, charset: string, c1: string, c2: string, c3: string, c4: string) => {
+        const middle = context.redemption!.code.slice(1, 10);
+        expect(middle).toHaveLength(9);
+        for (const char of middle) {
+          expect(charset.includes(char)).toBe(true);
+        }
+        expect(middle.includes(c1)).toBe(false);
+        expect(middle.includes(c2)).toBe(false);
+        expect(middle.includes(c3)).toBe(false);
+        expect(middle.includes(c4)).toBe(false);
+      });
+
+      And('核销码的状态为未核销', () => {
+        expect(context.redemption?.status).toBe('UNREDEEMED');
+        expect(context.redemption?.redeemed_at).toBeNull();
+        expect(context.redemption?.redeemed_by).toBeNull();
+      });
+
+      And('核销码下有两张 {string} 票', (_ctx, ticketName: string) => {
+        expect(context.redemption?.items).toHaveLength(1);
+        expect(context.redemption?.items[0].category_name).toBe(ticketName);
+        expect(context.redemption?.items[0].quantity).toBe(2);
+      });
+
+      And('核销码的准入人数为 {string}', (_ctx, quantity: string) => {
+        expect(context.redemption?.quantity).toBe(Number(quantity));
+      });
+
+      And('核销码的有效期为场次当天', () => {
+        const fromDay = context.redemption!.valid_from.slice(0, 10);
+        const untilDay = context.redemption!.valid_until.slice(0, 10);
+        expect(fromDay).toBe(untilDay);
+        expect(context.redemption?.valid_from.endsWith('00:00:00.000Z')).toBe(true);
+        expect(context.redemption?.valid_until.endsWith('23:59:59.000Z')).toBe(true);
+      });
+    },
+  );
+
+  Scenario(
+    '使用核销码完成订单核销',
+    (s: StepTest<Partial<CaseContext>>) => {
+      const { Given, And, When, Then, context } = s;
+
+      Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
+        await prepareExhibitionData(context, exhibitionName, sessionDate, ticketName, 1, 2);
+      });
+
+      And('{string} 票种的有效期为场次当天有效', (_ctx, _ticketName: string) => {
+        expect(context.ticket?.valid_duration_days).toBe(1);
+      });
+
+      And('场次 {string} 的 {string} 库存初始为 {int}', (_ctx, _sessionDate: string, _ticketName: string, quantity: number) => {
+        expect(quantity).toBe(2);
+      });
+
+      Given('用户在一个订单里购买了 {int} 张 {string} 的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
+        await createOrderForCurrentUser(context, quantity);
+        await payOrderForCurrentUser(context);
+        await fetchOrderRedemption(context);
+      });
+
+      When('{string}将用户 {string} 的订单核销码扫码核销', async (_ctx, operator: string, userName: string) => {
+        expect(operator).toBe('管理员');
+        expect(scenarioContext.usersByName[userName]).toBeTruthy();
+        await performRedeem(context);
+      });
+
+      Then('核销成功', () => {
+        expect(context.redemption?.status).toBe('REDEEMED');
+      });
+
+      And('核销码状态变为 {string}', (_ctx, statusLabel: string) => {
+        expect(statusLabel).toBe('已核销');
+        expect(context.redemption?.status).toBe('REDEEMED');
+      });
+
+      And('核销码的核销时间被记录', () => {
+        expect(context.redemption?.redeemed_at).toBeTruthy();
+      });
+
+      And('核销码的核销人为 {string}', (_ctx, operator: string) => {
+        expect(operator).toBe('管理员');
+        expect(context.redemption?.redeemed_by).toBe(scenarioContext.adminProfile.id);
+      });
+    },
+  );
+
+  Scenario.skip('一个未完成支付的订单没有核销码', () => {
+  });
+
+  Scenario.skip('已过期订单的核销码不可用', () => {
+  });
+
+  Scenario.skip('已核销订单的核销码不可重复使用', () => {
+  });
+
+  Scenario.skip('只有运营人员才能核销', () => {
+  });
+});

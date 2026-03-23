@@ -8,8 +8,8 @@ export interface Exhibition {
   closing_time: string;
   last_entry_time: string;
   location: string;
-  created_at: string;
-  updated_at: string;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface TicketCategory {
@@ -20,8 +20,8 @@ export interface TicketCategory {
   valid_duration_days: number;
   refund_policy: 'NON_REFUNDABLE' | 'REFUNDABLE_48H_BEFORE';
   admittance: number;
-  created_at: string;
-  updated_at: string;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface ExhibitionWithCategories extends Exhibition {
@@ -31,8 +31,8 @@ export interface ExhibitionWithCategories extends Exhibition {
 export interface Session {
   id: string;
   exhibit_id: string;
-  session_date: string;
-  created_at: string;
-  updated_at: string;
+  session_date: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 

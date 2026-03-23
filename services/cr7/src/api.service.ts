@@ -119,7 +119,17 @@ const routes = [
   ),
   routeConfig(
     '/orders',
-    ['cr7.order.get', 'cr7.order.list', 'cr7.order.cancel', 'cr7.order.wechatpay'],
+    ['cr7.order.get', 'cr7.order.list', 'cr7.order.cancel', 'cr7.order.wechatpay', 'cr7.redemption.getByOrder'],
+    {
+      aliases: {
+        'GET /:oid/redemption': 'cr7.redemption.getByOrder',
+      },
+      autoAliases: true,
+    }
+  ),
+  routeConfig(
+    '/redemptions',
+    ['cr7.redemption.redeem'],
     {
       autoAliases: true,
     }

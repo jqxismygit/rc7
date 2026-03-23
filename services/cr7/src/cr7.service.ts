@@ -3,6 +3,7 @@ import { RC7BaseService } from "./libs/cr7.base.js";
 import { ExhibitionService } from "./libs/exhibition.js";
 import { OrderService } from "./libs/order.js";
 import { PaymentService } from "./libs/payment.js";
+import { RedemptionService } from './libs/redeem.js';
 
 const { MoleculerClientError } = Errors;
 
@@ -15,6 +16,7 @@ export default class RC7Service extends RC7BaseService {
     super(broker);
     const exhibitionService = new ExhibitionService(broker);
     const orderService = new OrderService(broker);
+    const redemptionService = new RedemptionService(broker);
     const { actions_payment, methods: payment_methods } = new PaymentService(broker);
 
     this.parseServiceSchema({
@@ -37,6 +39,7 @@ export default class RC7Service extends RC7BaseService {
       actions: {
         ...exhibitionService.actions_exhibition,
         ...orderService.actions_order,
+        ...redemptionService.actions_redemption,
         ...actions_payment,
       },
 

@@ -251,6 +251,40 @@ export async function getOrderById(
   return { ...order, items };
 }
 
+export async function getOrderByIdAdmin(
+  client: DBClient,
+  schema: string,
+  orderId: string,
+): Promise<Order.OrderWithItems> {
+  const { rows } = await client.query<Omit<Order.OrderWithItems, 'items'>>(
+    `SELECT
+      id,
+      user_id,
+      exhibit_id,
+      session_id,
+      ${ORDER_STATUS_CASE} AS status,
+      total_amount,
+      expires_at,
+      paid_at,
+      cancelled_at,
+      released_at,
+      created_at,
+      updated_at
+    FROM ${schema}.exhibit_orders
+    WHERE id = $1`,
+    [orderId],
+  );
+
+  if (rows.length === 0) {
+    throw new OrderDataError('Order not found', 'ORDER_NOT_FOUND');
+  }
+
+  const [order] = rows;
+  const items = await getOrderItemsByOrderId(client, schema, orderId);
+
+  return { ...order, items };
+}
+
 export async function getOrders(
   client: DBClient,
   schema: string,

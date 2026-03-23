@@ -1,9 +1,12 @@
-import { Pool } from "pg";
+import { Pool, PoolClient } from "pg";
 import type { Exhibition, Inventory } from "@cr7/types";
+
+type DBClient = Pool | PoolClient;
 
 export type EXHIBITION_DATA_ERROR_CODES =
   | 'EXHIBITION_NOT_FOUND'
-  | 'TICKET_CATEGORY_NOT_FOUND';
+  | 'TICKET_CATEGORY_NOT_FOUND'
+  | 'SESSION_NOT_FOUND';
 
 export class ExhibitionDataError extends Error {
   code: EXHIBITION_DATA_ERROR_CODES;
@@ -125,7 +128,7 @@ export async function getExhibitions(
 }
 
 export async function getTicketCategoriesByExhibitionId(
-  client: Pool,
+  client: DBClient,
   schema: string,
   eid: string
 ): Promise<Exhibition.TicketCategory[]> {
@@ -295,4 +298,28 @@ export async function updateTicketCategoryInventoryMax(
       updated_at = NOW()`,
     [eid, tid, quantity]
   );
+}
+
+export async function getSessionById(
+  client: DBClient,
+  schema: string,
+  sessionId: string,
+): Promise<Exhibition.Session> {
+  const { rows } = await client.query<Exhibition.Session>(
+    `SELECT
+      id,
+      session_id AS exhibit_id,
+      session_date,
+      created_at,
+      updated_at
+    FROM ${schema}.exhibit_sessions
+    WHERE id = $1`,
+    [sessionId],
+  );
+
+  if (rows.length === 0) {
+    throw new ExhibitionDataError('Session not found', 'SESSION_NOT_FOUND');
+  }
+
+  return rows[0];
 }
