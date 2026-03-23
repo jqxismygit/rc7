@@ -15,8 +15,13 @@ function looksLikeFullDateTime(s: string): boolean {
 /**
  * 将 ISO / 常见日期时间串 / 纯日期 YYYY-MM-DD 格式化为 `YYYY-MM-DD HH:mm`
  */
-export function formatDateTime(input: string | null | undefined): string {
+export function formatDateTime(
+  input: string | Date | null | undefined,
+): string {
   if (input == null || input === "") return "—";
+  if (input instanceof Date) {
+    return dayjs(input).isValid() ? dayjs(input).format(DISPLAY) : "—";
+  }
   const s = input.trim();
   let d = dayjs(s);
   if (d.isValid()) {

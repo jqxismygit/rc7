@@ -23,15 +23,20 @@
               </view>
             </view>
             <view class="event-meta-item">
-              <text class="meta-icon">🕐</text>
+              <sx-svg name="time" :width="24" :height="24" color="#ADADAD" />
               <text class="meta-text">{{ ticket.eventDate }}</text>
             </view>
             <view class="event-meta-item">
-              <text class="meta-icon">📍</text>
+              <sx-svg
+                name="location"
+                :width="24"
+                :height="24"
+                color="#ADADAD"
+              />
               <text class="meta-text">{{ ticket.eventLocation }}</text>
             </view>
             <view class="event-meta-item ticket-info">
-              <text class="meta-icon">🎫</text>
+              <sx-svg name="ticket" :width="24" :height="24" color="#ADADAD" />
               <text class="meta-text"
                 >{{ ticket.ticketType }} x
                 {{ ticket.quantity }} 开场前48小时可退</text
@@ -66,17 +71,17 @@
         <text class="section-title">退款方式</text>
         <view class="refund-method-card card-dark">
           <view class="method-left">
-            <view class="wechat-icon-wrap">
-              <text class="wechat-char">微</text>
-            </view>
+            <image
+              class="pay-icon"
+              src="/static/images/wechat.png"
+              mode="aspectFill"
+            />
             <view class="method-text">
               <text class="method-name">微信支付</text>
               <text class="method-desc">原路退回支付账号</text>
             </view>
           </view>
-          <view class="method-check">
-            <text class="check-icon">✓</text>
-          </view>
+          <sx-svg name="success" :width="32" :height="32" color="#d8fc0f" />
         </view>
       </view>
 
@@ -136,7 +141,7 @@ export default {
 
   methods: {
     loadTicket() {
-      const found = mockMyTickets.find((item) => item.id === this.ticketId);
+      const found = mockMyTickets.find((item) => item.id === "T20260215001");
       if (found) {
         this.ticket = found;
       } else {
@@ -281,11 +286,11 @@ export default {
 .meta-text {
   font-size: 26rpx;
   color: $text-light;
-  line-height: 1.4;
+  line-height: 26rpx;
 }
 
 .ticket-info .meta-text {
-  font-size: 24rpx;
+  // font-size: 24rpx;
 }
 
 /* ===== 订单详情 ===== */
@@ -490,5 +495,11 @@ export default {
 
 .submit-btn::after {
   border: none;
+}
+
+.pay-icon {
+  width: 62rpx;
+  height: 62rpx;
+  // border-radius: 12rpx;
 }
 </style>

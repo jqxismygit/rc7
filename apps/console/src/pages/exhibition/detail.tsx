@@ -58,6 +58,24 @@ function refundPolicyText(
   return REFUND_POLICY_OPTIONS.find((o) => o.value === v)?.label ?? v;
 }
 
+function formatClockText(input: string | null | undefined): string {
+  if (!input?.trim()) return "—";
+  const s = input.trim();
+  const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(s);
+  if (m) {
+    return `${String(Number(m[1])).padStart(2, "0")}:${m[2]}`;
+  }
+  const d = dayjs(s);
+  if (d.isValid()) return d.format("HH:mm");
+  return s;
+}
+
+function formatDateOnlyText(input: string | Date | null | undefined): string {
+  if (input == null || input === "") return "—";
+  const d = dayjs(input);
+  return d.isValid() ? d.format("YYYY-MM-DD") : String(input);
+}
+
 const ticketFormInitial: CreateTicketCategoryInput = {
   name: "",
   price: 0,
@@ -457,15 +475,15 @@ export default function ExhibitionDetailPage() {
                 {data.description}
               </Descriptions.Item>
               <Descriptions.Item label="展期">
-                {formatDateTime(data.start_date)} ~{" "}
-                {formatDateTime(data.end_date)}
+                {formatDateOnlyText(data.start_date)} ~{" "}
+                {formatDateOnlyText(data.end_date)}
               </Descriptions.Item>
               <Descriptions.Item label="开场 / 闭场">
-                {formatSessionDateTime(data.start_date, data.opening_time)} —{" "}
-                {formatSessionDateTime(data.start_date, data.closing_time)}
+                {formatClockText(data.opening_time)} —{" "}
+                {formatClockText(data.closing_time)}
               </Descriptions.Item>
               <Descriptions.Item label="最晚入场">
-                {formatSessionDateTime(data.start_date, data.last_entry_time)}
+                {formatClockText(data.last_entry_time)}
               </Descriptions.Item>
               <Descriptions.Item label="地点">
                 {data.location}
