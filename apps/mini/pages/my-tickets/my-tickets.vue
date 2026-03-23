@@ -143,13 +143,9 @@
                       'act-btn-primary-disabled': ticket.status === 'refunding',
                     }"
                     :disabled="ticket.status === 'refunding'"
-                    @click.stop="goToDetail(ticket)"
+                    @click.stop="onPrimaryActionClick(ticket)"
                   >
-                    {{
-                      ticket.orderStatus === "PENDING_PAYMENT"
-                        ? "去支付"
-                        : "查看券码"
-                    }}
+                    {{ getPrimaryActionText(ticket) }}
                   </button>
                 </view>
               </view>
@@ -291,7 +287,24 @@ export default {
       return event && event.location ? event.location : "上海体育场";
     },
 
+    getPrimaryActionText(ticket) {
+      if (ticket.status === "expired") return "删除订单";
+      return ticket.orderStatus === "PENDING_PAYMENT" ? "去支付" : "查看券码";
+    },
+
+    onPrimaryActionClick(ticket) {
+      if (ticket.status === "expired") {
+        uni.showToast({ title: "暂未支持", icon: "none" });
+        return;
+      }
+      this.goToDetail(ticket);
+    },
+
     goToDetail(ticket) {
+      if (ticket.status === "expired") {
+        uni.showToast({ title: "暂未支持", icon: "none" });
+        return;
+      }
       if (ticket.orderStatus === "PENDING_PAYMENT") {
         uni.navigateTo({
           url: `/pages/order-confirm/order-confirm?orderId=${encodeURIComponent(ticket.id)}`,
