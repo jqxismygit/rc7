@@ -239,7 +239,7 @@ export default {
 
     getStatusText(status) {
       const statusMap = {
-        unused: "待入场",
+        unused: "已支付",
         used: "已完成",
         refunding: "退款中",
         refunded: "已退款",

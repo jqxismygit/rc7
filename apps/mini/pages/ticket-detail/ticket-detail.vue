@@ -14,9 +14,11 @@
       >
         <!-- 状态标签 + 票号 -->
         <view class="status-row">
-          <view class="status-tag" :class="'tag-' + ticket.status">
+          <view class="status-tag" :class="statusTagClass">
             <!-- <view class="status-dot" :class="'dot-' + ticket.status" /> -->
-            <text class="status-label">{{ getStatusText(ticket.status) }}</text>
+            <text class="status-label">{{
+              getStatusText(this.redemptionStatus)
+            }}</text>
           </view>
           <view class="ticket-no-wrap">
             <sx-svg name="ticket" :width="24" :height="24" color="#ADADAD" />
@@ -193,37 +195,34 @@ export default {
     showQrBlock() {
       return this.ticket.orderStatus === "PAID";
     },
-    /** 除待支付外，待使用/已使用/过期/取消等展示双按钮底栏 */
+    /** 底部双按钮仅跟随核销状态：待使用/已使用 */
     showDetailActionsBar() {
       if (this.ticket.orderStatus === "PENDING_PAYMENT") return false;
-      if (!this.ticket || !this.ticket.id) return false;
-      const s = this.ticket.status;
-      return [
-        "unused",
-        "used",
-        "expired",
-        "cancelled",
-        "refunding",
-        "refunded",
-      ].includes(s);
+      return ["UNREDEEMED", "REDEEMED"].includes(this.redemptionStatus);
     },
-    /** 左侧：仅待使用(unused)为申请退票，其余为删除订单 */
+    redemptionStatus() {
+      return this.redemption?.status || "";
+    },
+    statusTagClass() {
+      if (this.redemptionStatus === "REDEEMED") return "tag-used";
+      if (this.redemptionStatus === "UNREDEEMED") return "tag-unused";
+      return `tag-${this.ticket.status || ""}`;
+    },
+    /** 待使用可申请退票，已使用显示删除订单 */
     detailLeftIsRefund() {
-      return this.ticket.status === "unused";
+      return this.redemptionStatus === "UNREDEEMED";
     },
     detailLeftLabel() {
       return this.detailLeftIsRefund ? "申请退票" : "删除订单";
     },
-    /** 仅已入场(used)可点开具发票；未使用/过期等为禁用 */
+    /** 仅已使用可开具发票 */
     invoiceDisabled() {
-      return this.ticket.status !== "used";
+      return this.redemptionStatus !== "REDEEMED";
     },
     redemptionCode() {
       return this.redemption?.code || "";
     },
     ticketQrPayload() {
-      console.log("this.redemptionCode=======》》》", this.redemptionCode);
-      console.log("this.ticket?.eventId=======》》》", this.ticket?.eventId);
       if (!this.redemptionCode || !this.ticket?.eventId) return "";
       return `CR7|eid=${this.ticket.eventId}|code=${this.redemptionCode}`;
     },
@@ -234,9 +233,8 @@ export default {
       return `${this.formatDateTime(from)} - ${this.formatDateTime(until)}`;
     },
     redemptionStatusText() {
-      const status = this.redemption?.status;
-      if (status === "REDEEMED") return "已核销";
-      if (status === "UNREDEEMED") return "待核销";
+      if (this.redemptionStatus === "REDEEMED") return "已核销";
+      if (this.redemptionStatus === "UNREDEEMED") return "待核销";
       return "";
     },
     detailScrollPadding() {
@@ -304,12 +302,14 @@ export default {
     getStatusText(status) {
       const statusMap = {
         unused: "待使用",
-        used: "已入场",
+        used: "已使用",
         refunding: "退款中",
         refunded: "已退款",
         pending_payment: "待支付",
         cancelled: "已取消",
         expired: "已过期",
+        UNREDEEMED: "待使用",
+        REDEEMED: "已使用",
       };
       return statusMap[status] || status;
     },
@@ -420,13 +420,13 @@ export default {
 }
 
 .tag-unused {
-  background: rgba(216, 251, 14, 0.2);
-  border: 2rpx solid rgba(216, 251, 14, 0.3);
+  background: #d8fb0e33;
+  border: 2rpx solid #d8fb0e4d;
 }
 
 .tag-used {
-  background: rgba(46, 204, 113, 0.2);
-  border: 2rpx solid rgba(46, 204, 113, 0.3);
+  background: #d8fb0e66;
+  // border: 2rpx solid #d8fc0f;
 }
 
 .tag-refunding {
@@ -464,10 +464,10 @@ export default {
 }
 
 .tag-unused .status-label {
-  color: $cr7-gold;
+  color: #d8fb0e;
 }
 .tag-used .status-label {
-  color: $cr7-success;
+  color: #0f2316;
 }
 .tag-refunding .status-label {
   color: $cr7-warning;
