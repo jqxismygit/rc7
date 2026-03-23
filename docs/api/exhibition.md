@@ -1,6 +1,6 @@
 # 展览活动相关接口
 
-基于 `@cr7/types` 中的 `Exhibition` 命名空间定义，对应类型来源为 `services/types/exhibition.ts`。
+基于 `@cr7/types` 中的 `Exhibition` 命名空间定义，对应类型来源为 [exhibition](../../services/types/exhibition.ts)。
 
 ## 概念说明
 

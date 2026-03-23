@@ -233,7 +233,7 @@ describeFeature(feature, ({
           expect.objectContaining({
             body: expect.objectContaining({
               amount: expect.objectContaining({
-                total: context.order!.total_amount * 100,
+                total: context.order!.total_amount,
                 currency: 'CNY',
               }),
             }),
