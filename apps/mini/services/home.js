@@ -50,7 +50,8 @@ export function fetchHeroBanners() {
  * 首页马上购票使用的展览 ID（与后台创建的展会一致；后续可改为配置/接口首条）
  * @see docs/api/exhibition.md、docs/api/inventory.md
  */
-const HOME_EXHIBITION_ID = "e0c47ea5-8b48-45b8-b52c-cc985871d6e4";
+// const HOME_EXHIBITION_ID = "e0c47ea5-8b48-45b8-b52c-cc985871d6e4";
+const HOME_EXHIBITION_ID = "4ff09acd-72cf-44fd-8b73-dfad737f6cbf";
 
 function sessionDateKey(session) {
   const raw = session?.session_date;
