@@ -37,10 +37,3 @@ export interface RedeemRequest {
   code: string; // 核销码
   quantity?: number; // 本次核销人数，可选
 }
-
-export interface RedemptionListResult {
-  codes: RedemptionCode[];
-  total: number;
-  page: number;
-  limit: number;
-}
