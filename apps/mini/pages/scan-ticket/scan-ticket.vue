@@ -11,20 +11,20 @@
       </view>
     </view>
 
-    <!-- 核销成功横幅：悬浮 overlay，不影响主体布局（Figma：w ~680 / radius 28 / pad 21） -->
+    <!-- 核销结果横幅：悬浮 overlay，不影响主体布局 -->
     <view
-      v-if="true"
+      v-if="showStatusBanner"
       class="success-banner success-banner-float"
       :style="{ top: navBlockPx + 24 + 'px' }"
     >
       <view class="success-row">
-        <view class="success-icon-wrap">
-          <view class="success-icon-bg"></view>
-          <view class="success-tick">
-            <text class="success-tick-char">✓</text>
-          </view>
-        </view>
-        <text class="success-text">核销成功，电子票已使用</text>
+        <sx-svg
+          :name="statusBannerIcon"
+          :width="42"
+          :height="42"
+          color="#FFFFFF"
+        />
+        <text class="success-text">{{ statusBannerText }}</text>
       </view>
     </view>
 
@@ -84,11 +84,13 @@ export default {
     return {
       statusBarHeight: 0,
       navInnerPx: 44,
-      showSuccessBanner: false,
+      showStatusBanner: false,
+      statusBannerType: "success",
       torchOn: false,
       useInlineCamera: true,
       scanLocked: false,
       bannerTimer: null,
+      scanUnlockTimer: null,
     };
   },
 
@@ -99,12 +101,24 @@ export default {
     torchFlash() {
       return this.torchOn ? "torch" : "off";
     },
+    statusBannerIcon() {
+      return this.statusBannerType === "failed" ? "failed" : "success-fill";
+    },
+    statusBannerText() {
+      return this.statusBannerType === "failed"
+        ? "核销失败，电子票无效"
+        : "核销成功，电子票已使用";
+    },
   },
 
   onUnload() {
     if (this.bannerTimer) {
       clearTimeout(this.bannerTimer);
       this.bannerTimer = null;
+    }
+    if (this.scanUnlockTimer) {
+      clearTimeout(this.scanUnlockTimer);
+      this.scanUnlockTimer = null;
     }
   },
 
@@ -139,7 +153,6 @@ export default {
         scanType: ["qrCode", "barCode"],
         success: (res) => {
           this.handleScanResult(res.result || "");
-          console.log("res=======》》》", res);
         },
         fail: () => {
           uni.showToast({ title: "已取消扫码", icon: "none" });
@@ -190,35 +203,58 @@ export default {
       return "核销失败，请稍后重试";
     },
 
+    showRedeemBanner(type) {
+      this.statusBannerType = type === "failed" ? "failed" : "success";
+      this.showStatusBanner = true;
+      if (this.bannerTimer) clearTimeout(this.bannerTimer);
+      this.bannerTimer = setTimeout(() => {
+        this.showStatusBanner = false;
+        this.bannerTimer = null;
+      }, 3000);
+    },
+
+    releaseScanLock(delay = 0) {
+      if (this.scanUnlockTimer) {
+        clearTimeout(this.scanUnlockTimer);
+        this.scanUnlockTimer = null;
+      }
+      if (delay <= 0) {
+        this.scanLocked = false;
+        return;
+      }
+      this.scanUnlockTimer = setTimeout(() => {
+        this.scanLocked = false;
+        this.scanUnlockTimer = null;
+      }, delay);
+    },
+
     async handleScanResult(code) {
       if (this.scanLocked || !code) return;
       this.scanLocked = true;
       const { eid, code: redeemCode } = this.parseRedeemPayload(code);
       if (!redeemCode) {
-        this.scanLocked = false;
+        this.releaseScanLock(1800);
+        this.showRedeemBanner("failed");
         uni.showToast({ title: "未识别到有效券码", icon: "none" });
         return;
       }
       if (!eid) {
-        this.scanLocked = false;
+        this.releaseScanLock(1800);
+        this.showRedeemBanner("failed");
         uni.showToast({ title: "二维码缺少展会信息，无法核销", icon: "none" });
         return;
       }
       try {
         uni.showLoading({ title: "核销中...", mask: true });
-        // await redeemTicket(eid, { code: redeemCode });
-        // uni.hideLoading();
-        // this.showSuccessBanner = true;
-        // if (this.bannerTimer) clearTimeout(this.bannerTimer);
-        // this.bannerTimer = setTimeout(() => {
-        //   this.showSuccessBanner = false;
-        //   this.scanLocked = false;
-        //   this.bannerTimer = null;
-        // }, 4000);
+        await redeemTicket(eid, { code: redeemCode });
+        uni.hideLoading();
+        this.showRedeemBanner("success");
+        this.releaseScanLock(800);
       } catch (e) {
         uni.hideLoading();
-        this.scanLocked = false;
-        uni.showToast({ title: this.pickRedeemErrorMessage(e), icon: "none" });
+        this.releaseScanLock(1800);
+        this.showRedeemBanner("failed");
+        // uni.showToast({ title: this.pickRedeemErrorMessage(e), icon: "none" });
       }
     },
   },
@@ -361,7 +397,7 @@ export default {
 
 .success-text {
   font-size: 30rpx;
-  line-height: 42rpx;
+  line-height: 30rpx;
   color: $text-white;
   font-weight: 400;
 }
