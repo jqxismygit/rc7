@@ -61,6 +61,15 @@ Feature: 用户已购票的查询与核销
      Then 再次核销失败，状态码为 409
       And 核销失败错误类型为 "REDEMPTION_ALREADY_REDEEMED"
 
+  Scenario: 当天场次的核销码从今天零点起有效
+    Given 展览活动 "CR7" 已创建，包含场次 "今天" 和票种 "early_bird"
+      And "early_bird" 票种的有效期为场次当天有效
+      And 场次 "今天" 的 "early_bird" 库存初始为 2
+    Given 用户在一个订单里购买了 1 张 "CR7" 的 "今天" 场次的 "early_bird"
+     When 用户查询订单核销信息
+     Then 核销码的有效期起始时间不晚于当前时间
+      And "管理员"将用户 "Alice" 的订单核销码立即扫码核销成功
+
   Scenario: 只有运营人员才能核销
     Given 展览活动 "CR7" 已创建，包含场次 "今天" 和票种 "early_bird"
       And "early_bird" 票种的有效期为场次当天有效

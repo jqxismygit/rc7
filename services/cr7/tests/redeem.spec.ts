@@ -296,10 +296,12 @@ describeFeature(feature, ({
 
   async function expireCurrentRedemption(context: Partial<CaseContext>) {
     const pool = getCr7PoolForTestSupport();
+    // Set valid_until to valid_from + 1 second: satisfies the DB constraint (valid_until > valid_from)
+    // and makes the code immediately expired since now >> valid_from + 1s
     await pool.query(
       `UPDATE ${schema}.exhibit_redemption_codes
       SET
-        valid_until = NOW() - INTERVAL '1 second',
+        valid_until = valid_from + INTERVAL '1 second',
         updated_at = NOW()
       WHERE order_id = $1`,
       [context.order!.id],
@@ -429,16 +431,15 @@ describeFeature(feature, ({
       And('核销码的有效期为场次当天', () => {
         const validFrom = new Date(context.redemption!.valid_from);
         const validUntil = new Date(context.redemption!.valid_until);
-        const padDate = (n: number) => String(n).padStart(2, '0');
-        const toLocalDateStr = (d: Date) =>
-          `${d.getFullYear()}-${padDate(d.getMonth() + 1)}-${padDate(d.getDate())}`;
-        expect(toLocalDateStr(validFrom)).toBe(toLocalDateStr(validUntil));
+        // valid_from: local midnight of the session day
         expect(validFrom.getHours()).toBe(0);
         expect(validFrom.getMinutes()).toBe(0);
         expect(validFrom.getSeconds()).toBe(0);
-        expect(validUntil.getHours()).toBe(23);
-        expect(validUntil.getMinutes()).toBe(59);
-        expect(validUntil.getSeconds()).toBe(59);
+        // valid_until: local midnight of the NEXT day (right-open, exclusive)
+        const expectedUntil = new Date(
+          validFrom.getFullYear(), validFrom.getMonth(), validFrom.getDate() + 1,
+        );
+        expect(validUntil.getTime()).toBe(expectedUntil.getTime());
       });
     },
   );
@@ -726,6 +727,59 @@ describeFeature(feature, ({
       And('核销码的核销人为 {string}', (_ctx, operator: string) => {
         const operatorId = resolveOperatorProfileId(operator);
         expect(context.redemption?.redeemed_by).toBe(operatorId);
+      });
+    },
+  );
+
+  Scenario(
+    '当天场次的核销码从今天零点起有效',
+    (s: StepTest<Partial<CaseContext>>) => {
+      const { Given, And, When, Then, context } = s;
+
+      Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
+        await prepareExhibitionData(context, exhibitionName, sessionDate, ticketName, 1, 2);
+      });
+
+      And('{string} 票种的有效期为场次当天有效', (_ctx, _ticketName: string) => {
+        expect(context.ticket?.valid_duration_days).toBe(1);
+      });
+
+      And('场次 {string} 的 {string} 库存初始为 {int}', (_ctx, _sessionDate: string, _ticketName: string, quantity: number) => {
+        expect(quantity).toBe(2);
+      });
+
+      Given('用户在一个订单里购买了 {int} 张 {string} 的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
+        await createOrderForCurrentUser(context, quantity);
+        await payOrderForCurrentUser(context);
+        await fetchOrderRedemption(context);
+      });
+
+      When('用户查询订单核销信息', async () => {
+        await fetchOrderRedemption(context);
+      });
+
+      Then('核销码的有效期起始时间不晚于当前时间', () => {
+        // Regression test: valid_from must be local midnight, not UTC midnight.
+        // If toValidityStartDate used Date.UTC(), valid_from in UTC+8 would be 8 hours in the
+        // future, making the code appear expired immediately after purchase.
+        const validFrom = new Date(context.redemption!.valid_from);
+        expect(validFrom.getTime()).toBeLessThanOrEqual(Date.now());
+        // Explicit: valid_from must be exactly today's local midnight (00:00:00.000)
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+        expect(validFrom.getTime()).toBe(todayMidnight.getTime());
+      });
+
+      And('"管理员"将用户 "Alice" 的订单核销码立即扫码核销成功', async () => {
+        const token = resolveOperatorToken('管理员');
+        clearLastError(context);
+        try {
+          await performRedeem(context, token);
+        } catch (error) {
+          rememberError(context, error);
+        }
+        expect(context.lastError).toBeFalsy();
+        expect(context.redemption?.status).toBe('REDEEMED');
       });
     },
   );
