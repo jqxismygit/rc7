@@ -20,7 +20,9 @@
           </view>
           <view class="ticket-no-wrap">
             <sx-svg name="ticket" :width="24" :height="24" color="#ADADAD" />
-            <text class="ticket-no">票号: {{ redemption.code }}</text>
+            <text class="ticket-no"
+              >票号: {{ redemptionCode || ticket.id }}</text
+            >
           </view>
         </view>
 
@@ -63,7 +65,15 @@
           <view class="qr-card">
             <text class="qr-title">电子票二维码</text>
             <view class="qr-code-wrap">
-              <view class="qr-code-placeholder" />
+              <l-qrcode
+                v-if="ticketQrPayload"
+                class="qr-code-img"
+                :value="ticketQrPayload"
+                size="370rpx"
+                bgColor="#ffffff"
+                :marginSize="1"
+              />
+              <view v-else class="qr-code-placeholder" />
             </view>
             <text class="qr-id">ID: {{ formatTicketId(ticket.id) }}</text>
             <text class="qr-hint">使用时请向工作人员出示此码</text>
@@ -210,6 +220,12 @@ export default {
     },
     redemptionCode() {
       return this.redemption?.code || "";
+    },
+    ticketQrPayload() {
+      console.log("this.redemptionCode=======》》》", this.redemptionCode);
+      console.log("this.ticket?.eventId=======》》》", this.ticket?.eventId);
+      if (!this.redemptionCode || !this.ticket?.eventId) return "";
+      return `CR7|eid=${this.ticket.eventId}|code=${this.redemptionCode}`;
     },
     redemptionValidityText() {
       const from = this.redemption?.valid_from;
@@ -542,7 +558,7 @@ export default {
 
 .qr-code-wrap {
   background: #ffffff;
-  border-radius: 62rpx;
+  border-radius: 30rpx;
   padding: 30rpx;
   box-shadow: inset 0 4rpx 8rpx rgba(0, 0, 0, 0.05);
 }
@@ -551,6 +567,11 @@ export default {
   width: 370rpx;
   height: 370rpx;
   background: #e2e8f0;
+}
+
+.qr-code-img {
+  width: 370rpx;
+  height: 370rpx;
 }
 
 .qr-id {

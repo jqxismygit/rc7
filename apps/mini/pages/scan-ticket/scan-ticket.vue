@@ -13,7 +13,7 @@
 
     <!-- 核销成功横幅：悬浮 overlay，不影响主体布局（Figma：w ~680 / radius 28 / pad 21） -->
     <view
-      v-if="showSuccessBanner"
+      v-if="true"
       class="success-banner success-banner-float"
       :style="{ top: navBlockPx + 24 + 'px' }"
     >
@@ -77,12 +77,14 @@
 </template>
 
 <script>
+import { redeemTicket } from "@/services/redeem.js";
+
 export default {
   data() {
     return {
       statusBarHeight: 0,
       navInnerPx: 44,
-      showSuccessBanner: true,
+      showSuccessBanner: false,
       torchOn: false,
       useInlineCamera: true,
       scanLocked: false,
@@ -137,6 +139,7 @@ export default {
         scanType: ["qrCode", "barCode"],
         success: (res) => {
           this.handleScanResult(res.result || "");
+          console.log("res=======》》》", res);
         },
         fail: () => {
           uni.showToast({ title: "已取消扫码", icon: "none" });
@@ -152,21 +155,71 @@ export default {
       this.handleScanResult(code);
     },
 
-    handleScanResult(code) {
+    extractRedeemCode(raw) {
+      const text = String(raw || "").trim();
+      if (!text) return "";
+      const keyMatch = text.match(/(?:^|[?|&|])code=([^|&\s]+)/i);
+      if (keyMatch?.[1]) {
+        return decodeURIComponent(keyMatch[1]).trim();
+      }
+      const matched = text.match(/R[A-Z0-9]{11}/i);
+      if (matched && matched[0]) return matched[0];
+      return text;
+    },
+
+    parseRedeemPayload(raw) {
+      const text = String(raw || "").trim();
+      if (!text) return { eid: "", code: "" };
+      const eidMatch = text.match(/(?:^|[?|&|])eid=([A-Za-z0-9-_%]+)/i);
+      const eid = eidMatch?.[1] ? decodeURIComponent(eidMatch[1]) : "";
+      const code = this.extractRedeemCode(text);
+
+      return { eid, code };
+    },
+
+    pickRedeemErrorMessage(err) {
+      const data = err?.data;
+      if (data && typeof data === "object" && data.message) {
+        return String(data.message);
+      }
+      const code = err?.statusCode;
+      if (code === 400) return "券码格式错误，请重新扫码";
+      if (code === 401) return "无核销权限，请联系管理员";
+      if (code === 404) return "券码不存在或不属于当前展会";
+      if (code === 409) return "该券码已核销或已过期";
+      return "核销失败，请稍后重试";
+    },
+
+    async handleScanResult(code) {
       if (this.scanLocked || !code) return;
       this.scanLocked = true;
-      uni.showLoading({ title: "核销中..." });
-
-      setTimeout(() => {
+      const { eid, code: redeemCode } = this.parseRedeemPayload(code);
+      if (!redeemCode) {
+        this.scanLocked = false;
+        uni.showToast({ title: "未识别到有效券码", icon: "none" });
+        return;
+      }
+      if (!eid) {
+        this.scanLocked = false;
+        uni.showToast({ title: "二维码缺少展会信息，无法核销", icon: "none" });
+        return;
+      }
+      try {
+        uni.showLoading({ title: "核销中...", mask: true });
+        // await redeemTicket(eid, { code: redeemCode });
+        // uni.hideLoading();
+        // this.showSuccessBanner = true;
+        // if (this.bannerTimer) clearTimeout(this.bannerTimer);
+        // this.bannerTimer = setTimeout(() => {
+        //   this.showSuccessBanner = false;
+        //   this.scanLocked = false;
+        //   this.bannerTimer = null;
+        // }, 4000);
+      } catch (e) {
         uni.hideLoading();
-        this.showSuccessBanner = true;
-        if (this.bannerTimer) clearTimeout(this.bannerTimer);
-        this.bannerTimer = setTimeout(() => {
-          this.showSuccessBanner = false;
-          this.scanLocked = false;
-          this.bannerTimer = null;
-        }, 4000);
-      }, 600);
+        this.scanLocked = false;
+        uni.showToast({ title: this.pickRedeemErrorMessage(e), icon: "none" });
+      }
     },
   },
 };
