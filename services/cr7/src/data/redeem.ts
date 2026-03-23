@@ -231,15 +231,7 @@ export async function upsertRedemptionCodeByOrderId(
           RETURNING
             exhibit_id,
             order_id,
-            code,
-            status,
-            quantity,
-            valid_from,
-            valid_until,
-            redeemed_at,
-            redeemed_by,
-            created_at,
-            updated_at
+            code
         )
         SELECT *
         FROM inserted
@@ -247,15 +239,7 @@ export async function upsertRedemptionCodeByOrderId(
         SELECT
           exhibit_id,
           order_id,
-          code,
-          status,
-          quantity,
-          valid_from,
-          valid_until,
-          redeemed_at,
-          redeemed_by,
-          created_at,
-          updated_at
+          code
         FROM ${schema}.exhibit_redemption_codes
         WHERE order_id = $3
           AND NOT EXISTS (SELECT 1 FROM inserted)
