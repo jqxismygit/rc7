@@ -112,7 +112,6 @@ function buildRedemptionWithOrder(
   items: RedemptionItemInput[],
 ): Redeem.RedemptionCodeWithOrder {
   return {
-    id: row.id,
     exhibit_id: row.exhibit_id,
     order_id: row.order_id,
     code: row.code,
@@ -143,7 +142,6 @@ export async function getRedemptionRowByOrderId(
 ): Promise<RedemptionRow> {
   const { rows } = await client.query<RedemptionRow>(
     `SELECT
-      code AS id,
       exhibit_id,
       order_id,
       code,
@@ -177,7 +175,6 @@ export async function getRedemptionRowByCode(
 ): Promise<RedemptionRow> {
   const { rows } = await client.query<RedemptionRow>(
     `SELECT
-      code AS id,
       exhibit_id,
       order_id,
       code,
@@ -232,7 +229,6 @@ export async function upsertRedemptionCodeByOrderId(
           VALUES ($1, $2, $3, 'UNREDEEMED', $4, $5, $6)
           ON CONFLICT (order_id) DO NOTHING
           RETURNING
-            code AS id,
             exhibit_id,
             order_id,
             code,
@@ -249,7 +245,6 @@ export async function upsertRedemptionCodeByOrderId(
         FROM inserted
         UNION ALL
         SELECT
-          code AS id,
           exhibit_id,
           order_id,
           code,

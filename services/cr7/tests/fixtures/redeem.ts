@@ -1,6 +1,7 @@
 import { addDays, format } from 'date-fns';
 import { Server } from 'node:http';
 import { Redeem } from '@cr7/types';
+import { expect } from 'vitest';
 import { getJSON, postJSON } from '../lib/api.js';
 
 const CODE_LENGTH = 12;
@@ -62,16 +63,58 @@ export function isValidRedemptionCodeLuhn(code: string) {
   return code.slice(10) === expected;
 }
 
+export function assertRedeem(data: unknown) {
+  expect(data).toBeTypeOf('object');
+  expect(data).toHaveProperty('order_id', expect.any(String));
+  expect(data).toHaveProperty('code', expect.any(String));
+  expect(data).toHaveProperty('exhibit_id', expect.any(String));
+  expect(data).toHaveProperty('status', expect.stringMatching(/^(UNREDEEMED|REDEEMED)$/));
+  expect(data).toHaveProperty('quantity', expect.any(Number));
+  expect(data).toHaveProperty('valid_from', expect.any(String));
+  expect(data).toHaveProperty('valid_until', expect.any(String));
+  expect(data).toHaveProperty('created_at', expect.any(String));
+  expect(data).toHaveProperty('updated_at', expect.any(String));
+  expect(data).toHaveProperty('order', expect.any(Object));
+  expect(data).toHaveProperty('items', expect.any(Array));
+  expect(data).not.toHaveProperty('id');
+
+  const redeem = data as Redeem.RedemptionCodeWithOrder;
+  if (redeem.redeemed_at !== null) {
+    expect(redeem.redeemed_at).toEqual(expect.any(String));
+  }
+  if (redeem.redeemed_by !== null) {
+    expect(redeem.redeemed_by).toEqual(expect.any(String));
+  }
+
+  expect(redeem.order).toHaveProperty('id', expect.any(String));
+  expect(redeem.order).toHaveProperty('user_id', expect.any(String));
+  expect(redeem.order).toHaveProperty('exhibit_id', expect.any(String));
+  expect(redeem.order).toHaveProperty('session_id', expect.any(String));
+  expect(redeem.order).toHaveProperty('total_amount', expect.any(Number));
+  expect(redeem.order).toHaveProperty('status', expect.any(String));
+
+  for (const item of redeem.items) {
+    expect(item).toHaveProperty('id', expect.any(String));
+    expect(item).toHaveProperty('ticket_category_id', expect.any(String));
+    expect(item).toHaveProperty('quantity', expect.any(Number));
+    expect(item).toHaveProperty('unit_price', expect.any(Number));
+    expect(item).toHaveProperty('category_name', expect.any(String));
+  }
+}
+
 export async function getOrderRedemption(
   server: Server,
   orderId: string,
   token: string,
 ) {
-  return getJSON<Redeem.RedemptionCodeWithOrder>(
+  const redemption = await getJSON<Redeem.RedemptionCodeWithOrder>(
     server,
     `/orders/${orderId}/redemption`,
     { token },
   );
+
+  assertRedeem(redemption);
+  return redemption;
 }
 
 export async function redeemCode(

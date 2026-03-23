@@ -1,7 +1,6 @@
 export type RedemptionStatus = 'UNREDEEMED' | 'REDEEMED';
 
 export interface RedemptionCode {
-  id: string;
   order_id: string;
   code: string;
   exhibit_id: string;
