@@ -102,6 +102,15 @@ const routes = [
     }
   ),
   routeConfig(
+    '/users',
+    ['user.grant_role'],
+    {
+      aliases: {
+        'POST /:uid/roles': 'user.grant_role'
+      }
+    }
+  ),
+  routeConfig(
     '/exhibition',
     ['cr7.exhibition.*'],
     {

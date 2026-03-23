@@ -26,6 +26,7 @@ import {
   redeemCode,
   toSessionDateLabel,
 } from './fixtures/redeem.js';
+import { grantRoleToUser as grantRoleToUserAPI } from './fixtures/user.js';
 import {
   buildCallbackNotification,
   initiatePayment,
@@ -231,7 +232,7 @@ describeFeature(feature, ({
     expect(body.type).toBe(expectedType);
   }
 
-  function getCr7Pool() {
+  function getCr7PoolForTestSupport() {
     const broker = scenarioContext.fixtures.values.broker as ServiceBroker;
     const cr7Service = broker.getLocalService('cr7') as unknown as ServiceWithPool;
     expect(cr7Service).toBeTruthy();
@@ -275,21 +276,12 @@ describeFeature(feature, ({
     const user = scenarioContext.usersByName[userName];
     expect(user).toBeTruthy();
 
-    const pool = getCr7Pool();
-    const { rows: roleRows } = await pool.query<{ id: string }>(
-      `SELECT id
-      FROM ${schema}.roles
-      WHERE name = $1
-      LIMIT 1`,
-      [roleName],
-    );
-    expect(roleRows[0]).toBeTruthy();
-
-    await pool.query(
-      `INSERT INTO ${schema}.user_roles (uid, role_id)
-      VALUES ($1, $2)
-      ON CONFLICT (uid, role_id) DO NOTHING`,
-      [user.profile.id, roleRows[0].id],
+    const { apiServer } = scenarioContext.fixtures.values;
+    const result = await grantRoleToUserAPI(
+      apiServer,
+      scenarioContext.adminToken,
+      user.profile.id,
+      roleName,
     );
 
     if (roleName === 'OPERATOR') {
@@ -298,10 +290,12 @@ describeFeature(feature, ({
         operatorProfile: user.profile,
       });
     }
+
+    return result;
   }
 
   async function expireCurrentRedemption(context: Partial<CaseContext>) {
-    const pool = getCr7Pool();
+    const pool = getCr7PoolForTestSupport();
     await pool.query(
       `UPDATE ${schema}.exhibit_redemption_codes
       SET

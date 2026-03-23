@@ -12,6 +12,7 @@ import {
     assertLoginResponse,
     assertUserProfile,
     changePassword,
+    grantRoleToUser,
     getUserProfile,
     passwordLogin,
     wechatMiniLogin
@@ -316,6 +317,84 @@ describeFeature(feature, ({
                 messageIncludes: '手机号或密码错误',
                 method: 'POST',
             });
+        });
+    });
+
+    interface OperatorContext extends TestContext {
+        adminToken?: string;
+        adminProfile?: User.Profile;
+        userToken?: string;
+        userProfile?: User.Profile;
+        grantRoleResponse?: { role_names: string[] };
+    }
+
+    Scenario('管理员可以将其他用户设置成运营人员', (s: StepTest<Partial<OperatorContext>>) => {
+        const { Given, When, Then, context } = s;
+
+        Given('管理员账号 {string} 已登录', async (ctx, adminName: string) => {
+            const { apiServer } = scenarioContext.fixtures.values;
+            const adminPhone = `admin_${adminName}`;
+            const adminPassword = 'admin_password_test';
+
+            await initAdminByCli(adminPhone, adminPassword);
+
+            const contextForLogin: Partial<AdminContext> = {
+                adminCountryCode: '+86',
+                adminPhone,
+                adminInitialPassword: adminPassword,
+            };
+            const adminLoginResponse = await loginAdmin(contextForLogin, adminPassword, 'adminLoginResponse');
+            const adminProfile = await getUserProfile(apiServer, adminLoginResponse.token);
+
+            Object.assign(context, {
+                adminToken: adminLoginResponse.token,
+                adminProfile,
+            });
+        });
+
+        Given('用户 {string} 已注册并登录', async (ctx, userName: string) => {
+            const { apiServer } = scenarioContext.fixtures.values;
+            const { mockCode2SessionResponse, address } = await (async () => {
+                const mockCode2SessionResponse = vi.fn();
+                const mockServer = await mockWechatServer(mockCode2SessionResponse);
+                return { mockCode2SessionResponse, address: mockServer.address, mockServer };
+            })();
+
+            const mockCode2SessionResponse_ref = mockCode2SessionResponse;
+
+            vi.spyOn(config.wechat, 'base_url', 'get').mockReturnValue(address);
+            const code2SessionResponse = {
+                openid: `openid_${userName}`,
+                session_key: `session_key_${userName}`,
+            };
+            mockCode2SessionResponse_ref.mockResolvedValue(code2SessionResponse);
+
+            const code = `code_${userName}`;
+            const loginResponse = await wechatMiniLogin(apiServer, code);
+            assertLoginResponse(loginResponse);
+
+            const userProfile = await getUserProfile(apiServer, loginResponse.token);
+            Object.assign(context, {
+                userToken: loginResponse.token,
+                userProfile,
+            });
+        });
+
+        When('管理员账号 {string} 将用户 {string} 设置成运营人员', async () => {
+            const { apiServer } = scenarioContext.fixtures.values;
+            const grantRoleResponse = await grantRoleToUser(
+                apiServer,
+                context.adminToken!,
+                context.userProfile!.id,
+                'OPERATOR',
+            );
+            Object.assign(context, { grantRoleResponse });
+        });
+
+        Then('用户 {string} 的角色包含 {string}', (_ctx, userName: string, roleLabel: string) => {
+            expect(roleLabel).toBe('operator');
+            expect(context.grantRoleResponse).toBeTruthy();
+            expect(context.grantRoleResponse!.role_names).toContain('OPERATOR');
         });
     });
 });

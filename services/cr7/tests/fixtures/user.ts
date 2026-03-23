@@ -132,3 +132,22 @@ export async function registerUser(
     await mockServer.close();
   }
 }
+
+/**
+ * 为用户授予角色
+ */
+export async function grantRoleToUser(
+  server: Server,
+  token: string,
+  uid: string,
+  roleName: string,
+) {
+  return postJSON<{ role_names: string[] }>(
+    server,
+    `/users/${uid}/roles`,
+    {
+      token,
+      body: { role_name: roleName },
+    }
+  );
+}
