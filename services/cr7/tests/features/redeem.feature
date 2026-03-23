@@ -11,6 +11,10 @@ Feature: 用户已购票的查询与核销
     Given 用户在一个订单里购买了 2 张 "CR7" 的 "2026-07-01" 场次的 "early_bird"
      When 用户查询订单核销信息
      Then 订单详情中包含一个核销码
+      And 核销码的长度为 "12" 位
+      And 核销码的第一位是 "R" 先做保留字
+      And 核销码最后两位是 Luhn 校验码且正确
+      And 核销码中间的9位字符集 "23456789ABCDEFGHJKLMNPQRSTUVWXYZ" 组成, 不包含易混淆的字符如 "0", "1", "I", "O"
       And 核销码的状态为未核销
       And 核销码下有两张 "early_bird" 票
       And 核销码的准入人数为 "2"
@@ -22,14 +26,22 @@ Feature: 用户已购票的查询与核销
       And "early_bird" 票种的有效期为场次当天有效
       And 场次 "今天" 的 "early_bird" 库存初始为 2
     Given 用户在一个订单里购买了 2 张 "CR7" 的 "今天" 场次的 "early_bird"
-     When 用户使用核销码完成核销
+     When "管理员"将用户 "Alice" 的订单核销码扫码核销
      Then 核销成功
-      And 核销码状态变为已核销
+      And 核销码状态变为 "已核销"
+      And 核销码的核销时间被记录
+      And 核销码的核销人为 "管理员"
 
   @TODO
   Scenario: 一个未完成支付的订单没有核销码
 
   @TODO
   Scenario: 已过期订单的核销码不可用
+
+  @TODO
+  Scenario: 已核销订单的核销码不可重复使用
+
+  @TODO
+  Scenario: 只有运营人员才能核销
 
 
