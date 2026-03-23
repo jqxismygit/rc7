@@ -56,7 +56,13 @@ const HOME_EXHIBITION_ID = "061ea274-365f-4e4f-99c9-762fcc1972d9";
 function sessionDateKey(session) {
   const raw = session?.session_date;
   if (!raw) return "";
-  return String(raw).slice(0, 10);
+  const text = String(raw).trim();
+  if (!text) return "";
+  // 纯日期不做时区换算，避免 YYYY-MM-DD 被解析后产生跨日偏移
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const d = dayjs(text);
+  if (d.isValid()) return d.format("YYYY-MM-DD");
+  return text.slice(0, 10);
 }
 
 /** 按当前本地日期匹配场次 session_date（YYYY-MM-DD） */
@@ -116,6 +122,15 @@ function mapSessionInventoryToHomeTickets(rows) {
   }));
 }
 
+function mapSessionOptions(rows) {
+  return (rows || [])
+    .map((row) => ({
+      id: row?.id || "",
+      date: sessionDateKey(row),
+    }))
+    .filter((row) => row.id && row.date);
+}
+
 export async function loadHomeTicketSection() {
   const eid = HOME_EXHIBITION_ID;
 
@@ -127,6 +142,7 @@ export async function loadHomeTicketSection() {
   const list = Array.isArray(sessions) ? sessions : [];
   const todaySession = findTodaySession(list);
   const ticketEvent = buildTicketEvent(exhibition, todaySession);
+  const sessionOptions = mapSessionOptions(list);
 
   let ticketTypes = [];
   if (todaySession?.id) {
@@ -140,6 +156,7 @@ export async function loadHomeTicketSection() {
   return {
     ticketEvent,
     ticketTypes,
+    sessions: sessionOptions,
     /** 当前用于加载票价的场次，创建订单时作为 :sid */
     sessionId: todaySession?.id || "",
   };

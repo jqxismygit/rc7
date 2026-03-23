@@ -119,6 +119,7 @@
               class="date-chip"
               :class="[
                 chip.wide ? 'date-chip-wide' : '',
+                chip.disabled ? 'disabled' : '',
                 activeDateKey === chip.key ? 'active' : '',
               ]"
               @click="onChipClick(chip)"
@@ -238,6 +239,8 @@ import {
 } from "@/utils/ticketEventDisplay.js";
 import { createOrder, ORDER_CONFIRM_CONTEXT_KEY } from "@/services/order.js";
 import persistStorage from "@/utils/persistStorage.js";
+import request from "@/utils/request.js";
+import dayjs from "dayjs";
 
 export default {
   data() {
@@ -256,6 +259,7 @@ export default {
       quantity: 1,
       /** 与首页 loadHomeTicketSection 返回的 sessionId 一致，用于创建订单 */
       sessionId: "",
+      sessionOptions: [],
     };
   },
 
@@ -320,26 +324,34 @@ export default {
       const today = new Date();
       const tomorrow = new Date(today);
       tomorrow.setDate(today.getDate() + 1);
+      const dayAfterTomorrow = new Date(today);
+      dayAfterTomorrow.setDate(today.getDate() + 2);
 
       const formatMonth = (d) => `${d.getMonth() + 1}月${d.getDate()}日`;
-
+      const todayDate = this.formatDate(today);
+      const tomorrowDate = this.formatDate(tomorrow);
+      const dayAfterTomorrowDate = this.formatDate(dayAfterTomorrow);
       return [
         {
           key: "today",
           main: formatMonth(today),
           sub: "今天",
-          date: this.formatDate(today),
+          date: todayDate,
+          disabled: !this.hasSessionForDate(todayDate),
         },
         {
           key: "tomorrow",
           main: formatMonth(tomorrow),
           sub: "明天",
-          date: this.formatDate(tomorrow),
+          date: tomorrowDate,
+          disabled: !this.hasSessionForDate(tomorrowDate),
         },
         {
-          key: "specific",
-          main: formatMonth(today),
-          sub: "",
+          key: "day_after_tomorrow",
+          main: formatMonth(dayAfterTomorrow),
+          sub: "后天",
+          date: dayAfterTomorrowDate,
+          disabled: !this.hasSessionForDate(dayAfterTomorrowDate),
         },
         {
           key: "all",
@@ -362,7 +374,23 @@ export default {
             : [];
           this.eventId =
             section.ticketEvent.id || options.eventId || options.id || "";
-          this.sessionId = section.sessionId || "";
+          this.sessionOptions = Array.isArray(section.sessions)
+            ? section.sessions
+            : [];
+          console.log(
+            "this.sessionOptions=======》》》",
+            section,
+            this.sessionOptions,
+            section.sessions,
+          );
+          const initialSessionId = section.sessionId || "";
+          this.sessionId = initialSessionId;
+          this.initDateSelection();
+          if (this.sessionId && this.sessionId !== initialSessionId) {
+            this.loadTicketsBySession(this.sessionId).catch(() => {
+              uni.showToast({ title: "加载票种失败，请重试", icon: "none" });
+            });
+          }
         } else {
           this.applyDefaultEventAndTickets(options);
         }
@@ -405,6 +433,99 @@ export default {
       this.eventId = options.eventId || options.id;
       this.loadEventInfo();
       this.loadTicketTypes();
+    },
+
+    mapInventoryToTicketTypes(rows) {
+      return (rows || []).map((row) => ({
+        id: row.id,
+        name: row.name,
+        price: row.price,
+        originalPrice:
+          row.name === "早鸟票" ? parseInt(row.price * 1.2) : row.price,
+        description: `${row.refund_policy === "REFUNDABLE_48H_BEFORE" ? "开场前 48 小时可退" : "不可退票"} · ${row.valid_duration_days} 天有效 · 可入场 ${row.admittance} 人`,
+        stock: typeof row.quantity === "number" ? row.quantity : 0,
+        canRefund: row.refund_policy === "REFUNDABLE_48H_BEFORE",
+        tag: row.name === "早鸟票" ? "限量" : "",
+      }));
+    },
+
+    normalizeDateKey(value) {
+      if (!value) return "";
+      const text = String(value).trim();
+      if (!text) return "";
+      const d = dayjs(text);
+      if (d.isValid()) return d.format("YYYY-MM-DD");
+      return text.slice(0, 10);
+    },
+
+    hasSessionForDate(date) {
+      const target = dayjs(String(date || "").trim());
+      if (!target.isValid()) return false;
+      return this.sessionOptions.some((s) => {
+        if (!s?.id || !s?.date) return false;
+        const current = dayjs(String(s.date).trim());
+        return current.isValid() && current.isSame(target, "day");
+      });
+    },
+
+    sessionIdByDate(date) {
+      const target = dayjs(String(date || "").trim());
+      if (!target.isValid()) return "";
+      const found = this.sessionOptions.find(
+        (s) =>
+          s?.id &&
+          s?.date &&
+          dayjs(String(s.date).trim()).isValid() &&
+          dayjs(String(s.date).trim()).isSame(target, "day"),
+      );
+      return found?.id || "";
+    },
+
+    async loadTicketsBySession(sessionId) {
+      const sid = String(sessionId || "");
+      if (!sid || !this.eventId) {
+        this.ticketTypes = [];
+        this.selectedTicket = null;
+        return;
+      }
+      const inv = await request.get(
+        `/exhibition/${encodeURIComponent(this.eventId)}/sessions/${encodeURIComponent(sid)}/tickets`,
+      );
+      this.ticketTypes = this.mapInventoryToTicketTypes(
+        Array.isArray(inv) ? inv : [],
+      );
+      this.selectedTicket = null;
+      this.quantity = 1;
+    },
+
+    async applyDateSelection(date, activeKey) {
+      if (!date) return;
+      const sid = this.sessionIdByDate(date);
+      if (!sid) {
+        uni.showToast({ title: "该日期暂无可选场次", icon: "none" });
+        return;
+      }
+      this.selectedDate = date;
+      this.activeDateKey = activeKey;
+      this.sessionId = sid;
+      await this.loadTicketsBySession(sid);
+    },
+
+    initDateSelection() {
+      const chips = this.dateChips.filter((c) => c.key !== "all");
+      const firstAvailable = chips.find((c) => !c.disabled && c.date);
+      if (!firstAvailable) {
+        this.selectedDate = "";
+        this.activeDateKey = "today";
+        this.sessionId = "";
+        this.ticketTypes = [];
+        this.selectedTicket = null;
+        return;
+      }
+      this.selectedDate = firstAvailable.date;
+      this.activeDateKey = firstAvailable.key;
+      const sid = this.sessionIdByDate(firstAvailable.date);
+      this.sessionId = sid;
     },
 
     formatDate(d) {
@@ -453,18 +574,26 @@ export default {
       }
     },
 
-    onChipClick(chip) {
-      this.activeDateKey = chip.key;
-      if (chip.date) {
-        this.selectedDate = chip.date;
-      } else {
-        this.selectedDate = "";
+    async onChipClick(chip) {
+      if (chip.disabled) {
+        uni.showToast({ title: "该日期暂无可选场次", icon: "none" });
+        return;
       }
+      if (!chip.date) return;
+      await this.applyDateSelection(chip.date, chip.key);
     },
 
-    onAllDateChange(e) {
-      this.selectedDate = e.detail.value;
+    async onAllDateChange(e) {
+      const pickedDate = e.detail.value;
+      const sid = this.sessionIdByDate(pickedDate);
+      if (!sid) {
+        uni.showToast({ title: "该日期暂无可选场次", icon: "none" });
+        return;
+      }
+      this.selectedDate = pickedDate;
       this.activeDateKey = "all";
+      this.sessionId = sid;
+      await this.loadTicketsBySession(sid);
 
       if (this.selectedDate) {
         const d = new Date(this.selectedDate.replace(/-/g, "/"));
@@ -509,7 +638,6 @@ export default {
 
       const eid = this.eventId || this.homeTicketSection?.ticketEvent?.id || "";
       const sid = this.sessionId || this.homeTicketSection?.sessionId || "";
-
       if (!eid || !sid) {
         uni.showToast({
           title: "缺少场次信息，请从首页进入购票",
@@ -826,6 +954,10 @@ export default {
 
 .date-chip.active {
   border-color: $cr7-gold;
+}
+
+.date-chip.disabled {
+  opacity: 0.45;
 }
 
 .date-chip.active .chip-main,
