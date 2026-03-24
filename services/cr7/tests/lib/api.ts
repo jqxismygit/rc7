@@ -172,6 +172,28 @@ export async function deleteJSON<Result>(
   return body as Result;
 }
 
+export async function patchJSON<Result>(
+  server: Server, path: string,
+  options: Omit<RequestInit, 'method' | 'body'> & { token?: string; body?: unknown } = {}
+): Promise<Result> {
+  const url = resolveUrl(server, path);
+  const { token, body: _body, ...rest } = options;
+
+  const res = await fetch(url, {
+    ...rest,
+    method: 'PATCH',
+    headers: getHeaders({ ...rest, token }),
+    body: _body ? JSON.stringify(_body) : undefined,
+  });
+
+  const body = await handlerBody<Result>(res);
+  if (res.ok === false) {
+    throw new APIError(res.status, path, 'PATCH', body);
+  }
+
+  return body as Result;
+}
+
 async function postStream(
   server: Server, path: string,
   options: Omit<RequestInit, 'method' | 'body'> & {

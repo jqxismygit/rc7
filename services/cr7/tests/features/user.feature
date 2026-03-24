@@ -24,3 +24,9 @@ Feature: user registration and login
     Then 密码修改成功
      And 管理员账号 "system admin" 使用新密码 "newpassword" 登录成功
      And 管理员账号 "system admin" 使用旧密码 "pass_test" 登录失败
+
+  Scenario: 管理员可以将其他用户设置成运营人员
+    Given 管理员账号 "system admin" 已登录
+    Given 用户 "Alice" 已注册并登录
+    When 管理员账号 "system admin" 将用户 "Alice" 设置成运营人员
+    Then 用户 "Alice" 的角色包含 "operator"

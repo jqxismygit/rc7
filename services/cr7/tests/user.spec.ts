@@ -7,19 +7,22 @@ import {
 import config from 'config';
 import { expect, Mock, vi, TestContext } from 'vitest';
 import { User } from '@cr7/types';
+import { handler as initAdminHandler } from "@/scripts/user/init-admin.js";
 import { mockWechatServer, MockServer } from './lib/server.js';
 import {
     assertLoginResponse,
     assertUserProfile,
     changePassword,
+    grantRoleToUser,
     getUserProfile,
     passwordLogin,
+    prepareAdminUser,
+    registerUser,
     wechatMiniLogin
 } from './fixtures/user.js';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
 import { services_fixtures } from './fixtures/services.js';
 import { assertAPIError } from './lib/api.js';
-import { handler as initAdminHandler } from '@/scripts/user/init-admin.js';
 
 const schema = 'test_wechat';
 const services = ['api', 'user'];
@@ -71,15 +74,6 @@ describeFeature(feature, ({
         newPasswordLoginResponse?: LoginResponse;
         passwordChangeResponse?: null;
         lastError?: unknown;
-    }
-
-    async function initAdminByCli(phone: string, password: string) {
-        return initAdminHandler({
-            schema,
-            phone,
-            password,
-            countryCode: '+86',
-        });
     }
 
     async function loginAdmin(
@@ -207,10 +201,8 @@ describeFeature(feature, ({
                 adminName: 'system admin',
             });
 
-            await initAdminByCli(phone, password);
-            const loginResponse = await loginAdmin(context, password);
             const { apiServer } = scenarioContext.fixtures.values;
-            const adminProfile = await getUserProfile(apiServer, loginResponse.token);
+            const { profile: adminProfile } = await prepareAdminUser(apiServer, schema, phone);
             Object.assign(context, { adminProfile });
         });
 
@@ -238,7 +230,7 @@ describeFeature(feature, ({
                 adminInitialPassword: password,
             });
 
-            await initAdminByCli(phone, password);
+            await initAdminHandler({ schema, phone, password });
         });
 
         When('管理员账号 {string} 登录', async (ctx, name: string) => {
@@ -269,7 +261,7 @@ describeFeature(feature, ({
                 adminInitialPassword: password,
             });
 
-            await initAdminByCli(phone, password);
+            await initAdminHandler({ schema, phone, password });
             await loginAdmin(context, password);
         });
 
@@ -316,6 +308,48 @@ describeFeature(feature, ({
                 messageIncludes: '手机号或密码错误',
                 method: 'POST',
             });
+        });
+    });
+
+    interface OperatorContext extends TestContext {
+        adminToken?: string;
+        adminProfile?: User.Profile;
+        userToken?: string;
+        userProfile?: User.Profile;
+        grantRoleResponse?: { role_names: string[] };
+    }
+
+    Scenario('管理员可以将其他用户设置成运营人员', (s: StepTest<Partial<OperatorContext>>) => {
+        const { Given, When, Then, context } = s;
+
+        Given('管理员账号 {string} 已登录', async (ctx, adminName: string) => {
+            const { apiServer } = scenarioContext.fixtures.values;
+            const { token, profile } = await prepareAdminUser(apiServer, schema, `admin_${adminName}`);
+            Object.assign(context, { adminToken: token, adminProfile: profile });
+        });
+
+        Given('用户 {string} 已注册并登录', async (ctx, userName: string) => {
+            const { apiServer } = scenarioContext.fixtures.values;
+            const token = await registerUser(apiServer, userName);
+            const profile = await getUserProfile(apiServer, token);
+            Object.assign(context, { userToken: token, userProfile: profile });
+        });
+
+        When('管理员账号 {string} 将用户 {string} 设置成运营人员', async () => {
+            const { apiServer } = scenarioContext.fixtures.values;
+            const grantRoleResponse = await grantRoleToUser(
+                apiServer,
+                context.adminToken!,
+                context.userProfile!.id,
+                'OPERATOR',
+            );
+            Object.assign(context, { grantRoleResponse });
+        });
+
+        Then('用户 {string} 的角色包含 {string}', (_ctx, userName: string, roleLabel: string) => {
+            expect(roleLabel).toBe('operator');
+            expect(context.grantRoleResponse).toBeTruthy();
+            expect(context.grantRoleResponse!.role_names).toContain('OPERATOR');
         });
     });
 });

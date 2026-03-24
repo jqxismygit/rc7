@@ -108,3 +108,35 @@
   - `openid` 对未绑定微信的用户为 `null`
   - `phone` 对未绑定手机号的用户为 `null`，绑定后返回完整格式如 `+86 12345678901`
   - `auth_methods` 返回当前用户已绑定的认证方式列表，如 `['WECHAT_MINI', 'PASSWORD']`
+
+## 为用户授予角色
+
+- URL: `/users/:uid/roles`
+- Method: `POST`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Params:
+  ```ts
+  { uid: string }
+  ```
+- Request Body:
+  ```ts
+  { role_name: string }
+  ```
+- Response Body:
+  ```ts
+  { role_names: string[] }
+  ```
+- Response Status:
+  - `200 OK`：授予成功
+  - `400 Bad Request`：角色不存在或参数无效
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：无权限（仅管理员可执行）
+  - `404 Not Found`：用户不存在
+
+- 说明：
+  - 仅管理员（ADMIN 角色）可执行此操作
+  - 返回用户授予后的全部角色名称
+  - 同一用户同一角色重复授予时幂等

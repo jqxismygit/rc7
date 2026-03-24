@@ -6,6 +6,8 @@ import {
   createOrder,
   getOrderById,
   getOrders,
+  getOrdersAdmin,
+  hideOrder,
   releaseExpiredOrders,
 } from '../data/order.js';
 import { handleOrderError } from './errors.js';
@@ -72,6 +74,43 @@ export class OrderService extends RC7BaseService {
         oid: 'string',
       },
       handler: this.cancelOrder,
+    },
+
+    'order.hide': {
+      rest: 'PATCH /:oid/hide',
+      params: {
+        oid: 'string',
+      },
+      handler: this.hideOrder,
+    },
+
+    'order.listAdmin': {
+      rest: 'GET /',
+      roles: ['admin'],
+      params: {
+        status: {
+          type: 'enum',
+          values: ['PENDING_PAYMENT', 'PAID', 'CANCELLED', 'EXPIRED'],
+          optional: true,
+        },
+        page: {
+          type: 'number',
+          integer: true,
+          positive: true,
+          optional: true,
+          default: 1,
+          convert: true,
+        },
+        limit: {
+          type: 'number',
+          integer: true,
+          positive: true,
+          optional: true,
+          default: 20,
+          convert: true,
+        },
+      },
+      handler: this.listOrdersAdmin,
     },
 
     'order.expire': {
@@ -163,6 +202,49 @@ export class OrderService extends RC7BaseService {
     const schema = await this.getSchema();
 
     return getOrders(this.pool, schema, uid, {
+      status,
+      page,
+      limit,
+    }).catch(handleOrderError);
+  }
+
+  async hideOrder(
+    ctx: Context<{ oid: string }, { user: UserMeta; $statusCode?: number }>
+  ) {
+    const { oid } = ctx.params;
+    const { uid } = ctx.meta.user;
+    const schema = await this.getSchema();
+    const dbClient = await this.pool.connect();
+
+    try {
+      await dbClient.query('BEGIN');
+      await hideOrder(dbClient, schema, oid, uid);
+      await dbClient.query('COMMIT');
+      ctx.meta.$statusCode = 204;
+      return null;
+    } catch (error) {
+      await dbClient.query('ROLLBACK');
+      return handleOrderError(error);
+    } finally {
+      dbClient.release();
+    }
+  }
+
+  async listOrdersAdmin(
+    ctx: Context<{
+      status?: Order.OrderStatus;
+      page?: number;
+      limit?: number;
+    }, { user: UserMeta }>
+  ) {
+    const {
+      status,
+      page = 1,
+      limit = 20,
+    } = ctx.params;
+    const schema = await this.getSchema();
+
+    return getOrdersAdmin(this.pool, schema, {
       status,
       page,
       limit,

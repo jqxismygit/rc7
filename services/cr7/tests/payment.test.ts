@@ -1,7 +1,13 @@
+import fs from 'node:fs';
+import URL from 'node:url';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { buildWechatPayAuthorization, signPay } from '../src/libs/wechatpay.js';
-import { primary_key_fixture } from './fixtures/pyment.js';
+
+const __dirname = URL.fileURLToPath(new URL.URL('.', import.meta.url));
+const primary_key_fixture = fs.readFileSync(path.join(__dirname, './fixtures/wechatpay/apiclient_key.pem'), 'utf-8');
+
 
 describe('wechat payment', () => {
 	it('builds Authorization header with doc sample inputs', () => {

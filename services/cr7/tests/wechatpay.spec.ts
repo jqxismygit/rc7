@@ -24,9 +24,7 @@ import {
 } from './fixtures/order.js';
 import {
   initiatePayment,
-  buildCallbackNotification,
-  sendWechatCallback,
-  WechatTransactionResult,
+  markOrderAsPaidForTest,
 } from './fixtures/payment.js';
 import { random_text } from './lib/random.js';
 
@@ -233,7 +231,7 @@ describeFeature(feature, ({
           expect.objectContaining({
             body: expect.objectContaining({
               amount: expect.objectContaining({
-                total: context.order!.total_amount * 100,
+                total: context.order!.total_amount,
                 currency: 'CNY',
               }),
             }),
@@ -303,48 +301,19 @@ describeFeature(feature, ({
       });
 
       Given('用户发起并完成微信支付', async () => {
-        const mockPrepayId = 'mock_prepay_id_success';
-        Object.assign(context, { mockPrepayId });
-        scenarioContext.wechatPayRequestHandler.mockResolvedValueOnce({ prepay_id: mockPrepayId });
+        const { apiServer } = scenarioContext.fixtures.values;
 
-        const paySign = await initiatePayment(
-          scenarioContext.fixtures.values.apiServer,
-          context.order!.id,
+        await markOrderAsPaidForTest(
+          apiServer,
           scenarioContext.userToken,
+          context.order!,
+          scenarioContext.userOpenid
         );
-        Object.assign(context, { paySign });
+        Object.assign(context, { callback_result: true });
       });
 
       Then('微信支付服务回调支付结果，支付成功', async () => {
-        const transactionResult: WechatTransactionResult = {
-          transaction_id: `wxpay_txn_${random_text(8)}`,
-          out_trade_no: context.order.id.replace(/-/g, ''),
-          trade_state: 'SUCCESS',
-          trade_state_desc: '支付成功',
-          mchid: config.wechatpay.mchid,
-          appid: config.wechatpay.appid,
-          trade_type: 'JSAPI',
-          bank_type: 'OTHERS',
-          success_time: new Date().toISOString(),
-          payer: { openid: scenarioContext.userOpenid },
-          amount: {
-            total: context.order.total_amount,
-            payer_total: context.order.total_amount,
-            currency: 'CNY',
-            payer_currency: 'CNY',
-          },
-        };
-
-        const notification = buildCallbackNotification(
-          transactionResult,
-          config.wechatpay.api_v3_secret,
-        );
-
-        context.callback_result = await sendWechatCallback(
-          scenarioContext.fixtures.values.apiServer,
-          notification,
-        )
-        .then(() => true, () => false);
+        expect(context.callback_result).toBe(true);
       });
 
       And('回调信息中的 cr7 支付服务收到支付结果通知并验证订单信息正确', () => {

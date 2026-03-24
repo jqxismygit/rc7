@@ -15,6 +15,7 @@ export interface Order {
   paid_at: string | null;
   cancelled_at: string | null;
   released_at: string | null;
+  hidden_at: string | null;
   created_at: string;
   updated_at: string;
 }

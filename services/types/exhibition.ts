@@ -16,7 +16,7 @@ export interface TicketCategory {
   id: string;
   exhibit_id: string;
   name: string;
-  price: number;
+  price: number; // 单位为分
   valid_duration_days: number;
   refund_policy: 'NON_REFUNDABLE' | 'REFUNDABLE_48H_BEFORE';
   admittance: number;

@@ -7,6 +7,8 @@ import {
   getUserRoles,
   loginByPhonePassword,
   updatePassword,
+  getRoleIdByName,
+  assignRoleToUser,
 } from './data/user.js';
 import { handleUserError } from './libs/errors.js';
 
@@ -67,6 +69,16 @@ export default class UserService extends Service {
         },
 
         roles: this.getRoleNames,
+
+        grant_role: {
+          rest: 'POST /:uid/roles',
+          roles: ['admin'],
+          params: {
+            uid: 'uuid',
+            role_name: 'string',
+          },
+          handler: this.grant_role,
+        },
 
         su: {
           rest: 'POST /su',
@@ -177,5 +189,20 @@ export default class UserService extends Service {
   async getWechatConfig() {
     const { default: config } = await import('config');
     return config.wechat;
+  }
+
+  async grant_role(
+    ctx: Context<{ uid: string; role_name: string }, { user: UserMeta }>
+  ) {
+    const { uid, role_name } = ctx.params;
+    const schema = await this.getSchema();
+
+    const roleId = await getRoleIdByName(this.pool, schema, role_name)
+      .catch(handleUserError);
+
+    await assignRoleToUser(this.pool, schema, uid, roleId);
+
+    const roles = await getUserRoles(this.pool, schema, uid);
+    return { role_names: roles.map(role => role.name) };
   }
 }

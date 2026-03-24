@@ -134,8 +134,7 @@ export class PaymentService extends RC7BaseService {
       time_expire: timeExpireStr,
       notify_url: callback_url,
       amount: {
-        // 微信支付接口要求金额单位为分，且必须是整数
-        total: Math.round(orderInfo.total_amount * 100),
+        total: orderInfo.total_amount,
         currency: 'CNY',
       },
       payer: {

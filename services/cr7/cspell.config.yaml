@@ -4,11 +4,16 @@ ignoreWords:
   - errmsg
   - Jscode
   - Descriibe
+  - wechatpay
+  - ciphertext
+  - JSAPI
+  - NOTPAY
+
 words:
+  - apiclient
+  - Luhn
   - mchid
   - moleculer
   - TSTZRANGE
-  - Wechat
   - wechat
-  - wechatpay
-
+  - Wechat

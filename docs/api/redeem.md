@@ -1,6 +1,6 @@
 # 核销相关接口
 
-基于 `Redeem` 类型（来自 `@cr7/types`）定义。
+基于 `Redeem` 类型（来自 [@cr7/types](../../services/types/redeem.ts)）定义。
 
 ## 概念说明
 

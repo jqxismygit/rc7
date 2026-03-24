@@ -1,4 +1,4 @@
-import { addDays, addSeconds } from 'date-fns';
+import { addDays } from 'date-fns';
 import { Pool, PoolClient } from 'pg';
 import type { Order, Redeem } from '@cr7/types';
 
@@ -89,20 +89,19 @@ function buildCandidateCode() {
 }
 
 function toValidityStartDate(sessionDate: Date) {
-  return new Date(Date.UTC(
+  return new Date(
     sessionDate.getFullYear(),
     sessionDate.getMonth(),
     sessionDate.getDate(),
-  ));
+  );
 }
 
 function buildValidity(sessionDate: Date, validDurationDays: number) {
   const fromDate = toValidityStartDate(sessionDate);
-  const untilDate = addDays(fromDate, validDurationDays - 1);
-  const untilEndOfDay = addSeconds(untilDate, 23 * 3600 + 59 * 60 + 59);
+  const untilDate = addDays(fromDate, validDurationDays); // exclusive: start of the day after the last valid day
   return {
     valid_from: fromDate.toISOString(),
-    valid_until: untilEndOfDay.toISOString(),
+    valid_until: untilDate.toISOString(),
   };
 }
 
@@ -278,7 +277,7 @@ export async function redeemCode(
   const now = new Date();
   const validFrom = new Date(redemption.valid_from);
   const validUntil = new Date(redemption.valid_until);
-  if (now < validFrom || now > validUntil) {
+  if (now < validFrom || now >= validUntil) { // right-open: [valid_from, valid_until)
     throw new RedeemDataError('Redemption code expired', 'REDEMPTION_EXPIRED');
   }
 
