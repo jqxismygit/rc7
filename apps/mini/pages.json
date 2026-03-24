@@ -120,6 +120,15 @@
         "backgroundColor": "#090a07",
         "disableScroll": true
       }
+    },
+    {
+      "path": "pages/third-ticket-sync/third-ticket-sync",
+      "style": {
+        "navigationBarTitleText": "三方票同步",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#090a07",
+        "backgroundColor": "#090a07"
+      }
     }
   ],
   "tabBar": {

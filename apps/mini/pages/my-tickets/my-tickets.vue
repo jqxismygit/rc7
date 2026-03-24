@@ -348,11 +348,8 @@ export default {
     },
 
     syncThirdTickets() {
-      uni.showModal({
-        title: "三方票同步说明",
-        content:
-          "即将支持从第三方平台（如票务网站、小程序）同步购票记录，请留意后续版本更新。",
-        showCancel: false,
+      uni.navigateTo({
+        url: "/pages/third-ticket-sync/third-ticket-sync",
       });
     },
 
