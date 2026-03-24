@@ -11,7 +11,7 @@ import { Pool } from 'pg';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
 import { assertAPIError } from './lib/api.js';
 import { services_fixtures } from './fixtures/services.js';
-import { prepareAdminToken, registerUser } from './fixtures/user.js';
+import { getUserProfile, prepareAdminToken, registerUser } from './fixtures/user.js';
 import {
   addTicketCategory,
   createExhibition,
@@ -29,6 +29,7 @@ import {
   listOrders as listOrdersByApi,
   listOrdersAdmin as listOrdersAdminByApi,
 } from './fixtures/order.js';
+import { markOrderAsPaidForTest } from './fixtures/payment.js';
 import { random_text } from './lib/random.js';
 
 const schema = 'test_order';
@@ -912,11 +913,13 @@ describeFeature(feature, ({
         } else if (statusText === '已过期') {
           await expireCurrentOrder(context);
         } else if (statusText === '已完成') {
-          const { broker } = scenarioContext.fixtures.values;
-          const cr7Service = broker.getLocalService('cr7') as unknown as Cr7ServiceWithPool;
-          await cr7Service.pool.query(
-            `UPDATE ${schema}.exhibit_orders SET paid_at = NOW(), updated_at = NOW() WHERE id = $1`,
-            [order.id]
+          const profile = await getUserProfile(apiServer, scenarioContext.userToken);
+          expect(profile.openid).toBeTruthy();
+          await markOrderAsPaidForTest(
+            apiServer,
+            scenarioContext.userToken,
+            order,
+            profile.openid!,
           );
         }
       });

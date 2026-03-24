@@ -5,6 +5,9 @@ ignoreWords:
   - Jscode
   - Descriibe
   - wechatpay
+  - ciphertext
+  - JSAPI
+  - NOTPAY
 
 words:
   - apiclient

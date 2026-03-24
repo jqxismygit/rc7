@@ -1,6 +1,9 @@
 import { Server } from 'node:http';
 import { createCipheriv, randomBytes } from 'node:crypto';
+import config from 'config';
+import { vi } from 'vitest';
 import { postJSON } from '../lib/api.js';
+import { mockJSONServer } from '../lib/server.js';
 import { Payment } from '@cr7/types';
 
 export async function initiatePayment(
@@ -108,4 +111,57 @@ export async function sendWechatCallback(
     '/payment/wechat/callback',
     { body: notification, headers: wechatHeaders }
   );
+}
+
+export async function prepareOrderForPayment(
+  apiServer: Server,
+  token: string,
+  order: { id: string; total_amount: number },
+) {
+  const mockServer = await mockJSONServer(async () => ({
+    prepay_id: `mock_prepay_${Date.now()}`,
+  }));
+  const baseUrlSpy = vi
+    .spyOn(config.wechatpay, 'base_url', 'get')
+    .mockReturnValue(mockServer.address);
+
+  try {
+    await initiatePayment(apiServer, order.id, token);
+  } finally {
+    baseUrlSpy.mockRestore();
+    await mockServer.close();
+  }
+}
+
+export async function markOrderAsPaidForTest(
+  apiServer: Server,
+  token: string,
+  order: { id: string; total_amount: number },
+  userOpenid: string,
+) {
+  await prepareOrderForPayment(apiServer, token, order);
+
+  const notification = buildCallbackNotification(
+    {
+      transaction_id: `wxpay_txn_${Date.now()}`,
+      out_trade_no: order.id.replace(/-/g, ''),
+      trade_state: 'SUCCESS',
+      trade_state_desc: '支付成功',
+      mchid: config.wechatpay.mchid,
+      appid: config.wechatpay.appid,
+      trade_type: 'JSAPI',
+      bank_type: 'OTHERS',
+      success_time: new Date().toISOString(),
+      payer: { openid: userOpenid },
+      amount: {
+        total: order.total_amount,
+        payer_total: order.total_amount,
+        currency: 'CNY',
+        payer_currency: 'CNY',
+      },
+    } satisfies WechatTransactionResult,
+    config.wechatpay.api_v3_secret,
+  );
+
+  await sendWechatCallback(apiServer, notification);
 }

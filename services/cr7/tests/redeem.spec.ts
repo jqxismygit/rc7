@@ -28,12 +28,8 @@ import {
 } from './fixtures/redeem.js';
 import { grantRoleToUser as grantRoleToUserAPI } from './fixtures/user.js';
 import {
-  buildCallbackNotification,
-  initiatePayment,
-  sendWechatCallback,
-  WechatTransactionResult,
+  markOrderAsPaidForTest,
 } from './fixtures/payment.js';
-import { MockServer, mockJSONServer } from './lib/server.js';
 
 const schema = 'test_redeem';
 const services = ['api', 'user', 'cr7'];
@@ -63,7 +59,6 @@ interface ScenarioContext {
   operatorToken?: string;
   operatorProfile?: User.Profile;
   usersByName: Record<string, { token: string; profile: User.Profile }>;
-  wechatPayMockServer?: MockServer;
 }
 
 describeFeature(feature, ({
@@ -80,23 +75,10 @@ describeFeature(feature, ({
       ['apiServer', 'broker'],
     );
 
-    const wechatPayMockServer = await mockJSONServer(async () => ({
-      prepay_id: `mock_prepay_${Date.now()}`,
-    }));
 
-    vi.spyOn(config.wechatpay, 'base_url', 'get').mockReturnValue(wechatPayMockServer.address);
-
-    Object.assign(scenarioContext, {
-      fixtures,
-      usersByName: {},
-      wechatPayMockServer,
-    });
+    Object.assign(scenarioContext, { fixtures, usersByName: {}, });
   });
-
   AfterAllScenarios(async () => {
-    if (scenarioContext.wechatPayMockServer) {
-      await scenarioContext.wechatPayMockServer.close();
-    }
     await scenarioContext.fixtures.close();
   });
 
@@ -168,31 +150,12 @@ describeFeature(feature, ({
     expect(user).toBeTruthy();
     expect(user.profile.openid).toBeTruthy();
 
-    await initiatePayment(apiServer, context.order!.id, scenarioContext.userToken);
-
-    const notification = buildCallbackNotification(
-      {
-        transaction_id: `wxpay_txn_${Date.now()}`,
-        out_trade_no: context.order!.id.replace(/-/g, ''),
-        trade_state: 'SUCCESS',
-        trade_state_desc: '支付成功',
-        mchid: config.wechatpay.mchid,
-        appid: config.wechatpay.appid,
-        trade_type: 'JSAPI',
-        bank_type: 'OTHERS',
-        success_time: new Date().toISOString(),
-        payer: { openid: user.profile.openid! },
-        amount: {
-          total: context.order!.total_amount,
-          payer_total: context.order!.total_amount,
-          currency: 'CNY',
-          payer_currency: 'CNY',
-        },
-      } satisfies WechatTransactionResult,
-      config.wechatpay.api_v3_secret,
+    await markOrderAsPaidForTest(
+      apiServer,
+      scenarioContext.userToken,
+      context.order!,
+      user.profile.openid!
     );
-
-    await sendWechatCallback(apiServer, notification);
   }
 
   async function fetchOrderRedemption(context: Partial<CaseContext>) {
