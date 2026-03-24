@@ -323,8 +323,9 @@ export default {
   flex: 1;
   text-align: center;
   font-size: 36rpx;
-  font-weight: 600;
+  line-height: 36rpx;
   color: $text-white;
+  font-weight: 400;
 }
 
 .nav-placeholder {

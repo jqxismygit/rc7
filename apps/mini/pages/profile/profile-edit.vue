@@ -372,9 +372,10 @@ export default {
 .nav-title {
   flex: 1;
   text-align: center;
-  font-size: 26rpx;
+  font-size: 36rpx;
+  line-height: 36rpx;
   color: $text-white;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .nav-placeholder {
