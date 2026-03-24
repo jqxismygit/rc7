@@ -12,7 +12,7 @@ import type { Pool } from 'pg';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
 import { assertAPIError } from './lib/api.js';
 import { services_fixtures } from './fixtures/services.js';
-import { prepareAdminToken, registerUser, getUserProfile } from './fixtures/user.js';
+import { prepareAdminUser, registerUser, getUserProfile } from './fixtures/user.js';
 import {
   addTicketCategory,
   createExhibition,
@@ -326,13 +326,8 @@ describeFeature(feature, ({
   Background(({ Given }) => {
     Given('系统管理员已经创建并登录', async () => {
       const { apiServer } = scenarioContext.fixtures.values;
-      const adminToken = await prepareAdminToken(apiServer, schema);
-      const adminProfile = await getUserProfile(apiServer, adminToken);
-
-      Object.assign(scenarioContext, {
-        adminToken,
-        adminProfile,
-      });
+      const { token: adminToken, profile: adminProfile } = await prepareAdminUser(apiServer, schema);
+      Object.assign(scenarioContext, { adminToken, adminProfile });
     });
 
     Given('用户 {string} 已注册并登录', async (_ctx, userName: string) => {

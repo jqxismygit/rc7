@@ -4,7 +4,7 @@ import { User } from "@cr7/types";
 import { expect, vi } from "vitest";
 import { mockWechatServer } from "../lib/server.js";
 import { handler as initAdminHandler } from "@/scripts/user/init-admin.js";
-import { random_text } from "../lib/random.js";
+import { random_integer, random_text } from "../lib/random.js";
 
 export async function wechatMiniLogin(
   server: Server, code: string
@@ -70,36 +70,53 @@ export function assertUserProfile(profile: unknown) {
   expect(profile).toHaveProperty('updated_at', expect.any(String));
 }
 
+
 /**
  * 初始化管理员账号并返回 token
  */
 export async function prepareAdminToken(
   apiServer: Server,
-  schema: string
+  schema: string,
+  phone?: string,
 ): Promise<string> {
-
-  const adminPhone = `admin_${random_text(5)}`;
+  const adminPhone = phone ?? `138${random_integer(8)}`;
   const adminPassword = 'admin_password_test';
-  const admin = {
-    phone: adminPhone,
-    password: adminPassword,
-    countryCode: '+86',
-  };
 
-  await initAdminHandler({ schema, ...admin });
+  await initAdminHandler({ schema, phone: adminPhone, password: adminPassword, countryCode: '+86' });
 
-  const { token } = await passwordLogin(
-    apiServer,
-    '+86',
-    adminPhone,
-    adminPassword
-  );
-
+  const { token } = await passwordLogin(apiServer, '+86', adminPhone, adminPassword);
   return token;
 }
 
 /**
- * 注册用户并返回 token
+ * 准备管理员账号（创建 + 登录），返回 token 和 profile
+ */
+export async function prepareAdminUser(
+  apiServer: Server,
+  schema: string,
+  phone?: string,
+): Promise<{ token: string; profile: User.Profile }> {
+  const token = await prepareAdminToken(apiServer, schema, phone);
+  const profile = await getUserProfile(apiServer, token);
+  return { token, profile };
+}
+
+/**
+ * 准备运营人员账号（注册微信用户 + 授权运营角色），返回 token 和 profile
+ */
+export async function prepareOperatorUser(
+  apiServer: Server,
+  adminToken: string,
+  userName: string = random_text(8),
+): Promise<{ token: string; profile: User.Profile }> {
+  const token = await registerUser(apiServer, userName);
+  const profile = await getUserProfile(apiServer, token);
+  await grantRoleToUser(apiServer, adminToken, profile.id, 'OPERATOR');
+  return { token, profile };
+}
+
+/**
+ * 通过 wechat 注册用户并返回 token
  */
 export async function registerUser(
   apiServer: Server,

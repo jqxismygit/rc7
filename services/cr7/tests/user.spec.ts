@@ -7,6 +7,7 @@ import {
 import config from 'config';
 import { expect, Mock, vi, TestContext } from 'vitest';
 import { User } from '@cr7/types';
+import { handler as initAdminHandler } from "@/scripts/user/init-admin.js";
 import { mockWechatServer, MockServer } from './lib/server.js';
 import {
     assertLoginResponse,
@@ -15,12 +16,13 @@ import {
     grantRoleToUser,
     getUserProfile,
     passwordLogin,
+    prepareAdminUser,
+    registerUser,
     wechatMiniLogin
 } from './fixtures/user.js';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
 import { services_fixtures } from './fixtures/services.js';
 import { assertAPIError } from './lib/api.js';
-import { handler as initAdminHandler } from '@/scripts/user/init-admin.js';
 
 const schema = 'test_wechat';
 const services = ['api', 'user'];
@@ -72,15 +74,6 @@ describeFeature(feature, ({
         newPasswordLoginResponse?: LoginResponse;
         passwordChangeResponse?: null;
         lastError?: unknown;
-    }
-
-    async function initAdminByCli(phone: string, password: string) {
-        return initAdminHandler({
-            schema,
-            phone,
-            password,
-            countryCode: '+86',
-        });
     }
 
     async function loginAdmin(
@@ -208,10 +201,8 @@ describeFeature(feature, ({
                 adminName: 'system admin',
             });
 
-            await initAdminByCli(phone, password);
-            const loginResponse = await loginAdmin(context, password);
             const { apiServer } = scenarioContext.fixtures.values;
-            const adminProfile = await getUserProfile(apiServer, loginResponse.token);
+            const { profile: adminProfile } = await prepareAdminUser(apiServer, schema, phone);
             Object.assign(context, { adminProfile });
         });
 
@@ -239,7 +230,7 @@ describeFeature(feature, ({
                 adminInitialPassword: password,
             });
 
-            await initAdminByCli(phone, password);
+            await initAdminHandler({ schema, phone, password });
         });
 
         When('管理员账号 {string} 登录', async (ctx, name: string) => {
@@ -270,7 +261,7 @@ describeFeature(feature, ({
                 adminInitialPassword: password,
             });
 
-            await initAdminByCli(phone, password);
+            await initAdminHandler({ schema, phone, password });
             await loginAdmin(context, password);
         });
 
@@ -333,51 +324,15 @@ describeFeature(feature, ({
 
         Given('管理员账号 {string} 已登录', async (ctx, adminName: string) => {
             const { apiServer } = scenarioContext.fixtures.values;
-            const adminPhone = `admin_${adminName}`;
-            const adminPassword = 'admin_password_test';
-
-            await initAdminByCli(adminPhone, adminPassword);
-
-            const contextForLogin: Partial<AdminContext> = {
-                adminCountryCode: '+86',
-                adminPhone,
-                adminInitialPassword: adminPassword,
-            };
-            const adminLoginResponse = await loginAdmin(contextForLogin, adminPassword, 'adminLoginResponse');
-            const adminProfile = await getUserProfile(apiServer, adminLoginResponse.token);
-
-            Object.assign(context, {
-                adminToken: adminLoginResponse.token,
-                adminProfile,
-            });
+            const { token, profile } = await prepareAdminUser(apiServer, schema, `admin_${adminName}`);
+            Object.assign(context, { adminToken: token, adminProfile: profile });
         });
 
         Given('用户 {string} 已注册并登录', async (ctx, userName: string) => {
             const { apiServer } = scenarioContext.fixtures.values;
-            const { mockCode2SessionResponse, address } = await (async () => {
-                const mockCode2SessionResponse = vi.fn();
-                const mockServer = await mockWechatServer(mockCode2SessionResponse);
-                return { mockCode2SessionResponse, address: mockServer.address, mockServer };
-            })();
-
-            const mockCode2SessionResponse_ref = mockCode2SessionResponse;
-
-            vi.spyOn(config.wechat, 'base_url', 'get').mockReturnValue(address);
-            const code2SessionResponse = {
-                openid: `openid_${userName}`,
-                session_key: `session_key_${userName}`,
-            };
-            mockCode2SessionResponse_ref.mockResolvedValue(code2SessionResponse);
-
-            const code = `code_${userName}`;
-            const loginResponse = await wechatMiniLogin(apiServer, code);
-            assertLoginResponse(loginResponse);
-
-            const userProfile = await getUserProfile(apiServer, loginResponse.token);
-            Object.assign(context, {
-                userToken: loginResponse.token,
-                userProfile,
-            });
+            const token = await registerUser(apiServer, userName);
+            const profile = await getUserProfile(apiServer, token);
+            Object.assign(context, { userToken: token, userProfile: profile });
         });
 
         When('管理员账号 {string} 将用户 {string} 设置成运营人员', async () => {
