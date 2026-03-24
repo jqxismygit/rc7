@@ -1,13 +1,6 @@
 <template>
   <view class="container">
-    <!-- 自定义导航栏 -->
-    <view class="nav-bar safe-area-top">
-      <view class="nav-back" @click="goBack">
-        <text class="nav-back-icon">‹</text>
-      </view>
-      <text class="nav-title">消息中心</text>
-      <view class="nav-placeholder"></view>
-    </view>
+    <cr7-nav-bar title="消息中心" />
 
     <!-- 空状态 -->
     <view v-if="messages.length === 0 && !loading" class="empty">
@@ -16,7 +9,12 @@
     </view>
 
     <!-- 消息列表 -->
-    <scroll-view v-else class="message-list" scroll-y>
+    <scroll-view
+      v-else
+      class="message-list"
+      scroll-y
+      :style="{ paddingTop: navInsetPx + 'px' }"
+    >
       <view
         v-for="msg in messages"
         :key="msg.id"
@@ -45,145 +43,97 @@
 </template>
 
 <script>
-import {
-  fetchMessages,
-  markMessageAsRead
-} from '@/services/messages.js'
+import { fetchMessages, markMessageAsRead } from "@/services/messages.js";
+import Cr7NavBar from "@/components/cr7-nav-bar/cr7-nav-bar.vue";
+import { getNavBarInsetPx } from "@/utils/navBar.js";
 
 export default {
+  components: {
+    Cr7NavBar,
+  },
+
   data() {
     return {
       messages: [],
-      loading: false
-    }
+      loading: false,
+      navInsetPx: 0,
+    };
   },
 
   async onLoad() {
-    await this.loadMessages()
+    this.navInsetPx = getNavBarInsetPx();
+    await this.loadMessages();
   },
 
   methods: {
-    goBack() {
-      if (getCurrentPages().length > 1) {
-        uni.navigateBack()
-      } else {
-        uni.switchTab({ url: '/pages/index/index' })
-      }
-    },
-
     async loadMessages() {
-      this.loading = true
+      this.loading = true;
       try {
-        const list = await fetchMessages()
-        this.messages = list
+        const list = await fetchMessages();
+        this.messages = list;
       } catch (e) {
-        console.error('加载消息列表失败', e)
+        console.error("加载消息列表失败", e);
         uni.showToast({
-          title: '消息加载失败',
-          icon: 'none'
-        })
+          title: "消息加载失败",
+          icon: "none",
+        });
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
 
     getTypeIcon(type) {
       const iconMap = {
-        ticket: '🎫',
-        activity: '🎁',
-        system: '⚙️'
-      }
-      return iconMap[type] || '💬'
+        ticket: "🎫",
+        activity: "🎁",
+        system: "⚙️",
+      };
+      return iconMap[type] || "💬";
     },
 
     formatTime(time) {
-      const date = new Date(time)
-      const now = new Date()
-      const diff = now - date
+      const date = new Date(time);
+      const now = new Date();
+      const diff = now - date;
 
       if (diff < 3600000) {
-        return Math.floor(diff / 60000) + '分钟前'
+        return Math.floor(diff / 60000) + "分钟前";
       } else if (diff < 86400000) {
-        return Math.floor(diff / 3600000) + '小时前'
+        return Math.floor(diff / 3600000) + "小时前";
       } else if (diff < 172800000) {
-        return '昨天'
+        return "昨天";
       } else if (diff < 604800000) {
-        const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
-        return days[date.getDay()]
+        const days = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+        return days[date.getDay()];
       } else {
-        return time.split(' ')[0]
+        return time.split(" ")[0];
       }
     },
 
     async handleMessageClick(msg) {
       if (!msg.isRead) {
-        msg.isRead = true
+        msg.isRead = true;
         try {
-          await markMessageAsRead(msg.id)
+          await markMessageAsRead(msg.id);
         } catch (e) {
-          console.error('标记已读失败', e)
+          console.error("标记已读失败", e);
         }
       }
 
       uni.showModal({
         title: msg.title,
         content: msg.content,
-        showCancel: false
-      })
-    }
-  }
-}
+        showCancel: false,
+      });
+    },
+  },
+};
 </script>
 
 <style lang="scss" scoped>
 .container {
   min-height: 100vh;
   background: $cr7-black;
-}
-
-/* 导航栏 */
-.nav-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  padding: 0 $spacing-lg;
-  padding-top: 56rpx;
-  height: 196rpx;
-  display: flex;
-  align-items: center;
-  z-index: 20;
-  background: $cr7-black;
-}
-
-.nav-back {
-  width: 70rpx;
-  height: 70rpx;
-  border-radius: 40rpx;
-  background: $cr7-dark;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.nav-back-icon {
-  color: $text-white;
-  font-size: 40rpx;
-  margin-top: -4rpx;
-}
-
-.nav-title {
-  flex: 1;
-  text-align: center;
-  font-size: 36rpx;
-  line-height: 36rpx;
-  color: $text-white;
-  font-weight: 400;
-}
-
-.nav-placeholder {
-  width: 70rpx;
-  height: 70rpx;
 }
 
 /* 空状态 */
@@ -208,7 +158,7 @@ export default {
 /* 消息列表 */
 .message-list {
   height: 100vh;
-  padding-top: 196rpx;
+  box-sizing: border-box;
 }
 
 .message-card {
@@ -219,6 +169,7 @@ export default {
   margin: 0 30rpx 15rpx;
   background: $cr7-dark;
   border-radius: 24rpx;
+  height: 202rpx;
 }
 
 .message-card:first-child {
