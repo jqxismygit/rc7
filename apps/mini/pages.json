@@ -78,7 +78,10 @@
     {
       "path": "pages/ticket-detail/ticket-detail",
       "style": {
-        "navigationBarTitleText": "票券详情"
+        "navigationBarTitleText": "票券详情",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#090a07",
+        "backgroundColor": "#090a07"
       }
     },
     {

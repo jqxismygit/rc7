@@ -1,17 +1,22 @@
 <template>
   <view class="ticket-detail-page">
-    <view v-if="pageLoading" class="page-state">
+    <cr7-nav-bar title="票券详情" fallback-url="/pages/my-tickets/my-tickets" />
+    <view
+      v-if="pageLoading"
+      class="page-state"
+      :style="{ paddingTop: navInsetPx + 'px' }"
+    >
       <text class="page-state-text">加载中...</text>
     </view>
-    <view v-else-if="pageError" class="page-state">
+    <view
+      v-else-if="pageError"
+      class="page-state"
+      :style="{ paddingTop: navInsetPx + 'px' }"
+    >
       <text class="page-state-text">{{ pageError }}</text>
     </view>
     <template v-else>
-      <scroll-view
-        class="detail-scroll"
-        scroll-y
-        :style="{ paddingBottom: detailScrollPadding }"
-      >
+      <scroll-view class="detail-scroll" scroll-y :style="detailScrollStyle">
         <!-- 状态标签 + 票号 -->
         <view class="status-row">
           <view class="status-tag" :class="statusTagClass">
@@ -170,6 +175,8 @@ import { getOrderDetail, cancelOrder } from "@/services/order.js";
 import { getOrderRedemption } from "@/services/redeem.js";
 import request from "@/utils/request.js";
 import { buildTicketDetailFromOrder } from "@/utils/orderDisplay.js";
+import Cr7NavBar from "@/components/cr7-nav-bar/cr7-nav-bar.vue";
+import { getNavBarInsetPx } from "@/utils/navBar.js";
 
 const NOTICE_LIST = [
   "1. 入场时请向工作人员出示此二维码，核销后即可入场；",
@@ -179,6 +186,10 @@ const NOTICE_LIST = [
 ];
 
 export default {
+  components: {
+    Cr7NavBar,
+  },
+
   data() {
     return {
       ticketId: "",
@@ -188,10 +199,17 @@ export default {
       noticeList: NOTICE_LIST,
       pageLoading: true,
       pageError: "",
+      navInsetPx: 0,
     };
   },
 
   computed: {
+    detailScrollStyle() {
+      return {
+        paddingTop: `${this.navInsetPx}px`,
+        paddingBottom: this.detailScrollPadding,
+      };
+    },
     showQrBlock() {
       return this.ticket.orderStatus === "PAID";
     },
@@ -245,6 +263,7 @@ export default {
   },
 
   onLoad(options) {
+    this.navInsetPx = getNavBarInsetPx();
     this.ticketId = options.id;
     this.loadTicketDetail();
   },
@@ -400,6 +419,7 @@ export default {
 
 .detail-scroll {
   height: 100vh;
+  box-sizing: border-box;
 }
 
 /* ===== 状态标签 + 票号 ===== */
@@ -500,11 +520,12 @@ export default {
 
 .event-cover {
   width: 100%;
-  height: 380rpx;
+  height: 291rpx;
 }
 
 .event-info-wrap {
-  padding: 38rpx;
+  // padding: 38rpx;
+  padding: 38rpx 38rpx 15rpx 38rpx;
   display: flex;
   flex-direction: column;
   gap: 16rpx;
