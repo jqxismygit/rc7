@@ -70,6 +70,10 @@ export function handleOrderError(error: unknown): never {
     throw new MoleculerClientError('订单状态不允许取消', 400, 'ORDER_STATUS_INVALID');
   }
 
+  if (error.code === 'ORDER_CANNOT_BE_HIDDEN') {
+    throw new MoleculerClientError('订单状态不允许隐藏', 400, 'ORDER_CANNOT_BE_HIDDEN');
+  }
+
   throw new MoleculerClientError('未知订单错误', 500, 'UNKNOWN_ORDER_ERROR');
 }
 

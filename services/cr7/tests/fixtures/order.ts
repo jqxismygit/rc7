@@ -1,6 +1,6 @@
 import { Server } from 'http';
 import { Order } from '@cr7/types';
-import { deleteJSON, getJSON, postJSON } from '../lib/api.js';
+import { deleteJSON, getJSON, patchJSON, postJSON } from '../lib/api.js';
 
 export async function createOrder(
   server: Server,
@@ -52,6 +52,34 @@ export async function listOrders(
   return getJSON<Order.OrderListResult>(
     server,
     '/orders',
+    { token, query }
+  );
+}
+
+export async function hideOrder(
+  server: Server,
+  orderId: string,
+  token: string,
+) {
+  return patchJSON<null>(
+    server,
+    `/orders/${orderId}/hide`,
+    { token }
+  );
+}
+
+export async function listOrdersAdmin(
+  server: Server,
+  token: string,
+  query: {
+    status?: Order.OrderStatus;
+    page?: number;
+    limit?: number;
+  } = {},
+) {
+  return getJSON<Order.OrderListResult>(
+    server,
+    '/admin/orders',
     { token, query }
   );
 }

@@ -23,6 +23,7 @@
   - `cancelled_at`：订单取消时间（仅当用户主动取消时写入）
   - `paid_at`：订单支付时间（仅当订单支付成功时写入）
   - `released_at`：库存释放时间（取消或过期时写入，用于幂等控制）
+  - `hidden_at`：用户隐藏时间（仅影响用户自己的订单列表，不影响管理员视图）
 
 ## 订单状态流转
 
@@ -123,8 +124,63 @@ PENDING_PAYMENT
 
 - 说明：
   - 仅返回当前用户的订单
+  - 已隐藏订单不会在用户订单列表中返回
   - 支持按订单状态筛选：`PENDING_PAYMENT`、`PAID`、`CANCELLED`、`EXPIRED`
   - 分页参数 `page` 和 `limit` 均可选，默认返回第 1 页，每页 20 条
+
+## 隐藏订单
+
+- URL: `/orders/:oid/hide`
+- Method: `PATCH`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Params:
+  ```ts
+  { oid: string }
+  ```
+- Response Status:
+  - `204 No Content`：隐藏成功
+  - `400 Bad Request`：订单状态不允许隐藏
+  - `401 Unauthorized`：未认证
+  - `404 Not Found`：订单不存在或无权限访问
+
+- 说明：
+  - 仅允许隐藏自己的订单
+  - 仅非 `PENDING_PAYMENT` 状态订单可隐藏
+  - 重复隐藏同一订单返回 204，幂等
+
+## 获取管理员订单列表
+
+- URL: `/admin/orders`
+- Method: `GET`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Query Parameters:
+  ```ts
+  {
+    status?: Order.OrderStatus;
+    page?: number;
+    limit?: number;
+  }
+  ```
+- Response Body:
+  ```ts
+  Order.OrderListResult
+  ```
+- Response Status:
+  - `200 OK`：查询成功
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：无管理员权限
+  - `400 Bad Request`：参数错误
+
+- 说明：
+  - 仅管理员可访问
+  - 返回所有订单，包含用户已隐藏的订单
+  - 支持按订单状态筛选及分页
 
 ## 取消订单
 

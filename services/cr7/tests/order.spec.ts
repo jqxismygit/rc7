@@ -25,7 +25,9 @@ import {
   cancelOrder as cancelOrderByApi,
   createOrder as createOrderByApi,
   getOrder as getOrderByApi,
+  hideOrder as hideOrderByApi,
   listOrders as listOrdersByApi,
+  listOrdersAdmin as listOrdersAdminByApi,
 } from './fixtures/order.js';
 import { random_text } from './lib/random.js';
 
@@ -102,6 +104,7 @@ describeFeature(feature, ({
   AfterAllScenarios,
   Background,
   Scenario,
+  ScenarioOutline,
   context: scenarioContext,
 }: FeatureDescriibeCallbackParams<ScenarioContext>) => {
   BeforeAllScenarios(async () => {
@@ -850,4 +853,96 @@ describeFeature(feature, ({
       });
     });
   });
+
+  Scenario('管理员可以查看所有订单列表', (s: StepTest<Partial<OrderCaseContext>>) => {
+    const { Given, When, Then, And, context } = s;
+
+    Given('展览活动 "艺术展" 已创建，包含场次 "2026-07-01" 和票种 "成人票"', async () => {
+      await prepareExhibitionWithTickets(context, ['成人票']);
+    });
+
+    And('场次 "2026-07-01" 的 "成人票" 库存初始为 10', async () => {
+      await setInitialInventory(context, '成人票', 10);
+    });
+
+    And('用户 "Bob" 已成功预订 1 张 "艺术展" 的 "2026-07-01" 场次的 "成人票"', async () => {
+      const { apiServer } = scenarioContext.fixtures.values;
+      const bobToken = await registerUser(apiServer, `Bob_${random_text(6)}`);
+      Object.assign(scenarioContext, {
+        bobToken,
+        tokensByName: { ...(scenarioContext.tokensByName ?? {}), Bob: bobToken },
+      });
+      const order = await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }], bobToken);
+      rememberOrder(context, 'bob', order);
+    });
+
+    When('管理员查看订单列表', async () => {
+      const { apiServer } = scenarioContext.fixtures.values;
+      const orderList = await listOrdersAdminByApi(apiServer, scenarioContext.adminToken);
+      Object.assign(context, { orderList });
+    });
+
+    Then('返回订单列表成功', () => {
+      expect(context.orderList).toBeTruthy();
+      expect(context.orderList!.orders).toBeInstanceOf(Array);
+    });
+
+    And('订单列表包含用户 "Bob" 的订单', () => {
+      const bobOrder = getRememberedOrder(context, 'bob');
+      const found = context.orderList!.orders.find(o => o.id === bobOrder.id);
+      expect(found).toBeTruthy();
+    });
+  });
+
+  ScenarioOutline(
+    '除了未付款且没有过期的订单，其他状态的订单都可以隐藏',
+    async (s: StepTest<Partial<OrderCaseContext>>, example) => {
+      const { Given, When, Then, And, context } = s;
+      const statusText = String(example['订单状态']).trim();
+
+      Given('用户有一笔 <订单状态> 的订单', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        await prepareExhibitionWithTickets(context, ['成人票']);
+        await setInitialInventory(context, '成人票', 2);
+        const order = await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }]);
+        Object.assign(context, { order });
+
+        if (statusText === '已取消') {
+          await cancelOrderByApi(apiServer, order.id, scenarioContext.userToken);
+        } else if (statusText === '已过期') {
+          await expireCurrentOrder(context);
+        } else if (statusText === '已完成') {
+          const { broker } = scenarioContext.fixtures.values;
+          const cr7Service = broker.getLocalService('cr7') as unknown as Cr7ServiceWithPool;
+          await cr7Service.pool.query(
+            `UPDATE ${schema}.exhibit_orders SET paid_at = NOW(), updated_at = NOW() WHERE id = $1`,
+            [order.id]
+          );
+        }
+      });
+
+      When('用户隐藏该订单', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        await hideOrderByApi(apiServer, context.order!.id, scenarioContext.userToken);
+      });
+
+      Then('隐藏成功', () => {
+        expect(context.order).toBeTruthy();
+      });
+
+      And('订单列表中不再显示该订单', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const orderList = await listOrdersByApi(apiServer, scenarioContext.userToken);
+        const found = orderList.orders.find(o => o.id === context.order!.id);
+        expect(found).toBeUndefined();
+      });
+
+      And('管理员查看订单列表仍然可以看到该订单', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const adminOrderList = await listOrdersAdminByApi(apiServer, scenarioContext.adminToken);
+        const found = adminOrderList.orders.find(o => o.id === context.order!.id);
+        expect(found).toBeTruthy();
+      });
+    }
+  );
 });

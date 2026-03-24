@@ -46,6 +46,7 @@ export const ORDER_STATUS_CASE = `
 export type ORDER_DATA_ERROR_CODES =
   | 'ORDER_NOT_FOUND'
   | 'ORDER_STATUS_INVALID'
+  | 'ORDER_CANNOT_BE_HIDDEN'
   | 'INVENTORY_NOT_ENOUGH'
   | 'SESSION_NOT_FOUND'
   | 'SESSION_EXPIRED'
@@ -233,6 +234,7 @@ export async function getOrderById(
       paid_at,
       cancelled_at,
       released_at,
+      hidden_at,
       created_at,
       updated_at
     FROM ${schema}.exhibit_orders
@@ -268,6 +270,7 @@ export async function getOrderByIdAdmin(
       paid_at,
       cancelled_at,
       released_at,
+      hidden_at,
       created_at,
       updated_at
     FROM ${schema}.exhibit_orders
@@ -305,6 +308,7 @@ export async function getOrders(
         ${ORDER_STATUS_CASE} AS status
       FROM ${schema}.exhibit_orders
       WHERE user_id = $1
+        AND hidden_at IS NULL
     )
     SELECT COUNT(*)::text AS total
     FROM order_rows
@@ -327,10 +331,12 @@ export async function getOrders(
         paid_at,
         cancelled_at,
         released_at,
+        hidden_at,
         created_at,
         updated_at
       FROM ${schema}.exhibit_orders
       WHERE user_id = $1
+        AND hidden_at IS NULL
     )
     SELECT
       id,
@@ -343,6 +349,7 @@ export async function getOrders(
       paid_at,
       cancelled_at,
       released_at,
+      hidden_at,
       created_at,
       updated_at
     FROM order_rows
@@ -364,6 +371,120 @@ export async function getOrders(
     page,
     limit,
   };
+}
+
+export async function getOrdersAdmin(
+  client: DBClient,
+  schema: string,
+  options: {
+    status?: Order.OrderStatus;
+    page: number;
+    limit: number;
+  },
+): Promise<Order.OrderListResult> {
+  const { status, page, limit } = options;
+  const offset = (page - 1) * limit;
+
+  const { rows: countRows } = await client.query<{ total: string }>(
+    `WITH order_rows AS (
+      SELECT
+        id,
+        ${ORDER_STATUS_CASE} AS status
+      FROM ${schema}.exhibit_orders
+    )
+    SELECT COUNT(*)::text AS total
+    FROM order_rows
+    WHERE ($1::text IS NULL OR status = $1)`,
+    [status ?? null]
+  );
+
+  const total = parseInt(countRows[0].total, 10);
+
+  const { rows: orders } = await client.query<Omit<Order.OrderWithItems, 'items'>>(
+    `WITH order_rows AS (
+      SELECT
+        id,
+        user_id,
+        exhibit_id,
+        session_id,
+        ${ORDER_STATUS_CASE} AS status,
+        total_amount,
+        expires_at,
+        paid_at,
+        cancelled_at,
+        released_at,
+        hidden_at,
+        created_at,
+        updated_at
+      FROM ${schema}.exhibit_orders
+    )
+    SELECT
+      id,
+      user_id,
+      exhibit_id,
+      session_id,
+      status,
+      total_amount,
+      expires_at,
+      paid_at,
+      cancelled_at,
+      released_at,
+      hidden_at,
+      created_at,
+      updated_at
+    FROM order_rows
+    WHERE ($1::text IS NULL OR status = $1)
+    ORDER BY created_at DESC
+    LIMIT $2 OFFSET $3`,
+    [status ?? null, limit, offset]
+  );
+
+  const orderIds = orders.map(order => order.id);
+  const itemsByOrderId = await getOrderItemsByOrderIds(client, schema, orderIds);
+
+  return {
+    orders: orders.map(order => ({
+      ...order,
+      items: itemsByOrderId.get(order.id) ?? [],
+    })),
+    total,
+    page,
+    limit,
+  };
+}
+
+export async function hideOrder(
+  client: DBClient,
+  schema: string,
+  orderId: string,
+  userId: string,
+): Promise<void> {
+  const { rows } = await client.query<{ status: Order.OrderStatus }>(
+    `SELECT
+      ${ORDER_STATUS_CASE} AS status
+    FROM ${schema}.exhibit_orders
+    WHERE id = $1
+      AND user_id = $2
+    FOR UPDATE`,
+    [orderId, userId]
+  );
+
+  if (rows.length === 0) {
+    throw new OrderDataError('Order not found', 'ORDER_NOT_FOUND');
+  }
+
+  if (rows[0].status === 'PENDING_PAYMENT') {
+    throw new OrderDataError('Order cannot be hidden while pending payment', 'ORDER_CANNOT_BE_HIDDEN');
+  }
+
+  await client.query(
+    `UPDATE ${schema}.exhibit_orders
+    SET
+      hidden_at = COALESCE(hidden_at, NOW()),
+      updated_at = NOW()
+    WHERE id = $1`,
+    [orderId]
+  );
 }
 
 export async function createOrder(
