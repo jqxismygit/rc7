@@ -1,16 +1,22 @@
 <template>
   <view class="tickets-page">
     <!-- 顶部标题栏 -->
-    <!-- <view class="tickets-header safe-area-top">
-      <view class="header-back" @click="goBack">
-        <text class="back-arrow">‹</text>
+    <view class="nav-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
+      <view class="nav-inner">
+        <view class="nav-back">
+          <!-- <text class="nav-back-icon">‹</text> -->
+        </view>
+        <text class="nav-title">我的票夹</text>
+        <view class="nav-placeholder"></view>
       </view>
-      <text class="header-title">我的票夹</text>
-      <view class="header-placeholder"></view>
-    </view> -->
+    </view>
 
     <!-- 工具栏：票码兑换 / 三方票同步 -->
-    <view class="ticket-toolbar" @click.stop>
+    <view
+      class="ticket-toolbar"
+      @click.stop
+      :style="{ marginTop: navBlockPx + 'px' }"
+    >
       <view class="tool-item" @click="goToExchange">
         <view class="tool-icon-box">
           <sx-svg name="ticket" :width="36" :height="36" color="#FFFFFF" />
@@ -174,9 +180,22 @@ export default {
     return {
       loading: false,
       tickets: [],
+      statusBarHeight: 0,
+      navInnerPx: 55,
       /** 延迟展示 loading 的定时器，避免接口很快时整页闪一下 */
       _loadingDelayTimer: null,
     };
+  },
+
+  computed: {
+    navBlockPx() {
+      return (this.statusBarHeight || 0) + this.navInnerPx;
+    },
+  },
+
+  onLoad() {
+    const sys = uni.getSystemInfoSync();
+    this.statusBarHeight = sys.statusBarHeight || 0;
   },
 
   onShow() {
@@ -364,7 +383,8 @@ export default {
 .tickets-page {
   min-height: 100vh;
   background: $cr7-black;
-  padding: 0 32rpx;
+  padding-left: 32rpx;
+  padding-right: 32rpx;
   display: flex;
   flex-direction: column;
 }
@@ -387,38 +407,42 @@ export default {
 }
 
 /* ===== 顶部标题栏 ===== */
-.tickets-header {
+.nav-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 20;
+  background: $cr7-black;
+  padding-left: 32rpx;
+  padding-right: 32rpx;
+}
+
+.nav-inner {
+  height: 88rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 120rpx;
-  padding-top: 20rpx;
 }
 
-.header-back {
+.nav-back {
   width: 70rpx;
   height: 70rpx;
-  border-radius: 50%;
-  background: $cr7-dark;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  // border-radius: 40rpx;
+  // background: $cr7-dark;
+  // display: flex;
+  // align-items: center;
+  // justify-content: center;
 }
 
-.back-arrow {
-  font-size: 48rpx;
+.nav-back-icon {
+  font-size: 44rpx;
   color: $text-white;
-  margin-top: -4rpx;
+  line-height: 1;
+  margin-top: -6rpx;
 }
 
-.header-title {
-  font-size: 36rpx;
-  font-weight: bold;
-  color: $text-white;
-  text-align: center;
-}
-
-.header-placeholder {
+.nav-placeholder {
   width: 70rpx;
   height: 70rpx;
 }
@@ -432,6 +456,7 @@ export default {
   padding: 32rpx;
   margin-top: 16rpx;
   gap: 108rpx;
+  height: 123rpx;
 }
 
 .tool-item {
@@ -501,6 +526,7 @@ export default {
 .ticket-scroll {
   height: calc(100vh - 260rpx);
   margin-top: 32rpx;
+  margin-bottom: 100rpx;
 }
 
 .ticket-card {

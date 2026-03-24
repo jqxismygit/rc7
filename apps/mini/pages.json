@@ -31,7 +31,8 @@
     {
       "path": "pages/my-tickets/my-tickets",
       "style": {
-        "navigationBarTitleText": "票夹"
+        "navigationBarTitleText": "票夹",
+        "navigationStyle": "custom"
       }
     },
     {
