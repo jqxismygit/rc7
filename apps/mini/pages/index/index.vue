@@ -179,7 +179,8 @@
 
     <!-- 悬浮核销入口 → 扫码核销页 -->
     <view class="fab-verify" @click="goToScanTicket">
-      <text class="fab-verify-text">核销</text>
+      <sx-svg name="scan" :width="52" :height="52" />
+      <text class="fab-verify-text">券码核销</text>
     </view>
   </view>
 </template>
@@ -803,22 +804,25 @@ export default {
 /* 首页悬浮核销（避让自定义 tabBar） */
 .fab-verify {
   position: fixed;
-  right: 35rpx;
+  right: 30rpx;
   bottom: 300rpx;
   z-index: 50;
-  padding: 22rpx 40rpx;
+  width: 155rpx;
+  height: 155rpx;
   background: $cr7-gold;
-  border-radius: 60rpx;
+  border-radius: 50%;
   box-shadow: 0 12rpx 32rpx rgba(0, 0, 0, 0.45);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
 }
 
 .fab-verify-text {
-  font-size: 30rpx;
-  font-weight: 700;
+  font-size: 23rpx;
+  font-weight: 500;
   color: #0f2316;
-  line-height: 1;
+  line-height: 23rpx;
+  margin-top: 8rpx;
 }
 </style>
