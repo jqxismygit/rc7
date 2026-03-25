@@ -39,32 +39,32 @@ type ExpiredOrderRow = {
   session_id: string;
 };
 
-export function getOrderStatusCase(schema: string, orderIdExpr = 'id') {
-  const orderTablePrefix = orderIdExpr.includes('.')
-    ? `${orderIdExpr.slice(0, orderIdExpr.lastIndexOf('.') + 1)}`
-    : '';
+type OrderStatusCaseOptions = {
+  refundedAtExpr?: string;
+  refundStatusExpr?: string;
+  paidAtExpr?: string;
+  cancelledAtExpr?: string;
+  expiresAtExpr?: string;
+};
+
+export function getOrderStatusCase(options: OrderStatusCaseOptions = {}) {
+  const {
+    refundedAtExpr = 'refunded_at',
+    refundStatusExpr = 'current_refund_status',
+    paidAtExpr = 'paid_at',
+    cancelledAtExpr = 'cancelled_at',
+    expiresAtExpr = 'expires_at',
+  } = options;
 
   return `
     CASE
-      WHEN ${orderTablePrefix}refunded_at IS NOT NULL THEN 'REFUNDED'
-      WHEN (
-        SELECT r.status
-        FROM ${schema}.order_refunds r
-        WHERE r.out_refund_no = ${orderTablePrefix}current_refund_out_refund_no
-      ) = 'FAILED' THEN 'REFUND_FAILED'
-      WHEN (
-        SELECT r.status
-        FROM ${schema}.order_refunds r
-        WHERE r.out_refund_no = ${orderTablePrefix}current_refund_out_refund_no
-      ) = 'PROCESSING' THEN 'REFUND_PROCESSING'
-      WHEN (
-        SELECT r.status
-        FROM ${schema}.order_refunds r
-        WHERE r.out_refund_no = ${orderTablePrefix}current_refund_out_refund_no
-      ) = 'REQUESTED' THEN 'REFUND_REQUESTED'
-      WHEN ${orderTablePrefix}paid_at IS NOT NULL THEN 'PAID'
-      WHEN ${orderTablePrefix}cancelled_at IS NOT NULL THEN 'CANCELLED'
-      WHEN ${orderTablePrefix}expires_at < NOW() THEN 'EXPIRED'
+      WHEN ${refundedAtExpr} IS NOT NULL THEN 'REFUNDED'
+      WHEN ${refundStatusExpr} = 'FAILED' THEN 'REFUND_FAILED'
+      WHEN ${refundStatusExpr} = 'PROCESSING' THEN 'REFUND_PROCESSING'
+      WHEN ${refundStatusExpr} = 'REQUESTED' THEN 'REFUND_REQUESTED'
+      WHEN ${paidAtExpr} IS NOT NULL THEN 'PAID'
+      WHEN ${cancelledAtExpr} IS NOT NULL THEN 'CANCELLED'
+      WHEN ${expiresAtExpr} < NOW() THEN 'EXPIRED'
       ELSE 'PENDING_PAYMENT'
     END
   `;
@@ -251,22 +251,30 @@ export async function getOrderById(
 ): Promise<Order.OrderWithItems> {
   const { rows } = await client.query<Omit<Order.OrderWithItems, 'items'>>(
     `SELECT
-      id,
-      user_id,
-      exhibit_id,
-      session_id,
-      ${getOrderStatusCase(schema)} AS status,
-      total_amount,
-      expires_at,
-      paid_at,
-      cancelled_at,
-      released_at,
-      hidden_at,
-      created_at,
-      updated_at
-    FROM ${schema}.exhibit_orders
-    WHERE id = $1
-      AND user_id = $2`,
+      o.id,
+      o.user_id,
+      o.exhibit_id,
+      o.session_id,
+      ${getOrderStatusCase({
+        refundedAtExpr: 'o.refunded_at',
+        refundStatusExpr: 'current_refund.status',
+        paidAtExpr: 'o.paid_at',
+        cancelledAtExpr: 'o.cancelled_at',
+        expiresAtExpr: 'o.expires_at',
+      })} AS status,
+      o.total_amount,
+      o.expires_at,
+      o.paid_at,
+      o.cancelled_at,
+      o.released_at,
+      o.hidden_at,
+      o.created_at,
+      o.updated_at
+    FROM ${schema}.exhibit_orders o
+    LEFT JOIN ${schema}.order_refunds current_refund
+      ON current_refund.out_refund_no = o.current_refund_out_refund_no
+    WHERE o.id = $1
+      AND o.user_id = $2`,
     [orderId, userId]
   );
 
@@ -287,21 +295,29 @@ export async function getOrderByIdAdmin(
 ): Promise<Order.OrderWithItems> {
   const { rows } = await client.query<Omit<Order.OrderWithItems, 'items'>>(
     `SELECT
-      id,
-      user_id,
-      exhibit_id,
-      session_id,
-      ${getOrderStatusCase(schema)} AS status,
-      total_amount,
-      expires_at,
-      paid_at,
-      cancelled_at,
-      released_at,
-      hidden_at,
-      created_at,
-      updated_at
-    FROM ${schema}.exhibit_orders
-    WHERE id = $1`,
+      o.id,
+      o.user_id,
+      o.exhibit_id,
+      o.session_id,
+      ${getOrderStatusCase({
+        refundedAtExpr: 'o.refunded_at',
+        refundStatusExpr: 'current_refund.status',
+        paidAtExpr: 'o.paid_at',
+        cancelledAtExpr: 'o.cancelled_at',
+        expiresAtExpr: 'o.expires_at',
+      })} AS status,
+      o.total_amount,
+      o.expires_at,
+      o.paid_at,
+      o.cancelled_at,
+      o.released_at,
+      o.hidden_at,
+      o.created_at,
+      o.updated_at
+    FROM ${schema}.exhibit_orders o
+    LEFT JOIN ${schema}.order_refunds current_refund
+      ON current_refund.out_refund_no = o.current_refund_out_refund_no
+    WHERE o.id = $1`,
     [orderId],
   );
 
@@ -331,11 +347,19 @@ export async function getOrders(
   const { rows: countRows } = await client.query<{ total: string }>(
     `WITH order_rows AS (
       SELECT
-        id,
-        ${getOrderStatusCase(schema)} AS status
-      FROM ${schema}.exhibit_orders
-      WHERE user_id = $1
-        AND hidden_at IS NULL
+        o.id,
+        ${getOrderStatusCase({
+          refundedAtExpr: 'o.refunded_at',
+          refundStatusExpr: 'current_refund.status',
+          paidAtExpr: 'o.paid_at',
+          cancelledAtExpr: 'o.cancelled_at',
+          expiresAtExpr: 'o.expires_at',
+        })} AS status
+      FROM ${schema}.exhibit_orders o
+      LEFT JOIN ${schema}.order_refunds current_refund
+        ON current_refund.out_refund_no = o.current_refund_out_refund_no
+      WHERE o.user_id = $1
+        AND o.hidden_at IS NULL
     )
     SELECT COUNT(*)::text AS total
     FROM order_rows
@@ -348,22 +372,30 @@ export async function getOrders(
   const { rows: orders } = await client.query<Omit<Order.OrderWithItems, 'items'>>(
     `WITH order_rows AS (
       SELECT
-        id,
-        user_id,
-        exhibit_id,
-        session_id,
-        ${getOrderStatusCase(schema)} AS status,
-        total_amount,
-        expires_at,
-        paid_at,
-        cancelled_at,
-        released_at,
-        hidden_at,
-        created_at,
-        updated_at
-      FROM ${schema}.exhibit_orders
-      WHERE user_id = $1
-        AND hidden_at IS NULL
+        o.id,
+        o.user_id,
+        o.exhibit_id,
+        o.session_id,
+        ${getOrderStatusCase({
+          refundedAtExpr: 'o.refunded_at',
+          refundStatusExpr: 'current_refund.status',
+          paidAtExpr: 'o.paid_at',
+          cancelledAtExpr: 'o.cancelled_at',
+          expiresAtExpr: 'o.expires_at',
+        })} AS status,
+        o.total_amount,
+        o.expires_at,
+        o.paid_at,
+        o.cancelled_at,
+        o.released_at,
+        o.hidden_at,
+        o.created_at,
+        o.updated_at
+      FROM ${schema}.exhibit_orders o
+      LEFT JOIN ${schema}.order_refunds current_refund
+        ON current_refund.out_refund_no = o.current_refund_out_refund_no
+      WHERE o.user_id = $1
+        AND o.hidden_at IS NULL
     )
     SELECT
       id,
@@ -415,9 +447,17 @@ export async function getOrdersAdmin(
   const { rows: countRows } = await client.query<{ total: string }>(
     `WITH order_rows AS (
       SELECT
-        id,
-        ${getOrderStatusCase(schema)} AS status
-      FROM ${schema}.exhibit_orders
+        o.id,
+        ${getOrderStatusCase({
+          refundedAtExpr: 'o.refunded_at',
+          refundStatusExpr: 'current_refund.status',
+          paidAtExpr: 'o.paid_at',
+          cancelledAtExpr: 'o.cancelled_at',
+          expiresAtExpr: 'o.expires_at',
+        })} AS status
+      FROM ${schema}.exhibit_orders o
+      LEFT JOIN ${schema}.order_refunds current_refund
+        ON current_refund.out_refund_no = o.current_refund_out_refund_no
     )
     SELECT COUNT(*)::text AS total
     FROM order_rows
@@ -430,20 +470,28 @@ export async function getOrdersAdmin(
   const { rows: orders } = await client.query<Omit<Order.OrderWithItems, 'items'>>(
     `WITH order_rows AS (
       SELECT
-        id,
-        user_id,
-        exhibit_id,
-        session_id,
-        ${getOrderStatusCase(schema)} AS status,
-        total_amount,
-        expires_at,
-        paid_at,
-        cancelled_at,
-        released_at,
-        hidden_at,
-        created_at,
-        updated_at
-      FROM ${schema}.exhibit_orders
+        o.id,
+        o.user_id,
+        o.exhibit_id,
+        o.session_id,
+        ${getOrderStatusCase({
+          refundedAtExpr: 'o.refunded_at',
+          refundStatusExpr: 'current_refund.status',
+          paidAtExpr: 'o.paid_at',
+          cancelledAtExpr: 'o.cancelled_at',
+          expiresAtExpr: 'o.expires_at',
+        })} AS status,
+        o.total_amount,
+        o.expires_at,
+        o.paid_at,
+        o.cancelled_at,
+        o.released_at,
+        o.hidden_at,
+        o.created_at,
+        o.updated_at
+      FROM ${schema}.exhibit_orders o
+      LEFT JOIN ${schema}.order_refunds current_refund
+        ON current_refund.out_refund_no = o.current_refund_out_refund_no
     )
     SELECT
       id,
@@ -488,11 +536,19 @@ export async function hideOrder(
 ): Promise<void> {
   const { rows } = await client.query<{ status: Order.OrderStatus }>(
     `SELECT
-      ${getOrderStatusCase(schema)} AS status
-    FROM ${schema}.exhibit_orders
-    WHERE id = $1
-      AND user_id = $2
-    FOR UPDATE`,
+      ${getOrderStatusCase({
+        refundedAtExpr: 'o.refunded_at',
+        refundStatusExpr: 'current_refund.status',
+        paidAtExpr: 'o.paid_at',
+        cancelledAtExpr: 'o.cancelled_at',
+        expiresAtExpr: 'o.expires_at',
+      })} AS status
+    FROM ${schema}.exhibit_orders o
+    LEFT JOIN ${schema}.order_refunds current_refund
+      ON current_refund.out_refund_no = o.current_refund_out_refund_no
+    WHERE o.id = $1
+      AND o.user_id = $2
+    FOR UPDATE OF o`,
     [orderId, userId]
   );
 
@@ -610,15 +666,23 @@ async function lockOrderForCancel(
 ): Promise<OrderLockRow> {
   const { rows } = await client.query<OrderLockRow>(
     `SELECT
-      id,
-      user_id,
-      session_id,
-      released_at,
-      ${getOrderStatusCase(schema)} AS status
-    FROM ${schema}.exhibit_orders
-    WHERE id = $1
-      AND user_id = $2
-    FOR UPDATE`,
+      o.id,
+      o.user_id,
+      o.session_id,
+      o.released_at,
+      ${getOrderStatusCase({
+        refundedAtExpr: 'o.refunded_at',
+        refundStatusExpr: 'current_refund.status',
+        paidAtExpr: 'o.paid_at',
+        cancelledAtExpr: 'o.cancelled_at',
+        expiresAtExpr: 'o.expires_at',
+      })} AS status
+    FROM ${schema}.exhibit_orders o
+    LEFT JOIN ${schema}.order_refunds current_refund
+      ON current_refund.out_refund_no = o.current_refund_out_refund_no
+    WHERE o.id = $1
+      AND o.user_id = $2
+    FOR UPDATE OF o`,
     [orderId, userId]
   );
 

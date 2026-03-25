@@ -70,9 +70,17 @@ export async function getOrderPaymentInfo(
       o.total_amount,
       uw.openid,
       REPLACE(o.id::text, '-', '') AS out_trade_no,
-      ${getOrderStatusCase(schema, 'o.id')} AS status,
+      ${getOrderStatusCase({
+        refundedAtExpr: 'o.refunded_at',
+        refundStatusExpr: 'current_refund.status',
+        paidAtExpr: 'o.paid_at',
+        cancelledAtExpr: 'o.cancelled_at',
+        expiresAtExpr: 'o.expires_at',
+      })} AS status,
       o.created_at
     FROM ${schema}.exhibit_orders o
+    LEFT JOIN ${schema}.order_refunds current_refund
+      ON current_refund.out_refund_no = o.current_refund_out_refund_no
     JOIN ${schema}.exhibitions e ON o.exhibit_id = e.id
     JOIN ${schema}.exhibit_sessions es ON o.session_id = es.id
     JOIN ${schema}.exhibit_order_items oi ON oi.order_id = o.id
@@ -405,9 +413,17 @@ export async function getOrderRefundInfo(
       o.total_amount,
       es.session_date::text AS session_date,
       tx.out_trade_no,
-      ${getOrderStatusCase(schema, 'o.id')} AS status,
+      ${getOrderStatusCase({
+        refundedAtExpr: 'o.refunded_at',
+        refundStatusExpr: 'current_refund.status',
+        paidAtExpr: 'o.paid_at',
+        cancelledAtExpr: 'o.cancelled_at',
+        expiresAtExpr: 'o.expires_at',
+      })} AS status,
       rc.status AS redemption_status
     FROM ${schema}.exhibit_orders o
+    LEFT JOIN ${schema}.order_refunds current_refund
+      ON current_refund.out_refund_no = o.current_refund_out_refund_no
     JOIN ${schema}.exhibit_sessions es ON es.id = o.session_id
     LEFT JOIN LATERAL (
       SELECT t.out_trade_no
