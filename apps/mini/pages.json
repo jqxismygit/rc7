@@ -38,7 +38,10 @@
     {
       "path": "pages/game/game",
       "style": {
-        "navigationBarTitleText": "互动"
+        "navigationBarTitleText": "互动",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#090a07",
+        "backgroundColor": "#090a07"
       }
     },
     {

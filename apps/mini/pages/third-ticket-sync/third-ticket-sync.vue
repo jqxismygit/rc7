@@ -1,19 +1,14 @@
 <template>
   <view class="sync-page">
-    <view class="nav-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
-      <view class="nav-inner">
-        <view class="nav-back" @click="goBack">
-          <text class="nav-back-icon">‹</text>
-        </view>
-        <text class="nav-title">三方票同步</text>
-        <view class="nav-placeholder"></view>
-      </view>
-    </view>
+    <cr7-nav-bar
+      title="三方票同步"
+      fallback-url="/pages/my-tickets/my-tickets"
+    />
 
     <scroll-view
       class="page-scroll"
       scroll-y
-      :style="{ paddingTop: navBlockPx + 'px' }"
+      :style="{ paddingTop: navInsetPx + 'px' }"
     >
       <view class="main">
         <view class="hero">
@@ -64,36 +59,26 @@
 </template>
 
 <script>
+import Cr7NavBar from "@/components/cr7-nav-bar/cr7-nav-bar.vue";
+import { getNavBarInsetPx } from "@/utils/navBar.js";
+
 export default {
+  components: {
+    Cr7NavBar,
+  },
+
   data() {
     return {
-      statusBarHeight: 0,
-      navInnerPx: 88,
       code: "",
+      navInsetPx: 0,
     };
   },
 
-  computed: {
-    navBlockPx() {
-      return (this.statusBarHeight || 0) + this.navInnerPx;
-    },
-  },
-
   onLoad() {
-    const sys = uni.getSystemInfoSync();
-    this.statusBarHeight = sys.statusBarHeight || 0;
+    this.navInsetPx = getNavBarInsetPx();
   },
 
   methods: {
-    goBack() {
-      const pages = getCurrentPages();
-      if (pages.length > 1) {
-        uni.navigateBack();
-      } else {
-        uni.switchTab({ url: "/pages/my-tickets/my-tickets" });
-      }
-    },
-
     handleSubmit() {
       if (!this.code) {
         uni.showToast({ title: "请输入兑换码", icon: "none" });

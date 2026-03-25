@@ -1,6 +1,15 @@
 <template>
   <view class="game-page">
-    <scroll-view scroll-y class="game-scroll">
+    <cr7-nav-bar title="互动" fallback-url="/pages/index/index" />
+    <view class="nav-spacer" :style="{ height: navInsetPx + 'px' }" />
+
+    <view class="game-img-area">
+      <image :src="gameImage" class="game-img" mode="aspectFill" />
+    </view>
+
+    <view class="safe-bottom safe-area-bottom"></view>
+
+    <scroll-view v-if="false" scroll-y class="game-scroll">
       <!-- 游戏入口卡片 -->
       <view class="game-card card-dark">
         <view class="game-card-header">
@@ -104,11 +113,18 @@
 <script>
 import { mockGameRanking } from '@/utils/mockData.js'
 import createTabBarMixin from '@/mixins/tabBar.js'
+import Cr7NavBar from '@/components/cr7-nav-bar/cr7-nav-bar.vue'
+import { getNavBarInsetPx } from '@/utils/navBar.js'
 
 export default {
   mixins: [createTabBarMixin(2)],
+  components: {
+    Cr7NavBar
+  },
   data() {
     return {
+      navInsetPx: 0,
+      gameImage: '/static/images/game.png',
       gameStarted: false,
       gameOver: false,
       score: 0,
@@ -124,6 +140,7 @@ export default {
   },
 
   onLoad() {
+    this.navInsetPx = getNavBarInsetPx()
     this.loadRanking()
   },
 
@@ -233,7 +250,27 @@ export default {
 .game-page {
   width: 100%;
   min-height: 100vh;
+  height: 100vh;
   background: $cr7-black;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.nav-spacer {
+  flex-shrink: 0;
+}
+
+.game-img-area {
+  flex: 1;
+  width: 100%;
+  overflow: hidden;
+  background: $cr7-black;
+}
+
+.game-img {
+  width: 100%;
+  height: 100%;
 }
 
 .game-scroll {
