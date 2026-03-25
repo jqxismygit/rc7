@@ -81,3 +81,9 @@
   - 核销动作必须在指定展会下执行，并校验核销码所属展会
   - 自动记录核销人（`redeemed_by`）和核销时间（`redeemed_at`）
   - 仅管理员/运营人员可执行核销
+  - 已退款订单不可核销（返回 `409 ORDER_ALREADY_REFUNDED`）
+
+## 退款与核销联动约束
+
+- 已核销订单不可发起退款（支付服务返回 `409 ORDER_ALREADY_REDEEMED`）
+- 已退款订单不可再次核销（核销服务返回 `409 ORDER_ALREADY_REFUNDED`）
