@@ -255,6 +255,7 @@ export async function getOrderById(
       o.user_id,
       o.exhibit_id,
       o.session_id,
+      o.current_refund_out_refund_no,
       ${getOrderStatusCase({
         refundedAtExpr: 'o.refunded_at',
         refundStatusExpr: 'current_refund.status',
@@ -299,6 +300,7 @@ export async function getOrderByIdAdmin(
       o.user_id,
       o.exhibit_id,
       o.session_id,
+      o.current_refund_out_refund_no,
       ${getOrderStatusCase({
         refundedAtExpr: 'o.refunded_at',
         refundStatusExpr: 'current_refund.status',
@@ -376,6 +378,7 @@ export async function getOrders(
         o.user_id,
         o.exhibit_id,
         o.session_id,
+        o.current_refund_out_refund_no,
         ${getOrderStatusCase({
           refundedAtExpr: 'o.refunded_at',
           refundStatusExpr: 'current_refund.status',
@@ -402,6 +405,7 @@ export async function getOrders(
       user_id,
       exhibit_id,
       session_id,
+      current_refund_out_refund_no,
       status,
       total_amount,
       expires_at,
@@ -474,6 +478,7 @@ export async function getOrdersAdmin(
         o.user_id,
         o.exhibit_id,
         o.session_id,
+        o.current_refund_out_refund_no,
         ${getOrderStatusCase({
           refundedAtExpr: 'o.refunded_at',
           refundStatusExpr: 'current_refund.status',
@@ -498,6 +503,7 @@ export async function getOrdersAdmin(
       user_id,
       exhibit_id,
       session_id,
+      current_refund_out_refund_no,
       status,
       total_amount,
       expires_at,

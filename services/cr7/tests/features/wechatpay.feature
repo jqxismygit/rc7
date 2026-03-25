@@ -47,17 +47,17 @@ Feature: 微信支付订单
     Then 订单状态更新为  "退款已受理"
      And 订单有退款记录 ID
     Then 微信支付服务收到退款请求
-     And 微信支付服务收到的 out-trade-no 是 cr7 服务里中的 out-trade-no
+     And 微信支付服务收到的 out-trade-no 是发起微信付时的订单号
      And 微信支付服务收到的 out_refund_no 是订单的退款记录 ID
      And 微信支付服务收到的退款金额是订单金额，单位为分
      And 微信支付服务收到的订单金额是订单金额，单位为分
      And 微信支付服务收到的退款原因是 "用户发起退款"
     Then 微信支付服务通知 cr7 支付服务退款状态为 "退款处理中"
-     And 微信支付服务状态通知内容中 out-trade-no 是 cr7 服务里中的 out-trade-no
+     And 微信支付服务状态通知内容中 out-trade-no 是发起微信付时的订单号
      And 微信支付服务状态通知内容中 out_refund_no 是订单的退款记录 ID
      And 订单状态更新为 "退款处理中"
     Then 微信支付服务通知 cr7 支付服务退款成功
-     And 微信支付服务退款成功通知内容中 out-trade-no 是 cr7 服务里中的 out-trade-no
+     And 微信支付服务退款成功通知内容中 out-trade-no 是发起微信付时的订单号
      And 微信支付服务退款成功通知内容中 out_refund_no 是订单的退款记录 ID
      And 订单状态更新为 "已退款"
     Then 展会场次的 "成人票" 库存增加 2
@@ -68,7 +68,7 @@ Feature: 微信支付订单
     Given 用户已完成支付
     When 用户发起退款请求
     Then 微信支付服务通知 cr7 支付服务退款结果，退款失败，失败原因 "用户账户异常"
-     And 微信支付服务退款失败通知内容中 out-trade-no 是 cr7 服务里中的 out-trade-no
+     And 微信支付服务退款失败通知内容中 out-trade-no 是发起微信付时的订单号
      And 微信支付服务退款失败通知内容中 out_refund_no 是订单的退款记录 ID
     Then 订单状态更新为 "退款失败"
      And 订单里有退款失败的错误信息 "用户账户异常"

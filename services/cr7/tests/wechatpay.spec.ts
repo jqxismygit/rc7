@@ -34,6 +34,7 @@ import {
   requestRefund,
   requestRefundWithMock,
   sendWechatRefundCallback,
+  WechatRefundResult,
 } from './fixtures/payment.js';
 import { getSessionTickets } from './fixtures/inventory.js';
 import { random_text } from './lib/random.js';
@@ -92,6 +93,10 @@ interface ScenarioContext {
   wechatPayMockServer?: MockServer;
   wechatPayRequestHandler?: Mock;
 }
+
+type RefundCallbackPayload = WechatRefundResult & {
+  reason?: string;
+};
 
 const feature = await loadFeature('tests/features/wechatpay.feature');
 
@@ -210,24 +215,27 @@ describeFeature(feature, ({
       successTime?: string;
     } = {},
   ) {
-    const notification = buildRefundCallbackNotification(
-      {
-        out_trade_no: context.refundRecord!.out_trade_no,
-        out_refund_no: context.refundRecord!.out_refund_no,
-        refund_id: `rf_${Date.now()}`,
-        refund_status: status,
-        channel: 'ORIGINAL',
-        success_time: options.successTime,
-        amount: {
-          refund: context.refundRecord!.refund_amount,
-          total: context.refundRecord!.order_amount,
-        },
-        ...(options.reason ? { reason: options.reason } : {}),
+    const refundPayload: RefundCallbackPayload = {
+      out_trade_no: context.refundRecord!.out_trade_no,
+      out_refund_no: context.refundRecord!.out_refund_no,
+      refund_id: `rf_${Date.now()}`,
+      refund_status: status,
+      channel: 'ORIGINAL',
+      success_time: options.successTime,
+      amount: {
+        refund: context.refundRecord!.refund_amount,
+        total: context.refundRecord!.order_amount,
       },
+      ...(options.reason ? { reason: options.reason } : {}),
+    };
+
+    const notification = buildRefundCallbackNotification(
+      refundPayload,
       config.wechatpay.api_v3_secret,
     );
 
     await sendWechatRefundCallback(scenarioContext.fixtures.values.apiServer, notification);
+    return refundPayload;
   }
 
   async function refreshOrder(context: Partial<OrderContext>) {
@@ -553,8 +561,8 @@ describeFeature(feature, ({
     const { Given, When, Then, And, context } = s;
 
     let refundApplyRequest: { path: string; method: string; body: Record<string, unknown> } | null = null;
-    let processingPayload: ReturnType<typeof buildRefundCallbackNotification> | null = null;
-    let successPayload: ReturnType<typeof buildRefundCallbackNotification> | null = null;
+    let processingRefundPayload: RefundCallbackPayload | null = null;
+    let successRefundPayload: RefundCallbackPayload | null = null;
 
     Given('用户预订了 2 张 "CR7" 展会 的 "3" 天后场次的 "成人票" 库存为 10', async () => {
       await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toFutureDate(3), {
@@ -603,12 +611,13 @@ describeFeature(feature, ({
       expect(refundApplyRequest!.method).toBe('POST');
     });
 
-    And('微信支付服务收到的 out-trade-no 是 cr7 服务里中的 out-trade-no', () => {
-      expect(refundApplyRequest!.body.out_trade_no).toBe(context.refundRecord!.out_trade_no);
+    And('微信支付服务收到的 out-trade-no 是发起微信付时的订单号', async () => {
+      expect(refundApplyRequest!.body.out_trade_no).toBe(context.order!.id.replace(/-/g, ''));
     });
 
-    And('微信支付服务收到的 out_refund_no 是订单的退款记录 ID', () => {
-      expect(refundApplyRequest!.body.out_refund_no).toBe(context.refundRecord!.out_refund_no);
+    And('微信支付服务收到的 out_refund_no 是订单的退款记录 ID', async () => {
+      const order = await refreshOrder(context);
+      expect(refundApplyRequest!.body.out_refund_no).toBe(order.current_refund_out_refund_no);
     });
 
     And('微信支付服务收到的退款金额是订单金额，单位为分', () => {
@@ -627,29 +636,16 @@ describeFeature(feature, ({
     });
 
     Then('微信支付服务通知 cr7 支付服务退款状态为 "退款处理中"', async () => {
-      processingPayload = buildRefundCallbackNotification(
-        {
-          out_trade_no: context.refundRecord!.out_trade_no,
-          out_refund_no: context.refundRecord!.out_refund_no,
-          refund_id: `rf_${Date.now()}`,
-          refund_status: 'PROCESSING',
-          channel: 'ORIGINAL',
-          amount: {
-            refund: context.order!.total_amount,
-            total: context.order!.total_amount,
-          },
-        },
-        config.wechatpay.api_v3_secret,
-      );
-      await sendWechatRefundCallback(scenarioContext.fixtures.values.apiServer, processingPayload);
+      processingRefundPayload = await sendRefundStatusNotification(context, 'PROCESSING');
     });
 
-    And('微信支付服务状态通知内容中 out-trade-no 是 cr7 服务里中的 out-trade-no', () => {
-      expect(processingPayload).toBeTruthy();
+    And('微信支付服务状态通知内容中 out-trade-no 是发起微信付时的订单号', async () => {
+      expect(processingRefundPayload?.out_trade_no).toBe(context.order!.id.replace(/-/g, ''));
     });
 
-    And('微信支付服务状态通知内容中 out_refund_no 是订单的退款记录 ID', () => {
-      expect(processingPayload).toBeTruthy();
+    And('微信支付服务状态通知内容中 out_refund_no 是订单的退款记录 ID', async () => {
+      const order = await refreshOrder(context);
+      expect(processingRefundPayload?.out_refund_no).toBe(order.current_refund_out_refund_no);
     });
 
     And('订单状态更新为 "退款处理中"', async () => {
@@ -658,30 +654,18 @@ describeFeature(feature, ({
     });
 
     Then('微信支付服务通知 cr7 支付服务退款成功', async () => {
-      successPayload = buildRefundCallbackNotification(
-        {
-          out_trade_no: context.refundRecord!.out_trade_no,
-          out_refund_no: context.refundRecord!.out_refund_no,
-          refund_id: `rf_${Date.now()}`,
-          refund_status: 'SUCCESS',
-          channel: 'ORIGINAL',
-          success_time: new Date().toISOString(),
-          amount: {
-            refund: context.order!.total_amount,
-            total: context.order!.total_amount,
-          },
-        },
-        config.wechatpay.api_v3_secret,
+      successRefundPayload = await sendRefundStatusNotification(
+        context, 'SUCCESS', { successTime: new Date().toISOString() }
       );
-      await sendWechatRefundCallback(scenarioContext.fixtures.values.apiServer, successPayload);
     });
 
-    And('微信支付服务退款成功通知内容中 out-trade-no 是 cr7 服务里中的 out-trade-no', () => {
-      expect(successPayload).toBeTruthy();
+    And('微信支付服务退款成功通知内容中 out-trade-no 是发起微信付时的订单号', async () => {
+      expect(successRefundPayload?.out_trade_no).toBe(context.order!.id.replace(/-/g, ''));
     });
 
-    And('微信支付服务退款成功通知内容中 out_refund_no 是订单的退款记录 ID', () => {
-      expect(successPayload).toBeTruthy();
+    And('微信支付服务退款成功通知内容中 out_refund_no 是订单的退款记录 ID', async () => {
+      const order = await refreshOrder(context);
+      expect(successRefundPayload?.out_refund_no).toBe(order.current_refund_out_refund_no);
     });
 
     And('订单状态更新为 "已退款"', async () => {
@@ -697,6 +681,8 @@ describeFeature(feature, ({
 
   Scenario('微信支付服务的退款失败', (s: StepTest<Partial<RefundScenarioContext>>) => {
     const { Given, When, Then, And, context } = s;
+
+    let failedRefundPayload: RefundCallbackPayload | null = null;
 
     Given('用户预订了 1 张 "CR7" 展会 的 "3" 天后场次的 "成人票" 库存为 10', async () => {
       await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toFutureDate(3), {
@@ -730,15 +716,16 @@ describeFeature(feature, ({
     });
 
     Then('微信支付服务通知 cr7 支付服务退款结果，退款失败，失败原因 "用户账户异常"', async () => {
-      await sendRefundStatusNotification(context, 'ABNORMAL', { reason: '用户账户异常' });
+      failedRefundPayload = await sendRefundStatusNotification(context, 'ABNORMAL', { reason: '用户账户异常' });
     });
 
-    And('微信支付服务退款失败通知内容中 out-trade-no 是 cr7 服务里中的 out-trade-no', () => {
-      expect(context.refundRecord!.out_trade_no).toBeTruthy();
+    And('微信支付服务退款失败通知内容中 out-trade-no 是发起微信付时的订单号', async () => {
+      expect(failedRefundPayload?.out_trade_no).toBe(context.order!.id.replace(/-/g, ''));
     });
 
-    And('微信支付服务退款失败通知内容中 out_refund_no 是订单的退款记录 ID', () => {
-      expect(context.refundRecord!.out_refund_no).toBeTruthy();
+    And('微信支付服务退款失败通知内容中 out_refund_no 是订单的退款记录 ID', async () => {
+      const order = await refreshOrder(context);
+      expect(failedRefundPayload?.out_refund_no).toBe(order.current_refund_out_refund_no);
     });
 
     Then('订单状态更新为 "退款失败"', async () => {
