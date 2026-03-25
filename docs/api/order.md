@@ -9,6 +9,10 @@
 - Order Status（订单状态）：
   - `PENDING_PAYMENT`：待支付
   - `PAID`：已支付
+  - `REFUND_REQUESTED`：退款已受理
+  - `REFUND_PROCESSING`：退款处理中
+  - `REFUNDED`：已退款
+  - `REFUND_FAILED`：退款失败
   - `CANCELLED`：已取消
   - `EXPIRED`：已过期
 
@@ -24,12 +28,17 @@
   - `paid_at`：订单支付时间（仅当订单支付成功时写入）
   - `released_at`：库存释放时间（取消或过期时写入，用于幂等控制）
   - `hidden_at`：用户隐藏时间（仅影响用户自己的订单列表，不影响管理员视图）
+  - `current_refund_out_refund_no`：订单当前绑定的退款单号；没有退款流程时为 `null`
 
 ## 订单状态流转
 
 ```
 PENDING_PAYMENT
     ├─ 支付成功 → PAID
+    │             ├─ 发起退款 → REFUND_REQUESTED
+    │             ├─ 微信处理中 → REFUND_PROCESSING
+    │             ├─ 退款成功 → REFUNDED
+    │             └─ 退款失败 → REFUND_FAILED
     ├─ 用户取消 → CANCELLED (released_at 已写入)
     └─ 超过 expires_at → EXPIRED (released_at 已写入)
 ```
@@ -125,7 +134,7 @@ PENDING_PAYMENT
 - 说明：
   - 仅返回当前用户的订单
   - 已隐藏订单不会在用户订单列表中返回
-  - 支持按订单状态筛选：`PENDING_PAYMENT`、`PAID`、`CANCELLED`、`EXPIRED`
+  - 支持按订单状态筛选
   - 分页参数 `page` 和 `limit` 均可选，默认返回第 1 页，每页 20 条
 
 ## 隐藏订单

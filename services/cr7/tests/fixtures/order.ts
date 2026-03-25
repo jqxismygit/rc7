@@ -1,6 +1,12 @@
 import { Server } from 'http';
+import type { Pool } from 'pg';
+import type { ServiceBroker } from 'moleculer';
 import { Order } from '@cr7/types';
 import { deleteJSON, getJSON, patchJSON, postJSON } from '../lib/api.js';
+
+type Cr7ServiceWithPool = {
+  pool: Pick<Pool, 'query'>;
+};
 
 export async function createOrder(
   server: Server,
@@ -81,5 +87,21 @@ export async function listOrdersAdmin(
     server,
     '/admin/orders',
     { token, query }
+  );
+}
+
+export async function expireOrder(
+  broker: ServiceBroker,
+  schema: string,
+  orderId: string,
+) {
+  const cr7Service = broker.getLocalService('cr7') as unknown as Cr7ServiceWithPool;
+
+  await cr7Service.pool.query(
+    `UPDATE ${schema}.exhibit_orders
+    SET expires_at = NOW() - INTERVAL '1 minute',
+        updated_at = NOW()
+    WHERE id = $1`,
+    [orderId],
   );
 }

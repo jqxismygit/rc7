@@ -15,6 +15,7 @@ type RedemptionItemInput = Redeem.RedemptionCodeWithOrder['items'][number];
 export type REDEEM_DATA_ERROR_CODES =
   | 'ORDER_NOT_FOUND'
   | 'ORDER_NOT_REDEEMABLE'
+  | 'ORDER_REFUND_IN_PROGRESS'
   | 'REDEMPTION_NOT_FOUND'
   | 'REDEMPTION_ALREADY_REDEEMED'
   | 'REDEMPTION_EXPIRED';
@@ -268,6 +269,14 @@ export async function redeemCode(
   order: Order.OrderWithItems,
   items: RedemptionItemInput[],
 ): Promise<Redeem.RedemptionCodeWithOrder> {
+  if (
+    order.status === 'REFUND_REQUESTED'
+    || order.status === 'REFUND_PROCESSING'
+    || order.status === 'REFUNDED'
+  ) {
+    throw new RedeemDataError('Order is in refund flow', 'ORDER_REFUND_IN_PROGRESS');
+  }
+
   const redemption = await getRedemptionRowByCode(client, schema, exhibitId, code);
 
   if (redemption.status === 'REDEEMED') {

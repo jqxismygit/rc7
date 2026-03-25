@@ -18,6 +18,10 @@ export class ExhibitionDataError extends Error {
   }
 }
 
+export type TicketCategoryRefundPolicyRow = {
+  refund_policy: 'NON_REFUNDABLE' | 'REFUNDABLE_48H_BEFORE';
+};
+
 export async function createExhibition(
   client: Pool,
   schema: string,
@@ -231,6 +235,22 @@ export async function getSessionTicketCategoriesBySessionId(
       AND s.id = $2
     ORDER BY c.created_at`,
     [eid, sid]
+  );
+
+  return rows;
+}
+
+export async function getTicketCategoryRefundPoliciesByOrderId(
+  client: DBClient,
+  schema: string,
+  orderId: string,
+): Promise<TicketCategoryRefundPolicyRow[]> {
+  const { rows } = await client.query<TicketCategoryRefundPolicyRow>(
+    `SELECT tc.refund_policy
+    FROM ${schema}.exhibit_order_items oi
+    JOIN ${schema}.exhibit_ticket_categories tc ON tc.id = oi.ticket_category_id
+    WHERE oi.order_id = $1`,
+    [orderId],
   );
 
   return rows;

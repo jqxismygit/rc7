@@ -5,7 +5,8 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
-import { Exhibition, Order, Redeem, User } from '@cr7/types';
+import { addDays, format } from 'date-fns';
+import { Exhibition, Order, Payment, Redeem, User } from '@cr7/types';
 import { expect, vi } from 'vitest';
 import type { ServiceBroker } from 'moleculer';
 import type { Pool } from 'pg';
@@ -28,22 +29,43 @@ import {
 } from './fixtures/redeem.js';
 import { grantRoleToUser as grantRoleToUserAPI } from './fixtures/user.js';
 import {
+  buildRefundCallbackNotification,
   markOrderAsPaidForTest,
+  requestRefundWithMock,
+  sendWechatRefundCallback,
 } from './fixtures/payment.js';
+import { getOrder } from './fixtures/order.js';
 
 const schema = 'test_redeem';
 const services = ['api', 'user', 'cr7'];
 
 const feature = await loadFeature('tests/features/redeem.feature');
 
-type CaseContext = {
+type ExhibitionContext = {
   exhibition: Exhibition.Exhibition;
   session: Exhibition.Session;
   ticket: Exhibition.TicketCategory;
+};
+
+type OrderContext = {
   order: Order.OrderWithItems;
+};
+
+type RedemptionContext = {
   redemption: Redeem.RedemptionCodeWithOrder;
+};
+
+type RefundContext = {
+  refundRecord: Payment.RefundRecord;
+};
+
+type ErrorContext = {
   lastError: unknown;
 };
+
+type OrderScenarioContext = ExhibitionContext & OrderContext & ErrorContext;
+type RedemptionScenarioContext = OrderScenarioContext & RedemptionContext;
+type RefundFlowRedemptionScenarioContext = RedemptionScenarioContext & RefundContext;
 
 type RoleName = 'ADMIN' | 'OPERATOR';
 
@@ -83,12 +105,13 @@ describeFeature(feature, ({
   });
 
   async function prepareExhibitionData(
-    context: Partial<CaseContext>,
+    context: Partial<ExhibitionContext>,
     exhibitionName: string,
     sessionDateInput: string,
     ticketName: string,
     admittance: number,
     inventory: number,
+    refundPolicy: 'NON_REFUNDABLE' | 'REFUNDABLE_48H_BEFORE' = 'NON_REFUNDABLE',
   ) {
     const { apiServer } = scenarioContext.fixtures.values;
     const sessionDate = toSessionDateLabel(sessionDateInput);
@@ -109,7 +132,7 @@ describeFeature(feature, ({
       name: ticketName,
       price: 100,
       valid_duration_days: 1,
-      refund_policy: 'NON_REFUNDABLE',
+      refund_policy: refundPolicy,
       admittance,
     });
 
@@ -129,7 +152,7 @@ describeFeature(feature, ({
   }
 
   async function createOrderForCurrentUser(
-    context: Partial<CaseContext>,
+    context: Partial<ExhibitionContext & OrderContext>,
     quantity: number,
   ) {
     const { apiServer } = scenarioContext.fixtures.values;
@@ -144,7 +167,7 @@ describeFeature(feature, ({
     Object.assign(context, { order });
   }
 
-  async function payOrderForCurrentUser(context: Partial<CaseContext>) {
+  async function payOrderForCurrentUser(context: Partial<OrderContext>) {
     const { apiServer } = scenarioContext.fixtures.values;
     const user = scenarioContext.usersByName.Alice;
     expect(user).toBeTruthy();
@@ -158,23 +181,25 @@ describeFeature(feature, ({
     );
   }
 
-  async function fetchOrderRedemption(context: Partial<CaseContext>) {
+  async function fetchOrderRedemption(
+    context: Partial<OrderContext & RedemptionContext>,
+  ) {
     const { apiServer } = scenarioContext.fixtures.values;
     const redemption = await getOrderRedemption(apiServer, context.order!.id, scenarioContext.userToken);
 
     Object.assign(context, { redemption });
   }
 
-  function rememberError(context: Partial<CaseContext>, error: unknown) {
+  function rememberError(context: Partial<ErrorContext>, error: unknown) {
     Object.assign(context, { lastError: error });
   }
 
-  function clearLastError(context: Partial<CaseContext>) {
+  function clearLastError(context: Partial<ErrorContext>) {
     Object.assign(context, { lastError: null });
   }
 
   function assertLastAPIError(
-    context: Partial<CaseContext>,
+    context: Partial<ErrorContext>,
     options: {
       status?: number;
       method?: string;
@@ -186,13 +211,44 @@ describeFeature(feature, ({
   }
 
   function assertLastAPIErrorType(
-    context: Partial<CaseContext>,
+    context: Partial<ErrorContext>,
     expectedType: string,
   ) {
     const error = assertLastAPIError(context);
     expect(error.body).toBeTypeOf('object');
     const body = error.body as { type?: string };
     expect(body.type).toBe(expectedType);
+  }
+
+  async function sendRefundStatusNotification(
+    context: Partial<RefundContext>,
+    status: 'PROCESSING' | 'SUCCESS',
+  ) {
+    const notification = buildRefundCallbackNotification(
+      {
+        out_trade_no: context.refundRecord!.out_trade_no,
+        out_refund_no: context.refundRecord!.out_refund_no,
+        refund_id: `rf_${Date.now()}`,
+        refund_status: status,
+        channel: 'ORIGINAL',
+        success_time: status === 'SUCCESS' ? new Date().toISOString() : undefined,
+        amount: {
+          refund: context.refundRecord!.refund_amount,
+          total: context.refundRecord!.order_amount,
+        },
+      },
+      config.wechatpay.api_v3_secret,
+    );
+
+    await sendWechatRefundCallback(scenarioContext.fixtures.values.apiServer, notification);
+  }
+
+  async function refreshOrder(context: Partial<OrderContext>) {
+    return getOrder(
+      scenarioContext.fixtures.values.apiServer,
+      context.order!.id,
+      scenarioContext.userToken,
+    );
   }
 
   function getCr7PoolForTestSupport() {
@@ -232,6 +288,10 @@ describeFeature(feature, ({
     return user.profile.id;
   }
 
+  function toFutureDateLabel(daysText: string) {
+    return format(addDays(new Date(), Number(daysText)), 'yyyy-MM-dd');
+  }
+
   async function grantRoleToUser(
     userName: string,
     roleName: RoleName,
@@ -257,7 +317,7 @@ describeFeature(feature, ({
     return result;
   }
 
-  async function expireCurrentRedemption(context: Partial<CaseContext>) {
+  async function expireCurrentRedemption(context: Partial<OrderContext>) {
     const pool = getCr7PoolForTestSupport();
     // Set valid_until to valid_from + 1 second: satisfies the DB constraint (valid_until > valid_from)
     // and makes the code immediately expired since now >> valid_from + 1s
@@ -272,7 +332,7 @@ describeFeature(feature, ({
   }
 
   async function performRedeem(
-    context: Partial<CaseContext>,
+    context: Partial<ExhibitionContext & RedemptionContext>,
     token: string,
   ) {
     const { apiServer } = scenarioContext.fixtures.values;
@@ -310,7 +370,7 @@ describeFeature(feature, ({
 
   Scenario(
     '一个完成支付的订单拥有一个核销码',
-    (s: StepTest<Partial<CaseContext>>) => {
+    (s: StepTest<Partial<RedemptionScenarioContext>>) => {
       const { Given, And, When, Then, context } = s;
 
       Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
@@ -404,7 +464,7 @@ describeFeature(feature, ({
 
   Scenario(
     '使用核销码完成订单核销',
-    (s: StepTest<Partial<CaseContext>>) => {
+    (s: StepTest<Partial<RedemptionScenarioContext>>) => {
       const { Given, And, When, Then, context } = s;
 
       Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
@@ -460,7 +520,7 @@ describeFeature(feature, ({
 
   Scenario(
     '一个未完成支付的订单没有核销码',
-    (s: StepTest<Partial<CaseContext>>) => {
+    (s: StepTest<Partial<OrderScenarioContext>>) => {
       const { Given, And, When, Then, context } = s;
 
       Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
@@ -500,7 +560,7 @@ describeFeature(feature, ({
 
   Scenario(
     '已过期订单的核销码不可用',
-    (s: StepTest<Partial<CaseContext>>) => {
+    (s: StepTest<Partial<RedemptionScenarioContext>>) => {
       const { Given, And, When, Then, context } = s;
 
       Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
@@ -549,7 +609,7 @@ describeFeature(feature, ({
 
   Scenario(
     '已核销订单的核销码不可重复使用',
-    (s: StepTest<Partial<CaseContext>>) => {
+    (s: StepTest<Partial<RedemptionScenarioContext>>) => {
       const { Given, And, When, Then, context } = s;
 
       Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
@@ -606,7 +666,7 @@ describeFeature(feature, ({
 
   Scenario(
     '只有运营人员才能核销',
-    (s: StepTest<Partial<CaseContext>>) => {
+    (s: StepTest<Partial<RedemptionScenarioContext>>) => {
       const { Given, And, When, Then, context } = s;
 
       Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
@@ -691,7 +751,7 @@ describeFeature(feature, ({
 
   Scenario(
     '当天场次的核销码从今天零点起有效',
-    (s: StepTest<Partial<CaseContext>>) => {
+    (s: StepTest<Partial<RedemptionScenarioContext>>) => {
       const { Given, And, When, Then, context } = s;
 
       Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
@@ -738,6 +798,183 @@ describeFeature(feature, ({
         }
         expect(context.lastError).toBeFalsy();
         expect(context.redemption?.status).toBe('REDEEMED');
+      });
+    },
+  );
+
+  Scenario(
+    '已经核销的订单不能发起退款',
+    (s: StepTest<Partial<RedemptionScenarioContext>>) => {
+      const { Given, When, Then, And, context } = s;
+
+      Given('用户预订了 {int} 张 {string} 展会 的 {string} 天后场次的 {string}', async (_ctx, quantity: number, exhibitionName: string, daysText: string, ticketName: string) => {
+        await prepareExhibitionData(
+          context,
+          exhibitionName,
+          toSessionDateLabel('今天'),
+          ticketName,
+          1,
+          10,
+          'REFUNDABLE_48H_BEFORE',
+        );
+        await createOrderForCurrentUser(context, quantity);
+      });
+
+      Given('用户已完成支付', async () => {
+        await payOrderForCurrentUser(context);
+        await fetchOrderRedemption(context);
+      });
+
+      Given('订单已被核销', async () => {
+        const token = resolveOperatorToken('管理员');
+        await performRedeem(context, token);
+      });
+
+      When('用户发起退款请求', async () => {
+        clearLastError(context);
+        try {
+          await requestRefundWithMock(
+            scenarioContext.fixtures.values.apiServer,
+            context.order!,
+            scenarioContext.userToken,
+          );
+        } catch (error) {
+          rememberError(context, error);
+        }
+      });
+
+      Then('cr7 支付服务拒绝退款请求，返回错误信息 {string}', (_ctx, message: string) => {
+        assertLastAPIError(context, {
+          status: 409,
+          method: 'POST',
+          messageIncludes: message,
+        });
+      });
+
+      And('订单状态仍然为 {string}', async (_ctx, statusLabel: string) => {
+        const order = await refreshOrder(context);
+        if (statusLabel === '已支付') {
+          expect(order.status).toBe('PAID');
+        }
+      });
+    },
+  );
+
+  Scenario(
+    '已经处于退款流程的订单不能被核销',
+    (s: StepTest<Partial<RefundFlowRedemptionScenarioContext>>) => {
+      const { Given, When, Then, And, context } = s;
+
+      Given('用户预订了 {int} 张 {string} 展会 的 {string} 天后场次的 {string}', async (_ctx, quantity: number, exhibitionName: string, daysText: string, ticketName: string) => {
+        await prepareExhibitionData(
+          context,
+          exhibitionName,
+          toFutureDateLabel(daysText),
+          ticketName,
+          1,
+          10,
+          'REFUNDABLE_48H_BEFORE',
+        );
+        await createOrderForCurrentUser(context, quantity);
+      });
+
+      Given('用户已完成支付', async () => {
+        await payOrderForCurrentUser(context);
+        await fetchOrderRedemption(context);
+      });
+
+      Given('用户已发起退款请求，订单状态为 {string}', async (_ctx, statusLabel: string) => {
+        expect(statusLabel).toBe('退款已受理');
+        const { refundRecord } = await requestRefundWithMock(
+          scenarioContext.fixtures.values.apiServer,
+          context.order!,
+          scenarioContext.userToken,
+        );
+        Object.assign(context, { refundRecord });
+
+        const order = await refreshOrder(context);
+        expect(order.status).toBe('REFUND_REQUESTED');
+      });
+
+      When('{string}扫码核销用户的订单核销码', async (_ctx, operator: string) => {
+        const token = resolveOperatorToken(operator);
+        clearLastError(context);
+        try {
+          await performRedeem(context, token);
+        } catch (error) {
+          rememberError(context, error);
+        }
+      });
+
+      Then('核销失败，状态码为 {int}', (_ctx, statusCode: number) => {
+        assertLastAPIError(context, { status: statusCode, method: 'POST' });
+      });
+
+      And('核销失败, 错误信息为 {string}', (_ctx, message: string) => {
+        assertLastAPIError(context, {
+          status: 409,
+          method: 'POST',
+          messageIncludes: message,
+        });
+      });
+
+      Then('再次核销失败，状态码为 {int}', (_ctx, statusCode: number) => {
+        assertLastAPIError(context, { status: statusCode, method: 'POST' });
+      });
+
+      And('再次核销失败, 错误信息为 {string}', (_ctx, message: string) => {
+        assertLastAPIError(context, {
+          status: 409,
+          method: 'POST',
+          messageIncludes: message,
+        });
+      });
+
+      When('微信支付服务通知 cr7 支付服务退款状态为 {string}', async (_ctx, statusLabel: string) => {
+        expect(statusLabel).toBe('退款处理中');
+        await sendRefundStatusNotification(context, 'PROCESSING');
+
+        const order = await refreshOrder(context);
+        expect(order.status).toBe('REFUND_PROCESSING');
+      });
+
+      When('{string}再次扫码核销用户的订单核销码', async (_ctx, operator: string) => {
+        const token = resolveOperatorToken(operator);
+        clearLastError(context);
+        try {
+          await performRedeem(context, token);
+        } catch (error) {
+          rememberError(context, error);
+        }
+      });
+
+      When('微信支付服务通知 cr7 支付服务退款结果，退款成功', async () => {
+        await sendRefundStatusNotification(context, 'SUCCESS');
+
+        const order = await refreshOrder(context);
+        expect(order.status).toBe('REFUNDED');
+      });
+
+      When('{string}在退款成功后再次扫码核销用户的订单核销码', async (_ctx, operator: string) => {
+        const token = resolveOperatorToken(operator);
+        clearLastError(context);
+        try {
+          await performRedeem(context, token);
+        } catch (error) {
+          rememberError(context, error);
+        }
+      });
+
+      Then('退款成功后核销失败，状态码为 {int}', (_ctx, statusCode: number) => {
+        assertLastAPIError(context, { status: statusCode, method: 'POST' });
+      });
+
+      And('退款成功后核销失败, 错误信息为 {string}', (_ctx, message: string) => {
+        assertLastAPIError(context, {
+          status: 409,
+          method: 'POST',
+          messageIncludes: message,
+        });
       });
     },
   );

@@ -131,7 +131,7 @@ const routes = [
     [
       'cr7.order.get', 'cr7.order.list', 'cr7.order.cancel',
       'cr7.order.hide',
-      'cr7.order.wechatpay', 'cr7.redemption.getByOrder'
+      'cr7.order.wechatpay', 'cr7.order.refund', 'cr7.redemption.getByOrder'
     ],
     {
       aliases: {
@@ -142,7 +142,7 @@ const routes = [
   ),
   routeConfig(
     '/admin/orders',
-    ['cr7.order.listAdmin'],
+    ['cr7.order.listAdmin', 'cr7.order.refundsAdmin'],
     {
       autoAliases: true,
     }
@@ -156,15 +156,16 @@ const routes = [
   ),
   routeConfig(
     '/payment',
-    ['cr7.wechatpay.callback'],
+    ['cr7.wechatpay.callback', 'cr7.wechatpay.refundCallback'],
     {
       authentication: false,
       authorization: false,
       aliases: {
         'POST /wechat/callback': 'cr7.wechatpay.callback',
+        'POST /wechat/callback/refund': 'cr7.wechatpay.refundCallback',
       }
     }
-  )
+  ),
 ]
 
 export default {

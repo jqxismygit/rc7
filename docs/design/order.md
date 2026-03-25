@@ -59,6 +59,10 @@
 
 在 data 层查询订单时使用 SQL CASE 计算状态：
 - PAID
+- REFUND_REQUESTED
+- REFUND_PROCESSING
+- REFUNDED
+- REFUND_FAILED
 - CANCELLED
 - EXPIRED
 - PENDING_PAYMENT
@@ -110,7 +114,6 @@
 
 规则：
 - 仅返回当前用户订单。
-- status 过滤基于视图字段。
 
 ### 3.4 取消订单
 

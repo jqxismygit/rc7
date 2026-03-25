@@ -49,6 +49,6 @@ export default {
     client_key_path: path.resolve(etc_path, 'wechatpay/apiclient_key.pem'),
     wechat_pay_serial: 'your_wechat_pay_serial',
     wechat_pay_public_key_path: path.resolve(etc_path, 'wechatpay/wechatpay_pub_key.pem'),
-    callback_url: `${host}/api/payment/wechat/callback`
+    callback_base_url: `${host}/api`,
   }
 }
