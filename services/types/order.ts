@@ -1,6 +1,10 @@
 export type OrderStatus =
   | 'PENDING_PAYMENT'   // 待支付
   | 'PAID'              // 已支付
+  | 'REFUND_REQUESTED'  // 退款已受理
+  | 'REFUND_PROCESSING' // 退款处理中
+  | 'REFUNDED'          // 已退款
+  | 'REFUND_FAILED'     // 退款失败
   | 'CANCELLED'         // 已取消
   | 'EXPIRED';          // 已过期
 

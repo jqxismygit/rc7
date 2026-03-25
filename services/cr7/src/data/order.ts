@@ -29,19 +29,46 @@ type OrderLockRow = {
   status: Order.OrderStatus;
 };
 
+type RefundSettlementRow = {
+  session_id: string;
+  released_at: string | null;
+};
+
 type ExpiredOrderRow = {
   id: string;
   session_id: string;
 };
 
-export const ORDER_STATUS_CASE = `
-  CASE
-    WHEN paid_at IS NOT NULL THEN 'PAID'
-    WHEN cancelled_at IS NOT NULL THEN 'CANCELLED'
-    WHEN expires_at < NOW() THEN 'EXPIRED'
-    ELSE 'PENDING_PAYMENT'
-  END
-`;
+export function getOrderStatusCase(schema: string, orderIdExpr = 'id') {
+  const orderTablePrefix = orderIdExpr.includes('.')
+    ? `${orderIdExpr.slice(0, orderIdExpr.lastIndexOf('.') + 1)}`
+    : '';
+
+  return `
+    CASE
+      WHEN ${orderTablePrefix}refunded_at IS NOT NULL THEN 'REFUNDED'
+      WHEN (
+        SELECT r.status
+        FROM ${schema}.order_refunds r
+        WHERE r.out_refund_no = ${orderTablePrefix}current_refund_out_refund_no
+      ) = 'FAILED' THEN 'REFUND_FAILED'
+      WHEN (
+        SELECT r.status
+        FROM ${schema}.order_refunds r
+        WHERE r.out_refund_no = ${orderTablePrefix}current_refund_out_refund_no
+      ) = 'PROCESSING' THEN 'REFUND_PROCESSING'
+      WHEN (
+        SELECT r.status
+        FROM ${schema}.order_refunds r
+        WHERE r.out_refund_no = ${orderTablePrefix}current_refund_out_refund_no
+      ) = 'REQUESTED' THEN 'REFUND_REQUESTED'
+      WHEN ${orderTablePrefix}paid_at IS NOT NULL THEN 'PAID'
+      WHEN ${orderTablePrefix}cancelled_at IS NOT NULL THEN 'CANCELLED'
+      WHEN ${orderTablePrefix}expires_at < NOW() THEN 'EXPIRED'
+      ELSE 'PENDING_PAYMENT'
+    END
+  `;
+}
 
 export type ORDER_DATA_ERROR_CODES =
   | 'ORDER_NOT_FOUND'
@@ -228,7 +255,7 @@ export async function getOrderById(
       user_id,
       exhibit_id,
       session_id,
-      ${ORDER_STATUS_CASE} AS status,
+      ${getOrderStatusCase(schema)} AS status,
       total_amount,
       expires_at,
       paid_at,
@@ -264,7 +291,7 @@ export async function getOrderByIdAdmin(
       user_id,
       exhibit_id,
       session_id,
-      ${ORDER_STATUS_CASE} AS status,
+      ${getOrderStatusCase(schema)} AS status,
       total_amount,
       expires_at,
       paid_at,
@@ -305,7 +332,7 @@ export async function getOrders(
     `WITH order_rows AS (
       SELECT
         id,
-        ${ORDER_STATUS_CASE} AS status
+        ${getOrderStatusCase(schema)} AS status
       FROM ${schema}.exhibit_orders
       WHERE user_id = $1
         AND hidden_at IS NULL
@@ -325,7 +352,7 @@ export async function getOrders(
         user_id,
         exhibit_id,
         session_id,
-        ${ORDER_STATUS_CASE} AS status,
+        ${getOrderStatusCase(schema)} AS status,
         total_amount,
         expires_at,
         paid_at,
@@ -389,7 +416,7 @@ export async function getOrdersAdmin(
     `WITH order_rows AS (
       SELECT
         id,
-        ${ORDER_STATUS_CASE} AS status
+        ${getOrderStatusCase(schema)} AS status
       FROM ${schema}.exhibit_orders
     )
     SELECT COUNT(*)::text AS total
@@ -407,7 +434,7 @@ export async function getOrdersAdmin(
         user_id,
         exhibit_id,
         session_id,
-        ${ORDER_STATUS_CASE} AS status,
+        ${getOrderStatusCase(schema)} AS status,
         total_amount,
         expires_at,
         paid_at,
@@ -461,7 +488,7 @@ export async function hideOrder(
 ): Promise<void> {
   const { rows } = await client.query<{ status: Order.OrderStatus }>(
     `SELECT
-      ${ORDER_STATUS_CASE} AS status
+      ${getOrderStatusCase(schema)} AS status
     FROM ${schema}.exhibit_orders
     WHERE id = $1
       AND user_id = $2
@@ -587,7 +614,7 @@ async function lockOrderForCancel(
       user_id,
       session_id,
       released_at,
-      ${ORDER_STATUS_CASE} AS status
+      ${getOrderStatusCase(schema)} AS status
     FROM ${schema}.exhibit_orders
     WHERE id = $1
       AND user_id = $2
@@ -602,7 +629,7 @@ async function lockOrderForCancel(
   return rows[0];
 }
 
-async function releaseOrderInventory(
+export async function releaseOrderInventory(
   client: DBClient,
   schema: string,
   orderId: string,
@@ -637,6 +664,58 @@ async function releaseOrderInventory(
       [sessionId, item.ticket_category_id, item.quantity]
     );
   }
+}
+
+export async function setOrderCurrentRefund(
+  client: DBClient,
+  schema: string,
+  orderId: string,
+  outRefundNo: string,
+): Promise<void> {
+  await client.query(
+    `UPDATE ${schema}.exhibit_orders
+    SET
+      current_refund_out_refund_no = $2,
+      updated_at = NOW()
+    WHERE id = $1`,
+    [orderId, outRefundNo],
+  );
+}
+
+export async function markOrderRefunded(
+  client: DBClient,
+  schema: string,
+  orderId: string,
+  outRefundNo: string,
+): Promise<RefundSettlementRow | null> {
+  const { rows } = await client.query<RefundSettlementRow>(
+    `WITH locked_order AS (
+      SELECT
+        session_id,
+        released_at
+      FROM ${schema}.exhibit_orders
+      WHERE id = $1
+        AND current_refund_out_refund_no = $2
+      FOR UPDATE
+    ), updated_order AS (
+      UPDATE ${schema}.exhibit_orders
+      SET
+        refunded_at = COALESCE(refunded_at, NOW()),
+        released_at = COALESCE(released_at, NOW()),
+        updated_at = NOW()
+      WHERE id = $1
+        AND current_refund_out_refund_no = $2
+      RETURNING id
+    )
+    SELECT
+      locked_order.session_id,
+      locked_order.released_at
+    FROM locked_order
+    JOIN updated_order ON TRUE`,
+    [orderId, outRefundNo],
+  );
+
+  return rows[0] ?? null;
 }
 
 export async function cancelOrder(

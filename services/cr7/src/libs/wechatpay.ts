@@ -66,6 +66,40 @@ export interface WechatCallbackTransactionResult {
 	trade_state: string;
 }
 
+export function decryptWechatCallbackPayload(
+	resource: WechatCallbackResource,
+	apiV3Secret: string,
+): unknown {
+	const key = Buffer.from(apiV3Secret.padEnd(32, '0').slice(0, 32), 'utf-8');
+	const ciphertext = Buffer.from(resource.ciphertext, 'base64');
+
+	if (ciphertext.length <= 16) {
+		throw new MoleculerClientError('微信回调密文格式错误', 400, 'WECHATPAY_CALLBACK_INVALID');
+	}
+
+	const encrypted = ciphertext.subarray(0, ciphertext.length - 16);
+	const authTag = ciphertext.subarray(ciphertext.length - 16);
+	const decipher = createDecipheriv('aes-256-gcm', key, resource.nonce);
+	decipher.setAAD(Buffer.from(resource.associated_data));
+	decipher.setAuthTag(authTag);
+
+	let decrypted = '';
+	try {
+		decrypted = Buffer.concat([
+			decipher.update(encrypted),
+			decipher.final(),
+		]).toString('utf-8');
+	} catch {
+		throw new MoleculerClientError('微信回调解密失败', 400, 'WECHATPAY_CALLBACK_DECRYPT_FAILED');
+	}
+
+	try {
+		return JSON.parse(decrypted) as unknown;
+	} catch {
+		throw new MoleculerClientError('微信回调业务字段缺失', 400, 'WECHATPAY_CALLBACK_INVALID');
+	}
+}
+
 function buildSignMessage(
 	method: string,
 	url: URL,
@@ -114,30 +148,7 @@ export function decryptWechatCallbackResource(
 	resource: WechatCallbackResource,
 	apiV3Secret: string,
 ): WechatCallbackTransactionResult {
-	const key = Buffer.from(apiV3Secret.padEnd(32, '0').slice(0, 32), 'utf-8');
-	const ciphertext = Buffer.from(resource.ciphertext, 'base64');
-
-	if (ciphertext.length <= 16) {
-		throw new MoleculerClientError('微信回调密文格式错误', 400, 'WECHATPAY_CALLBACK_INVALID');
-	}
-
-	const encrypted = ciphertext.subarray(0, ciphertext.length - 16);
-	const authTag = ciphertext.subarray(ciphertext.length - 16);
-	const decipher = createDecipheriv('aes-256-gcm', key, resource.nonce);
-	decipher.setAAD(Buffer.from(resource.associated_data));
-	decipher.setAuthTag(authTag);
-
-	let decrypted = '';
-	try {
-		decrypted = Buffer.concat([
-			decipher.update(encrypted),
-			decipher.final(),
-		]).toString('utf-8');
-	} catch {
-		throw new MoleculerClientError('微信回调解密失败', 400, 'WECHATPAY_CALLBACK_DECRYPT_FAILED');
-	}
-
-	const payload = JSON.parse(decrypted) as Partial<WechatCallbackTransactionResult>;
+	const payload = decryptWechatCallbackPayload(resource, apiV3Secret) as Partial<WechatCallbackTransactionResult>;
 	const outTradeNo = payload.out_trade_no ?? null;
 	const transactionId = payload.transaction_id ?? null;
 	const tradeState = payload.trade_state ?? null;

@@ -90,8 +90,44 @@ export function handlePaymentDataError(error: unknown): never {
     throw new MoleculerClientError('订单状态不允许支付', 400, 'ORDER_STATUS_INVALID');
   }
 
+  if (error.code === 'ORDER_EXPIRED') {
+    throw new MoleculerClientError('订单已过期', 410, 'ORDER_EXPIRED');
+  }
+
   if (error.code === 'USER_NO_OPENID') {
     throw new MoleculerClientError('用户未绑定微信账号', 409, 'USER_NO_OPENID');
+  }
+
+  if (error.code === 'ORDER_ALREADY_REDEEMED') {
+    throw new MoleculerClientError('订单已核销，无法退款', 409, 'ORDER_ALREADY_REDEEMED');
+  }
+
+  if (error.code === 'ORDER_NOT_REFUNDABLE') {
+    throw new MoleculerClientError('订单不允许退款', 409, 'ORDER_NOT_REFUNDABLE');
+  }
+
+  if (error.code === 'ORDER_CONTAINS_NON_REFUNDABLE_ITEMS') {
+    throw new MoleculerClientError('订单中包含不允许退款的票种', 409, 'ORDER_CONTAINS_NON_REFUNDABLE_ITEMS');
+  }
+
+  if (error.code === 'ORDER_REFUND_DEADLINE_PASSED') {
+    throw new MoleculerClientError('订单不允许退款，已过退票截止时间', 409, 'ORDER_REFUND_DEADLINE_PASSED');
+  }
+
+  if (error.code === 'REFUND_ALREADY_REQUESTED') {
+    throw new MoleculerClientError('退款已受理', 409, 'REFUND_ALREADY_REQUESTED');
+  }
+
+  if (error.code === 'REFUND_PROCESSING') {
+    throw new MoleculerClientError('退款处理中', 409, 'REFUND_PROCESSING');
+  }
+
+  if (error.code === 'ORDER_ALREADY_REFUNDED') {
+    throw new MoleculerClientError('订单已退款', 409, 'ORDER_ALREADY_REFUNDED');
+  }
+
+  if (error.code === 'REFUND_RECORD_NOT_FOUND') {
+    throw new MoleculerClientError('退款记录不存在', 404, 'REFUND_RECORD_NOT_FOUND');
   }
 
   throw new MoleculerClientError('支付服务错误', 500, 'PAYMENT_ERROR');
@@ -114,6 +150,10 @@ export function handleRedeemError(error: unknown): never {
     error.code === 'REDEMPTION_ALREADY_REDEEMED'
     || error.code === 'REDEMPTION_EXPIRED'
   ) {
+    throw new MoleculerClientError('核销码不可用', 409, error.code);
+  }
+
+  if (error.code === 'ORDER_ALREADY_REFUNDED') {
     throw new MoleculerClientError('核销码不可用', 409, error.code);
   }
 

@@ -45,7 +45,16 @@ export class OrderService extends RC7BaseService {
       params: {
         status: {
           type: 'enum',
-          values: ['PENDING_PAYMENT', 'PAID', 'CANCELLED', 'EXPIRED'],
+          values: [
+            'PENDING_PAYMENT',
+            'PAID',
+            'REFUND_REQUESTED',
+            'REFUND_PROCESSING',
+            'REFUNDED',
+            'REFUND_FAILED',
+            'CANCELLED',
+            'EXPIRED',
+          ],
           optional: true,
         },
         page: {
@@ -90,7 +99,16 @@ export class OrderService extends RC7BaseService {
       params: {
         status: {
           type: 'enum',
-          values: ['PENDING_PAYMENT', 'PAID', 'CANCELLED', 'EXPIRED'],
+          values: [
+            'PENDING_PAYMENT',
+            'PAID',
+            'REFUND_REQUESTED',
+            'REFUND_PROCESSING',
+            'REFUNDED',
+            'REFUND_FAILED',
+            'CANCELLED',
+            'EXPIRED',
+          ],
           optional: true,
         },
         page: {

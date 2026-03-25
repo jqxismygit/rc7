@@ -26,6 +26,32 @@ export interface WechatPayCallback {
   created_at: string;
 }
 
+export type RefundStatus =
+  | 'REQUESTED'
+  | 'PROCESSING'
+  | 'SUCCEEDED'
+  | 'FAILED';
+
+export interface RefundRecord {
+  out_refund_no: string;
+  order_id: string;
+  payment_method: 'WECHATPAY';
+  status: RefundStatus;
+  order_amount: number;
+  refund_amount: number;
+  reason: string;
+  error_message: string | null;
+  out_trade_no: string;
+  refund_id: string | null;
+  refund_status: string | null;
+  refund_channel: string | null;
+  callback_refund_amount: number | null;
+  succeeded_at: string | null;
+  failed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /** 返回给小程序以发起支付的参数 */
 export interface PaySignResult {
   timeStamp: string;

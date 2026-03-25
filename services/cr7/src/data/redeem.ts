@@ -15,6 +15,7 @@ type RedemptionItemInput = Redeem.RedemptionCodeWithOrder['items'][number];
 export type REDEEM_DATA_ERROR_CODES =
   | 'ORDER_NOT_FOUND'
   | 'ORDER_NOT_REDEEMABLE'
+  | 'ORDER_ALREADY_REFUNDED'
   | 'REDEMPTION_NOT_FOUND'
   | 'REDEMPTION_ALREADY_REDEEMED'
   | 'REDEMPTION_EXPIRED';
@@ -268,6 +269,10 @@ export async function redeemCode(
   order: Order.OrderWithItems,
   items: RedemptionItemInput[],
 ): Promise<Redeem.RedemptionCodeWithOrder> {
+  if (order.status === 'REFUNDED') {
+    throw new RedeemDataError('Order already refunded', 'ORDER_ALREADY_REFUNDED');
+  }
+
   const redemption = await getRedemptionRowByCode(client, schema, exhibitId, code);
 
   if (redemption.status === 'REDEEMED') {

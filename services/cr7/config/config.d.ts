@@ -44,7 +44,7 @@ declare module 'config' {
       wechat_pay_serial: string;
       // 微信支付公钥路径
       wechat_pay_public_key_path: string;
-      callback_url: string;
+      callback_base_url: string;
     }
   }
 

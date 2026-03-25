@@ -1,20 +1,41 @@
 import { promises as fsPromises } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { Context, ServiceSchema } from 'moleculer';
 import { format } from 'date-fns';
 import { addMinutes } from 'date-fns';
 import type { Payment } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
 import {
+  assertOrderRefundableByPolicies,
+  assertOrderRefundableByStatus,
+  createRefundRecord,
+  getCurrentRefundRecordByOrderId,
+  PaymentDataError,
   createWechatPayCallback,
+  createWechatRefundCallback,
+  getOrderRefundInfo,
+  listRefundRecordsByOrderId,
   getOutTradeNoByOrderId,
   getOrderPaymentInfo,
   markOrderPaidByOutTradeNo,
   markWechatPayCallbackProcessed,
+  markWechatRefundCallbackProcessed,
   upsertWechatPayTransaction,
+  updateWechatPayCallbackFields,
   updateWechatPayTransactionPrepayId,
+  updateRefundRecordFromApplyResponse,
+  updateRefundRecordFromCallback,
+  updateWechatRefundCallbackFields,
 } from '../data/payment.js';
+import { getTicketCategoryRefundPoliciesByOrderId } from '../data/exhibition.js';
+import {
+  markOrderRefunded,
+  releaseOrderInventory,
+  setOrderCurrentRefund,
+} from '../data/order.js';
 import { handlePaymentDataError } from './errors.js';
 import {
+  decryptWechatCallbackPayload,
   decryptWechatCallbackResource,
   wePayPostJSON,
   signPay,
@@ -44,11 +65,49 @@ interface WechatPayCloseOrderRequestBody {
   mchid: string;
 }
 
+interface WechatRefundRequestBody {
+  out_trade_no: string;
+  out_refund_no: string;
+  reason: string;
+  notify_url: string;
+  amount: {
+    refund: number;
+    total: number;
+    currency: 'CNY';
+  };
+}
+
+interface WechatRefundResponse {
+  refund_id?: string;
+  out_refund_no?: string;
+  out_trade_no?: string;
+  status?: string;
+  channel?: string;
+  amount?: {
+    refund?: number;
+    total?: number;
+  };
+}
+
 interface WechatCallbackNotification {
   id: string;
   event_type: string;
   resource: WechatCallbackResource;
 }
+
+type WechatRefundCallbackResource = {
+  out_trade_no?: string;
+  out_refund_no?: string;
+  refund_status?: string;
+  refund_id?: string;
+  channel?: string;
+  success_time?: string;
+  reason?: string;
+  amount?: {
+    refund?: number;
+    total?: number;
+  };
+};
 
 export class PaymentService extends RC7BaseService {
   constructor(broker) {
@@ -66,6 +125,27 @@ export class PaymentService extends RC7BaseService {
       handler: this.initiateWechatPay,
     },
 
+    'order.refund': {
+      rest: 'POST /:oid/refund',
+      params: {
+        oid: 'string',
+        reason: {
+          type: 'string',
+          optional: true,
+        },
+      },
+      handler: this.initiateRefund,
+    },
+
+    'order.refundsAdmin': {
+      rest: 'GET /:oid/refunds',
+      roles: ['admin'],
+      params: {
+        oid: 'string',
+      },
+      handler: this.listOrderRefundsAdmin,
+    },
+
     'wechatpay.callback': {
       params: {
         id: 'string',
@@ -80,6 +160,22 @@ export class PaymentService extends RC7BaseService {
         },
       },
       handler: this.handleWechatCallback,
+    },
+
+    'wechatpay.refundCallback': {
+      params: {
+        id: 'string',
+        event_type: 'string',
+        resource: {
+          type: 'object',
+          props: {
+            ciphertext: 'string',
+            nonce: 'string',
+            associated_data: { type: 'string', optional: true },
+          },
+        },
+      },
+      handler: this.handleWechatRefundCallback,
     },
 
     'wechatpay.close_order': {
@@ -107,7 +203,7 @@ export class PaymentService extends RC7BaseService {
 
     const wechatpayConfig = await this.getWechatPayConfig();
     const {
-      appid, mchid, callback_url,
+      appid, mchid, callback_base_url,
       client_key_serial_no,
       client_key_path
     } = wechatpayConfig;
@@ -132,7 +228,7 @@ export class PaymentService extends RC7BaseService {
       description: orderInfo.description,
       out_trade_no: orderInfo.out_trade_no,
       time_expire: timeExpireStr,
-      notify_url: callback_url,
+      notify_url: `${callback_base_url}/payment/wechat/callback`,
       amount: {
         total: orderInfo.total_amount,
         currency: 'CNY',
@@ -170,6 +266,101 @@ export class PaymentService extends RC7BaseService {
     };
   }
 
+  async initiateRefund(
+    ctx: Context<{ oid: string; reason?: string }, { user: UserMeta }>
+  ): Promise<Payment.RefundRecord> {
+    const { oid, reason = '用户发起退款' } = ctx.params;
+    const { uid } = ctx.meta.user;
+    const schema = await this.getSchema();
+
+    const dbClient = await this.pool.connect();
+    try {
+      await dbClient.query('BEGIN');
+
+      const order = await getOrderRefundInfo(dbClient, schema, oid, uid)
+        .catch(handlePaymentDataError);
+      assertOrderRefundableByStatus(order);
+
+      const policies = await getTicketCategoryRefundPoliciesByOrderId(dbClient, schema, oid);
+      assertOrderRefundableByPolicies(policies, order.session_date, new Date());
+
+      if (order.out_trade_no === null) {
+        throw new PaymentDataError('Order status invalid for refund', 'ORDER_STATUS_INVALID');
+      }
+
+      const outRefundNo = randomUUID().replace(/-/g, '');
+      await createRefundRecord(dbClient, schema, {
+        out_refund_no: outRefundNo,
+        order_id: oid,
+        out_trade_no: order.out_trade_no!,
+        order_amount: order.total_amount,
+        refund_amount: order.total_amount,
+        reason,
+      });
+      await setOrderCurrentRefund(dbClient, schema, oid, outRefundNo);
+
+      const wechatpayConfig = await this.getWechatPayConfig();
+      const {
+        base_url,
+        mchid,
+        client_key_serial_no,
+        client_key_path,
+        callback_base_url,
+      } = wechatpayConfig;
+
+      const refundNotifyUrl = `${callback_base_url}/payment/wechat/callback/refund`;
+
+      const privateKey = await this.getWechatPayClientPrimaryKey(client_key_path);
+      const requestBody: WechatRefundRequestBody = {
+        out_trade_no: order.out_trade_no!,
+        out_refund_no: outRefundNo,
+        reason,
+        notify_url: refundNotifyUrl,
+        amount: {
+          refund: order.total_amount,
+          total: order.total_amount,
+          currency: 'CNY',
+        },
+      };
+
+      const response = await wePayPostJSON<WechatRefundResponse>(
+        `${base_url}/v3/refund/domestic/refunds`,
+        {
+          body: requestBody,
+          mchid,
+          serialNo: client_key_serial_no,
+          privateKey,
+        },
+      );
+
+      await updateRefundRecordFromApplyResponse(dbClient, schema, outRefundNo, {
+        refund_id: response.refund_id ?? null,
+        refund_status: response.status ?? null,
+        refund_channel: response.channel ?? null,
+        callback_refund_amount: response.amount?.refund ?? null,
+      });
+
+      const updated = await getCurrentRefundRecordByOrderId(dbClient, schema, oid)
+        .catch(handlePaymentDataError);
+
+      await dbClient.query('COMMIT');
+      return updated;
+    } catch (error) {
+      await dbClient.query('ROLLBACK');
+      return handlePaymentDataError(error);
+    } finally {
+      dbClient.release();
+    }
+  }
+
+  async listOrderRefundsAdmin(
+    ctx: Context<{ oid: string }>
+  ): Promise<Payment.RefundRecord[]> {
+    const { oid } = ctx.params;
+    const schema = await this.getSchema();
+    return listRefundRecordsByOrderId(this.pool, schema, oid);
+  }
+
   async handleWechatCallback(
     ctx: Context<WechatCallbackNotification, { $statusCode?: number }>
   ) {
@@ -177,21 +368,27 @@ export class PaymentService extends RC7BaseService {
     const schema = await this.getSchema();
     let paidOrderId: string | null = null;
 
+    await createWechatPayCallback(this.pool, schema, {
+      wechat_notification_id: notification.id,
+      event_type: notification.event_type,
+      out_trade_no: null,
+      transaction_id: null,
+      trade_state: null,
+      raw_payload: notification,
+    });
+
     const { api_v3_secret } = await this.getWechatPayConfig();
     const transactionResult = decryptWechatCallbackResource(notification.resource, api_v3_secret);
+
+    await updateWechatPayCallbackFields(this.pool, schema, notification.id, {
+      out_trade_no: transactionResult.out_trade_no,
+      transaction_id: transactionResult.transaction_id,
+      trade_state: transactionResult.trade_state,
+    });
 
     const dbClient = await this.pool.connect();
     try {
       await dbClient.query('BEGIN');
-
-      await createWechatPayCallback(dbClient, schema, {
-        wechat_notification_id: notification.id,
-        event_type: notification.event_type,
-        out_trade_no: transactionResult.out_trade_no,
-        transaction_id: transactionResult.transaction_id,
-        trade_state: transactionResult.trade_state,
-        raw_payload: notification,
-      });
 
       if (
         notification.event_type === 'TRANSACTION.SUCCESS'
@@ -223,6 +420,84 @@ export class PaymentService extends RC7BaseService {
           error,
         });
       }
+    }
+
+    ctx.meta.$statusCode = 204;
+    return null;
+  }
+
+  async handleWechatRefundCallback(
+    ctx: Context<WechatCallbackNotification, { $statusCode?: number }>
+  ) {
+    const notification = ctx.params;
+    const schema = await this.getSchema();
+
+    await createWechatRefundCallback(this.pool, schema, {
+      notification_id: notification.id,
+      event_type: notification.event_type,
+      out_trade_no: null,
+      out_refund_no: null,
+      refund_status: null,
+      raw_payload: notification,
+    });
+
+    const { api_v3_secret } = await this.getWechatPayConfig();
+    const payload = decryptWechatCallbackPayload(notification.resource, api_v3_secret) as WechatRefundCallbackResource;
+
+    await updateWechatRefundCallbackFields(this.pool, schema, notification.id, {
+      out_trade_no: payload.out_trade_no ?? null,
+      out_refund_no: payload.out_refund_no ?? null,
+      refund_status: payload.refund_status ?? null,
+    });
+
+    if ((payload.out_refund_no ?? null) !== null && (payload.refund_status ?? null) !== null) {
+      const dbClient = await this.pool.connect();
+      try {
+        await dbClient.query('BEGIN');
+
+        const updated = await updateRefundRecordFromCallback(
+          dbClient,
+          schema,
+          payload.out_refund_no!,
+          {
+            refund_status: payload.refund_status!,
+            refund_id: payload.refund_id ?? null,
+            refund_channel: payload.channel ?? null,
+            callback_refund_amount: payload.amount?.refund ?? null,
+            error_message: payload.reason ?? null,
+            succeeded_at: payload.success_time ?? null,
+            failed_at: payload.refund_status === 'SUCCESS' ? null : new Date(),
+          },
+        ).catch(handlePaymentDataError);
+
+        if (updated?.status === 'SUCCEEDED') {
+          const settlement = await markOrderRefunded(
+            dbClient,
+            schema,
+            updated.order_id,
+            payload.out_refund_no!,
+          );
+
+          if (settlement !== null && settlement.released_at === null) {
+            await releaseOrderInventory(
+              dbClient,
+              schema,
+              updated.order_id,
+              settlement.session_id,
+            );
+          }
+        }
+
+        await markWechatRefundCallbackProcessed(dbClient, schema, notification.id);
+        await dbClient.query('COMMIT');
+      } catch (error) {
+        await dbClient.query('ROLLBACK');
+        throw error;
+      } finally {
+        dbClient.release();
+      }
+    } else {
+      await markWechatRefundCallbackProcessed(this.pool, schema, notification.id);
     }
 
     ctx.meta.$statusCode = 204;

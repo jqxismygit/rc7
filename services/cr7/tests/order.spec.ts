@@ -7,7 +7,6 @@ import {
 import config from 'config';
 import { Exhibition, Order } from '@cr7/types';
 import { expect, vi } from 'vitest';
-import { Pool } from 'pg';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
 import { assertAPIError } from './lib/api.js';
 import { services_fixtures } from './fixtures/services.js';
@@ -24,6 +23,7 @@ import {
 import {
   cancelOrder as cancelOrderByApi,
   createOrder as createOrderByApi,
+  expireOrder,
   getOrder as getOrderByApi,
   hideOrder as hideOrderByApi,
   listOrders as listOrdersByApi,
@@ -57,10 +57,6 @@ interface ScenarioContext {
   bobToken: string;
   tokensByName: Record<string, string>;
 }
-
-type Cr7ServiceWithPool = {
-  pool: Pick<Pool, 'query'>;
-};
 
 function rememberError(context: Partial<OrderCaseContext>, error: unknown) {
   Object.assign(context, { lastError: error });
@@ -281,19 +277,6 @@ describeFeature(feature, ({
     const token = scenarioContext.tokensByName?.[name];
     expect(token).toBeTruthy();
     return token!;
-  }
-
-  async function expireCurrentOrder(context: Partial<OrderCaseContext>) {
-    const { broker } = scenarioContext.fixtures.values;
-    const cr7Service = broker.getLocalService('cr7') as unknown as Cr7ServiceWithPool;
-
-    await cr7Service.pool.query(
-      `UPDATE ${schema}.exhibit_orders
-      SET expires_at = NOW() - INTERVAL '1 minute',
-          updated_at = NOW()
-      WHERE id = $1`,
-      [context.order!.id]
-    );
   }
 
   async function getCurrentOrderStatus(context: Partial<OrderCaseContext>) {
@@ -527,7 +510,7 @@ describeFeature(feature, ({
     });
 
     When('订单过期未付款', async () => {
-      await expireCurrentOrder(context);
+      await expireOrder(scenarioContext.fixtures.values.broker, schema, context.order!.id);
     });
 
     Then('订单变为过期状态不可再付款', async () => {
@@ -602,7 +585,7 @@ describeFeature(feature, ({
     });
 
     When('订单过期未付款', async () => {
-      await expireCurrentOrder(context);
+      await expireOrder(scenarioContext.fixtures.values.broker, schema, context.order!.id);
     });
 
     And('执行订单过期处理任务', async () => {
@@ -754,7 +737,7 @@ describeFeature(feature, ({
 
       const expiredOrder = await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }]);
       Object.assign(context, { order: expiredOrder });
-      await expireCurrentOrder(context);
+      await expireOrder(scenarioContext.fixtures.values.broker, schema, context.order!.id);
       rememberOrder(context, 'expired', expiredOrder);
     });
 
@@ -778,7 +761,7 @@ describeFeature(feature, ({
       await setInitialInventory(context, '成人票', 2);
       const order = await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }]);
       Object.assign(context, { order });
-      await expireCurrentOrder(context);
+      await expireOrder(scenarioContext.fixtures.values.broker, schema, context.order!.id);
     });
 
     When('用户取消该订单', async () => {
@@ -911,7 +894,7 @@ describeFeature(feature, ({
         if (statusText === '已取消') {
           await cancelOrderByApi(apiServer, order.id, scenarioContext.userToken);
         } else if (statusText === '已过期') {
-          await expireCurrentOrder(context);
+          await expireOrder(scenarioContext.fixtures.values.broker, schema, context.order!.id);
         } else if (statusText === '已完成') {
           const profile = await getUserProfile(apiServer, scenarioContext.userToken);
           expect(profile.openid).toBeTruthy();
