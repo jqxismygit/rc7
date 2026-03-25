@@ -8,8 +8,9 @@ export default [
   },
   js.configs.recommended,
   ...tsEslint.configs.recommended,
+  prettierConfig,
   {
-    files: ['src/**/*.ts', 'src/**/*.js'],
+    files: ['src/**/*.ts', 'src/**/*.js', 'config/**/*.ts'],
     languageOptions: {
       parser: tsEslint.parser,
       parserOptions: {
@@ -62,13 +63,28 @@ export default [
           varsIgnorePattern: '^_',
         },
       ],
-    }
+      '@typescript-eslint/no-explicit-any': 'warn',
+      'no-console': [
+        'warn',
+        {
+          allow: ['warn', 'error'],
+        },
+      ],
+      'max-len': [
+        'warn',
+        {
+          code: 120,
+          ignoreComments: true,
+          ignoreStrings: true,
+          ignoreTemplateLiterals: true,
+        },
+      ],
+    },
   },
   {
     files: ['src/scripts/**/*.ts'],
     rules: {
       'no-console': 'off',
     },
-  },
-  prettierConfig,
+  }
 ];

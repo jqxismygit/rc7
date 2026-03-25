@@ -48,7 +48,7 @@ pnpm dev
 
 - `.husky/pre-commit` - Pre-commit hook 脚本
 - `.lintstagedrc` - lint-staged 配置
-- `eslint.config.js` - ESLint 规则配置
+- `eslint.config.mjs` - ESLint 规则配置（位于 `services/cr7/` 根目录，统一覆盖 `src/` 与 `tests/`）
 - `.prettierrc` - Prettier 代码格式化规则
 - `tsconfig.json` - TypeScript 配置
 
@@ -164,7 +164,7 @@ pnpm lint:fix  # 自动修复
 
 ## 更新规则
 
-修改 ESLint 规则：编辑 `eslint.config.js`
+修改 ESLint 规则：编辑 `eslint.config.mjs`
 
 修改 Prettier 规则：编辑 `.prettierrc`
 
