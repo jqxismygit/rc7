@@ -20,6 +20,15 @@
       }
     },
     {
+      "path": "pages/legal/legal-center",
+      "style": {
+        "navigationBarTitleText": "隐私政策/服务协议",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#090a07",
+        "backgroundColor": "#090a07"
+      }
+    },
+    {
       "path": "pages/login/login",
       "style": {
         "navigationBarTitleText": "登录",

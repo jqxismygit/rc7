@@ -247,7 +247,9 @@ export default {
     },
 
     goToLegal() {
-      uni.navigateTo({ url: "/pages/legal/privacy" });
+      uni.navigateTo({
+        url: "/pages/legal/legal-center?type=privacy",
+      });
     },
 
     editInvoice() {

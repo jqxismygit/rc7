@@ -136,10 +136,9 @@ export default {
     },
 
     openLegal(type) {
-      const url =
-        type === "privacy" ? "/pages/legal/privacy" : "/pages/legal/terms";
-
-      uni.navigateTo({ url });
+      uni.navigateTo({
+        url: `/pages/legal/legal-center?type=${encodeURIComponent(type)}`,
+      });
     },
   },
 };
