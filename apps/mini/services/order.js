@@ -54,3 +54,17 @@ export function listOrders(params = {}) {
   }
   return request.get("/orders", { params: q });
 }
+
+/**
+ * 隐藏订单（用于“删除票券”）
+ * @param {string} orderId
+ * @see docs/api/order.md
+ */
+export function hideOrder(orderId) {
+  const oid = encodeURIComponent(orderId);
+  // luch-request 不提供 patch 方法时，使用 request(config) 指定 method
+  return request.request({
+    url: `/orders/${oid}/hide`,
+    method: "PATCH",
+  });
+}

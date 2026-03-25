@@ -168,7 +168,7 @@
 <script>
 import { mockHomeCards } from "@/utils/mockData.js";
 import createTabBarMixin from "@/mixins/tabBar.js";
-import { listOrders } from "@/services/order.js";
+import { listOrders, hideOrder } from "@/services/order.js";
 import {
   loadExhibitionsMap,
   buildTicketRowFromOrder,
@@ -313,7 +313,8 @@ export default {
 
     onPrimaryActionClick(ticket) {
       if (ticket.status === "expired") {
-        uni.showToast({ title: "暂未支持", icon: "none" });
+        // uni.showToast({ title: "暂未支持", icon: "none" });
+        this.handleDelete(ticket);
         return;
       }
       this.goToDetail(ticket);
@@ -321,7 +322,7 @@ export default {
 
     goToDetail(ticket) {
       if (ticket.status === "expired") {
-        uni.showToast({ title: "暂未支持", icon: "none" });
+        // uni.showToast({ title: "暂未支持", icon: "none" });
         return;
       }
       if (ticket.orderStatus === "PENDING_PAYMENT") {
@@ -346,9 +347,18 @@ export default {
       uni.showModal({
         title: "删除票券",
         content: "删除后将无法在票夹中看到该票券记录，确认删除？",
-        success: (res) => {
-          if (res.confirm) {
-            this.tickets = this.tickets.filter((t) => t.id !== ticket.id);
+        success: async (res) => {
+          if (!res.confirm) return;
+          try {
+            uni.showLoading({ title: "删除中...", mask: true });
+            await hideOrder(ticket.id);
+            uni.hideLoading();
+            uni.showToast({ title: "已删除", icon: "success" });
+            await this.loadTickets();
+          } catch (e) {
+            uni.hideLoading();
+            uni.showToast({ title: "删除失败，请稍后重试", icon: "none" });
+            console.error("hideOrder", e);
           }
         },
       });
