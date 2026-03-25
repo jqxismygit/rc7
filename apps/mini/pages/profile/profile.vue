@@ -71,7 +71,7 @@
               name="ticket"
               :width="42"
               :height="42"
-              color="#D8FC0F"
+              color="#FFFFFF"
             />
           </view>
           <text class="menu-text">我的票夹</text>
@@ -89,7 +89,7 @@
               name="notification"
               :width="42"
               :height="42"
-              color="#D8FC0F"
+              color="#FFFFFF"
             />
           </view>
           <text class="menu-text">消息中心</text>
@@ -105,11 +105,7 @@
 
         <view class="menu-item" @click="editInvoice">
           <view class="menu-icon-wrap">
-            <image
-              src="/static/icons/language.svg"
-              class="menu-icon"
-              mode="aspectFit"
-            />
+            <sx-svg name="invoice" :width="42" :height="42" color="#FFFFFF" />
           </view>
           <text class="menu-text">发票抬头</text>
           <image
@@ -121,11 +117,7 @@
 
         <view class="menu-item" @click="goToLegal">
           <view class="menu-icon-wrap">
-            <image
-              src="/static/icons/document.svg"
-              class="menu-icon"
-              mode="aspectFit"
-            />
+            <sx-svg name="legal" :width="42" :height="42" color="#FFFFFF" />
           </view>
           <text class="menu-text">隐私政策/服务协议</text>
           <image
@@ -137,13 +129,7 @@
 
         <view class="menu-item" @click="contactService">
           <view class="menu-icon-wrap">
-            <sx-svg
-              class="menu-icon"
-              name="phone"
-              :width="42"
-              :height="42"
-              color="#D8FC0F"
-            />
+            <sx-svg name="phone2" :width="42" :height="42" color="#FFFFFF" />
           </view>
           <text class="menu-text">联系客服</text>
           <image
@@ -156,11 +142,7 @@
 
       <!-- 退出登录 -->
       <view class="logout-area" @click="handleLogout">
-        <image
-          src="/static/icons/logout.svg"
-          class="logout-icon"
-          mode="aspectFit"
-        />
+        <sx-svg name="logout" :width="42" :height="42" />
         <text class="logout-text">退出登录</text>
       </view>
 
