@@ -36,9 +36,11 @@ UNREDEEMED
 
 - 核销码在订单支付成功时自动生成
 - 核销码有效期为对应场次的当天有效
+- 订单一旦进入退款流程（退款已受理、退款处理中、退款成功），即使核销码仍是 `UNREDEEMED`，业务层也必须拒绝核销
 - 核销需要检查以下条件：
   - 核销码当前状态为 UNREDEEMED
   - 当前时间在 valid_from 和 valid_until 范围内
+  - 关联订单未进入退款流程
   - 执行核销的用户具有管理员/运营权限
   - 核销人数 <= 核销码的准入人数
 - 核销成功后记录 redeemed_at 时间戳和 redeemed_by（核销人 user_id），状态更新为 REDEEMED
@@ -126,6 +128,7 @@ CREATE INDEX idx_redemption_code_valid_period ON exhibit_redemption_codes(valid_
    - 核销码存在
    - status = 'UNREDEEMED'
    - NOW() 在 valid_from 和 valid_until 范围内
+  - 关联订单状态不属于 `REFUND_REQUESTED`、`REFUND_PROCESSING`、`REFUNDED`
    - quantity > 0（或 quantity <= redemption_code.quantity 如果支持分次核销）
 5. 更新表：
    - SET status = 'REDEEMED', redeemed_at = NOW(), redeemed_by = current_user_id
@@ -178,6 +181,7 @@ CREATE INDEX idx_redemption_code_valid_period ON exhibit_redemption_codes(valid_
 - 核销码不存在：404 Not Found
 - 核销码已核销：409 Conflict
 - 核销码已过期：409 Conflict
+- 订单进入退款流程：409 Conflict
 - 无权限访问：401 Unauthorized 或 404 Not Found（隐藏）
 
 ## 6. 后续扩展考虑

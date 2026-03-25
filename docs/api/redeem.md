@@ -75,15 +75,15 @@
   - `400 Bad Request`：参数错误
   - `401 Unauthorized`：未认证或无权限
   - `404 Not Found`：核销码不存在
-  - `409 Conflict`：核销码已核销或已过期
+  - `409 Conflict`：核销码已核销、已过期，或订单已进入退款流程
 - 关键特性：
   - 核销操作幂等
   - 核销动作必须在指定展会下执行，并校验核销码所属展会
   - 自动记录核销人（`redeemed_by`）和核销时间（`redeemed_at`）
   - 仅管理员/运营人员可执行核销
-  - 已退款订单不可核销（返回 `409 ORDER_ALREADY_REFUNDED`）
+  - 退款已受理、退款处理中、退款成功的订单都不可核销（返回 `409 ORDER_REFUND_IN_PROGRESS`）
 
 ## 退款与核销联动约束
 
 - 已核销订单不可发起退款（支付服务返回 `409 ORDER_ALREADY_REDEEMED`）
-- 已退款订单不可再次核销（核销服务返回 `409 ORDER_ALREADY_REFUNDED`）
+- 已进入退款流程的订单不可核销，涵盖 `REFUND_REQUESTED`、`REFUND_PROCESSING`、`REFUNDED` 三种状态（核销服务返回 `409 ORDER_REFUND_IN_PROGRESS`）

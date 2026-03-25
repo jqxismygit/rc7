@@ -34,6 +34,7 @@ import {
   requestRefundWithMock,
   sendWechatRefundCallback,
 } from './fixtures/payment.js';
+import { getOrder } from './fixtures/order.js';
 
 const schema = 'test_redeem';
 const services = ['api', 'user', 'cr7'];
@@ -64,7 +65,7 @@ type ErrorContext = {
 
 type OrderScenarioContext = ExhibitionContext & OrderContext & ErrorContext;
 type RedemptionScenarioContext = OrderScenarioContext & RedemptionContext;
-type RefundedRedemptionScenarioContext = RedemptionScenarioContext & RefundContext;
+type RefundFlowRedemptionScenarioContext = RedemptionScenarioContext & RefundContext;
 
 type RoleName = 'ADMIN' | 'OPERATOR';
 
@@ -217,6 +218,37 @@ describeFeature(feature, ({
     expect(error.body).toBeTypeOf('object');
     const body = error.body as { type?: string };
     expect(body.type).toBe(expectedType);
+  }
+
+  async function sendRefundStatusNotification(
+    context: Partial<RefundContext>,
+    status: 'PROCESSING' | 'SUCCESS',
+  ) {
+    const notification = buildRefundCallbackNotification(
+      {
+        out_trade_no: context.refundRecord!.out_trade_no,
+        out_refund_no: context.refundRecord!.out_refund_no,
+        refund_id: `rf_${Date.now()}`,
+        refund_status: status,
+        channel: 'ORIGINAL',
+        success_time: status === 'SUCCESS' ? new Date().toISOString() : undefined,
+        amount: {
+          refund: context.refundRecord!.refund_amount,
+          total: context.refundRecord!.order_amount,
+        },
+      },
+      config.wechatpay.api_v3_secret,
+    );
+
+    await sendWechatRefundCallback(scenarioContext.fixtures.values.apiServer, notification);
+  }
+
+  async function refreshOrder(context: Partial<OrderContext>) {
+    return getOrder(
+      scenarioContext.fixtures.values.apiServer,
+      context.order!.id,
+      scenarioContext.userToken,
+    );
   }
 
   function getCr7PoolForTestSupport() {
@@ -820,9 +852,7 @@ describeFeature(feature, ({
       });
 
       And('订单状态仍然为 {string}', async (_ctx, statusLabel: string) => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        const { getOrder } = await import('./fixtures/order.js');
-        const order = await getOrder(apiServer, context.order!.id, scenarioContext.userToken);
+        const order = await refreshOrder(context);
         if (statusLabel === '已支付') {
           expect(order.status).toBe('PAID');
         }
@@ -831,8 +861,8 @@ describeFeature(feature, ({
   );
 
   Scenario(
-    '已经退款的订单不能被核销',
-    (s: StepTest<Partial<RefundedRedemptionScenarioContext>>) => {
+    '已经处于退款流程的订单不能被核销',
+    (s: StepTest<Partial<RefundFlowRedemptionScenarioContext>>) => {
       const { Given, When, Then, And, context } = s;
 
       Given('用户预订了 {int} 张 {string} 展会 的 {string} 天后场次的 {string}', async (_ctx, quantity: number, exhibitionName: string, daysText: string, ticketName: string) => {
@@ -853,7 +883,8 @@ describeFeature(feature, ({
         await fetchOrderRedemption(context);
       });
 
-      Given('用户已发起退款请求并成功退款', async () => {
+      Given('用户已发起退款请求，订单状态为 {string}', async (_ctx, statusLabel: string) => {
+        expect(statusLabel).toBe('退款已受理');
         const { refundRecord } = await requestRefundWithMock(
           scenarioContext.fixtures.values.apiServer,
           context.order!,
@@ -861,26 +892,11 @@ describeFeature(feature, ({
         );
         Object.assign(context, { refundRecord });
 
-        const notification = buildRefundCallbackNotification(
-          {
-            out_trade_no: refundRecord.out_trade_no,
-            out_refund_no: refundRecord.out_refund_no,
-            refund_id: `rf_${Date.now()}`,
-            refund_status: 'SUCCESS',
-            channel: 'ORIGINAL',
-            success_time: new Date().toISOString(),
-            amount: {
-              refund: refundRecord.refund_amount,
-              total: refundRecord.order_amount,
-            },
-          },
-          config.wechatpay.api_v3_secret,
-        );
-
-        await sendWechatRefundCallback(scenarioContext.fixtures.values.apiServer, notification);
+        const order = await refreshOrder(context);
+        expect(order.status).toBe('REFUND_REQUESTED');
       });
 
-      When('{string}将用户的订单核销码扫码核销', async (_ctx, operator: string) => {
+      When('{string}扫码核销用户的订单核销码', async (_ctx, operator: string) => {
         const token = resolveOperatorToken(operator);
         clearLastError(context);
         try {
@@ -894,8 +910,71 @@ describeFeature(feature, ({
         assertLastAPIError(context, { status: statusCode, method: 'POST' });
       });
 
-      And('核销失败错误类型为 {string}', (_ctx, errorType: string) => {
-        assertLastAPIErrorType(context, errorType);
+      And('核销失败, 错误信息为 {string}', (_ctx, message: string) => {
+        assertLastAPIError(context, {
+          status: 409,
+          method: 'POST',
+          messageIncludes: message,
+        });
+      });
+
+      Then('再次核销失败，状态码为 {int}', (_ctx, statusCode: number) => {
+        assertLastAPIError(context, { status: statusCode, method: 'POST' });
+      });
+
+      And('再次核销失败, 错误信息为 {string}', (_ctx, message: string) => {
+        assertLastAPIError(context, {
+          status: 409,
+          method: 'POST',
+          messageIncludes: message,
+        });
+      });
+
+      When('微信支付服务通知 cr7 支付服务退款状态为 {string}', async (_ctx, statusLabel: string) => {
+        expect(statusLabel).toBe('退款处理中');
+        await sendRefundStatusNotification(context, 'PROCESSING');
+
+        const order = await refreshOrder(context);
+        expect(order.status).toBe('REFUND_PROCESSING');
+      });
+
+      When('{string}再次扫码核销用户的订单核销码', async (_ctx, operator: string) => {
+        const token = resolveOperatorToken(operator);
+        clearLastError(context);
+        try {
+          await performRedeem(context, token);
+        } catch (error) {
+          rememberError(context, error);
+        }
+      });
+
+      When('微信支付服务通知 cr7 支付服务退款结果，退款成功', async () => {
+        await sendRefundStatusNotification(context, 'SUCCESS');
+
+        const order = await refreshOrder(context);
+        expect(order.status).toBe('REFUNDED');
+      });
+
+      When('{string}在退款成功后再次扫码核销用户的订单核销码', async (_ctx, operator: string) => {
+        const token = resolveOperatorToken(operator);
+        clearLastError(context);
+        try {
+          await performRedeem(context, token);
+        } catch (error) {
+          rememberError(context, error);
+        }
+      });
+
+      Then('退款成功后核销失败，状态码为 {int}', (_ctx, statusCode: number) => {
+        assertLastAPIError(context, { status: statusCode, method: 'POST' });
+      });
+
+      And('退款成功后核销失败, 错误信息为 {string}', (_ctx, message: string) => {
+        assertLastAPIError(context, {
+          status: 409,
+          method: 'POST',
+          messageIncludes: message,
+        });
       });
     },
   );
