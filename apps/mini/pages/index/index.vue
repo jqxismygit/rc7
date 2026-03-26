@@ -1,33 +1,39 @@
 <template>
   <view class="home-page">
-    <scroll-view class="home-scroll" scroll-y enhanced :show-scrollbar="false">
-      <!-- 顶部导航栏 - 仅通知 + CR7 LIFE logo -->
-      <view class="home-navbar" :style="{ paddingTop: statusBarHeight + 'px' }">
-        <view class="navbar-row">
-          <view class="navbar-left">
-            <view class="navbar-notification" @click="goToMessages">
-              <sx-svg
-                class="nav-icon"
-                name="notification"
-                :width="42"
-                :height="42"
-                color="#FFFFFF"
-              />
-              <view v-if="unreadCount > 0" class="notification-dot"></view>
-            </view>
-          </view>
-          <view class="navbar-logo">
+    <!-- 顶部导航栏 - 固定在页面顶部，不随内容滚动 -->
+    <view class="home-navbar" :style="{ paddingTop: statusBarHeight + 'px' }">
+      <view class="navbar-row">
+        <view class="navbar-left">
+          <view class="navbar-notification" @click="goToMessages">
             <sx-svg
-              class="logo-img"
-              name="logo"
-              :width="156"
-              :height="35"
-              color="#D8FC0F"
+              class="nav-icon"
+              name="notification"
+              :width="42"
+              :height="42"
+              color="#FFFFFF"
             />
+            <view v-if="unreadCount > 0" class="notification-dot"></view>
           </view>
-          <view class="navbar-placeholder"></view>
         </view>
+        <view class="navbar-logo">
+          <sx-svg
+            class="logo-img"
+            name="logo"
+            :width="156"
+            :height="35"
+            color="#D8FC0F"
+          />
+        </view>
+        <view class="navbar-placeholder"></view>
       </view>
+    </view>
+
+    <scroll-view class="home-scroll" scroll-y enhanced :show-scrollbar="false">
+      <!-- 导航占位，避免固定导航遮挡首屏内容 -->
+      <view
+        class="home-navbar-spacer"
+        :style="{ height: `calc(${statusBarHeight}px + 114rpx)` }"
+      ></view>
 
       <!-- Hero 轮播 -->
       <view class="hero-section">
@@ -385,10 +391,16 @@ export default {
 
 /* 导航栏 - 设计稿 Title With Status bar 下沿到内容区 35px 间距 */
 .home-navbar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  width: 100%;
   z-index: 10;
   background: $cr7-black;
+}
+
+.home-navbar-spacer {
+  width: 100%;
 }
 
 .navbar-row {
