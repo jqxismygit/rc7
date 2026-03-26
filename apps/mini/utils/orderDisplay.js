@@ -90,8 +90,25 @@ export function buildTicketRowFromOrder(order, exhibition) {
  */
 export function buildTicketDetailFromOrder(order, exhibition) {
   const row = buildTicketRowFromOrder(order, exhibition);
+  const startTime =
+    exhibition?.start_date
+      ? dayjs(exhibition.start_date).format("YYYY-MM-DD HH:mm")
+      : "";
+  const startClock =
+    exhibition?.start_date ? dayjs(exhibition.start_date).format("HH:mm") : "";
+  const startDateText =
+    exhibition?.start_date
+      ? dayjs(exhibition.start_date).format("YYYY-MM-DD")
+      : "";
+  const lastEntryClock = (exhibition?.last_entry_time || "").slice(0, 5);
+  const entryTimeRange =
+    startDateText && startClock && lastEntryClock
+      ? `${startDateText} ${startClock}-${lastEntryClock}`
+      : "";
   return {
     ...row,
+    eventStartTime: startTime || row.eventDate,
+    eventEntryTimeRange: entryTimeRange,
     purchaseTime: dayjs(order.paid_at || order.created_at).format(
       "YYYY-MM-DD HH:mm",
     ),

@@ -51,7 +51,11 @@
                   :height="28"
                   color="#ADADAD"
                 />
-                <text class="meta-text">{{ ticket.eventDate }}</text>
+                <text class="meta-text">{{
+                  ticket.eventEntryTimeRange ||
+                  ticket.eventStartTime ||
+                  ticket.eventDate
+                }}</text>
               </view>
               <view class="event-meta-item">
                 <sx-svg
