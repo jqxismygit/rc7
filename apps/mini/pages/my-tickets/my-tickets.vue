@@ -653,6 +653,7 @@ export default {
 
 .tag-text {
   font-size: 20rpx;
+  line-height: 20rpx;
   font-weight: bold;
   text-align: center;
   text-transform: uppercase;

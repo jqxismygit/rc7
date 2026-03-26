@@ -768,6 +768,8 @@ export default {
   display: flex;
   align-items: center;
   z-index: 20;
+  background: rgba(9, 10, 7, 0.62);
+  // backdrop-filter: blur(10rpx);
 }
 
 .nav-back {
