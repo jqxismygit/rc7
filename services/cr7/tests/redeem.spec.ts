@@ -5,7 +5,7 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
-import { addDays, format } from 'date-fns';
+import { addDays, format, subDays } from 'date-fns';
 import { Exhibition, Order, Payment, Redeem, User } from '@cr7/types';
 import { expect, vi } from 'vitest';
 import type { ServiceBroker } from 'moleculer';
@@ -312,8 +312,22 @@ describeFeature(feature, ({
     return user.profile.id;
   }
 
-  function toFutureDateLabel(daysText: string) {
-    return format(addDays(new Date(), Number(daysText)), 'yyyy-MM-dd');
+  function toRelativeSessionDate(relativeText: string) {
+    if (relativeText === '今天') {
+      return format(new Date(), 'yyyy-MM-dd');
+    }
+
+    const futureMatch = /^(\d+)天后$/.exec(relativeText);
+    if (futureMatch) {
+      return format(addDays(new Date(), Number(futureMatch[1])), 'yyyy-MM-dd');
+    }
+
+    const pastMatch = /^(\d+)天前$/.exec(relativeText);
+    if (pastMatch) {
+      return format(subDays(new Date(), Number(pastMatch[1])), 'yyyy-MM-dd');
+    }
+
+    throw new Error(`Unsupported relative session date: ${relativeText}`);
   }
 
   async function grantRoleToUser(
@@ -895,7 +909,7 @@ describeFeature(feature, ({
         await prepareExhibitionData(
           context,
           exhibitionName,
-          toFutureDateLabel(daysText),
+          toRelativeSessionDate(`${daysText}天后`),
           ticketName,
           1,
           10,
