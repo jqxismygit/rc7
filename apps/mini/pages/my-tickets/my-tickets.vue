@@ -467,6 +467,7 @@ export default {
 .ticket-toolbar {
   display: flex;
   align-items: center;
+  justify-content: center;
   background: $cr7-dark;
   border-radius: $radius-lg;
   padding: 32rpx;
