@@ -31,6 +31,7 @@ import {
   sendMockRefundCallback,
 } from './fixtures/payment.js';
 import { getOrder } from './fixtures/order.js';
+import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 
 const schema = 'test_redeem';
 const services = ['api', 'user', 'cr7'];
@@ -78,7 +79,7 @@ type ServiceWithPool = {
   pool: Pick<Pool, 'query'>;
 };
 
-interface ScenarioContext {
+interface ScenarioContext extends ExhibitionContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer' | 'broker'>;
   adminToken: string;
   adminProfile: User.Profile;
@@ -113,14 +114,18 @@ describeFeature(feature, ({
   function requireExhibitionContext(
     context: ExhibitionContext,
   ): PreparedExhibitionContext {
-    expect(context.exhibition).toBeTruthy();
-    expect(context.session).toBeTruthy();
-    expect(context.ticket).toBeTruthy();
+    const exhibition = context.exhibition ?? scenarioContext.exhibition;
+    const session = context.session ?? scenarioContext.session;
+    const ticket = context.ticket ?? scenarioContext.ticket;
+
+    expect(exhibition).toBeTruthy();
+    expect(session).toBeTruthy();
+    expect(ticket).toBeTruthy();
 
     return {
-      exhibition: context.exhibition!,
-      session: context.session!,
-      ticket: context.ticket!,
+      exhibition: exhibition!,
+      session: session!,
+      ticket: ticket!,
     };
   }
 
@@ -387,6 +392,27 @@ describeFeature(feature, ({
         },
       });
     });
+
+    Given('默认核销展览活动已创建，包含场次 "今天" 和票种 "early_bird"', async () => {
+      await prepareExhibitionData(scenarioContext, 'CR7', '今天', 'early_bird', 1, 2);
+    });
+
+    Given('默认票种 "early_bird" 的有效期为场次当天有效', () => {
+      expect(scenarioContext?.ticket.valid_duration_days).toBe(1);
+    });
+
+    Given('默认场次 "今天" 的 "early_bird" 库存初始为 {int}', async (_ctx, maxInventory: number) => {
+      const { apiServer } = scenarioContext.fixtures.values;
+      const { adminToken } = scenarioContext;
+      const { exhibition, ticket } = requireExhibitionContext(scenarioContext);
+      await expect(updateTicketCategoryMaxInventory(
+        apiServer,
+        adminToken,
+        exhibition.id,
+        ticket.id,
+        maxInventory,
+      )).resolves.not.toThrow();
+    });
   });
 
   Scenario(
@@ -394,20 +420,8 @@ describeFeature(feature, ({
     (s: StepTest<RedemptionLookupScenarioContext>) => {
       const { Given, And, When, Then, context } = s;
 
-      Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
-        await prepareExhibitionData(context, exhibitionName, sessionDate, ticketName, 1, 2);
-      });
-
-      And('{string} 票种的有效期为场次当天有效', (_ctx, _ticketName: string) => {
-        expect(context.ticket?.valid_duration_days).toBe(1);
-      });
-
       And('{string} 票种准入人数为 {string}', (_ctx, _ticketName: string, admittance: string) => {
-        expect(context.ticket?.admittance).toBe(Number(admittance));
-      });
-
-      And('场次 {string} 的 {string} 库存初始为 {int}', (_ctx, _sessionDate: string, _ticketName: string, quantity: number) => {
-        expect(quantity).toBe(2);
+        expect(requireExhibitionContext(context).ticket.admittance).toBe(Number(admittance));
       });
 
       Given('用户在一个订单里购买了 {int} 张 {string} 的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
@@ -489,17 +503,6 @@ describeFeature(feature, ({
     (s: StepTest<RedeemActionScenarioContext>) => {
       const { Given, And, When, Then, context } = s;
 
-      Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
-        await prepareExhibitionData(context, exhibitionName, sessionDate, ticketName, 1, 2);
-      });
-
-      And('{string} 票种的有效期为场次当天有效', (_ctx, _ticketName: string) => {
-        expect(context.ticket?.valid_duration_days).toBe(1);
-      });
-
-      And('场次 {string} 的 {string} 库存初始为 {int}', (_ctx, _sessionDate: string, _ticketName: string, quantity: number) => {
-        expect(quantity).toBe(2);
-      });
 
       Given('用户在一个订单里购买了 {int} 张 {string} 的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
         await createOrderForCurrentUser(context, quantity);
@@ -545,17 +548,6 @@ describeFeature(feature, ({
     (s: StepTest<UnpaidOrderScenarioContext>) => {
       const { Given, And, When, Then, context } = s;
 
-      Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
-        await prepareExhibitionData(context, exhibitionName, sessionDate, ticketName, 1, 2);
-      });
-
-      And('{string} 票种的有效期为场次当天有效', (_ctx, _ticketName: string) => {
-        expect(context.ticket?.valid_duration_days).toBe(1);
-      });
-
-      And('场次 {string} 的 {string} 库存初始为 {int}', (_ctx, _sessionDate: string, _ticketName: string, quantity: number) => {
-        expect(quantity).toBe(2);
-      });
 
       Given('用户在一个未完成支付订单里购买了 {int} 张 {string} 的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
         await createOrderForCurrentUser(context, quantity);
@@ -585,17 +577,6 @@ describeFeature(feature, ({
     (s: StepTest<RedeemActionScenarioContext>) => {
       const { Given, And, When, Then, context } = s;
 
-      Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
-        await prepareExhibitionData(context, exhibitionName, sessionDate, ticketName, 1, 2);
-      });
-
-      And('{string} 票种的有效期为场次当天有效', (_ctx, _ticketName: string) => {
-        expect(context.ticket?.valid_duration_days).toBe(1);
-      });
-
-      And('场次 {string} 的 {string} 库存初始为 {int}', (_ctx, _sessionDate: string, _ticketName: string, quantity: number) => {
-        expect(quantity).toBe(2);
-      });
 
       Given('用户在一个订单里购买了 {int} 张 {string} 的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
         await createOrderForCurrentUser(context, quantity);
@@ -634,17 +615,6 @@ describeFeature(feature, ({
     (s: StepTest<RedeemActionScenarioContext>) => {
       const { Given, And, When, Then, context } = s;
 
-      Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
-        await prepareExhibitionData(context, exhibitionName, sessionDate, ticketName, 1, 2);
-      });
-
-      And('{string} 票种的有效期为场次当天有效', (_ctx, _ticketName: string) => {
-        expect(context.ticket?.valid_duration_days).toBe(1);
-      });
-
-      And('场次 {string} 的 {string} 库存初始为 {int}', (_ctx, _sessionDate: string, _ticketName: string, quantity: number) => {
-        expect(quantity).toBe(2);
-      });
 
       Given('用户在一个订单里购买了 {int} 张 {string} 的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
         await createOrderForCurrentUser(context, quantity);
@@ -691,17 +661,6 @@ describeFeature(feature, ({
     (s: StepTest<RedeemActionScenarioContext>) => {
       const { Given, And, When, Then, context } = s;
 
-      Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
-        await prepareExhibitionData(context, exhibitionName, sessionDate, ticketName, 1, 2);
-      });
-
-      And('{string} 票种的有效期为场次当天有效', (_ctx, _ticketName: string) => {
-        expect(context.ticket?.valid_duration_days).toBe(1);
-      });
-
-      And('场次 {string} 的 {string} 库存初始为 {int}', (_ctx, _sessionDate: string, _ticketName: string, quantity: number) => {
-        expect(quantity).toBe(2);
-      });
 
       Given('用户在一个订单里购买了 {int} 张 {string} 的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
         await createOrderForCurrentUser(context, quantity);
@@ -776,17 +735,6 @@ describeFeature(feature, ({
     (s: StepTest<RedemptionLookupScenarioContext>) => {
       const { Given, And, When, Then, context } = s;
 
-      Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
-        await prepareExhibitionData(context, exhibitionName, sessionDate, ticketName, 1, 2);
-      });
-
-      And('{string} 票种的有效期为场次当天有效', (_ctx, _ticketName: string) => {
-        expect(context.ticket?.valid_duration_days).toBe(1);
-      });
-
-      And('场次 {string} 的 {string} 库存初始为 {int}', (_ctx, _sessionDate: string, _ticketName: string, quantity: number) => {
-        expect(quantity).toBe(2);
-      });
 
       Given('用户在一个订单里购买了 {int} 张 {string} 的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
         await createOrderForCurrentUser(context, quantity);

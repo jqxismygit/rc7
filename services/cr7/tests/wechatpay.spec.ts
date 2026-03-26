@@ -91,7 +91,7 @@ type PreparedExhibitionContext = {
   ticket: Exhibition.TicketCategory;
 };
 
-interface ScenarioContext {
+interface ScenarioContext extends ExhibitionContext, OrderContext, InventoryContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer' | 'broker'>;
   adminToken: string;
   userToken: string;
@@ -128,20 +128,25 @@ describeFeature(feature, ({
   function requireExhibitionContext(
     context: ExhibitionContext,
   ): PreparedExhibitionContext {
-    expect(context.exhibition).toBeTruthy();
-    expect(context.session).toBeTruthy();
-    expect(context.ticket).toBeTruthy();
+    const exhibition = context.exhibition ?? scenarioContext?.exhibition;
+    const session = context.session ?? scenarioContext?.session;
+    const ticket = context.ticket ?? scenarioContext?.ticket;
+
+    expect(exhibition).toBeTruthy();
+    expect(session).toBeTruthy();
+    expect(ticket).toBeTruthy();
 
     return {
-      exhibition: context.exhibition!,
-      session: context.session!,
-      ticket: context.ticket!,
+      exhibition: exhibition!,
+      session: session!,
+      ticket: ticket!,
     };
   }
 
   function requireOrder(context: OrderContext) {
-    expect(context.order).toBeTruthy();
-    return context.order!;
+    const order = context.order ?? scenarioContext?.order;
+    expect(order).toBeTruthy();
+    return order!;
   }
 
   function requireRefundRecord(context: RefundContext) {
@@ -302,17 +307,21 @@ describeFeature(feature, ({
       const openid = `openid_${userName}`;
       Object.assign(scenarioContext, { userToken: token, userOpenid: openid });
     });
+
+    Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "成人票"', async () => {
+      await prepareExhibitionData(scenarioContext, `CR7_${random_text(4)}`, '成人票', toFutureDate(3), {
+        refundPolicy: 'REFUNDABLE_48H_BEFORE',
+        maxInventory: 10,
+      });
+      await createTestOrder(scenarioContext);
+      await setInitialTicketInventory(scenarioContext);
+    });
   });
 
   Scenario(
     '用户下单展会门票并发起支付',
     (s: StepTest<PaymentRequestScenarioContext>) => {
-      const { Given, When, Then, And, context } = s;
-
-      Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "成人票"', async () => {
-        await prepareExhibitionData(context, 'CR7', '成人票', toFutureDate(3));
-        await createTestOrder(context);
-      });
+      const { When, Then, And, context } = s;
 
       When('在微信小程序中向 cr7 支付服务发起支付', async () => {
         const mockPrepayId = 'mock_prepay_id_12345';
@@ -363,7 +372,7 @@ describeFeature(feature, ({
         expect(scenarioContext.wechatPayRequestHandler).toHaveBeenCalledWith(
           expect.objectContaining({
             body: expect.objectContaining({
-              description: expect.stringMatching(/^CR7 展会 成人票 \d{4}-\d{2}-\d{2} 场次$/),
+              description: expect.stringMatching(/^CR7.* 展会 成人票 \d{4}-\d{2}-\d{2} 场次$/),
             }),
           }),
         );
@@ -374,7 +383,7 @@ describeFeature(feature, ({
           expect.objectContaining({
             body: expect.objectContaining({
               amount: expect.objectContaining({
-                total: context.order!.total_amount,
+                total: requireOrder(context).total_amount,
                 currency: 'CNY',
               }),
             }),
@@ -433,16 +442,6 @@ describeFeature(feature, ({
     (s: StepTest<PaymentSuccessScenarioContext>) => {
       const { Given, Then, And, context } = s;
 
-      Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "成人票"', async () => {
-        await prepareExhibitionData(
-          context,
-          `CR7_${random_text(4)}`,
-          '成人票',
-          toFutureDate(3),
-        );
-        await createTestOrder(context);
-      });
-
       Given('用户发起并完成微信支付', async () => {
         const { apiServer } = scenarioContext.fixtures.values;
 
@@ -474,11 +473,6 @@ describeFeature(feature, ({
     '用户下单展会门票发起支付后取消订单',
     (s: StepTest<CancelOrderScenarioContext>) => {
       const { Given, When, Then, And, context } = s;
-
-      Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "成人票"', async () => {
-        await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toFutureDate(3));
-        await createTestOrder(context);
-      });
 
       Given('用户已发起支付', async () => {
         scenarioContext.wechatPayRequestHandler!.mockResolvedValueOnce({ prepay_id: 'mock_prepay_cancel' });
@@ -573,7 +567,7 @@ describeFeature(feature, ({
     });
 
     And('"成人票" 的退票策略是 "允许退票，退票截止时间为场次开始前 48 小时"', () => {
-      expect(context.ticket!.refund_policy).toBe('REFUNDABLE_48H_BEFORE');
+      expect(requireExhibitionContext(context).ticket.refund_policy).toBe('REFUNDABLE_48H_BEFORE');
     });
 
     Given('用户已完成支付', async () => {
@@ -683,18 +677,8 @@ describeFeature(feature, ({
 
     let failedRefundPayload: MockRefundCallbackPayload | null = null;
 
-    Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "成人票"', async () => {
-      await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toFutureDate(3), {
-        refundPolicy: 'REFUNDABLE_48H_BEFORE',
-        maxInventory: 10,
-      });
-      const { ticket } = requireExhibitionContext(context);
-      await createTestOrder(context, [{ ticket_category_id: ticket.id, quantity: 1 }]);
-      await setInitialTicketInventory(context);
-    });
-
     And('"成人票" 的退票策略是 "允许退票，退票截止时间为场次开始前 48 小时"', () => {
-      expect(context.ticket!.refund_policy).toBe('REFUNDABLE_48H_BEFORE');
+      expect(requireExhibitionContext(context).ticket.refund_policy).toBe('REFUNDABLE_48H_BEFORE');
     });
 
     Given('用户已完成支付', async () => {
@@ -744,7 +728,7 @@ describeFeature(feature, ({
 
     Then('展会场次的 "成人票" 库存不变', async () => {
       const latest = await getCurrentTicketInventory(context);
-      expect(latest).toBe(context.initialTicketInventory!);
+      expect(latest).toBe(scenarioContext.initialTicketInventory!);
     });
   });
 
@@ -753,14 +737,6 @@ describeFeature(feature, ({
 
     Given('管理员账号 "system admin" 已登录', () => {
       expect(scenarioContext.adminToken).toBeTruthy();
-    });
-
-    Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "成人票"', async () => {
-      await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toFutureDate(3), {
-        refundPolicy: 'REFUNDABLE_48H_BEFORE',
-        maxInventory: 10,
-      });
-      await createTestOrder(context);
     });
 
     Given('用户已完成支付', async () => {
@@ -883,7 +859,7 @@ describeFeature(feature, ({
     });
 
     And('"早鸟票" 的退票策略是 "不允许退票"', () => {
-      expect(context.ticket!.refund_policy).toBe('NON_REFUNDABLE');
+      expect(requireExhibitionContext(context).ticket.refund_policy).toBe('NON_REFUNDABLE');
     });
 
     Given('用户已完成支付', async () => {
@@ -962,7 +938,7 @@ describeFeature(feature, ({
     });
 
     And('"早鸟票" 的退票策略是 "不允许退票"', () => {
-      expect(context.ticket!.refund_policy).toBe('NON_REFUNDABLE');
+      expect(requireExhibitionContext(context).ticket.refund_policy).toBe('NON_REFUNDABLE');
     });
 
     And('"成人票" 的退票策略是 "允许退票，退票截止时间为场次开始前 48 小时"', () => {
@@ -1004,14 +980,6 @@ describeFeature(feature, ({
 
   Scenario('处于任何退款状态的订单都不能再次发起退款请求', (s: StepTest<RefundScenarioContext>) => {
     const { Given, When, Then, And, context } = s;
-
-    Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "成人票"', async () => {
-      await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toFutureDate(3), {
-        refundPolicy: 'REFUNDABLE_48H_BEFORE',
-        maxInventory: 10,
-      });
-      await createTestOrder(context);
-    });
 
     Given('用户已完成支付', async () => {
       await markOrderAsPaidForTest(
@@ -1132,7 +1100,7 @@ describeFeature(feature, ({
     });
 
     And('"成人票" 的退票策略是 "允许退票，退票截止时间为场次开始前 48 小时"', () => {
-      expect(context.ticket!.refund_policy).toBe('REFUNDABLE_48H_BEFORE');
+      expect(requireExhibitionContext(context).ticket.refund_policy).toBe('REFUNDABLE_48H_BEFORE');
     });
 
     Given('用户已完成支付', async () => {

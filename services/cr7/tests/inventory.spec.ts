@@ -62,6 +62,9 @@ type UnauthorizedInventoryScenarioContext = InventoryBaseScenarioContext & Regul
 interface ScenarioContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
   adminToken: string;
+  exhibition: ExhibitionType;
+  sessions: SessionType[];
+  ticketCategories: TicketCategoryType[];
 }
 
 describeFeature(feature, ({
@@ -72,18 +75,21 @@ describeFeature(feature, ({
   context: scenarioContext
 }: FeatureDescriibeCallbackParams<ScenarioContext>) => {
   function requireExhibition(context: ExhibitionContext) {
-    expect(context.exhibition).toBeTruthy();
-    return context.exhibition!;
+    const exhibition = context.exhibition ?? scenarioContext?.exhibition;
+    expect(exhibition).toBeTruthy();
+    return exhibition!;
   }
 
   function requireSessions(context: SessionsContext) {
-    expect(context.sessions).toBeTruthy();
-    return context.sessions!;
+    const sessions = context.sessions ?? scenarioContext?.sessions;
+    expect(sessions).toBeTruthy();
+    return sessions!;
   }
 
   function requireTicketCategories(context: TicketCategoriesContext) {
-    expect(context.ticketCategories).toBeTruthy();
-    return context.ticketCategories!;
+    const ticketCategories = context.ticketCategories ?? scenarioContext?.ticketCategories;
+    expect(ticketCategories).toBeTruthy();
+    return ticketCategories!;
   }
 
   function requireInventory(context: InventoryResultContext) {
@@ -117,6 +123,31 @@ describeFeature(feature, ({
       Object.assign(scenarioContext, { adminToken });
       expect(scenarioContext.adminToken).toBeTruthy();
     });
+
+    Given('已创建一个包含 2 个场次的展览', async () => {
+      await prepareInventoryExhibitionData(scenarioContext, scenarioContext.adminToken);
+    });
+
+    Given('已为该展览创建 2 个票种', async () => {
+      expect(scenarioContext.exhibition).toBeTruthy();
+      const { apiServer } = scenarioContext.fixtures.values;
+      const eid = scenarioContext.exhibition!.id;
+      const ticketCategories = [
+        await prepareTicketCategory(apiServer, scenarioContext.adminToken, eid, {
+          name: 'early_bird',
+          valid_duration_days: 1,
+          refund_policy: 'NON_REFUNDABLE',
+          admittance: 1,
+        }),
+        await prepareTicketCategory(apiServer, scenarioContext.adminToken, eid, {
+          name: 'regular',
+          price: 150,
+          refund_policy: 'REFUNDABLE_48H_BEFORE',
+        }),
+      ];
+
+      Object.assign(scenarioContext, { ticketCategories });
+    });
   });
 
   async function prepareInventoryExhibitionData(
@@ -132,42 +163,11 @@ describeFeature(feature, ({
     });
   }
 
-  async function prepareInventoryTicketData(
-    context: ExhibitionContext & TicketCategoriesContext,
-    token: string,
-  ) {
-    const { apiServer } = scenarioContext.fixtures.values;
-    const eid = requireExhibition(context).id;
-    const ticketCategories = [
-      await prepareTicketCategory(apiServer, token, eid, {
-        name: 'early_bird',
-        valid_duration_days: 1,
-        refund_policy: 'NON_REFUNDABLE',
-        admittance: 1,
-      }),
-      await prepareTicketCategory(apiServer, token, eid, {
-        name: 'regular',
-        price: 150,
-        refund_policy: 'REFUNDABLE_48H_BEFORE',
-      }),
-    ]
-    Object.assign(context, {
-      ticketCategories,
-    });
-  }
 
   Scenario(
     'view inventory of a session',
     (s: StepTest<InventoryViewScenarioContext>) => {
-      const { Given, And, When, Then, context } = s;
-
-      Given('已创建一个包含 2 个场次的展览', async () => {
-        await prepareInventoryExhibitionData(context, scenarioContext.adminToken);
-      });
-
-      And('已为该展览创建 2 个票种', async () => {
-        await prepareInventoryTicketData(context, scenarioContext.adminToken);
-      });
+      const { Given, When, Then, context } = s;
 
       Given('场次库存已准备完成', () => {
         expect(requireSessions(context)).toHaveLength(2);
@@ -198,14 +198,6 @@ describeFeature(feature, ({
     '可以一次更新 exhibition 下某个 ticket category 所有 session 的 inventory',
     (s: StepTest<InventoryBaseScenarioContext>) => {
       const { Given, When, Then, And, context } = s;
-
-      Given('已创建一个包含 2 个场次的展览', async () => {
-        await prepareInventoryExhibitionData(context, scenarioContext.adminToken);
-      });
-
-      And('已为该展览创建 2 个票种', async () => {
-        await prepareInventoryTicketData(context, scenarioContext.adminToken);
-      });
 
       Given(
         '已将票种 {string} 在该展览所有场次的库存设置为 50',
@@ -288,14 +280,6 @@ describeFeature(feature, ({
     (s: StepTest<InventoryViewScenarioContext>) => {
       const { Given, When, Then, And, context } = s;
 
-      Given('已创建一个包含 2 个场次的展览', async () => {
-        await prepareInventoryExhibitionData(context, scenarioContext.adminToken);
-      });
-
-      And('已为该展览创建 2 个票种', async () => {
-        await prepareInventoryTicketData(context, scenarioContext.adminToken);
-      });
-
       Given(
         '已将票种 {string} 在该展览首场次的库存设置为 {int}',
         async (_ctx, categoryName: string, quantity: number) => {
@@ -367,15 +351,7 @@ describeFeature(feature, ({
   Scenario(
     'non-admin user cannot update inventory',
     (s: StepTest<UnauthorizedInventoryScenarioContext>) => {
-      const { Given, When, Then, And, context } = s;
-
-      Given('已创建一个包含 2 个场次的展览', async () => {
-        await prepareInventoryExhibitionData(context, scenarioContext.adminToken);
-      });
-
-      And('已为该展览创建 2 个票种', async () => {
-        await prepareInventoryTicketData(context, scenarioContext.adminToken);
-      });
+      const { Given, When, Then, context } = s;
 
       Given('普通用户已登录', async () => {
         const { apiServer } = scenarioContext.fixtures.values;
