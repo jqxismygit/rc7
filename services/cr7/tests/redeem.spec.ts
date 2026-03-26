@@ -829,7 +829,7 @@ describeFeature(feature, ({
     (s: StepTest<RedeemedOrderRefundScenarioContext>) => {
       const { Given, When, Then, And, context } = s;
 
-      Given('用户预订了 {int} 张 {string} 展会 的 {string} 场次的 {string}', async (_ctx, quantity: number, exhibitionName: string, sessionDateLabel: string, ticketName: string) => {
+      Given('用户在一个订单里购买了 {int} 张 {string} 的 {string} 场次的 {string}', async (_ctx, quantity: number, exhibitionName: string, sessionDateLabel: string, ticketName: string) => {
         await prepareExhibitionData(
           context,
           exhibitionName,
@@ -887,7 +887,7 @@ describeFeature(feature, ({
     (s: StepTest<RefundFlowRedemptionScenarioContext>) => {
       const { Given, When, Then, And, context } = s;
 
-      Given('用户预订了 {int} 张 {string} 展会 的 {string} 场次的 {string}', async (_ctx, quantity: number, exhibitionName: string, sessionDateLabel: string, ticketName: string) => {
+      Given('用户在一个订单里购买了 {int} 张 {string} 的 {string} 场次的 {string}', async (_ctx, quantity: number, exhibitionName: string, sessionDateLabel: string, ticketName: string) => {
         await prepareExhibitionData(
           context,
           exhibitionName,
