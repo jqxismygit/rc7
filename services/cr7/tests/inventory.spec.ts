@@ -369,11 +369,11 @@ describeFeature(feature, ({
     (s: StepTest<UnauthorizedInventoryScenarioContext>) => {
       const { Given, When, Then, And, context } = s;
 
-      Given('管理员已创建一个包含 2 个场次的展览', async () => {
+      Given('已创建一个包含 2 个场次的展览', async () => {
         await prepareInventoryExhibitionData(context, scenarioContext.adminToken);
       });
 
-      And('管理员已为该展览创建 2 个票种', async () => {
+      And('已为该展览创建 2 个票种', async () => {
         await prepareInventoryTicketData(context, scenarioContext.adminToken);
       });
 

@@ -28,8 +28,8 @@ Feature: manage inventory
         And 另一票种 "regular" 在该展览首场次的库存应为 20
 
   Scenario: non-admin user cannot update inventory
-    Given 管理员已创建一个包含 2 个场次的展览
-      And 管理员已为该展览创建 2 个票种
+    Given 已创建一个包含 2 个场次的展览
+      And 已为该展览创建 2 个票种
     Given 普通用户已登录
     When 普通用户尝试更新票种库存
     Then 返回权限不足错误

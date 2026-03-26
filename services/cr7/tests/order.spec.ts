@@ -13,6 +13,7 @@ import { toDateFromRelativeText } from './lib/relative-date.js';
 import { services_fixtures } from './fixtures/services.js';
 import { getUserProfile, prepareAdminToken, registerUser } from './fixtures/user.js';
 import {
+  prepareTicketCategory,
   prepareExhibitionWithNamedTickets,
 } from './fixtures/exhibition.js';
 import {
@@ -226,6 +227,33 @@ describeFeature(feature, ({
     );
   }
 
+  async function appendTicketCategory(
+    context: ExhibitionSetupContext,
+    ticketName: string,
+  ) {
+    const { apiServer } = scenarioContext.fixtures.values;
+    const { exhibition, ticketByName } = requireExhibitionSetup(context);
+    const newTicket = await prepareTicketCategory(
+      apiServer,
+      scenarioContext.adminToken,
+      exhibition.id,
+      {
+        name: ticketName,
+        price: 150,
+        valid_duration_days: 1,
+        refund_policy: 'NON_REFUNDABLE',
+        admittance: 1,
+      },
+    );
+
+    Object.assign(context, {
+      ticketByName: {
+        ...ticketByName,
+        [ticketName]: newTicket,
+      },
+    });
+  }
+
   async function availableInventoryByTicketName(
     context: ExhibitionSetupContext,
     ticketName: string,
@@ -381,8 +409,12 @@ describeFeature(feature, ({
   Scenario('用户预订多个票种', (s: StepTest<CreateOrderScenarioContext>) => {
     const { Given, When, Then, And, context } = s;
 
-    Given('展览活动 "艺术展" 已创建，包含场次 "3天后" 和票种 "成人票"、"儿童票"', async () => {
-      await prepareExhibitionWithTickets(context, ['成人票', '儿童票']);
+    Given('展览活动 "艺术展" 已创建，包含场次 "3天后" 和票种 "成人票"', async () => {
+      await prepareExhibitionWithTickets(context, ['成人票']);
+    });
+
+    And('该展览已追加票种 "儿童票"', async () => {
+      await appendTicketCategory(context, '儿童票');
     });
 
     And('场次 "3天后" 的 "成人票" 库存初始为 2', async () => {
