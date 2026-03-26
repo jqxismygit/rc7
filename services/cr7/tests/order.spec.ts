@@ -85,6 +85,8 @@ type OrderListScenarioContext = ExhibitionSetupContext
   & RememberedOrdersContext;
 type HideOrderScenarioContext = ExhibitionSetupContext & OrderResultContext;
 
+let backgroundExhibitionSetup: PreparedExhibitionSetupContext | null = null;
+
 interface ScenarioContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer' | 'broker'>;
   adminToken: string;
@@ -96,14 +98,18 @@ interface ScenarioContext {
 function requireExhibitionSetup(
   context: ExhibitionSetupContext,
 ): PreparedExhibitionSetupContext {
-  expect(context.exhibition).toBeTruthy();
-  expect(context.session).toBeTruthy();
-  expect(context.ticketByName).toBeTruthy();
+  const exhibition = context.exhibition ?? backgroundExhibitionSetup?.exhibition;
+  const session = context.session ?? backgroundExhibitionSetup?.session;
+  const ticketByName = context.ticketByName ?? backgroundExhibitionSetup?.ticketByName;
+
+  expect(exhibition).toBeTruthy();
+  expect(session).toBeTruthy();
+  expect(ticketByName).toBeTruthy();
 
   return {
-    exhibition: context.exhibition!,
-    session: context.session!,
-    ticketByName: context.ticketByName!,
+    exhibition: exhibition!,
+    session: session!,
+    ticketByName: ticketByName!,
   };
 }
 
@@ -379,18 +385,48 @@ describeFeature(feature, ({
     Given('用户 "Alice" 已注册并登录', async () => {
       await registerScenarioUser('Alice', 'userToken');
     });
+
+    Given(
+      '默认展览活动已创建，包含场次 "3天后" 和票种 "成人票"',
+      async () => {
+      const { apiServer } = scenarioContext.fixtures.values;
+      const prepared = await prepareExhibitionWithNamedTickets(
+        apiServer,
+        scenarioContext.adminToken,
+        ['成人票'],
+        {
+          exhibitionOverrides: {
+            name: `order_test_${random_text(5)}`,
+            description: 'Order inventory test exhibition',
+            start_date: toDateFromRelativeText('3天后'),
+            end_date: toDateFromRelativeText('3天后'),
+            opening_time: '10:00',
+            closing_time: '18:00',
+            last_entry_time: '17:00',
+            location: 'Shanghai',
+          },
+        },
+      );
+
+      backgroundExhibitionSetup = prepared;
+      Object.assign(scenarioContext, prepared);
+    });
+
+    Given('默认场次 "3天后" 的 "成人票" 库存初始为 {int}', async (_ctx, quantity: number) => {
+      expect(backgroundExhibitionSetup).toBeTruthy();
+      const { apiServer } = scenarioContext.fixtures.values;
+      await updateTicketCategoryMaxInventory(
+        apiServer,
+        scenarioContext.adminToken,
+        backgroundExhibitionSetup!.exhibition.id,
+        backgroundExhibitionSetup!.ticketByName['成人票'].id,
+        quantity,
+      );
+    });
   });
 
   Scenario('创建订单成功', (s: StepTest<CreateOrderScenarioContext>) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given('展览活动 "艺术展" 已创建，包含场次 "3天后" 和票种 "成人票"', async () => {
-      await prepareExhibitionWithTickets(context, ['成人票']);
-    });
-
-    And('场次 "3天后" 的 "成人票" 库存初始为 2', async () => {
-      await setInitialInventory(context, '成人票', 2);
-    });
+    const { When, Then, And, context } = s;
 
     When('用户预订 1 张 "艺术展" 的 "3天后" 场次的 "成人票"', async () => {
       await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }]);
@@ -400,26 +436,19 @@ describeFeature(feature, ({
       expect(requireOrder(context).status).toBe('PENDING_PAYMENT');
     });
 
-    And('场次 "3天后" 的 "成人票" 库存为 1', async () => {
-      const quantity = await availableInventoryByTicketName(context, '成人票');
-      expect(quantity).toBe(1);
+    And('场次 "3天后" 的 "成人票" 库存为 {int}', async (_ctx, quantity: number) => {
+      const availableQuantity = await availableInventoryByTicketName(context, '成人票');
+      expect(availableQuantity).toBe(quantity);
     });
   });
 
   Scenario('用户预订多个票种', (s: StepTest<CreateOrderScenarioContext>) => {
     const { Given, When, Then, And, context } = s;
 
-    Given('展览活动 "艺术展" 已创建，包含场次 "3天后" 和票种 "成人票"', async () => {
-      await prepareExhibitionWithTickets(context, ['成人票']);
-    });
-
-    And('该展览已追加票种 "儿童票"', async () => {
+    Given('该展览已追加票种 "儿童票"', async () => {
       await appendTicketCategory(context, '儿童票');
     });
 
-    And('场次 "3天后" 的 "成人票" 库存初始为 2', async () => {
-      await setInitialInventory(context, '成人票', 2);
-    });
 
     And('场次 "3天后" 的 "儿童票" 库存初始为 3', async () => {
       await setInitialInventory(context, '儿童票', 3);
@@ -436,27 +465,19 @@ describeFeature(feature, ({
       expect(requireOrder(context).items).toHaveLength(2);
     });
 
-    And('场次 "3天后" 的 "成人票" 库存为 1', async () => {
-      const quantity = await availableInventoryByTicketName(context, '成人票');
-      expect(quantity).toBe(1);
+    And('场次 "3天后" 的 "成人票" 库存为 {int}', async (_ctx, quantity: number) => {
+      const availableQuantity = await availableInventoryByTicketName(context, '成人票');
+      expect(availableQuantity).toBe(quantity);
     });
 
-    And('场次 "3天后" 的 "儿童票" 库存为 1', async () => {
-      const quantity = await availableInventoryByTicketName(context, '儿童票');
-      expect(quantity).toBe(1);
+    And('场次 "3天后" 的 "儿童票" 库存为 {int}', async (_ctx, quantity: number) => {
+      const availableQuantity = await availableInventoryByTicketName(context, '儿童票');
+      expect(availableQuantity).toBe(quantity);
     });
   });
 
   Scenario('用户预订时同一票种重复提交会自动聚合', (s: StepTest<CreateOrderScenarioContext>) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given('展览活动 "艺术展" 已创建，包含场次 "3天后" 和票种 "成人票"', async () => {
-      await prepareExhibitionWithTickets(context, ['成人票']);
-    });
-
-    And('场次 "3天后" 的 "成人票" 库存初始为 3', async () => {
-      await setInitialInventory(context, '成人票', 3);
-    });
+    const { When, Then, And, context } = s;
 
     When('用户提交两条 "成人票" 订单项，数量分别为 1 和 2', async () => {
       await createOrderWithItems(context, [
@@ -469,32 +490,24 @@ describeFeature(feature, ({
       expect(requireOrder(context)).toBeTruthy();
     });
 
-    And('订单中该票种数量为 3', () => {
+    And('订单中该票种数量为 {int}', (_ctx, quantity: number) => {
       const order = requireOrder(context);
       expect(order.items).toHaveLength(1);
-      expect(order.items[0].quantity).toBe(3);
+      expect(order.items[0].quantity).toBe(quantity);
     });
 
-    And('场次 "3天后" 的 "成人票" 库存为 0', async () => {
-      const quantity = await availableInventoryByTicketName(context, '成人票');
-      expect(quantity).toBe(0);
+    And('场次 "3天后" 的 "成人票" 库存为 {int}', async (_ctx, quantity: number) => {
+      const availableQuantity = await availableInventoryByTicketName(context, '成人票');
+      expect(availableQuantity).toBe(quantity);
     });
   });
 
   Scenario('预订超过库存数量的门票', (s: StepTest<InventoryErrorScenarioContext>) => {
-    const { Given, When, Then, And, context } = s;
+    const { When, Then, And, context } = s;
 
-    Given('展览活动 "艺术展" 已创建，包含场次 "3天后" 和票种 "成人票"', async () => {
-      await prepareExhibitionWithTickets(context, ['成人票']);
-    });
-
-    And('场次 "3天后" 的 "成人票" 库存初始为 2', async () => {
-      await setInitialInventory(context, '成人票', 2);
-    });
-
-    When('用户预订 3 张 "艺术展" 的 "3天后" 场次的 "成人票"', async () => {
+    When('用户预订 {int} 张 "艺术展" 的 "3天后" 场次的 "成人票"', async (_ctx, quantity: number) => {
       try {
-        await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 3 }]);
+        await createOrderWithItems(context, [{ ticketName: '成人票', quantity }]);
       } catch (error) {
         rememberError(context, error);
       }
@@ -507,9 +520,9 @@ describeFeature(feature, ({
       });
     });
 
-    And('场次 "3天后" 的 "成人票" 库存为 2', async () => {
-      const quantity = await availableInventoryByTicketName(context, '成人票');
-      expect(quantity).toBe(2);
+    And('场次 "3天后" 的 "成人票" 库存为 {int}', async (_ctx, quantity: number) => {
+      const availableQuantity = await availableInventoryByTicketName(context, '成人票');
+      expect(availableQuantity).toBe(quantity);
     });
   });
 
@@ -539,22 +552,14 @@ describeFeature(feature, ({
       });
     });
 
-    And('场次 "1天前" 的 "成人票" 库存为 2', async () => {
-      const quantity = await availableInventoryByTicketName(context, '成人票');
-      expect(quantity).toBe(2);
+    And('场次 "1天前" 的 "成人票" 库存为 {int}', async (_ctx, quantity: number) => {
+      const availableQuantity = await availableInventoryByTicketName(context, '成人票');
+      expect(availableQuantity).toBe(quantity);
     });
   });
 
   Scenario('取消付款', (s: StepTest<OrderLifecycleScenarioContext>) => {
     const { Given, When, Then, And, context } = s;
-
-    Given('展览活动 "艺术展" 已创建，包含场次 "3天后" 和票种 "成人票"', async () => {
-      await prepareExhibitionWithTickets(context, ['成人票']);
-    });
-
-    And('场次 "3天后" 的 "成人票" 库存初始为 2', async () => {
-      await setInitialInventory(context, '成人票', 2);
-    });
 
     Given('用户已成功预订 1 张 "艺术展" 的 "3天后" 场次的 "成人票"', async () => {
       await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }]);
@@ -569,22 +574,14 @@ describeFeature(feature, ({
       expect(requireOrder(context)).toBeTruthy();
     });
 
-    And('场次 "3天后" 的 "成人票" 库存为 2', async () => {
-      const quantity = await availableInventoryByTicketName(context, '成人票');
-      expect(quantity).toBe(2);
+    And('场次 "3天后" 的 "成人票" 库存为 {int}', async (_ctx, quantity: number) => {
+      const availableQuantity = await availableInventoryByTicketName(context, '成人票');
+      expect(availableQuantity).toBe(quantity);
     });
   });
 
   Scenario('订单过期未付款', (s: StepTest<OrderLifecycleScenarioContext>) => {
     const { Given, When, Then, And, context } = s;
-
-    Given('展览活动 "艺术展" 已创建，包含场次 "3天后" 和票种 "成人票"', async () => {
-      await prepareExhibitionWithTickets(context, ['成人票']);
-    });
-
-    And('场次 "3天后" 的 "成人票" 库存初始为 2', async () => {
-      await setInitialInventory(context, '成人票', 2);
-    });
 
     Given('用户已成功预订 1 张 "艺术展" 的 "3天后" 场次的 "成人票"', async () => {
       await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }]);
@@ -604,22 +601,14 @@ describeFeature(feature, ({
       await broker.call('cr7.order.expire', { batchSize: 100 });
     });
 
-    And('场次 "3天后" 的 "成人票" 库存为 2', async () => {
-      const quantity = await availableInventoryByTicketName(context, '成人票');
-      expect(quantity).toBe(2);
+    And('场次 "3天后" 的 "成人票" 库存为 {int}', async (_ctx, quantity: number) => {
+      const availableQuantity = await availableInventoryByTicketName(context, '成人票');
+      expect(availableQuantity).toBe(quantity);
     });
   });
 
   Scenario('重复取消同一订单不会重复释放库存', (s: StepTest<OrderLifecycleScenarioContext>) => {
     const { Given, When, Then, And, context } = s;
-
-    Given('展览活动 "艺术展" 已创建，包含场次 "3天后" 和票种 "成人票"', async () => {
-      await prepareExhibitionWithTickets(context, ['成人票']);
-    });
-
-    And('场次 "3天后" 的 "成人票" 库存初始为 2', async () => {
-      await setInitialInventory(context, '成人票', 2);
-    });
 
     Given('用户已成功预订 1 张 "艺术展" 的 "3天后" 场次的 "成人票"', async () => {
       await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }]);
@@ -630,9 +619,9 @@ describeFeature(feature, ({
       await cancelOrderByApi(apiServer, requireOrder(context).id, scenarioContext.userToken);
     });
 
-    And('第一次取消后场次 "3天后" 的 "成人票" 库存应为 2', async () => {
-      const quantity = await availableInventoryByTicketName(context, '成人票');
-      expect(quantity).toBe(2);
+    And('第一次取消后场次 "3天后" 的 "成人票" 库存应为 {int}', async (_ctx, quantity: number) => {
+      const availableQuantity = await availableInventoryByTicketName(context, '成人票');
+      expect(availableQuantity).toBe(quantity);
     });
 
     And('用户再次取消同一订单', async () => {
@@ -644,22 +633,14 @@ describeFeature(feature, ({
       expect(requireOrder(context)).toBeTruthy();
     });
 
-    And('重复取消后场次 "3天后" 的 "成人票" 库存应为 2', async () => {
-      const quantity = await availableInventoryByTicketName(context, '成人票');
-      expect(quantity).toBe(2);
+    And('重复取消后场次 "3天后" 的 "成人票" 库存应为 {int}', async (_ctx, quantity: number) => {
+      const availableQuantity = await availableInventoryByTicketName(context, '成人票');
+      expect(availableQuantity).toBe(quantity);
     });
   });
 
   Scenario('过期处理任务重复执行不会重复释放库存', (s: StepTest<OrderLifecycleScenarioContext>) => {
     const { Given, When, Then, And, context } = s;
-
-    Given('展览活动 "艺术展" 已创建，包含场次 "3天后" 和票种 "成人票"', async () => {
-      await prepareExhibitionWithTickets(context, ['成人票']);
-    });
-
-    And('场次 "3天后" 的 "成人票" 库存初始为 2', async () => {
-      await setInitialInventory(context, '成人票', 2);
-    });
 
     Given('用户已成功预订 1 张 "艺术展" 的 "3天后" 场次的 "成人票"', async () => {
       await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }]);
@@ -679,22 +660,14 @@ describeFeature(feature, ({
       await broker.call('cr7.order.expire', { batchSize: 100 });
     });
 
-    Then('场次 "3天后" 的 "成人票" 库存为 2', async () => {
-      const quantity = await availableInventoryByTicketName(context, '成人票');
-      expect(quantity).toBe(2);
+    Then('场次 "3天后" 的 "成人票" 库存为 {int}', async (_ctx, quantity: number) => {
+      const availableQuantity = await availableInventoryByTicketName(context, '成人票');
+      expect(availableQuantity).toBe(quantity);
     });
   });
 
   Scenario('用户可以获取自己的订单详情', (s: StepTest<OrderDetailScenarioContext>) => {
     const { Given, When, Then, And, context } = s;
-
-    Given('展览活动 "艺术展" 已创建，包含场次 "3天后" 和票种 "成人票"', async () => {
-      await prepareExhibitionWithTickets(context, ['成人票']);
-    });
-
-    And('场次 "3天后" 的 "成人票" 库存初始为 2', async () => {
-      await setInitialInventory(context, '成人票', 2);
-    });
 
     Given('用户已成功预订 1 张 "艺术展" 的 "3天后" 场次的 "成人票"', async () => {
       const order = await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }]);
@@ -729,13 +702,6 @@ describeFeature(feature, ({
       await registerScenarioUser('Bob', 'bobToken');
     });
 
-    And('展览活动 "艺术展" 已创建，包含场次 "3天后" 和票种 "成人票"', async () => {
-      await prepareExhibitionWithTickets(context, ['成人票']);
-    });
-
-    And('场次 "3天后" 的 "成人票" 库存初始为 2', async () => {
-      await setInitialInventory(context, '成人票', 2);
-    });
 
     And('"Bob" 已成功预订 1 张 "艺术展" 的 "3天后" 场次的 "成人票"', async () => {
       const order = await createOrderWithItems(
@@ -864,12 +830,7 @@ describeFeature(feature, ({
   });
 
   Scenario('用户创建空订单失败', (s: StepTest<InventoryErrorScenarioContext>) => {
-    const { Given, When, Then, context } = s;
-
-    Given('展览活动 "艺术展" 已创建，包含场次 "3天后" 和票种 "成人票"', async () => {
-      await prepareExhibitionWithTickets(context, ['成人票']);
-      await setInitialInventory(context, '成人票', 2);
-    });
+    const { When, Then, context } = s;
 
     When('用户提交空订单项创建订单', async () => {
       const { apiServer } = scenarioContext.fixtures.values;
@@ -897,12 +858,7 @@ describeFeature(feature, ({
   });
 
   Scenario('用户创建数量为 0 的订单项失败', (s: StepTest<InventoryErrorScenarioContext & OrderResultContext>) => {
-    const { Given, When, Then, context } = s;
-
-    Given('展览活动 "艺术展" 已创建，包含场次 "3天后" 和票种 "成人票"', async () => {
-      await prepareExhibitionWithTickets(context, ['成人票']);
-      await setInitialInventory(context, '成人票', 2);
-    });
+    const { When, Then, context } = s;
 
     When('用户预订 0 张 "艺术展" 的 "3天后" 场次的 "成人票"', async () => {
       try {
@@ -923,15 +879,7 @@ describeFeature(feature, ({
   Scenario('管理员可以查看所有订单列表', (s: StepTest<OrderListScenarioContext>) => {
     const { Given, When, Then, And, context } = s;
 
-    Given('展览活动 "艺术展" 已创建，包含场次 "3天后" 和票种 "成人票"', async () => {
-      await prepareExhibitionWithTickets(context, ['成人票']);
-    });
-
-    And('场次 "3天后" 的 "成人票" 库存初始为 10', async () => {
-      await setInitialInventory(context, '成人票', 10);
-    });
-
-    And('用户 "Bob" 已成功预订 1 张 "艺术展" 的 "3天后" 场次的 "成人票"', async () => {
+    Given('用户 "Bob" 已成功预订 1 张 "艺术展" 的 "3天后" 场次的 "成人票"', async () => {
       const { apiServer } = scenarioContext.fixtures.values;
       const bobToken = await registerUser(apiServer, `Bob_${random_text(6)}`);
       Object.assign(scenarioContext, {
