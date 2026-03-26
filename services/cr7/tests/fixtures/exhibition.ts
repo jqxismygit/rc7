@@ -321,47 +321,6 @@ export async function prepareTicketCategory(
   return addTicketCategory(apiServer, token, eid, categoryFixture);
 }
 
-export async function prepareEarlyBirdTicketCategory(
-  apiServer: Server,
-  token: string,
-  eid: string,
-  ticketCategoryOverrides?: Partial<DraftTicketCategory>
-): Promise<Exhibition.TicketCategory> {
-  return prepareTicketCategory(
-    apiServer,
-    token,
-    eid,
-    Object.assign(
-      {
-        name: 'early_bird',
-        valid_duration_days: 1,
-        refund_policy: 'NON_REFUNDABLE',
-        admittance: 1,
-      },
-      ticketCategoryOverrides
-    )
-  );
-}
-
-export async function prepareRegularTicketCategory(
-  apiServer: Server,
-  token: string,
-  eid: string,
-  ticketCategoryOverrides?: Partial<DraftTicketCategory>
-): Promise<Exhibition.TicketCategory> {
-  return prepareTicketCategory(
-    apiServer, token, eid,
-    Object.assign(
-      {
-        name: 'regular',
-        price: 150,
-        refund_policy: 'REFUNDABLE_48H_BEFORE',
-      },
-      ticketCategoryOverrides
-    )
-  );
-}
-
 // Session related functions
 export function assertSession(data: Exhibition.Session) {
   expect(data).toBeTypeOf('object');

@@ -15,9 +15,8 @@ import {
   updateTicketCategoryMaxInventory,
 } from './fixtures/inventory.js';
 import {
-  prepareEarlyBirdTicketCategory,
   prepareExhibitionWithSessions,
-  prepareRegularTicketCategory,
+  prepareTicketCategory,
 } from './fixtures/exhibition.js';
 import { registerUser, prepareAdminToken } from './fixtures/user.js';
 import { APIError } from './lib/api.js';
@@ -140,8 +139,17 @@ describeFeature(feature, ({
     const { apiServer } = scenarioContext.fixtures.values;
     const eid = requireExhibition(context).id;
     const ticketCategories = [
-      await prepareEarlyBirdTicketCategory(apiServer, token, eid),
-      await prepareRegularTicketCategory(apiServer, token, eid),
+      await prepareTicketCategory(apiServer, token, eid, {
+        name: 'early_bird',
+        valid_duration_days: 1,
+        refund_policy: 'NON_REFUNDABLE',
+        admittance: 1,
+      }),
+      await prepareTicketCategory(apiServer, token, eid, {
+        name: 'regular',
+        price: 150,
+        refund_policy: 'REFUNDABLE_48H_BEFORE',
+      }),
     ]
     Object.assign(context, {
       ticketCategories,
