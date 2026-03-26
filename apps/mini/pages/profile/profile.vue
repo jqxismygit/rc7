@@ -488,7 +488,7 @@ export default {
 
 /* 功能列表 */
 .menu-list {
-  padding: 24rpx 48rpx 0;
+  padding: 24rpx 30rpx 0;
   display: flex;
   flex-direction: column;
   gap: 24rpx;

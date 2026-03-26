@@ -2,7 +2,6 @@ Component({
   data: {
     selected: 0,
     safeAreaBottom: 0,
-    bubbleLeft: 12.5,
     list: [
       {
         pagePath: "/pages/index/index",
@@ -46,7 +45,7 @@ Component({
     } catch (e) {}
     var app = getApp();
     var prev = app._tabBarSelected !== undefined ? app._tabBarSelected : 0;
-    payload.bubbleLeft = 12.5 + prev * 25;
+    payload.selected = prev;
     that.setData(payload);
   },
 
@@ -54,13 +53,6 @@ Component({
     selected: function (val) {
       var app = getApp();
       app._tabBarSelected = val;
-      var left = 12.5 + (val || 0) * 25;
-      var that = this;
-      clearTimeout(that._bubbleTimer);
-      that._bubbleTimer = setTimeout(function () {
-        that._bubbleTimer = null;
-        that.setData({ bubbleLeft: left });
-      }, 32);
     },
   },
 

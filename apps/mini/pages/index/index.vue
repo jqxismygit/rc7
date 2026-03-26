@@ -806,7 +806,7 @@ export default {
 .fab-verify {
   position: fixed;
   right: 30rpx;
-  bottom: 300rpx;
+  bottom: 240rpx;
   z-index: 50;
   width: 155rpx;
   height: 155rpx;

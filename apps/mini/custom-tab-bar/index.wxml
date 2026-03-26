@@ -1,10 +1,6 @@
 <view class="cr7-tab-bar safe-area-bottom" style="padding-bottom: {{safeAreaBottom}}px;">
   <view class="cr7-tab-bar__inner">
     <view
-      class="cr7-tab-bar__bubble"
-      style="left: {{bubbleLeft}}%;"
-    ></view>
-    <view
       wx:for="{{list}}"
       wx:key="pagePath"
       class="cr7-tab-bar__item {{index === selected ? 'active' : ''}}"

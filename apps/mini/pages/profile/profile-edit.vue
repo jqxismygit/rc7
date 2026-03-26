@@ -385,7 +385,7 @@ export default {
 
 /* 表单容器（参考 profile menu-list） */
 .form-container {
-  padding: 24rpx 35rpx 0;
+  padding: 24rpx 30rpx 0;
   display: flex;
   flex-direction: column;
   gap: 24rpx;

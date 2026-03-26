@@ -9,8 +9,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  padding-left: 18rpx;
-  padding-right: 18rpx;
+  padding-left: 30rpx;
+  padding-right: 30rpx;
   padding-top: 12rpx;
   z-index: 9999;
   background: #161714;
@@ -23,40 +23,31 @@
   border-radius: 64rpx;
   display: flex;
   align-items: center;
-  padding: 0 10rpx;
-  gap: 8rpx;
-}
-
-/* 滑动气泡：独立层，每次切换都过渡 left */
-.cr7-tab-bar__bubble {
-  position: absolute;
-  top: 10rpx;
-  width: 200rpx;
-  height: 100rpx;
-  border-radius: 54rpx;
-  background: #D8FC0F;
-  transform: translateX(-50%);
-  transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 0;
-  pointer-events: none;
+  justify-content: space-between;
+  overflow: hidden;
 }
 
 .cr7-tab-bar__item {
-  flex: 1;
-  min-width: 0;
+  width: 142rpx;
+  flex-shrink: 0;
   height: 100rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10rpx;
-  border-radius: 54rpx;
-  background: transparent;
+  border-radius: 64rpx;
+  background: #2a2a2a;
   z-index: 1;
   position: relative;
+  transition:
+    width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    border-radius 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .cr7-tab-bar__item.active {
-  background: transparent;
+  width: 220rpx;
+  border-radius: 64rpx;
+  background: #d8fc0f;
 }
 
 .cr7-tab-bar__icon {
@@ -72,7 +63,7 @@
 
 .cr7-tab-bar__text {
   font-size: 28rpx;
-  color: #090A07;
+  color: #090a07;
   font-weight: 600;
   line-height: 44rpx;
   white-space: nowrap;
