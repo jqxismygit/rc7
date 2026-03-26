@@ -36,39 +36,48 @@ type SessionType = Exhibition.Session;
 type TicketCategory = Exhibition.TicketCategory;
 type DraftTicket = DraftTicketCategory;
 
-type CreateExhibitionScenarioContext = {
-  draftExhibition: DraftExhibition;
-  exhibition: ExhibitionType;
+type DraftExhibitionContext = {
+  draftExhibition?: DraftExhibition;
 };
 
-type TicketCategoryScenarioContext = {
-  exhibition: ExhibitionType;
-  draftTicket: DraftTicket;
-  ticket: TicketCategory;
+type ExhibitionContext = {
+  exhibition?: ExhibitionType;
 };
 
-type SessionsScenarioContext = {
-  exhibition: ExhibitionType;
-  sessions: SessionType[];
+type DraftTicketContext = {
+  draftTicket?: DraftTicket;
 };
 
-type ExhibitionListScenarioContext = {
-  createdExhibitions: ExhibitionType[];
-  listResult: ExhibitionListResponse;
+type TicketContext = {
+  ticket?: TicketCategory;
+};
+
+type SessionsContext = {
+  sessions?: SessionType[];
+};
+
+type CreatedExhibitionsContext = {
+  createdExhibitions?: ExhibitionType[];
+};
+
+type ExhibitionListResultContext = {
+  listResult?: ExhibitionListResponse;
 };
 
 type PermissionErrorContext = {
   lastError?: unknown;
 };
 
-type NonAdminCreateScenarioContext = PermissionErrorContext & {
-  draftExhibition: DraftExhibition;
+type CreateExhibitionScenarioContext = DraftExhibitionContext & ExhibitionContext;
+type TicketCategoryScenarioContext = ExhibitionContext & DraftTicketContext & TicketContext;
+type SessionsScenarioContext = ExhibitionContext & SessionsContext;
+type ExhibitionListScenarioContext = CreatedExhibitionsContext & ExhibitionListResultContext;
+
+type NonAdminCreateScenarioContext = PermissionErrorContext & DraftExhibitionContext & {
   regularUserToken?: string;
 };
 
-type NonAdminAddTicketScenarioContext = PermissionErrorContext & {
-  exhibition: ExhibitionType;
-  draftTicket: DraftTicket;
+type NonAdminAddTicketScenarioContext = PermissionErrorContext & ExhibitionContext & DraftTicketContext & {
   regularUserToken?: string;
 };
 
@@ -85,6 +94,41 @@ function assertPermissionDenied(error: unknown) {
   expect(error).toBeTruthy();
   expect(error).toBeInstanceOf(APIError);
   expect((error as APIError).status).toBe(403);
+}
+
+function requireDraftExhibition(context: DraftExhibitionContext) {
+  expect(context.draftExhibition).toBeTruthy();
+  return context.draftExhibition!;
+}
+
+function requireExhibition(context: ExhibitionContext) {
+  expect(context.exhibition).toBeTruthy();
+  return context.exhibition!;
+}
+
+function requireDraftTicket(context: DraftTicketContext) {
+  expect(context.draftTicket).toBeTruthy();
+  return context.draftTicket!;
+}
+
+function requireTicket(context: TicketContext) {
+  expect(context.ticket).toBeTruthy();
+  return context.ticket!;
+}
+
+function requireSessions(context: SessionsContext) {
+  expect(context.sessions).toBeTruthy();
+  return context.sessions!;
+}
+
+function requireCreatedExhibitions(context: CreatedExhibitionsContext) {
+  expect(context.createdExhibitions).toBeTruthy();
+  return context.createdExhibitions!;
+}
+
+function requireListResult(context: ExhibitionListResultContext) {
+  expect(context.listResult).toBeTruthy();
+  return context.listResult!;
 }
 
 describeFeature(feature, ({
@@ -136,42 +180,45 @@ describeFeature(feature, ({
       });
 
       And('description {string}', (_ctx, description: string) => {
-        context.draftExhibition.description = description;
+        requireDraftExhibition(context).description = description;
       });
 
       And('start date {string}', (_ctx, startDate: string) => {
-        context.draftExhibition.start_date = startDate;
+        requireDraftExhibition(context).start_date = startDate;
       });
 
       And('end date {string}', (_ctx, endDate: string) => {
-        context.draftExhibition.end_date = endDate;
+        requireDraftExhibition(context).end_date = endDate;
       });
 
       And('opening time {string}', (_ctx, openingTime: string) => {
-        context.draftExhibition.opening_time = openingTime;
+        requireDraftExhibition(context).opening_time = openingTime;
       });
 
       And('closing time {string}', (_ctx, closingTime: string) => {
-        context.draftExhibition.closing_time = closingTime;
+        requireDraftExhibition(context).closing_time = closingTime;
       });
 
       And('last entry time {string}', (_ctx, lastEntryTime: string) => {
-        context.draftExhibition.last_entry_time = lastEntryTime;
+        requireDraftExhibition(context).last_entry_time = lastEntryTime;
       });
 
       And('location {string}', (_ctx, location: string) => {
-        context.draftExhibition.location = location;
+        requireDraftExhibition(context).location = location;
       });
 
       When('create exhibition', async () => {
-        const { draftExhibition } = context;
         const { apiServer } = scenarioContext.fixtures.values;
-        const exhibition = await createExhibition(apiServer, scenarioContext.adminToken, draftExhibition);
+        const exhibition = await createExhibition(
+          apiServer,
+          scenarioContext.adminToken,
+          requireDraftExhibition(context),
+        );
         Object.assign(context, { exhibition });
       });
 
       Then('exhibition created successfully with empty ticket categories', async () => {
-        const { exhibition } = context;
+        const exhibition = requireExhibition(context);
         expect(exhibition).toBeTruthy();
         assertExhibition(exhibition);
         expect(exhibition.name).toBe('cr7_life_museum');
@@ -199,23 +246,24 @@ describeFeature(feature, ({
       });
 
       And('price {int}', (_ctx, price: number) => {
-        context.draftTicket.price = price;
+        requireDraftTicket(context).price = price;
       });
 
       And('valid duration {int} day', (_ctx, days: number) => {
-        context.draftTicket.valid_duration_days = days;
+        requireDraftTicket(context).valid_duration_days = days;
       });
 
       And('refund policy non refundable', () => {
-        context.draftTicket.refund_policy = 'NON_REFUNDABLE';
+        requireDraftTicket(context).refund_policy = 'NON_REFUNDABLE';
       });
 
       And('admittance {int} person', (_ctx, count: number) => {
-        context.draftTicket.admittance = count;
+        requireDraftTicket(context).admittance = count;
       });
 
       When('add ticket category to exhibition', async () => {
-        const { exhibition, draftTicket } = context;
+        const exhibition = requireExhibition(context);
+        const draftTicket = requireDraftTicket(context);
         expect(exhibition).toBeTruthy();
         expect(draftTicket).toBeTruthy();
 
@@ -231,20 +279,25 @@ describeFeature(feature, ({
       });
 
       Then('ticket {string} added successfully', (_ctx, categoryName: string) => {
-        assertTicketCategory(context.ticket);
-        expect(context.ticket.name).toBe(categoryName);
-        expect(context.ticket.price).toBe(100);
-        expect(context.ticket.valid_duration_days).toBe(1);
-        expect(context.ticket.refund_policy).toBe('NON_REFUNDABLE');
-        expect(context.ticket.admittance).toBe(1);
+        const ticket = requireTicket(context);
+        assertTicketCategory(ticket);
+        expect(ticket.name).toBe(categoryName);
+        expect(ticket.price).toBe(100);
+        expect(ticket.valid_duration_days).toBe(1);
+        expect(ticket.refund_policy).toBe('NON_REFUNDABLE');
+        expect(ticket.admittance).toBe(1);
       });
 
       And('exhibition has {int} ticket categories {string}', async (_ctx, count: number, categoryName: string) => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const categories = await getTicketCategories(apiServer, context.exhibition.id, scenarioContext.adminToken);
+        const categories = await getTicketCategories(
+          apiServer,
+          requireExhibition(context).id,
+          scenarioContext.adminToken,
+        );
         expect(categories).toHaveLength(count);
         expect(categories.some(item => item.name === categoryName)).toBe(true);
-        expect(categories[0]).toMatchObject(context.ticket);
+        expect(categories[0]).toMatchObject(requireTicket(context));
       });
     }
   );
@@ -265,23 +318,24 @@ describeFeature(feature, ({
       });
 
       And('price {int}', (_ctx, price: number) => {
-        context.draftTicket.price = price;
+        requireDraftTicket(context).price = price;
       });
 
       And('valid duration {int} day', (_ctx, days: number) => {
-        context.draftTicket.valid_duration_days = days;
+        requireDraftTicket(context).valid_duration_days = days;
       });
 
       And('refund policy refundable until 48 hours before the event', () => {
-        context.draftTicket.refund_policy = 'REFUNDABLE_48H_BEFORE';
+        requireDraftTicket(context).refund_policy = 'REFUNDABLE_48H_BEFORE';
       });
 
       And('admittance {int} person', (_ctx, count: number) => {
-        context.draftTicket.admittance = count;
+        requireDraftTicket(context).admittance = count;
       });
 
       When('add ticket category to exhibition', async () => {
-        const { exhibition, draftTicket } = context;
+        const exhibition = requireExhibition(context);
+        const draftTicket = requireDraftTicket(context);
         expect(exhibition).toBeTruthy();
         expect(draftTicket).toBeTruthy();
 
@@ -297,22 +351,27 @@ describeFeature(feature, ({
       });
 
       Then('ticket {string} added successfully', (_ctx, categoryName: string) => {
-        assertTicketCategory(context.ticket);
-        expect(context.ticket.name).toBe(categoryName);
-        expect(context.ticket.price).toBe(150);
-        expect(context.ticket.valid_duration_days).toBe(10);
-        expect(context.ticket.refund_policy).toBe('REFUNDABLE_48H_BEFORE');
-        expect(context.ticket.admittance).toBe(2);
+        const ticket = requireTicket(context);
+        assertTicketCategory(ticket);
+        expect(ticket.name).toBe(categoryName);
+        expect(ticket.price).toBe(150);
+        expect(ticket.valid_duration_days).toBe(10);
+        expect(ticket.refund_policy).toBe('REFUNDABLE_48H_BEFORE');
+        expect(ticket.admittance).toBe(2);
       });
 
       And(
         'exhibition has {int} ticket categories {string}',
         async (_ctx, count: number, name: string) => {
           const { apiServer } = scenarioContext.fixtures.values;
-          const categories = await getTicketCategories(apiServer, context.exhibition.id, scenarioContext.adminToken);
+          const categories = await getTicketCategories(
+            apiServer,
+            requireExhibition(context).id,
+            scenarioContext.adminToken,
+          );
           expect(categories).toHaveLength(count);
           expect(categories.some(item => item.name === name)).toBe(true);
-          expect(categories[0]).toMatchObject(context.ticket);
+          expect(categories[0]).toMatchObject(requireTicket(context));
         },
       );
     }
@@ -330,9 +389,8 @@ describeFeature(feature, ({
       });
 
       Then('exhibition has daily sessions by default', async () => {
-        const { exhibition } = context;
         const { apiServer } = scenarioContext.fixtures.values;
-        const sessions = await getSessions(apiServer, exhibition.id, scenarioContext.adminToken);
+        const sessions = await getSessions(apiServer, requireExhibition(context).id, scenarioContext.adminToken);
 
         expect(sessions.length).toBeGreaterThan(0);
         sessions.forEach(assertSession);
@@ -340,17 +398,20 @@ describeFeature(feature, ({
       });
 
       And('the session date of the first session is the same as the start date of the exhibition', () => {
-        const { exhibition, sessions } = context;
+        const exhibition = requireExhibition(context);
+        const sessions = requireSessions(context);
         expect(sessions[0].session_date).toBe(exhibition.start_date);
       });
 
       And('the session date of the last session is the same as the end date of the exhibition', () => {
-        const { exhibition, sessions } = context;
+        const exhibition = requireExhibition(context);
+        const sessions = requireSessions(context);
         expect(sessions[sessions.length - 1].session_date).toBe(exhibition.end_date);
       });
 
       And('the total number of sessions is exhibition duration in days', () => {
-        const { exhibition, sessions } = context;
+        const exhibition = requireExhibition(context);
+        const sessions = requireSessions(context);
         const start = new Date(exhibition.start_date);
         const end = new Date(exhibition.end_date);
         const days = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -379,13 +440,14 @@ describeFeature(feature, ({
       });
 
       Then('return {int} exhibitions', (_ctx, count: number) => {
-        expect(context.listResult.data).toHaveLength(count);
+        expect(requireListResult(context).data).toHaveLength(count);
       });
 
       And('exhibitions are ordered by created_at descending', () => {
-        for (let i = 1; i < context.listResult.data.length; i++) {
-          const previous = new Date(context.listResult.data[i - 1].created_at).getTime();
-          const current = new Date(context.listResult.data[i].created_at).getTime();
+        const listResult = requireListResult(context);
+        for (let i = 1; i < listResult.data.length; i++) {
+          const previous = new Date(listResult.data[i - 1].created_at).getTime();
+          const current = new Date(listResult.data[i].created_at).getTime();
           expect(previous).toBeGreaterThanOrEqual(current);
         }
       });
@@ -412,18 +474,18 @@ describeFeature(feature, ({
       });
 
       Then('return {int} exhibitions', (_ctx, count: number) => {
-        expect(context.listResult.data).toHaveLength(count);
+        expect(requireListResult(context).data).toHaveLength(count);
       });
 
       And('the exhibition is the second created exhibition', () => {
-        expect(context.listResult.data[0].id).toBe(context.createdExhibitions[1].id);
+        expect(requireListResult(context).data[0].id).toBe(requireCreatedExhibitions(context)[1].id);
       });
     }
   );
 
   Scenario(
     'list exhibitions empty result',
-    (s: StepTest<Pick<ExhibitionListScenarioContext, 'listResult'>>) => {
+    (s: StepTest<ExhibitionListResultContext>) => {
       const { When, Then, context } = s;
 
       When('list exhibitions with limit {int} and offset {int}', async (_ctx, limit: number, offset: number) => {
@@ -433,7 +495,7 @@ describeFeature(feature, ({
       });
 
       Then('return {int} exhibitions', (_ctx, count: number) => {
-        expect(context.listResult.data).toHaveLength(count);
+        expect(requireListResult(context).data).toHaveLength(count);
       });
     }
   );
@@ -465,7 +527,7 @@ describeFeature(feature, ({
         });
 
         try {
-          await createExhibition(apiServer, context.regularUserToken, context.draftExhibition);
+          await createExhibition(apiServer, context.regularUserToken, requireDraftExhibition(context));
         } catch (error) {
           rememberError(context, error);
         }
@@ -510,8 +572,8 @@ describeFeature(feature, ({
           await addTicketCategory(
             apiServer,
             context.regularUserToken,
-            context.exhibition.id,
-            context.draftTicket,
+            requireExhibition(context).id,
+            requireDraftTicket(context),
           );
         } catch (error) {
           rememberError(context, error);

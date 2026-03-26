@@ -26,6 +26,12 @@ export interface ExhibitionSessionTicket {
   ticket: Exhibition.TicketCategory;
 }
 
+export interface ExhibitionWithNamedTickets {
+  exhibition: Exhibition.Exhibition;
+  session: Exhibition.Session;
+  ticketByName: Record<string, Exhibition.TicketCategory>;
+}
+
 export async function createExhibition(
   server: Server,
   token: string,
@@ -234,6 +240,44 @@ export async function prepareExhibitionSessionTicket(
     exhibition,
     session,
     ticket,
+  };
+}
+
+export async function prepareExhibitionWithNamedTickets(
+  apiServer: Server,
+  token: string,
+  ticketNames: string[],
+  options: {
+    exhibitionOverrides?: Partial<DraftExhibition>;
+    createTicket?: (ticketName: string, index: number) => Partial<DraftTicketCategory>;
+  } = {},
+): Promise<ExhibitionWithNamedTickets> {
+  const exhibition = await prepareExhibition(apiServer, token, options.exhibitionOverrides);
+  const [session] = await getSessions(apiServer, exhibition.id, token);
+  const ticketByName: Record<string, Exhibition.TicketCategory> = {};
+
+  for (let index = 0; index < ticketNames.length; index += 1) {
+    const ticketName = ticketNames[index];
+    const ticket = await prepareTicketCategory(
+      apiServer,
+      token,
+      exhibition.id,
+      {
+        name: ticketName,
+        price: 100 + index * 50,
+        valid_duration_days: 1,
+        refund_policy: 'NON_REFUNDABLE',
+        admittance: 1,
+        ...options.createTicket?.(ticketName, index),
+      },
+    );
+    ticketByName[ticketName] = ticket;
+  }
+
+  return {
+    exhibition,
+    session,
+    ticketByName,
   };
 }
 

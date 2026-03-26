@@ -32,20 +32,33 @@ type SessionType = Exhibition.Session;
 type TicketCategoryType = Exhibition.TicketCategory;
 type SessionTicketsInventoryType = Inventory.SessionTicketsInventory;
 
-type InventoryBaseScenarioContext = {
-  exhibition: ExhibitionType;
-  sessions: SessionType[];
-  ticketCategories: TicketCategoryType[];
+type ExhibitionContext = {
+  exhibition?: ExhibitionType;
 };
 
-type InventoryViewScenarioContext = InventoryBaseScenarioContext & {
-  inventory: SessionTicketsInventoryType[];
+type SessionsContext = {
+  sessions?: SessionType[];
 };
 
-type UnauthorizedInventoryScenarioContext = InventoryBaseScenarioContext & {
-  regularUserToken?: string;
+type TicketCategoriesContext = {
+  ticketCategories?: TicketCategoryType[];
+};
+
+type InventoryResultContext = {
+  inventory?: SessionTicketsInventoryType[];
+};
+
+type ErrorContext = {
   lastError?: unknown;
 };
+
+type RegularUserContext = {
+  regularUserToken?: string;
+};
+
+type InventoryBaseScenarioContext = ExhibitionContext & SessionsContext & TicketCategoriesContext;
+type InventoryViewScenarioContext = InventoryBaseScenarioContext & InventoryResultContext;
+type UnauthorizedInventoryScenarioContext = InventoryBaseScenarioContext & RegularUserContext & ErrorContext;
 
 interface ScenarioContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
@@ -59,6 +72,26 @@ describeFeature(feature, ({
   Scenario,
   context: scenarioContext
 }: FeatureDescriibeCallbackParams<ScenarioContext>) => {
+  function requireExhibition(context: ExhibitionContext) {
+    expect(context.exhibition).toBeTruthy();
+    return context.exhibition!;
+  }
+
+  function requireSessions(context: SessionsContext) {
+    expect(context.sessions).toBeTruthy();
+    return context.sessions!;
+  }
+
+  function requireTicketCategories(context: TicketCategoriesContext) {
+    expect(context.ticketCategories).toBeTruthy();
+    return context.ticketCategories!;
+  }
+
+  function requireInventory(context: InventoryResultContext) {
+    expect(context.inventory).toBeTruthy();
+    return context.inventory!;
+  }
+
   function assertPermissionDenied(error: unknown) {
     expect(error).toBeTruthy();
     expect(error).toBeInstanceOf(APIError);
@@ -101,25 +134,17 @@ describeFeature(feature, ({
   }
 
   async function prepareInventoryTicketData(
-    context: { exhibition?: ExhibitionType; ticketCategories?: TicketCategoryType[] },
+    context: ExhibitionContext & TicketCategoriesContext,
     token: string,
   ) {
     const { apiServer } = scenarioContext.fixtures.values;
-    expect(context.exhibition).toBeTruthy();
-
-    const earlyBird = await prepareEarlyBirdTicketCategory(
-      apiServer,
-      token,
-      context.exhibition.id,
-    );
-    const regular = await prepareRegularTicketCategory(
-      apiServer,
-      token,
-      context.exhibition.id,
-    );
-
+    const eid = requireExhibition(context).id;
+    const ticketCategories = [
+      await prepareEarlyBirdTicketCategory(apiServer, token, eid),
+      await prepareRegularTicketCategory(apiServer, token, eid),
+    ]
     Object.assign(context, {
-      ticketCategories: [earlyBird, regular],
+      ticketCategories,
     });
   }
 
@@ -137,25 +162,26 @@ describeFeature(feature, ({
       });
 
       Given('a session with inventory', () => {
-        expect(context.sessions).toHaveLength(2);
+        expect(requireSessions(context)).toHaveLength(2);
       });
 
       When('view inventory of the session', async () => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const session = context.sessions[0];
+        const session = requireSessions(context)[0];
         const inventory = await getSessionTickets(
           apiServer,
           scenarioContext.adminToken,
-          context.exhibition.id,
+          requireExhibition(context).id,
           session.id,
         );
         Object.assign(context, { inventory });
       });
 
       Then('the inventory of all ticket categories in the session are empty by default', () => {
-        expect(context.inventory).toHaveLength(2);
-        context.inventory.forEach(assertSessionTickets);
-        expect(context.inventory.every(item => item.quantity === 0)).toBe(true);
+        const inventory = requireInventory(context);
+        expect(inventory).toHaveLength(2);
+        inventory.forEach(assertSessionTickets);
+        expect(inventory.every(item => item.quantity === 0)).toBe(true);
       });
     }
   );
@@ -177,12 +203,12 @@ describeFeature(feature, ({
         'inventory quantity 50 for ticket category {string} in all sessions of the exhibition',
         async (_ctx, name: string) => {
           const { apiServer } = scenarioContext.fixtures.values;
-          const category = context.ticketCategories.find(item => item.name === name);
+          const category = requireTicketCategories(context).find(item => item.name === name);
           expect(category).toBeTruthy();
           await updateTicketCategoryMaxInventory(
             apiServer,
             scenarioContext.adminToken,
-            context.exhibition.id,
+            requireExhibition(context).id,
             category!.id,
             50,
           );
@@ -193,13 +219,13 @@ describeFeature(feature, ({
         'update inventory of ticket category {string} in all sessions of the exhibition',
         async (_ctx, name: string) => {
           const { apiServer } = scenarioContext.fixtures.values;
-          const category = context.ticketCategories.find(item => item.name === name);
+          const category = requireTicketCategories(context).find(item => item.name === name);
           expect(category).toBeTruthy();
           await expect(
             updateTicketCategoryMaxInventory(
               apiServer,
               scenarioContext.adminToken,
-              context.exhibition.id,
+              requireExhibition(context).id,
               category!.id,
               50,
             ),
@@ -211,14 +237,14 @@ describeFeature(feature, ({
         'the inventory of ticket category {string} in all sessions of the exhibition is {int}',
         async (_ctx, categoryName: string, expectedQuantity: number) => {
           const { apiServer } = scenarioContext.fixtures.values;
-          const category = context.ticketCategories.find(item => item.name === categoryName);
+          const category = requireTicketCategories(context).find(item => item.name === categoryName);
           expect(category).toBeTruthy();
 
-          for (const session of context.sessions) {
+          for (const session of requireSessions(context)) {
             const inventory = await getSessionTickets(
               apiServer,
               scenarioContext.adminToken,
-              context.exhibition.id,
+              requireExhibition(context).id,
               session.id,
             );
             const item = inventory.find(row => row.id === category!.id);
@@ -231,14 +257,14 @@ describeFeature(feature, ({
         'the inventory of another ticket category {string} in all sessions of the exhibition is still {int}',
         async (_ctx, categoryName: string, expectedQuantity: number) => {
           const { apiServer } = scenarioContext.fixtures.values;
-          const category = context.ticketCategories.find(item => item.name === categoryName);
+          const category = requireTicketCategories(context).find(item => item.name === categoryName);
           expect(category).toBeTruthy();
 
-          for (const session of context.sessions) {
+          for (const session of requireSessions(context)) {
             const inventory = await getSessionTickets(
               apiServer,
               scenarioContext.adminToken,
-              context.exhibition.id,
+              requireExhibition(context).id,
               session.id,
             );
             const item = inventory.find(row => row.id === category!.id);
@@ -266,12 +292,12 @@ describeFeature(feature, ({
         'inventory quantity {int} for ticket category {string} in the first session of the exhibition',
         async (_ctx, quantity: number, categoryName: string) => {
           const { apiServer } = scenarioContext.fixtures.values;
-          const category = context.ticketCategories.find(item => item.name === categoryName);
+          const category = requireTicketCategories(context).find(item => item.name === categoryName);
           expect(category).toBeTruthy();
           await updateTicketCategoryMaxInventory(
             apiServer,
             scenarioContext.adminToken,
-            context.exhibition.id,
+            requireExhibition(context).id,
             category!.id,
             quantity,
           );
@@ -282,12 +308,12 @@ describeFeature(feature, ({
         'inventory quantity 20 for ticket category {string} in the first session of the exhibition',
         async (_ctx, categoryName: string) => {
           const { apiServer } = scenarioContext.fixtures.values;
-          const category = context.ticketCategories.find(item => item.name === categoryName);
+          const category = requireTicketCategories(context).find(item => item.name === categoryName);
           expect(category).toBeTruthy();
           await updateTicketCategoryMaxInventory(
             apiServer,
             scenarioContext.adminToken,
-            context.exhibition.id,
+            requireExhibition(context).id,
             category!.id,
             20,
           );
@@ -296,11 +322,11 @@ describeFeature(feature, ({
 
       When('view inventory of the first session of the exhibition', async () => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const firstSession = context.sessions[0];
+        const firstSession = requireSessions(context)[0];
         const inventory = await getSessionTickets(
           apiServer,
           scenarioContext.adminToken,
-          context.exhibition.id,
+          requireExhibition(context).id,
           firstSession.id,
         );
         Object.assign(context, { inventory });
@@ -309,9 +335,9 @@ describeFeature(feature, ({
       Then(
         'the inventory of ticket category {string} in the first session of the exhibition is {int}',
         (_ctx, categoryName: string, expectedQuantity: number) => {
-          const category = context.ticketCategories.find(item => item.name === categoryName);
+          const category = requireTicketCategories(context).find(item => item.name === categoryName);
           expect(category).toBeTruthy();
-          const item = context.inventory.find(row => row.id === category!.id);
+          const item = requireInventory(context).find(row => row.id === category!.id);
           expect(item).toBeDefined();
           expect(item!.quantity).toBe(expectedQuantity);
         }
@@ -320,9 +346,9 @@ describeFeature(feature, ({
       And(
         'the inventory of ticket category {string} in the first session of the exhibition is 20',
         (_ctx, categoryName: string) => {
-          const category = context.ticketCategories?.find(item => item.name === categoryName);
+          const category = requireTicketCategories(context).find(item => item.name === categoryName);
           expect(category).toBeTruthy();
-          const item = context.inventory.find(row => row.id === category!.id);
+          const item = requireInventory(context).find(row => row.id === category!.id);
           expect(item).toBeDefined();
           expect(item!.quantity).toBe(20);
         }
@@ -355,8 +381,8 @@ describeFeature(feature, ({
           await updateTicketCategoryMaxInventory(
             apiServer,
             context.regularUserToken,
-            context.exhibition.id,
-            context.ticketCategories[0].id,
+            requireExhibition(context).id,
+            requireTicketCategories(context)[0].id,
             50,
           );
         } catch (error) {
