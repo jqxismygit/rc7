@@ -1,75 +1,75 @@
 Feature: manage exhibition
 
   Background:
-    Given a user with role admin is logged in
+    Given 系统管理员已经创建并登录
 
   Scenario: create a new exhibition
-    Given exhibition name cr7_life_museum
-      And description "welcome to cr7 life museum"
-      And start date "2026-01-01"
-      And end date "2026-02-28"
-      And opening time "10:00"
-      And closing time "18:00"
-      And last entry time "15:30"
-      And location "ShangHai"
-    When create exhibition
-    Then exhibition created successfully with empty ticket categories
+    Given 展览名称为 cr7_life_museum
+      And 描述为 "welcome to cr7 life museum"
+      And 开始日期为 "2026-01-01"
+      And 结束日期为 "2026-02-28"
+      And 开放时间为 "10:00"
+      And 闭馆时间为 "18:00"
+      And 最晚入场时间为 "15:30"
+      And 地点为 "ShangHai"
+    When 创建展览
+    Then 展览创建成功且票种列表为空
 
   Scenario: sessions was created when exhibition was created
-    Given created exhibition
-     Then exhibition has daily sessions by default
-      And the session date of the first session is the same as the start date of the exhibition
-      And the session date of the last session is the same as the end date of the exhibition
-      And the total number of sessions is exhibition duration in days
+    Given 已创建展览
+     Then 展览默认按天创建场次
+      And 首个场次日期与展览开始日期一致
+      And 最后场次日期与展览结束日期一致
+      And 场次数量等于展览持续天数
 
   Scenario: add non-refundable ticket category to exhibition
-    Given created exhibition
-    Given draft ticket category "early_bird" to exhibition
-      And price 100
-      And valid duration 1 day
-      And refund policy non refundable
-      And admittance 1 person
-     When add ticket category to exhibition
-     Then ticket "early_bird" added successfully
-      And exhibition has 1 ticket categories "early_bird"
+    Given 已创建展览
+    Given 为该展览准备票种草稿 "early_bird"
+      And 票价为 100
+      And 有效期为 1 天
+      And 退票策略为不可退
+      And 准入人数为 1
+     When 向展览添加票种
+     Then 票种 "early_bird" 添加成功
+      And 展览包含 1 个票种 "early_bird"
 
   Scenario: add a refundable ticket category
-    Given created exhibition
-    Given draft ticket category "regular" to exhibition
-      And price 150
-      And valid duration 10 day
-      And refund policy refundable until 48 hours before the event
-      And admittance 2 person
-     When add ticket category to exhibition
-     Then ticket "regular" added successfully
-      And exhibition has 1 ticket categories "regular"
+    Given 已创建展览
+    Given 为该展览准备票种草稿 "regular"
+      And 票价为 150
+      And 有效期为 10 天
+      And 退票策略为场次前 48 小时可退
+      And 准入人数为 2
+     When 向展览添加票种
+     Then 票种 "regular" 添加成功
+      And 展览包含 1 个票种 "regular"
 
   Scenario: list exhibitions with pagination
-    Given created 3 exhibitions for listing
-     When list exhibitions with limit 2 and offset 0
-     Then return 2 exhibitions
-      And exhibitions are ordered by created_at descending
+    Given 已为列表创建 3 个展览
+     When 按 limit 2 和 offset 0 查询展览列表
+     Then 返回 2 个展览
+      And 展览按 created_at 倒序排列
 
   Scenario: list exhibitions with limit and offset
-    Given created 3 exhibitions for listing
-     When list exhibitions with limit 1 and offset 1
-     Then return 1 exhibitions
-      And the exhibition is the second created exhibition
+    Given 已为列表创建 3 个展览
+     When 按 limit 1 和 offset 1 查询展览列表
+     Then 返回 1 个展览
+      And 返回的是第二个创建的展览
 
   Scenario: list exhibitions empty result
-     When list exhibitions with limit 10 and offset 1000
-     Then return 0 exhibitions
+     When 按 limit 10 和 offset 1000 查询展览列表
+     Then 返回 0 个展览
 
   Scenario: non-admin user cannot create exhibition
-    Given a regular user is logged in
-    When try to create exhibition with name "unauthorized_exhibition"
-    Then permission denied error is returned
+    Given 普通用户已登录
+    When 普通用户尝试创建展览，名称为 "unauthorized_exhibition"
+    Then 返回权限不足错误
 
   Scenario: non-admin user cannot add ticket category to exhibition
-    Given created exhibition by admin
-    Given a regular user is logged in
-    When try to add ticket category to exhibition
-    Then permission denied error is returned
+    Given 管理员已创建展览
+    Given 普通用户已登录
+    When 普通用户尝试为展览添加票种
+    Then 返回权限不足错误
 
 # todo
 # - 更新 exhibition 基本信息
