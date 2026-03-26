@@ -3,6 +3,7 @@ import { getJSON, postJSON } from "../lib/api.js";
 import { Exhibition } from "@cr7/types";
 import { expect } from "vitest";
 import { random_text } from "../lib/random.js";
+import { updateTicketCategoryMaxInventory } from "./inventory.js";
 
 export type DraftExhibition = Omit<
   Exhibition.Exhibition,
@@ -17,6 +18,12 @@ export type DraftTicketCategory = Omit<
 export interface ExhibitionWithSessions {
   exhibition: Exhibition.Exhibition;
   sessions: Exhibition.Session[];
+}
+
+export interface ExhibitionSessionTicket {
+  exhibition: Exhibition.Exhibition;
+  session: Exhibition.Session;
+  ticket: Exhibition.TicketCategory;
 }
 
 export async function createExhibition(
@@ -187,6 +194,46 @@ export async function prepareExhibitionWithSessions(
   return {
     exhibition,
     sessions,
+  };
+}
+
+export async function prepareExhibitionSessionTicket(
+  apiServer: Server,
+  token: string,
+  options: {
+    exhibitionOverrides?: Partial<DraftExhibition>;
+    ticketOverrides?: Partial<DraftTicketCategory>;
+    maxInventory?: number;
+  } = {},
+): Promise<ExhibitionSessionTicket> {
+  const {
+    exhibitionOverrides,
+    ticketOverrides,
+    maxInventory,
+  } = options;
+  const exhibition = await prepareExhibition(apiServer, token, exhibitionOverrides);
+  const [session] = await getSessions(apiServer, exhibition.id, token);
+  const ticket = await prepareTicketCategory(
+    apiServer,
+    token,
+    exhibition.id,
+    ticketOverrides,
+  );
+
+  if (typeof maxInventory === 'number') {
+    await updateTicketCategoryMaxInventory(
+      apiServer,
+      token,
+      exhibition.id,
+      ticket.id,
+      maxInventory,
+    );
+  }
+
+  return {
+    exhibition,
+    session,
+    ticket,
   };
 }
 

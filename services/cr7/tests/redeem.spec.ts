@@ -15,11 +15,8 @@ import { assertAPIError } from './lib/api.js';
 import { services_fixtures } from './fixtures/services.js';
 import { prepareAdminUser, registerUser, getUserProfile } from './fixtures/user.js';
 import {
-  addTicketCategory,
-  createExhibition,
-  getSessions,
+  prepareExhibitionSessionTicket,
 } from './fixtures/exhibition.js';
-import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 import { createOrder as createOrderByApi } from './fixtures/order.js';
 import {
   getOrderRedemption,
@@ -29,10 +26,9 @@ import {
 } from './fixtures/redeem.js';
 import { grantRoleToUser as grantRoleToUserAPI } from './fixtures/user.js';
 import {
-  buildRefundCallbackNotification,
   markOrderAsPaidForTest,
   requestRefundWithMock,
-  sendWechatRefundCallback,
+  sendMockRefundCallback,
 } from './fixtures/payment.js';
 import { getOrder } from './fixtures/order.js';
 
@@ -42,30 +38,39 @@ const services = ['api', 'user', 'cr7'];
 const feature = await loadFeature('tests/features/redeem.feature');
 
 type ExhibitionContext = {
+  exhibition?: Exhibition.Exhibition;
+  session?: Exhibition.Session;
+  ticket?: Exhibition.TicketCategory;
+};
+
+type OrderContext = {
+  order?: Order.OrderWithItems;
+};
+
+type RedemptionContext = {
+  redemption?: Redeem.RedemptionCodeWithOrder;
+};
+
+type RefundContext = {
+  refundRecord?: Payment.RefundRecord;
+};
+
+type ErrorContext = {
+  lastError?: unknown;
+};
+
+type PreparedExhibitionContext = {
   exhibition: Exhibition.Exhibition;
   session: Exhibition.Session;
   ticket: Exhibition.TicketCategory;
 };
 
-type OrderContext = {
-  order: Order.OrderWithItems;
-};
-
-type RedemptionContext = {
-  redemption: Redeem.RedemptionCodeWithOrder;
-};
-
-type RefundContext = {
-  refundRecord: Payment.RefundRecord;
-};
-
-type ErrorContext = {
-  lastError: unknown;
-};
-
-type OrderScenarioContext = ExhibitionContext & OrderContext & ErrorContext;
-type RedemptionScenarioContext = OrderScenarioContext & RedemptionContext;
+type RedemptionLookupScenarioContext = ExhibitionContext & OrderContext & RedemptionContext & ErrorContext;
+type RedeemActionScenarioContext = ExhibitionContext & OrderContext & RedemptionContext & ErrorContext;
+type UnpaidOrderScenarioContext = ExhibitionContext & OrderContext & ErrorContext;
 type RefundFlowRedemptionScenarioContext = RedemptionScenarioContext & RefundContext;
+type RedemptionScenarioContext = ExhibitionContext & OrderContext & RedemptionContext & ErrorContext;
+type RedeemedOrderRefundScenarioContext = ExhibitionContext & OrderContext & RedemptionContext & ErrorContext;
 
 type RoleName = 'ADMIN' | 'OPERATOR';
 
@@ -100,12 +105,42 @@ describeFeature(feature, ({
 
     Object.assign(scenarioContext, { fixtures, usersByName: {}, });
   });
+
   AfterAllScenarios(async () => {
     await scenarioContext.fixtures.close();
   });
 
+  function requireExhibitionContext(
+    context: ExhibitionContext,
+  ): PreparedExhibitionContext {
+    expect(context.exhibition).toBeTruthy();
+    expect(context.session).toBeTruthy();
+    expect(context.ticket).toBeTruthy();
+
+    return {
+      exhibition: context.exhibition!,
+      session: context.session!,
+      ticket: context.ticket!,
+    };
+  }
+
+  function requireOrder(context: OrderContext) {
+    expect(context.order).toBeTruthy();
+    return context.order!;
+  }
+
+  function requireRedemption(context: RedemptionContext) {
+    expect(context.redemption).toBeTruthy();
+    return context.redemption!;
+  }
+
+  function requireRefundRecord(context: RefundContext) {
+    expect(context.refundRecord).toBeTruthy();
+    return context.refundRecord!;
+  }
+
   async function prepareExhibitionData(
-    context: Partial<ExhibitionContext>,
+    context: ExhibitionContext,
     exhibitionName: string,
     sessionDateInput: string,
     ticketName: string,
@@ -116,58 +151,52 @@ describeFeature(feature, ({
     const { apiServer } = scenarioContext.fixtures.values;
     const sessionDate = toSessionDateLabel(sessionDateInput);
 
-    const exhibition = await createExhibition(apiServer, scenarioContext.adminToken, {
-      name: `${exhibitionName}_${Date.now()}`,
-      description: 'redeem test exhibition',
-      start_date: sessionDate,
-      end_date: sessionDate,
-      opening_time: '10:00',
-      closing_time: '18:00',
-      last_entry_time: '17:00',
-      location: 'Shanghai',
-    });
-
-    const [session] = await getSessions(apiServer, exhibition.id, scenarioContext.adminToken);
-    const ticket = await addTicketCategory(apiServer, scenarioContext.adminToken, exhibition.id, {
-      name: ticketName,
-      price: 100,
-      valid_duration_days: 1,
-      refund_policy: refundPolicy,
-      admittance,
-    });
-
-    await updateTicketCategoryMaxInventory(
+    const prepared = await prepareExhibitionSessionTicket(
       apiServer,
       scenarioContext.adminToken,
-      exhibition.id,
-      ticket.id,
-      inventory,
+      {
+        exhibitionOverrides: {
+          name: `${exhibitionName}_${Date.now()}`,
+          description: 'redeem test exhibition',
+          start_date: sessionDate,
+          end_date: sessionDate,
+          opening_time: '10:00',
+          closing_time: '18:00',
+          last_entry_time: '17:00',
+          location: 'Shanghai',
+        },
+        ticketOverrides: {
+          name: ticketName,
+          price: 100,
+          valid_duration_days: 1,
+          refund_policy: refundPolicy,
+          admittance,
+        },
+        maxInventory: inventory,
+      },
     );
 
-    Object.assign(context, {
-      exhibition,
-      session,
-      ticket,
-    });
+    Object.assign(context, prepared);
   }
 
   async function createOrderForCurrentUser(
-    context: Partial<ExhibitionContext & OrderContext>,
+    context: ExhibitionContext & OrderContext,
     quantity: number,
   ) {
     const { apiServer } = scenarioContext.fixtures.values;
+    const { exhibition, session, ticket } = requireExhibitionContext(context);
     const order = await createOrderByApi(
       apiServer,
-      context.exhibition!.id,
-      context.session!.id,
-      [{ ticket_category_id: context.ticket!.id, quantity }],
+      exhibition.id,
+      session.id,
+      [{ ticket_category_id: ticket.id, quantity }],
       scenarioContext.userToken,
     );
 
     Object.assign(context, { order });
   }
 
-  async function payOrderForCurrentUser(context: Partial<OrderContext>) {
+  async function payOrderForCurrentUser(context: OrderContext) {
     const { apiServer } = scenarioContext.fixtures.values;
     const user = scenarioContext.usersByName.Alice;
     expect(user).toBeTruthy();
@@ -176,30 +205,34 @@ describeFeature(feature, ({
     await markOrderAsPaidForTest(
       apiServer,
       scenarioContext.userToken,
-      context.order!,
-      user.profile.openid!
+      requireOrder(context),
+      user.profile.openid!,
     );
   }
 
   async function fetchOrderRedemption(
-    context: Partial<OrderContext & RedemptionContext>,
+    context: OrderContext & RedemptionContext,
   ) {
     const { apiServer } = scenarioContext.fixtures.values;
-    const redemption = await getOrderRedemption(apiServer, context.order!.id, scenarioContext.userToken);
+    const redemption = await getOrderRedemption(
+      apiServer,
+      requireOrder(context).id,
+      scenarioContext.userToken,
+    );
 
     Object.assign(context, { redemption });
   }
 
-  function rememberError(context: Partial<ErrorContext>, error: unknown) {
+  function rememberError(context: ErrorContext, error: unknown) {
     Object.assign(context, { lastError: error });
   }
 
-  function clearLastError(context: Partial<ErrorContext>) {
+  function clearLastError(context: ErrorContext) {
     Object.assign(context, { lastError: null });
   }
 
   function assertLastAPIError(
-    context: Partial<ErrorContext>,
+    context: ErrorContext,
     options: {
       status?: number;
       method?: string;
@@ -211,7 +244,7 @@ describeFeature(feature, ({
   }
 
   function assertLastAPIErrorType(
-    context: Partial<ErrorContext>,
+    context: ErrorContext,
     expectedType: string,
   ) {
     const error = assertLastAPIError(context);
@@ -221,32 +254,23 @@ describeFeature(feature, ({
   }
 
   async function sendRefundStatusNotification(
-    context: Partial<RefundContext>,
+    context: RefundContext,
     status: 'PROCESSING' | 'SUCCESS',
   ) {
-    const notification = buildRefundCallbackNotification(
+    await sendMockRefundCallback(
+      scenarioContext.fixtures.values.apiServer,
+      requireRefundRecord(context),
+      status,
       {
-        out_trade_no: context.refundRecord!.out_trade_no,
-        out_refund_no: context.refundRecord!.out_refund_no,
-        refund_id: `rf_${Date.now()}`,
-        refund_status: status,
-        channel: 'ORIGINAL',
-        success_time: status === 'SUCCESS' ? new Date().toISOString() : undefined,
-        amount: {
-          refund: context.refundRecord!.refund_amount,
-          total: context.refundRecord!.order_amount,
-        },
+        successTime: status === 'SUCCESS' ? new Date().toISOString() : undefined,
       },
-      config.wechatpay.api_v3_secret,
     );
-
-    await sendWechatRefundCallback(scenarioContext.fixtures.values.apiServer, notification);
   }
 
-  async function refreshOrder(context: Partial<OrderContext>) {
+  async function refreshOrder(context: OrderContext) {
     return getOrder(
       scenarioContext.fixtures.values.apiServer,
-      context.order!.id,
+      requireOrder(context).id,
       scenarioContext.userToken,
     );
   }
@@ -317,7 +341,7 @@ describeFeature(feature, ({
     return result;
   }
 
-  async function expireCurrentRedemption(context: Partial<OrderContext>) {
+  async function expireCurrentRedemption(context: OrderContext) {
     const pool = getCr7PoolForTestSupport();
     // Set valid_until to valid_from + 1 second: satisfies the DB constraint (valid_until > valid_from)
     // and makes the code immediately expired since now >> valid_from + 1s
@@ -327,19 +351,20 @@ describeFeature(feature, ({
         valid_until = valid_from + INTERVAL '1 second',
         updated_at = NOW()
       WHERE order_id = $1`,
-      [context.order!.id],
+      [requireOrder(context).id],
     );
   }
 
   async function performRedeem(
-    context: Partial<ExhibitionContext & RedemptionContext>,
+    context: ExhibitionContext & RedemptionContext,
     token: string,
   ) {
     const { apiServer } = scenarioContext.fixtures.values;
+    const { exhibition } = requireExhibitionContext(context);
     const redeemed = await redeemCode(
       apiServer,
-      context.exhibition!.id,
-      context.redemption!.code,
+      exhibition.id,
+      requireRedemption(context).code,
       token,
     );
 
@@ -370,7 +395,7 @@ describeFeature(feature, ({
 
   Scenario(
     '一个完成支付的订单拥有一个核销码',
-    (s: StepTest<Partial<RedemptionScenarioContext>>) => {
+    (s: StepTest<RedemptionLookupScenarioContext>) => {
       const { Given, And, When, Then, context } = s;
 
       Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
@@ -413,13 +438,13 @@ describeFeature(feature, ({
       });
 
       And('核销码最后两位是 Luhn 校验码且正确', () => {
-        expect(isValidRedemptionCodeLuhn(context.redemption!.code)).toBe(true);
+        expect(isValidRedemptionCodeLuhn(requireRedemption(context).code)).toBe(true);
       });
 
       And(
         '核销码中间的9位字符集 {string} 组成, 不包含易混淆的字符如 {string}, {string}, {string}, {string}',
         (_ctx, charset: string, c1: string, c2: string, c3: string, c4: string) => {
-        const middle = context.redemption!.code.slice(1, 10);
+        const middle = requireRedemption(context).code.slice(1, 10);
         expect(middle).toHaveLength(9);
         for (const char of middle) {
           expect(charset.includes(char)).toBe(true);
@@ -447,8 +472,9 @@ describeFeature(feature, ({
       });
 
       And('核销码的有效期为场次当天', () => {
-        const validFrom = new Date(context.redemption!.valid_from);
-        const validUntil = new Date(context.redemption!.valid_until);
+        const redemption = requireRedemption(context);
+        const validFrom = new Date(redemption.valid_from);
+        const validUntil = new Date(redemption.valid_until);
         // valid_from: local midnight of the session day
         expect(validFrom.getHours()).toBe(0);
         expect(validFrom.getMinutes()).toBe(0);
@@ -464,7 +490,7 @@ describeFeature(feature, ({
 
   Scenario(
     '使用核销码完成订单核销',
-    (s: StepTest<Partial<RedemptionScenarioContext>>) => {
+    (s: StepTest<RedeemActionScenarioContext>) => {
       const { Given, And, When, Then, context } = s;
 
       Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
@@ -520,7 +546,7 @@ describeFeature(feature, ({
 
   Scenario(
     '一个未完成支付的订单没有核销码',
-    (s: StepTest<Partial<OrderScenarioContext>>) => {
+    (s: StepTest<UnpaidOrderScenarioContext>) => {
       const { Given, And, When, Then, context } = s;
 
       Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
@@ -560,7 +586,7 @@ describeFeature(feature, ({
 
   Scenario(
     '已过期订单的核销码不可用',
-    (s: StepTest<Partial<RedemptionScenarioContext>>) => {
+    (s: StepTest<RedeemActionScenarioContext>) => {
       const { Given, And, When, Then, context } = s;
 
       Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
@@ -609,7 +635,7 @@ describeFeature(feature, ({
 
   Scenario(
     '已核销订单的核销码不可重复使用',
-    (s: StepTest<Partial<RedemptionScenarioContext>>) => {
+    (s: StepTest<RedeemActionScenarioContext>) => {
       const { Given, And, When, Then, context } = s;
 
       Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
@@ -666,7 +692,7 @@ describeFeature(feature, ({
 
   Scenario(
     '只有运营人员才能核销',
-    (s: StepTest<Partial<RedemptionScenarioContext>>) => {
+    (s: StepTest<RedeemActionScenarioContext>) => {
       const { Given, And, When, Then, context } = s;
 
       Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
@@ -751,7 +777,7 @@ describeFeature(feature, ({
 
   Scenario(
     '当天场次的核销码从今天零点起有效',
-    (s: StepTest<Partial<RedemptionScenarioContext>>) => {
+    (s: StepTest<RedemptionLookupScenarioContext>) => {
       const { Given, And, When, Then, context } = s;
 
       Given('展览活动 {string} 已创建，包含场次 {string} 和票种 {string}', async (_ctx, exhibitionName: string, sessionDate: string, ticketName: string) => {
@@ -780,7 +806,7 @@ describeFeature(feature, ({
         // Regression test: valid_from must be local midnight, not UTC midnight.
         // If toValidityStartDate used Date.UTC(), valid_from in UTC+8 would be 8 hours in the
         // future, making the code appear expired immediately after purchase.
-        const validFrom = new Date(context.redemption!.valid_from);
+        const validFrom = new Date(requireRedemption(context).valid_from);
         expect(validFrom.getTime()).toBeLessThanOrEqual(Date.now());
         // Explicit: valid_from must be exactly today's local midnight (00:00:00.000)
         const todayMidnight = new Date();
@@ -804,7 +830,7 @@ describeFeature(feature, ({
 
   Scenario(
     '已经核销的订单不能发起退款',
-    (s: StepTest<Partial<RedemptionScenarioContext>>) => {
+    (s: StepTest<RedeemedOrderRefundScenarioContext>) => {
       const { Given, When, Then, And, context } = s;
 
       Given('用户预订了 {int} 张 {string} 展会 的 {string} 天后场次的 {string}', async (_ctx, quantity: number, exhibitionName: string, daysText: string, ticketName: string) => {
@@ -835,7 +861,7 @@ describeFeature(feature, ({
         try {
           await requestRefundWithMock(
             scenarioContext.fixtures.values.apiServer,
-            context.order!,
+            requireOrder(context),
             scenarioContext.userToken,
           );
         } catch (error) {
@@ -862,7 +888,7 @@ describeFeature(feature, ({
 
   Scenario(
     '已经处于退款流程的订单不能被核销',
-    (s: StepTest<Partial<RefundFlowRedemptionScenarioContext>>) => {
+    (s: StepTest<RefundFlowRedemptionScenarioContext>) => {
       const { Given, When, Then, And, context } = s;
 
       Given('用户预订了 {int} 张 {string} 展会 的 {string} 天后场次的 {string}', async (_ctx, quantity: number, exhibitionName: string, daysText: string, ticketName: string) => {
@@ -887,7 +913,7 @@ describeFeature(feature, ({
         expect(statusLabel).toBe('退款已受理');
         const { refundRecord } = await requestRefundWithMock(
           scenarioContext.fixtures.values.apiServer,
-          context.order!,
+          requireOrder(context),
           scenarioContext.userToken,
         );
         Object.assign(context, { refundRecord });

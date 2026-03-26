@@ -141,6 +141,38 @@ export interface WechatRefundResult {
   amount?: { refund: number; total: number };
 }
 
+type RefundRecordSeed = Pick<
+  Payment.RefundRecord,
+  'out_trade_no' | 'out_refund_no' | 'refund_amount' | 'order_amount'
+>;
+
+export type MockRefundCallbackPayload = WechatRefundResult & {
+  reason?: string;
+};
+
+export function buildMockRefundCallbackPayload(
+  refundRecord: RefundRecordSeed,
+  status: WechatRefundResult['refund_status'],
+  options: {
+    reason?: string;
+    successTime?: string;
+  } = {},
+): MockRefundCallbackPayload {
+  return {
+    out_trade_no: refundRecord.out_trade_no,
+    out_refund_no: refundRecord.out_refund_no,
+    refund_id: `rf_${Date.now()}`,
+    refund_status: status,
+    channel: 'ORIGINAL',
+    success_time: options.successTime,
+    amount: {
+      refund: refundRecord.refund_amount,
+      total: refundRecord.order_amount,
+    },
+    ...(options.reason ? { reason: options.reason } : {}),
+  };
+}
+
 /**
  * 构造微信支付回调通知 body（含加密资源）
  */
@@ -242,6 +274,29 @@ export async function sendWechatRefundCallback(
     '/payment/wechat/callback/refund',
     { body: notification, headers: wechatHeaders }
   );
+}
+
+export async function sendMockRefundCallback(
+  server: Server,
+  refundRecord: RefundRecordSeed,
+  status: WechatRefundResult['refund_status'],
+  options: {
+    reason?: string;
+    successTime?: string;
+  } = {},
+): Promise<MockRefundCallbackPayload> {
+  const refundPayload = buildMockRefundCallbackPayload(
+    refundRecord,
+    status,
+    options,
+  );
+  const notification = buildRefundCallbackNotification(
+    refundPayload,
+    config.wechatpay.api_v3_secret,
+  );
+
+  await sendWechatRefundCallback(server, notification);
+  return refundPayload;
 }
 
 export async function prepareOrderForPayment(
