@@ -11,7 +11,7 @@ Feature: 微信支付订单
     Then 微信支付服务收到支付请求
      And 支付人 openid 为 "wechat_user_1" 的微信用户的 openid
      And 订单号 out-trade-no 为订单号去掉 - 符号后的字符串
-     And 商品描述 description 为 "CR7 展会 成人票 2026-07-01 场次"
+    And 商品描述 description 为 "CR7 展会 成人票 {session_date} 场次"
      And 价格 amount 为订单金额，单位为分
      And 支付过期时间为订单创建时间加 "30" 分钟，格式为 "yyyy-MM-DDTHH:mm:ss+TIMEZONE"
      And 返回预支付信息 "mock_prepay_id_12345"
@@ -40,7 +40,7 @@ Feature: 微信支付订单
      And 订单状态仍然为 "未支付"
 
   Scenario: 已经支付的订单发起退款
-    Given 用户预订了 2 张 "CR7" 展会 的 "3" 天后场次的 "成人票" 库存为 10
+    Given 用户预订了 2 张 "CR7" 展会 的 "3" 天后场次的 "成人票"
       And "成人票" 的退票策略是 "允许退票，退票截止时间为场次开始前 48 小时"
     Given 用户已完成支付
     When 用户发起退款请求
@@ -63,7 +63,7 @@ Feature: 微信支付订单
     Then 展会场次的 "成人票" 库存增加 2
 
   Scenario: 微信支付服务的退款失败
-    Given 用户预订了 1 张 "CR7" 展会 的 "3" 天后场次的 "成人票" 库存为 10
+    Given 用户预订了 1 张 "CR7" 展会 的 "3" 天后场次的 "成人票"
       And "成人票" 的退票策略是 "允许退票，退票截止时间为场次开始前 48 小时"
     Given 用户已完成支付
     When 用户发起退款请求

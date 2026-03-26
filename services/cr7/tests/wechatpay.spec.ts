@@ -565,7 +565,7 @@ describeFeature(feature, ({
     let processingRefundPayload: MockRefundCallbackPayload | null = null;
     let successRefundPayload: MockRefundCallbackPayload | null = null;
 
-    Given('用户预订了 2 张 "CR7" 展会 的 "3" 天后场次的 "成人票" 库存为 10', async () => {
+    Given('用户预订了 2 张 "CR7" 展会 的 "3" 天后场次的 "成人票"', async () => {
       await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toFutureDate(3), {
         refundPolicy: 'REFUNDABLE_48H_BEFORE',
         maxInventory: 10,
@@ -686,7 +686,7 @@ describeFeature(feature, ({
 
     let failedRefundPayload: MockRefundCallbackPayload | null = null;
 
-    Given('用户预订了 1 张 "CR7" 展会 的 "3" 天后场次的 "成人票" 库存为 10', async () => {
+    Given('用户预订了 1 张 "CR7" 展会 的 "3" 天后场次的 "成人票"', async () => {
       await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toFutureDate(3), {
         refundPolicy: 'REFUNDABLE_48H_BEFORE',
         maxInventory: 10,

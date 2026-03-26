@@ -5,6 +5,7 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
+import { format, subDays } from 'date-fns';
 import { Exhibition, Order } from '@cr7/types';
 import { expect, vi } from 'vitest';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
@@ -340,6 +341,12 @@ describeFeature(feature, ({
     return order.status;
   }
 
+  function toRelativeSessionDate(relativeText: string) {
+    const match = /^(\d+)天前$/.exec(relativeText);
+    expect(match).toBeTruthy();
+    return format(subDays(new Date(), Number(match![1])), 'yyyy-MM-dd');
+  }
+
   Background(({ Given }) => {
     Given('系统管理员已经创建并登录', async () => {
       const { apiServer } = scenarioContext.fixtures.values;
@@ -483,15 +490,15 @@ describeFeature(feature, ({
   Scenario('预订已过期场次的门票', (s: StepTest<InventoryErrorScenarioContext>) => {
     const { Given, When, Then, And, context } = s;
 
-    Given('展览活动 "艺术展" 已创建，包含场次 "2025-07-01" 和票种 "成人票"', async () => {
-      await prepareExhibitionWithTickets(context, ['成人票'], '2025-07-01');
+    Given('展览活动 "艺术展" 已创建，包含场次 "1天前" 和票种 "成人票"', async () => {
+      await prepareExhibitionWithTickets(context, ['成人票'], toRelativeSessionDate('1天前'));
     });
 
-    And('场次 "2025-07-01" 的 "成人票" 库存初始为 2', async () => {
+    And('场次 "1天前" 的 "成人票" 库存初始为 2', async () => {
       await setInitialInventory(context, '成人票', 2);
     });
 
-    When('用户预订 1 张 "艺术展" 的 "2025-07-01" 场次的 "成人票"', async () => {
+    When('用户预订 1 张 "艺术展" 的 "1天前" 场次的 "成人票"', async () => {
       try {
         await createOrderWithItems(context, [{ ticketName: '成人票', quantity: 1 }]);
       } catch (error) {
@@ -506,7 +513,7 @@ describeFeature(feature, ({
       });
     });
 
-    And('场次 "2025-07-01" 的 "成人票" 库存为 2', async () => {
+    And('场次 "1天前" 的 "成人票" 库存为 2', async () => {
       const quantity = await availableInventoryByTicketName(context, '成人票');
       expect(quantity).toBe(2);
     });
