@@ -5,13 +5,13 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
-import { addDays, format, subDays } from 'date-fns';
 import { Exhibition, Order, Payment, Redeem, User } from '@cr7/types';
 import { expect, vi } from 'vitest';
 import type { ServiceBroker } from 'moleculer';
 import type { Pool } from 'pg';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
 import { assertAPIError } from './lib/api.js';
+import { toDateFromRelativeText } from './lib/relative-date.js';
 import { services_fixtures } from './fixtures/services.js';
 import { prepareAdminUser, registerUser, getUserProfile } from './fixtures/user.js';
 import {
@@ -310,24 +310,6 @@ describeFeature(feature, ({
     const user = scenarioContext.usersByName[operator];
     expect(user).toBeTruthy();
     return user.profile.id;
-  }
-
-  function toRelativeSessionDate(relativeText: string) {
-    if (relativeText === '今天') {
-      return format(new Date(), 'yyyy-MM-dd');
-    }
-
-    const futureMatch = /^(\d+)天后$/.exec(relativeText);
-    if (futureMatch) {
-      return format(addDays(new Date(), Number(futureMatch[1])), 'yyyy-MM-dd');
-    }
-
-    const pastMatch = /^(\d+)天前$/.exec(relativeText);
-    if (pastMatch) {
-      return format(subDays(new Date(), Number(pastMatch[1])), 'yyyy-MM-dd');
-    }
-
-    throw new Error(`Unsupported relative session date: ${relativeText}`);
   }
 
   async function grantRoleToUser(
@@ -851,7 +833,7 @@ describeFeature(feature, ({
         await prepareExhibitionData(
           context,
           exhibitionName,
-          toRelativeSessionDate(sessionDateLabel),
+          toDateFromRelativeText(sessionDateLabel),
           ticketName,
           1,
           10,
@@ -909,7 +891,7 @@ describeFeature(feature, ({
         await prepareExhibitionData(
           context,
           exhibitionName,
-          toRelativeSessionDate(sessionDateLabel),
+          toDateFromRelativeText(sessionDateLabel),
           ticketName,
           1,
           10,

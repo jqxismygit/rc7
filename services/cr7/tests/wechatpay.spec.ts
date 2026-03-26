@@ -5,11 +5,12 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
-import { addDays, addMinutes, format } from 'date-fns';
+import { addMinutes } from 'date-fns';
 import { Exhibition, Order, Payment } from '@cr7/types';
 import { expect, Mock, vi } from 'vitest';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
 import { assertAPIError } from './lib/api.js';
+import { toFutureDate } from './lib/relative-date.js';
 import { services_fixtures } from './fixtures/services.js';
 import { prepareAdminToken, registerUser } from './fixtures/user.js';
 import { MockServer, mockJSONServer } from './lib/server.js';
@@ -201,10 +202,6 @@ describeFeature(feature, ({
       scenarioContext.userToken,
     );
     Object.assign(context, { order });
-  }
-
-  function toFutureDate(days: number) {
-    return format(addDays(new Date(), days), 'yyyy-MM-dd');
   }
 
   function rememberError(context: ErrorContext, error: unknown) {

@@ -5,11 +5,11 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
-import { addDays, format, subDays } from 'date-fns';
 import { Exhibition, Order } from '@cr7/types';
 import { expect, vi } from 'vitest';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
 import { assertAPIError } from './lib/api.js';
+import { toDateFromRelativeText } from './lib/relative-date.js';
 import { services_fixtures } from './fixtures/services.js';
 import { getUserProfile, prepareAdminToken, registerUser } from './fixtures/user.js';
 import {
@@ -183,7 +183,7 @@ describeFeature(feature, ({
   async function prepareExhibitionWithTickets(
     context: ExhibitionSetupContext,
     names: string[],
-    sessionDate: string = toRelativeSessionDate('3天后'),
+    sessionDate: string = toDateFromRelativeText('3天后'),
   ) {
     const { apiServer } = scenarioContext.fixtures.values;
     const prepared = await prepareExhibitionWithNamedTickets(
@@ -341,24 +341,6 @@ describeFeature(feature, ({
     return order.status;
   }
 
-  function toRelativeSessionDate(relativeText: string) {
-    if (relativeText === '今天') {
-      return format(new Date(), 'yyyy-MM-dd');
-    }
-
-    const futureMatch = /^(\d+)天后$/.exec(relativeText);
-    if (futureMatch) {
-      return format(addDays(new Date(), Number(futureMatch[1])), 'yyyy-MM-dd');
-    }
-
-    const pastMatch = /^(\d+)天前$/.exec(relativeText);
-    if (pastMatch) {
-      return format(subDays(new Date(), Number(pastMatch[1])), 'yyyy-MM-dd');
-    }
-
-    throw new Error(`Unsupported relative session date: ${relativeText}`);
-  }
-
   Background(({ Given }) => {
     Given('系统管理员已经创建并登录', async () => {
       const { apiServer } = scenarioContext.fixtures.values;
@@ -503,7 +485,7 @@ describeFeature(feature, ({
     const { Given, When, Then, And, context } = s;
 
     Given('展览活动 "艺术展" 已创建，包含场次 "1天前" 和票种 "成人票"', async () => {
-      await prepareExhibitionWithTickets(context, ['成人票'], toRelativeSessionDate('1天前'));
+      await prepareExhibitionWithTickets(context, ['成人票'], toDateFromRelativeText('1天前'));
     });
 
     And('场次 "1天前" 的 "成人票" 库存初始为 2', async () => {

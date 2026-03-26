@@ -1,28 +1,10 @@
 import { Server } from "http";
-import { addDays, format, subDays } from "date-fns";
 import { getJSON, postJSON } from "../lib/api.js";
 import { Exhibition } from "@cr7/types";
 import { expect } from "vitest";
 import { random_text } from "../lib/random.js";
 import { updateTicketCategoryMaxInventory } from "./inventory.js";
-
-function toRelativeDate(value: string): string {
-  if (value === '今天') {
-    return format(new Date(), 'yyyy-MM-dd');
-  }
-
-  const afterMatch = value.match(/^(\d+)天后$/);
-  if (afterMatch) {
-    return format(addDays(new Date(), Number(afterMatch[1])), 'yyyy-MM-dd');
-  }
-
-  const beforeMatch = value.match(/^(\d+)天前$/);
-  if (beforeMatch) {
-    return format(subDays(new Date(), Number(beforeMatch[1])), 'yyyy-MM-dd');
-  }
-
-  return value;
-}
+import { toDateLabel } from "../lib/relative-date.js";
 
 export type DraftExhibition = Omit<
   Exhibition.Exhibition,
@@ -192,8 +174,8 @@ export async function createExhibitions(
         {
           name: `${namePrefix}_${index + 1}_${random_text(5)}`,
           description: `Test exhibition ${index + 1}`,
-          start_date: toRelativeDate('1天后'),
-          end_date: toRelativeDate('365天后'),
+          start_date: toDateLabel('1天后'),
+          end_date: toDateLabel('365天后'),
           opening_time: '10:00',
           closing_time: '18:00',
           last_entry_time: '17:00',
@@ -309,8 +291,8 @@ export async function prepareExhibition(
     {
       name: `inventory_test_${random_text(5)}`,
       description: 'Inventory test exhibition',
-      start_date: toRelativeDate('1天后'),
-      end_date: toRelativeDate('2天后'),
+      start_date: toDateLabel('1天后'),
+      end_date: toDateLabel('2天后'),
       opening_time: '10:00',
       closing_time: '18:00',
       last_entry_time: '17:00',

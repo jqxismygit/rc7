@@ -5,11 +5,11 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
-import { addDays, format, subDays } from 'date-fns';
 import { expect, vi } from 'vitest';
 import { Exhibition } from '@cr7/types';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
 import { services_fixtures } from './fixtures/services.js';
+import { toDateLabel } from './lib/relative-date.js';
 import {
   createExhibition,
   addTicketCategory,
@@ -85,24 +85,6 @@ type NonAdminAddTicketScenarioContext = PermissionErrorContext & ExhibitionConte
 interface ScenarioContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
   adminToken: string;
-}
-
-function toRelativeDate(value: string): string {
-  if (value === '今天') {
-    return format(new Date(), 'yyyy-MM-dd');
-  }
-
-  const afterMatch = value.match(/^(\d+)天后$/);
-  if (afterMatch) {
-    return format(addDays(new Date(), Number(afterMatch[1])), 'yyyy-MM-dd');
-  }
-
-  const beforeMatch = value.match(/^(\d+)天前$/);
-  if (beforeMatch) {
-    return format(subDays(new Date(), Number(beforeMatch[1])), 'yyyy-MM-dd');
-  }
-
-  return value;
 }
 
 function rememberError(context: PermissionErrorContext, error: unknown) {
@@ -203,11 +185,11 @@ describeFeature(feature, ({
       });
 
       And('开始日期为 {string}', (_ctx, startDate: string) => {
-        requireDraftExhibition(context).start_date = toRelativeDate(startDate);
+        requireDraftExhibition(context).start_date = toDateLabel(startDate);
       });
 
       And('结束日期为 {string}', (_ctx, endDate: string) => {
-        requireDraftExhibition(context).end_date = toRelativeDate(endDate);
+        requireDraftExhibition(context).end_date = toDateLabel(endDate);
       });
 
       And('开放时间为 {string}', (_ctx, openingTime: string) => {
@@ -536,8 +518,8 @@ describeFeature(feature, ({
           draftExhibition: {
             name,
             description: 'unauthorized exhibition',
-            start_date: toRelativeDate('1天后'),
-            end_date: toRelativeDate('365天后'),
+            start_date: toDateLabel('1天后'),
+            end_date: toDateLabel('365天后'),
             opening_time: '10:00',
             closing_time: '18:00',
             last_entry_time: '17:00',
