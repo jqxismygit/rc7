@@ -295,6 +295,12 @@ export default {
       return hoursDiff > 48;
     },
 
+    canDeleteTicket(ticket) {
+      if (ticket.status === "expired" || ticket.status === "refunded")
+        return true;
+      return false;
+    },
+
     getRefundButtonText(ticket) {
       if (ticket.status === "refunding") return "退款中";
       return "申请退票";
@@ -307,12 +313,12 @@ export default {
     },
 
     getPrimaryActionText(ticket) {
-      if (ticket.status === "expired") return "删除订单";
+      if (this.canDeleteTicket(ticket)) return "删除订单";
       return ticket.orderStatus === "PENDING_PAYMENT" ? "去支付" : "查看券码";
     },
 
     onPrimaryActionClick(ticket) {
-      if (ticket.status === "expired") {
+      if (this.canDeleteTicket(ticket)) {
         // uni.showToast({ title: "暂未支持", icon: "none" });
         this.handleDelete(ticket);
         return;
@@ -321,7 +327,7 @@ export default {
     },
 
     goToDetail(ticket) {
-      if (ticket.status === "expired") {
+      if (this.canDeleteTicket(ticket)) {
         // uni.showToast({ title: "暂未支持", icon: "none" });
         return;
       }

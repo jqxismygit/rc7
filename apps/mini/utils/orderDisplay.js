@@ -9,6 +9,7 @@ export function orderStatusToUi(orderStatus) {
     PENDING_PAYMENT: "pending_payment",
     CANCELLED: "cancelled",
     EXPIRED: "expired",
+    REFUNDED: "refunded",
   };
   return map[orderStatus] || orderStatus;
 }
@@ -24,9 +25,7 @@ export async function loadExhibitionsMap(exhibitIds) {
   await Promise.all(
     ids.map(async (eid) => {
       try {
-        map[eid] = await request.get(
-          `/exhibition/${encodeURIComponent(eid)}`,
-        );
+        map[eid] = await request.get(`/exhibition/${encodeURIComponent(eid)}`);
       } catch (e) {
         map[eid] = null;
       }
@@ -64,8 +63,7 @@ export function buildTicketRowFromOrder(order, exhibition) {
     eventDate = dayjs(order.created_at).format("YYYY-MM-DD HH:mm");
   }
 
-  const cover =
-    ev?.cover_url || ev?.cover_image || ev?.cover || "";
+  const cover = ev?.cover_url || ev?.cover_image || ev?.cover || "";
 
   return {
     id: order.id,
