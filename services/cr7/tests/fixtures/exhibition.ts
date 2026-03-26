@@ -4,10 +4,25 @@ import { Exhibition } from "@cr7/types";
 import { expect } from "vitest";
 import { random_text } from "../lib/random.js";
 
+export type DraftExhibition = Omit<
+  Exhibition.Exhibition,
+  'id' | 'created_at' | 'updated_at'
+>;
+
+export type DraftTicketCategory = Omit<
+  Exhibition.TicketCategory,
+  'id' | 'exhibit_id' | 'created_at' | 'updated_at'
+>;
+
+export interface ExhibitionWithSessions {
+  exhibition: Exhibition.Exhibition;
+  sessions: Exhibition.Session[];
+}
+
 export async function createExhibition(
   server: Server,
   token: string,
-  exhibition: Omit<Exhibition.Exhibition, 'id' | 'created_at' | 'updated_at'>,
+  exhibition: DraftExhibition,
 ) {
   return postJSON<Exhibition.Exhibition>(
     server,
@@ -83,7 +98,7 @@ export async function addTicketCategory(
   server: Server,
   token: string,
   eid: string,
-  category: Omit<Exhibition.TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>
+  category: DraftTicketCategory
 ) {
   return postJSON<Exhibition.TicketCategory>(
     server,
@@ -125,10 +140,60 @@ export interface ExhibitionContext {
   sessions: Exhibition.Session[];
 }
 
+export async function createExhibitions(
+  apiServer: Server,
+  token: string,
+  count: number,
+  options: {
+    namePrefix?: string;
+    exhibitionOverrides?: Partial<DraftExhibition>;
+  } = {},
+): Promise<Exhibition.Exhibition[]> {
+  const { namePrefix = 'test_exhibition', exhibitionOverrides } = options;
+  const exhibitions: Exhibition.Exhibition[] = [];
+
+  for (let index = 0; index < count; index += 1) {
+    const exhibition = await createExhibition(
+      apiServer,
+      token,
+      Object.assign(
+        {
+          name: `${namePrefix}_${index + 1}_${random_text(5)}`,
+          description: `Test exhibition ${index + 1}`,
+          start_date: '2026-01-01',
+          end_date: '2026-12-31',
+          opening_time: '10:00',
+          closing_time: '18:00',
+          last_entry_time: '17:00',
+          location: 'Test Location',
+        },
+        exhibitionOverrides,
+      ),
+    );
+    exhibitions.push(exhibition);
+  }
+
+  return exhibitions;
+}
+
+export async function prepareExhibitionWithSessions(
+  apiServer: Server,
+  token: string,
+  overrides?: Partial<DraftExhibition>,
+): Promise<ExhibitionWithSessions> {
+  const exhibition = await prepareExhibition(apiServer, token, overrides);
+  const sessions = await getSessions(apiServer, exhibition.id, token);
+
+  return {
+    exhibition,
+    sessions,
+  };
+}
+
 export async function prepareExhibition(
   apiServer: Server,
   token: string,
-  overrides?: Partial<Omit<Exhibition.Exhibition, 'id' | 'created_at' | 'updated_at'>>
+  overrides?: Partial<DraftExhibition>
 ): Promise<Exhibition.Exhibition> {
   const exhibition_fixture = Object.assign(
     {
@@ -150,7 +215,7 @@ export async function prepareTicketCategory(
   apiServer: Server,
   token: string,
   eid: string,
-  overrides?: Partial<Omit<Exhibition.TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>>
+  overrides?: Partial<DraftTicketCategory>
 ): Promise<Exhibition.TicketCategory> {
   const categoryFixture = Object.assign(
     {
@@ -169,7 +234,7 @@ export async function prepareEarlyBirdTicketCategory(
   apiServer: Server,
   token: string,
   eid: string,
-  ticketCategoryOverrides?: Partial<Omit<Exhibition.TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>>
+  ticketCategoryOverrides?: Partial<DraftTicketCategory>
 ): Promise<Exhibition.TicketCategory> {
   return prepareTicketCategory(
     apiServer,
@@ -191,7 +256,7 @@ export async function prepareRegularTicketCategory(
   apiServer: Server,
   token: string,
   eid: string,
-  ticketCategoryOverrides?: Partial<Omit<Exhibition.TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>>
+  ticketCategoryOverrides?: Partial<DraftTicketCategory>
 ): Promise<Exhibition.TicketCategory> {
   return prepareTicketCategory(
     apiServer, token, eid,
