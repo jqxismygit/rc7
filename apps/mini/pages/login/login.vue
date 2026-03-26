@@ -39,6 +39,7 @@
         mode="widthFix"
         :width="156"
         :height="35"
+        :style="{ top: `calc(${statusBarHeight + navBarContentHeight}px + 109rpx)` }"
       />
     </view>
 
@@ -91,6 +92,7 @@ export default {
   data() {
     return {
       statusBarHeight: 0,
+      navBarContentHeight: 44,
       agreed: false,
       loading: false,
     };
@@ -99,6 +101,14 @@ export default {
   onLoad() {
     const systemInfo = uni.getSystemInfoSync();
     this.statusBarHeight = systemInfo.statusBarHeight || 0;
+    const menuButtonInfo =
+      typeof uni.getMenuButtonBoundingClientRect === "function"
+        ? uni.getMenuButtonBoundingClientRect()
+        : null;
+    if (menuButtonInfo?.height) {
+      const topGap = Math.max(menuButtonInfo.top - this.statusBarHeight, 0);
+      this.navBarContentHeight = Math.round(menuButtonInfo.height + topGap * 2);
+    }
   },
 
   methods: {
@@ -203,6 +213,12 @@ export default {
   flex-direction: column;
   padding-bottom: 320rpx;
   box-sizing: border-box;
+}
+
+.login-logo {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 /* 对齐首页 .home-navbar + .navbar-row + .navbar-logo + .logo-img */
