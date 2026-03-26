@@ -7,7 +7,8 @@ $cr7-gold-light: #e6fe5b; /* Primary 色板亮色 */
 $cr7-gold-dark: #191d01; /* Accent / 100 */
 $cr7-black: #090a07; /* Grayscale / 500 — 页面底色 */
 $cr7-dark: #161714; /* Grayscale / 400 — 卡片 / 次级背景 */
-$cr7-card: #2a2a2a; /* Grayscale / 300 — 卡片 / 输入框 / 禁用按钮 */
+$cr7-card: #2a2a2a; /* Grayscale / 300 — 卡片 / 输入框 */
+$btn-disabled-bg: #2a2a2a; /* 按钮禁用态背景 */
 $cr7-border: #2a2a2a; /* 与 card 同色，用于边框 */
 $cr7-gray: #8e8e8e; /* Grayscale / 200-300 — 辅助灰 */
 $cr7-red: #c93838; /* Message / Red */
@@ -151,7 +152,7 @@ $shadow-card: none;
 
 /* 禁用按钮 */
 .btn-disabled {
-  background: $cr7-card;
+  background: $btn-disabled-bg;
   color: $text-light;
   border-radius: $radius-btn-lg;
   border: none;

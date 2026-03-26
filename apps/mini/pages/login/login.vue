@@ -298,7 +298,7 @@ export default {
 /* 对齐 uni.scss .btn-disabled：未同意协议时不可点 */
 .login-btn--disabled,
 .login-btn[disabled] {
-  background: $cr7-card !important;
+  background: $btn-disabled-bg !important;
   color: $text-muted !important;
   opacity: 1;
 }

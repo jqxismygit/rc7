@@ -765,7 +765,7 @@ export default {
 }
 
 .act-btn-primary-disabled {
-  background: $cr7-card;
+  background: $btn-disabled-bg;
   color: $text-muted;
 }
 
