@@ -6,8 +6,8 @@ Feature: manage exhibition
   Scenario: create a new exhibition
     Given 展览名称为 cr7_life_museum
       And 描述为 "welcome to cr7 life museum"
-      And 开始日期为 "2026-01-01"
-      And 结束日期为 "2026-02-28"
+      And 开始日期为 "3天后"
+      And 结束日期为 "60天后"
       And 开放时间为 "10:00"
       And 闭馆时间为 "18:00"
       And 最晚入场时间为 "15:30"
