@@ -1,9 +1,10 @@
 <template>
   <view class="ticket-refund-page">
+    <cr7-nav-bar title="申请退票" fallback-url="/pages/my-tickets/my-tickets" />
     <scroll-view
       class="refund-scroll"
       scroll-y
-      :style="{ paddingBottom: '220rpx' }"
+      :style="{ paddingTop: navInsetPx + 'px', paddingBottom: '220rpx' }"
     >
       <!-- 活动主卡片 -->
       <view class="event-card-section">
@@ -124,17 +125,25 @@
 
 <script>
 import { mockMyTickets } from "@/utils/mockData.js";
+import Cr7NavBar from "@/components/cr7-nav-bar/cr7-nav-bar.vue";
+import { getNavBarInsetPx } from "@/utils/navBar.js";
 
 export default {
+  components: {
+    Cr7NavBar,
+  },
+
   data() {
     return {
       ticketId: "",
       ticket: {},
       submitting: false,
+      navInsetPx: 0,
     };
   },
 
   onLoad(options) {
+    this.navInsetPx = getNavBarInsetPx();
     this.ticketId = options.id;
     this.loadTicket();
   },
@@ -287,10 +296,6 @@ export default {
   font-size: 26rpx;
   color: $text-light;
   line-height: 26rpx;
-}
-
-.ticket-info .meta-text {
-  // font-size: 24rpx;
 }
 
 /* ===== 订单详情 ===== */

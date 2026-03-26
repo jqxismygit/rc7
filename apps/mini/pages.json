@@ -99,7 +99,10 @@
     {
       "path": "pages/ticket-refund/ticket-refund",
       "style": {
-        "navigationBarTitleText": "申请退票"
+        "navigationBarTitleText": "申请退票",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#090a07",
+        "backgroundColor": "#090a07"
       }
     },
     {
