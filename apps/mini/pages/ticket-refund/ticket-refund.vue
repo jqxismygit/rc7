@@ -108,7 +108,7 @@
         <view class="amount-block">
           <text class="amount-label">退款总额</text>
           <text class="amount-value"
-            >¥ {{ formatPrice(getRefundAmount()) }}</text
+            >¥ {{ formatPrice(getRefundAmount()) * 0.01 }}</text
           >
         </view>
         <button
@@ -124,9 +124,12 @@
 </template>
 
 <script>
-import { mockMyTickets } from "@/utils/mockData.js";
 import Cr7NavBar from "@/components/cr7-nav-bar/cr7-nav-bar.vue";
 import { getNavBarInsetPx } from "@/utils/navBar.js";
+import { getOrderDetail } from "@/services/order.js";
+import { initiateRefund } from "@/services/payment.js";
+import request from "@/utils/request.js";
+import { buildTicketDetailFromOrder } from "@/utils/orderDisplay.js";
 
 export default {
   components: {
@@ -149,11 +152,28 @@ export default {
   },
 
   methods: {
-    loadTicket() {
-      const found = mockMyTickets.find((item) => item.id === "T20260215001");
-      if (found) {
-        this.ticket = found;
-      } else {
+    async loadTicket() {
+      if (!this.ticketId) {
+        uni.showToast({
+          title: "缺少票券ID",
+          icon: "none",
+        });
+        return;
+      }
+
+      try {
+        const order = await getOrderDetail(this.ticketId);
+        let exhibition = null;
+        try {
+          exhibition = await request.get(
+            `/exhibition/${encodeURIComponent(order.exhibit_id)}`,
+          );
+        } catch (e) {
+          exhibition = null;
+        }
+        this.ticket = buildTicketDetailFromOrder(order, exhibition);
+      } catch (e) {
+        console.error("loadRefundTicket", e);
         uni.showToast({
           title: "票券不存在",
           icon: "none",
@@ -179,38 +199,37 @@ export default {
         .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     },
 
-    submitRefund() {
+    async submitRefund() {
       if (this.submitting) return;
+      if (!this.ticket?.id) {
+        uni.showToast({ title: "票券数据异常", icon: "none" });
+        return;
+      }
       this.submitting = true;
-
-      // 模拟调用退款接口
-      setTimeout(() => {
+      try {
+        await initiateRefund(this.ticket.id);
+        this.ticket.status = "refunding";
+        uni.showModal({
+          title: "退票成功",
+          content: "退款已发起，预计1-3个工作日内退回至微信支付账户。",
+          showCancel: false,
+          success: () => {
+            uni.switchTab({
+              url: "/pages/my-tickets/my-tickets",
+            });
+          },
+        });
+      } catch (e) {
+        const msg =
+          (e && e.data && e.data.message) || "退票失败，请联系客服协助处理。";
+        uni.showModal({
+          title: "退票失败",
+          content: msg,
+          showCancel: false,
+        });
+      } finally {
         this.submitting = false;
-
-        const isSuccess = Math.random() > 0.2;
-        if (isSuccess) {
-          this.ticket.status = "refunding";
-          uni.showModal({
-            title: "退票成功",
-            content: "退款已发起，预计1-3个工作日内退回至微信支付账户。",
-            showCancel: false,
-            success: () => {
-              uni.switchTab({
-                url: "/pages/my-tickets/my-tickets",
-              });
-            },
-          });
-        } else {
-          uni.showModal({
-            title: "退票失败",
-            content: "退票失败，请联系客服协助处理。",
-            showCancel: false,
-            success: () => {
-              uni.navigateBack();
-            },
-          });
-        }
-      }, 1200);
+      }
     },
   },
 };

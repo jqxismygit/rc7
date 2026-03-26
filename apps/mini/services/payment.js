@@ -10,3 +10,14 @@ export function initiateWechatPay(orderId) {
   const oid = encodeURIComponent(orderId);
   return request.post(`/orders/${oid}/wechatpay`, {});
 }
+
+/**
+ * 发起微信退款
+ * @param {string} orderId
+ * @returns {Promise<object>}
+ * @see docs/api/payment.md
+ */
+export function initiateRefund(orderId) {
+  const oid = encodeURIComponent(orderId);
+  return request.post(`/orders/${oid}/refund`, {});
+}
