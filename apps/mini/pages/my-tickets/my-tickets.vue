@@ -642,6 +642,10 @@ export default {
   padding: 4rpx 24rpx;
   border-radius: 999rpx;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36rpx;
 }
 
 .tag-official {
@@ -655,7 +659,7 @@ export default {
 .tag-text {
   font-size: 20rpx;
   line-height: 20rpx;
-  font-weight: bold;
+  font-weight: 400;
   text-align: center;
   text-transform: uppercase;
 }

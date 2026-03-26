@@ -2,7 +2,7 @@
   <view class="home-page">
     <!-- 顶部导航栏 - 固定在页面顶部，不随内容滚动 -->
     <view class="home-navbar" :style="{ paddingTop: statusBarHeight + 'px' }">
-      <view class="navbar-row">
+      <view class="navbar-row" :style="{ height: navBarContentHeight + 'px' }">
         <view class="navbar-left">
           <view class="navbar-notification" @click="goToMessages">
             <sx-svg
@@ -32,7 +32,7 @@
       <!-- 导航占位，避免固定导航遮挡首屏内容 -->
       <view
         class="home-navbar-spacer"
-        :style="{ height: `calc(${statusBarHeight}px + 114rpx)` }"
+        :style="{ height: statusBarHeight + navBarContentHeight + 'px' }"
       ></view>
 
       <!-- Hero 轮播 -->
@@ -217,6 +217,7 @@ export default {
   data() {
     return {
       statusBarHeight: 0,
+      navBarContentHeight: 44,
       unreadCount: 0,
       currentBannerIndex: 0,
       heroBanners: [],
@@ -248,6 +249,14 @@ export default {
   onLoad() {
     const systemInfo = uni.getSystemInfoSync();
     this.statusBarHeight = systemInfo.statusBarHeight || 0;
+    const menuButtonInfo =
+      typeof uni.getMenuButtonBoundingClientRect === "function"
+        ? uni.getMenuButtonBoundingClientRect()
+        : null;
+    if (menuButtonInfo?.height) {
+      const topGap = Math.max(menuButtonInfo.top - this.statusBarHeight, 0);
+      this.navBarContentHeight = Math.round(menuButtonInfo.height + topGap * 2);
+    }
     const userStore = useUserStore();
     this._lastHomeDataToken = userStore.token || "";
     this.loadHomeData();
@@ -443,8 +452,9 @@ export default {
 
 .navbar-logo {
   position: absolute;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -458,7 +468,7 @@ export default {
 /* Hero - 设计稿 Frame 1000003725: 679.9×350.47，指示器在图片内部底部 */
 .hero-section {
   padding: 0 35rpx;
-  margin-top: 18rpx;
+  margin-top: 65rpx;
   position: relative;
 }
 
@@ -499,13 +509,13 @@ export default {
   width: 12rpx;
   height: 12rpx;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.5);
   transition: all 0.2s;
 
   &.active {
     width: 40rpx;
     border-radius: 12rpx;
-    background: $cr7-gold;
+    // background: $cr7-gold;
   }
 }
 
