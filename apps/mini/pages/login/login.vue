@@ -3,7 +3,7 @@
     <view class="login-bg-wrap">
       <image
         class="login-bg"
-        src="/static/images/event-card.jpg"
+        src="/static/images/login-bg.jpg"
         mode="aspectFill"
       />
     </view>
@@ -11,7 +11,7 @@
 
     <view class="login-body">
       <!-- 与首页 home-navbar 一致：状态栏高度 + 114rpx 行，Logo 156×35 居中 -->
-      <view
+      <!-- <view
         class="login-navbar"
         :style="{ paddingTop: statusBarHeight + 'px' }"
       >
@@ -28,11 +28,18 @@
           </view>
           <view class="login-navbar-side"></view>
         </view>
-      </view>
+      </view> -->
 
-      <view class="brand-block">
+      <!-- <view class="brand-block">
         <text class="brand-serif">CR7</text>
-      </view>
+      </view> -->
+      <image
+        class="login-logo"
+        src="/static/images/login-logo.png"
+        mode="widthFix"
+        :width="156"
+        :height="35"
+      />
     </view>
 
     <view class="login-float-panel">
