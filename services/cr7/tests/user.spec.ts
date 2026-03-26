@@ -35,12 +35,67 @@ interface ScenarioContext {
 
 type LoginResponse = { token: string };
 
-function rememberError(context: Record<string, unknown>, error: unknown) {
+type WechatMockContext = TestContext & {
+    mockCode2SessionResponse: Mock;
+    mock_wechat_server: MockServer;
+};
+
+type LoginResponseContext = {
+    loginResponse?: LoginResponse;
+};
+
+type UserProfileContext = {
+    userProfile?: User.Profile;
+};
+
+type AdminIdentityContext = TestContext & {
+    adminCountryCode?: string;
+    adminPhone?: string;
+    adminName?: string;
+};
+
+type AdminPasswordContext = {
+    adminInitialPassword?: string;
+    adminUpdatedPassword?: string;
+};
+
+type AdminProfileContext = {
+    adminProfile?: User.Profile;
+};
+
+type AdminLoginContext = {
+    adminLoginResponse?: LoginResponse;
+    newPasswordLoginResponse?: LoginResponse;
+};
+
+type PasswordChangeContext = {
+    passwordChangeResponse?: null;
+};
+
+type ErrorContext = {
+    lastError?: unknown;
+};
+
+type OperatorAdminContext = TestContext & {
+    adminToken?: string;
+    adminProfile?: User.Profile;
+};
+
+type OperatorUserContext = {
+    userToken?: string;
+    userProfile?: User.Profile;
+};
+
+type GrantRoleResultContext = {
+    grantRoleResponse?: { role_names: string[] };
+};
+
+function rememberError(context: ErrorContext, error: unknown) {
     Object.assign(context, { lastError: error });
 }
 
 function assertLastAPIError(
-    context: Record<string, unknown>,
+    context: ErrorContext,
     options: {
         status?: number;
         messageIncludes?: string;
@@ -56,36 +111,72 @@ describeFeature(feature, ({
     Scenario, BeforeAllScenarios, AfterAllScenarios,
     context: scenarioContext
 }: FeatureDescriibeCallbackParams<ScenarioContext>) => {
-    interface WechatContext extends TestContext {
-        mockCode2SessionResponse: Mock;
-        mock_wechat_server: MockServer;
-        loginResponse?: LoginResponse;
-        userProfile: User.Profile;
+    function requireAdminIdentity(context: AdminIdentityContext) {
+        expect(context.adminCountryCode).toBeTruthy();
+        expect(context.adminPhone).toBeTruthy();
+        expect(context.adminName).toBeTruthy();
+        return {
+            adminCountryCode: context.adminCountryCode!,
+            adminPhone: context.adminPhone!,
+            adminName: context.adminName!,
+        };
     }
 
-    interface AdminContext extends TestContext {
-        adminCountryCode?: string;
-        adminPhone?: string;
-        adminName?: string;
-        adminInitialPassword?: string;
-        adminUpdatedPassword?: string;
-        adminProfile?: User.Profile;
-        adminLoginResponse?: LoginResponse;
-        newPasswordLoginResponse?: LoginResponse;
-        passwordChangeResponse?: null;
-        lastError?: unknown;
+    function requireAdminLoginResponse(
+        context: Pick<AdminLoginContext, 'adminLoginResponse'>,
+    ) {
+        expect(context.adminLoginResponse).toBeTruthy();
+        return context.adminLoginResponse!;
+    }
+
+    function requireNewPasswordLoginResponse(
+        context: Pick<AdminLoginContext, 'newPasswordLoginResponse'>,
+    ) {
+        expect(context.newPasswordLoginResponse).toBeTruthy();
+        return context.newPasswordLoginResponse!;
+    }
+
+    function requireUserProfile(context: UserProfileContext) {
+        expect(context.userProfile).toBeTruthy();
+        return context.userProfile!;
+    }
+
+    function requireAdminProfile(context: AdminProfileContext) {
+        expect(context.adminProfile).toBeTruthy();
+        return context.adminProfile!;
+    }
+
+    function requireAdminInitialPassword(context: AdminPasswordContext) {
+        expect(context.adminInitialPassword).toBeTruthy();
+        return context.adminInitialPassword!;
+    }
+
+    function requireOperatorAdminToken(context: OperatorAdminContext) {
+        expect(context.adminToken).toBeTruthy();
+        return context.adminToken!;
+    }
+
+    function requireOperatorUserProfile(context: OperatorUserContext) {
+        expect(context.userProfile).toBeTruthy();
+        return context.userProfile!;
+    }
+
+    function requireGrantRoleResponse(context: GrantRoleResultContext) {
+        expect(context.grantRoleResponse).toBeTruthy();
+        return context.grantRoleResponse!;
     }
 
     async function loginAdmin(
-        context: Partial<AdminContext>,
+        context: AdminIdentityContext & AdminLoginContext,
         password: string,
         targetKey: 'adminLoginResponse' | 'newPasswordLoginResponse' = 'adminLoginResponse',
     ) {
         const { apiServer } = scenarioContext.fixtures.values;
+        const { adminCountryCode, adminPhone } = requireAdminIdentity(context);
         const loginResponse = await passwordLogin(
             apiServer,
-            context.adminCountryCode ?? '+86',
-            context.adminPhone ?? '',
+            adminCountryCode,
+            adminPhone,
             password,
         );
         assertLoginResponse(loginResponse);
@@ -106,7 +197,8 @@ describeFeature(feature, ({
         await scenarioContext.fixtures.close();
     });
 
-    Scenario('wechat user login', ({ Given, When, Then, context }: StepTest<WechatContext>) => {
+    Scenario('wechat user login', (s: StepTest<WechatMockContext & LoginResponseContext & UserProfileContext>) => {
+        const { Given, When, Then, context } = s;
         Given('wechat mini app', async function () {
             const mockCode2SessionResponse = vi.fn();
             const mock_wechat_server = await mockWechatServer(mockCode2SessionResponse);
@@ -178,7 +270,8 @@ describeFeature(feature, ({
         });
 
         Then('login successfully and get user profile', async function () {
-            const { loginResponse, userProfile: previousProfile } = context;
+            const { loginResponse } = context;
+            const previousProfile = requireUserProfile(context);
             const { values: { apiServer } } = scenarioContext.fixtures;
 
             assertLoginResponse(loginResponse);
@@ -186,11 +279,11 @@ describeFeature(feature, ({
             const profile = await getUserProfile(apiServer, token);
             assertUserProfile(profile);
 
-            expect(profile.openid).toBe(previousProfile?.openid);
+            expect(profile.openid).toBe(previousProfile.openid);
         });
     });
 
-    Scenario('初始化系统管理员账号', (s: StepTest<Partial<AdminContext>>) => {
+    Scenario('初始化系统管理员账号', (s: StepTest<AdminIdentityContext & AdminPasswordContext & AdminProfileContext>) => {
         const { Given, Then, And, context } = s;
 
         Given('使用 cli 初始化管理员账号，指定手机号 {string}，密码为 {string}', async (ctx, phone: string, password: string) => {
@@ -207,19 +300,19 @@ describeFeature(feature, ({
         });
 
         Then('管理员账号创建成功', () => {
-            expect(context.adminProfile).toBeTruthy();
+            expect(requireAdminProfile(context)).toBeTruthy();
         });
 
         And('管理员账号的手机号为 {string} {string}', (ctx, countryCode: string, phone: string) => {
-            expect(context.adminProfile!.phone).toBe(`${countryCode} ${phone}`);
+            expect(requireAdminProfile(context).phone).toBe(`${countryCode} ${phone}`);
         });
 
         And('管理员的用户名默认为 "system admin"', () => {
-            expect(context.adminProfile!.name).toBe('system admin');
+            expect(requireAdminProfile(context).name).toBe('system admin');
         });
     });
 
-    Scenario('管理员账号登录', (s: StepTest<Partial<AdminContext>>) => {
+    Scenario('管理员账号登录', (s: StepTest<AdminIdentityContext & AdminPasswordContext & AdminLoginContext>) => {
         const { Given, When, Then, context } = s;
 
         Given('管理员账号 {string} 已创建，手机号为 {string}，密码为 {string}', async (ctx, name: string, phone: string, password: string) => {
@@ -235,22 +328,32 @@ describeFeature(feature, ({
 
         When('管理员账号 {string} 登录', async (ctx, name: string) => {
             expect(context.adminName).toBe(name);
-            await loginAdmin(context, context.adminInitialPassword!);
+            await loginAdmin(context, requireAdminInitialPassword(context));
         });
 
         Then('登录成功并获取管理员用户信息', async () => {
             const { apiServer } = scenarioContext.fixtures.values;
-            const loginResponse = context.adminLoginResponse!;
+            const loginResponse = requireAdminLoginResponse(context);
+            const { adminCountryCode, adminPhone, adminName } = requireAdminIdentity(context);
             const profile = await getUserProfile(apiServer, loginResponse.token);
             assertUserProfile(profile);
-            expect(profile.name).toBe(context.adminName);
-            expect(profile.phone).toBe(`${context.adminCountryCode} ${context.adminPhone}`);
+            expect(profile.name).toBe(adminName);
+            expect(profile.phone).toBe(`${adminCountryCode} ${adminPhone}`);
             expect(profile.openid).toBeNull();
             expect(profile.auth_methods ?? []).toContain('PASSWORD');
         });
     });
 
-    Scenario('管理员账号修改密码', (s: StepTest<Partial<AdminContext>>) => {
+    Scenario('管理员账号修改密码', (
+        s: StepTest<
+            AdminIdentityContext
+            & AdminPasswordContext
+            & AdminLoginContext
+            & AdminProfileContext
+            & PasswordChangeContext
+            & ErrorContext
+        >
+    ) => {
         const { Given, When, Then, And, context } = s;
 
         Given('管理员账号 {string} 已登录，手机号为 {string}，密码为 {string}', async (ctx, name: string, phone: string, password: string) => {
@@ -271,8 +374,8 @@ describeFeature(feature, ({
             const { apiServer } = scenarioContext.fixtures.values;
             const passwordChangeResponse = await changePassword(
                 apiServer,
-                context.adminLoginResponse!.token,
-                context.adminInitialPassword!,
+                requireAdminLoginResponse(context).token,
+                requireAdminInitialPassword(context),
                 newPassword,
             );
             Object.assign(context, { passwordChangeResponse });
@@ -286,10 +389,11 @@ describeFeature(feature, ({
             expect(context.adminName).toBe(name);
             await loginAdmin(context, newPassword, 'newPasswordLoginResponse');
             const { apiServer } = scenarioContext.fixtures.values;
-            const profile = await getUserProfile(apiServer, context.newPasswordLoginResponse!.token);
+            const profile = await getUserProfile(apiServer, requireNewPasswordLoginResponse(context).token);
             assertUserProfile(profile);
-            expect(profile.name).toBe(context.adminName);
-            expect(profile.phone).toBe(`${context.adminCountryCode} ${context.adminPhone}`);
+            const { adminCountryCode, adminPhone, adminName } = requireAdminIdentity(context);
+            expect(profile.name).toBe(adminName);
+            expect(profile.phone).toBe(`${adminCountryCode} ${adminPhone}`);
             expect(profile.openid).toBeNull();
             expect(profile.auth_methods ?? []).toContain('PASSWORD');
         });
@@ -298,12 +402,13 @@ describeFeature(feature, ({
             expect(context.adminName).toBe(name);
             const { apiServer } = scenarioContext.fixtures.values;
             try {
-                await passwordLogin(apiServer, context.adminCountryCode!, context.adminPhone!, oldPassword);
+                const { adminCountryCode, adminPhone } = requireAdminIdentity(context);
+                await passwordLogin(apiServer, adminCountryCode, adminPhone, oldPassword);
             } catch (error) {
-                rememberError(context as Record<string, unknown>, error);
+                rememberError(context, error);
             }
 
-            assertLastAPIError(context as Record<string, unknown>, {
+            assertLastAPIError(context, {
                 status: 401,
                 messageIncludes: '手机号或密码错误',
                 method: 'POST',
@@ -311,15 +416,9 @@ describeFeature(feature, ({
         });
     });
 
-    interface OperatorContext extends TestContext {
-        adminToken?: string;
-        adminProfile?: User.Profile;
-        userToken?: string;
-        userProfile?: User.Profile;
-        grantRoleResponse?: { role_names: string[] };
-    }
-
-    Scenario('管理员可以将其他用户设置成运营人员', (s: StepTest<Partial<OperatorContext>>) => {
+    Scenario(
+        '管理员可以将其他用户设置成运营人员',
+        (s: StepTest<OperatorAdminContext & OperatorUserContext & GrantRoleResultContext>) => {
         const { Given, When, Then, context } = s;
 
         Given('管理员账号 {string} 已登录', async (ctx, adminName: string) => {
@@ -339,8 +438,8 @@ describeFeature(feature, ({
             const { apiServer } = scenarioContext.fixtures.values;
             const grantRoleResponse = await grantRoleToUser(
                 apiServer,
-                context.adminToken!,
-                context.userProfile!.id,
+                requireOperatorAdminToken(context),
+                requireOperatorUserProfile(context).id,
                 'OPERATOR',
             );
             Object.assign(context, { grantRoleResponse });
@@ -348,8 +447,7 @@ describeFeature(feature, ({
 
         Then('用户 {string} 的角色包含 {string}', (_ctx, userName: string, roleLabel: string) => {
             expect(roleLabel).toBe('operator');
-            expect(context.grantRoleResponse).toBeTruthy();
-            expect(context.grantRoleResponse!.role_names).toContain('OPERATOR');
+            expect(requireGrantRoleResponse(context).role_names).toContain('OPERATOR');
         });
     });
 });
