@@ -312,7 +312,7 @@ describeFeature(feature, ({
     (s: StepTest<PaymentRequestScenarioContext>) => {
       const { Given, When, Then, And, context } = s;
 
-      Given('用户预订了 1 张 "CR7" 展会 的 "3" 天后场次的 "成人票"', async () => {
+      Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "成人票"', async () => {
         await prepareExhibitionData(context, 'CR7', '成人票', toFutureDate(3));
         await createTestOrder(context);
       });
@@ -436,7 +436,7 @@ describeFeature(feature, ({
     (s: StepTest<PaymentSuccessScenarioContext>) => {
       const { Given, Then, And, context } = s;
 
-      Given('用户预订了 1 张 "CR7" 展会 的 "3" 天后场次的 "成人票"', async () => {
+      Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "成人票"', async () => {
         await prepareExhibitionData(
           context,
           `CR7_${random_text(4)}`,
@@ -478,7 +478,7 @@ describeFeature(feature, ({
     (s: StepTest<CancelOrderScenarioContext>) => {
       const { Given, When, Then, And, context } = s;
 
-      Given('用户预订了 1 张 "CR7" 展会 的 "3" 天后场次的 "成人票"', async () => {
+      Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "成人票"', async () => {
         await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toFutureDate(3));
         await createTestOrder(context);
       });
@@ -522,7 +522,7 @@ describeFeature(feature, ({
   Scenario('过期的订单不能发起支付', (s: StepTest<PaymentErrorScenarioContext>) => {
     const { Given, When, Then, And, context } = s;
 
-    Given('用户预订了 1 张 "CR7" 展会 的 "1" 天后场次的 "成人票"', async () => {
+    Given('用户预订了 1 张 "CR7" 展会 的 "1天后" 场次的 "成人票"', async () => {
       await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toFutureDate(1));
       await createTestOrder(context);
     });
@@ -565,7 +565,7 @@ describeFeature(feature, ({
     let processingRefundPayload: MockRefundCallbackPayload | null = null;
     let successRefundPayload: MockRefundCallbackPayload | null = null;
 
-    Given('用户预订了 2 张 "CR7" 展会 的 "3" 天后场次的 "成人票"', async () => {
+    Given('用户预订了 2 张 "CR7" 展会 的 "3天后" 场次的 "成人票"', async () => {
       await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toFutureDate(3), {
         refundPolicy: 'REFUNDABLE_48H_BEFORE',
         maxInventory: 10,
@@ -686,7 +686,7 @@ describeFeature(feature, ({
 
     let failedRefundPayload: MockRefundCallbackPayload | null = null;
 
-    Given('用户预订了 1 张 "CR7" 展会 的 "3" 天后场次的 "成人票"', async () => {
+    Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "成人票"', async () => {
       await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toFutureDate(3), {
         refundPolicy: 'REFUNDABLE_48H_BEFORE',
         maxInventory: 10,
@@ -758,7 +758,7 @@ describeFeature(feature, ({
       expect(scenarioContext.adminToken).toBeTruthy();
     });
 
-    Given('用户预订了 1 张 "CR7" 展会 的 "3" 天后场次的 "成人票"', async () => {
+    Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "成人票"', async () => {
       await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toFutureDate(3), {
         refundPolicy: 'REFUNDABLE_48H_BEFORE',
         maxInventory: 10,
@@ -877,7 +877,7 @@ describeFeature(feature, ({
   Scenario('不能退票的订单发起退款流程，应该被拒绝', (s: StepTest<PaymentErrorScenarioContext>) => {
     const { Given, When, Then, And, context } = s;
 
-    Given('用户预订了 1 张 "CR7" 展会 的 "3" 天后场次的 "早鸟票"', async () => {
+    Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "早鸟票"', async () => {
       await prepareExhibitionData(context, `CR7_${random_text(4)}`, '早鸟票', toFutureDate(3), {
         refundPolicy: 'NON_REFUNDABLE',
         maxInventory: 10,
@@ -928,7 +928,7 @@ describeFeature(feature, ({
   Scenario('订单中包含允许退票和不允许退票的票种，发起退款请求应该被拒绝', (s: StepTest<MixedRefundPolicyScenarioContext>) => {
     const { Given, When, Then, And, context } = s;
 
-    Given('用户预订了 1 张 "CR7" 展会 的 "3" 天后场次的 "早鸟票" 和 1 张 "成人票"', async () => {
+    Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "早鸟票" 和 1 张 "成人票"', async () => {
       await prepareExhibitionData(context, `CR7_${random_text(4)}`, '早鸟票', toFutureDate(3), {
         refundPolicy: 'NON_REFUNDABLE',
         maxInventory: 10,
@@ -1008,7 +1008,7 @@ describeFeature(feature, ({
   Scenario('处于任何退款状态的订单都不能再次发起退款请求', (s: StepTest<RefundScenarioContext>) => {
     const { Given, When, Then, And, context } = s;
 
-    Given('用户预订了 1 张 "CR7" 展会 的 "3" 天后场次的 "成人票"', async () => {
+    Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "成人票"', async () => {
       await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toFutureDate(3), {
         refundPolicy: 'REFUNDABLE_48H_BEFORE',
         maxInventory: 10,
@@ -1126,7 +1126,7 @@ describeFeature(feature, ({
   Scenario('退票截止时间已过的订单不能发起退款', (s: StepTest<PaymentErrorScenarioContext>) => {
     const { Given, When, Then, And, context } = s;
 
-    Given('用户预订了 1 张 "CR7" 展会 的 "1" 天后场次的 "成人票"', async () => {
+    Given('用户预订了 1 张 "CR7" 展会 的 "1天后" 场次的 "成人票"', async () => {
       await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toFutureDate(1), {
         refundPolicy: 'REFUNDABLE_48H_BEFORE',
         maxInventory: 10,
