@@ -105,7 +105,8 @@ export async function getSessions(
     server,
     `/exhibition/${eid}/sessions`,
     { token }
-  );
+  )
+  .then((res) => res.map(r => Object.assign(r, { session_date: new Date(r.session_date) })));
 }
 
 export async function addTicketCategory(
@@ -241,44 +242,6 @@ export async function prepareExhibitionSessionTicket(
     exhibition,
     session,
     ticket,
-  };
-}
-
-export async function prepareExhibitionWithNamedTickets(
-  apiServer: Server,
-  token: string,
-  ticketNames: string[],
-  options: {
-    exhibitionOverrides?: Partial<DraftExhibition>;
-    createTicket?: (ticketName: string, index: number) => Partial<DraftTicketCategory>;
-  } = {},
-): Promise<ExhibitionWithNamedTickets> {
-  const exhibition = await prepareExhibition(apiServer, token, options.exhibitionOverrides);
-  const [session] = await getSessions(apiServer, exhibition.id, token);
-  const ticketByName: Record<string, Exhibition.TicketCategory> = {};
-
-  for (let index = 0; index < ticketNames.length; index += 1) {
-    const ticketName = ticketNames[index];
-    const ticket = await prepareTicketCategory(
-      apiServer,
-      token,
-      exhibition.id,
-      {
-        name: ticketName,
-        price: 100 + index * 50,
-        valid_duration_days: 1,
-        refund_policy: 'NON_REFUNDABLE',
-        admittance: 1,
-        ...options.createTicket?.(ticketName, index),
-      },
-    );
-    ticketByName[ticketName] = ticket;
-  }
-
-  return {
-    exhibition,
-    session,
-    ticketByName,
   };
 }
 
