@@ -5,23 +5,26 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
+import { isSameDay } from 'date-fns';
 import { Exhibition, Order, Payment, Redeem, User } from '@cr7/types';
 import { expect, vi } from 'vitest';
 import type { ServiceBroker } from 'moleculer';
 import type { Pool } from 'pg';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
 import { assertAPIError } from './lib/api.js';
+import { Text2Date, toDateLabel } from './lib/relative-date.js';
 import { services_fixtures } from './fixtures/services.js';
 import { prepareAdminUser, registerUser, getUserProfile } from './fixtures/user.js';
 import {
-  prepareExhibitionSessionTicket,
+  getSessions,
+  prepareExhibition,
+  prepareTicketCategory,
 } from './fixtures/exhibition.js';
 import { createOrder as createOrderByApi } from './fixtures/order.js';
 import {
   getOrderRedemption,
   isValidRedemptionCodeLuhn,
   redeemCode,
-  toSessionDateLabel,
 } from './fixtures/redeem.js';
 import { grantRoleToUser as grantRoleToUserAPI } from './fixtures/user.js';
 import {
@@ -40,7 +43,8 @@ const feature = await loadFeature('tests/features/redeem.feature');
 type ExhibitionContext = {
   exhibition: Exhibition.Exhibition;
   session: Exhibition.Session;
-  ticket: Exhibition.TicketCategory;
+  sessions: Exhibition.Session[];
+  ticketByName: Record<string, Exhibition.TicketCategory>;
 };
 
 type OrderContext = {
@@ -59,12 +63,6 @@ type ErrorContext = {
   lastError: unknown;
 };
 
-type PreparedExhibitionContext = {
-  exhibition: Exhibition.Exhibition;
-  session: Exhibition.Session;
-  ticket: Exhibition.TicketCategory;
-};
-
 type RoleName = 'ADMIN' | 'OPERATOR';
 
 type ServiceWithPool = {
@@ -74,6 +72,7 @@ type ServiceWithPool = {
 interface DefaultUserContext {
   adminToken: string;
   userToken: string;
+  userProfile: User.Profile;
 }
 
 interface FeatureContext extends DefaultUserContext, ExhibitionContext {
@@ -84,22 +83,34 @@ interface FeatureContext extends DefaultUserContext, ExhibitionContext {
   usersByName: Record<string, { token: string; profile: User.Profile }>;
 }
 
+function getSessionByDate(
+  sessions: Exhibition.Session[],
+  dateLabel: string,
+): Exhibition.Session {
+  const targetDate = Text2Date(dateLabel);
+  const session = sessions.find((item) => isSameDay(item.session_date, targetDate));
+  expect(session, `Session for ${dateLabel} (${targetDate}) not found`).toBeTruthy();
+  return session!;
+}
+
 async function createOrderForCurrentUser(
   featureContext: FeatureContext,
-  quantity: number
+  sessionDate: string,
+  ticketName: string,
+  quantity: number,
 ): Promise<Order.OrderWithItems> {
-  const { exhibition, session, ticket, userToken, fixtures } = featureContext;
+  const { exhibition, sessions, ticketByName, userToken, fixtures } = featureContext;
   const { apiServer } = fixtures.values;
-
-  const order = await createOrderByApi(
+  const session = getSessionByDate(sessions, sessionDate);
+  const ticket = ticketByName[ticketName];
+  expect(ticket, `Ticket '${ticketName}' not found`).toBeTruthy();
+  return createOrderByApi(
     apiServer,
     exhibition.id,
     session.id,
     [{ ticket_category_id: ticket.id, quantity }],
     userToken,
   );
-
-  return order;
 }
 
 async function performRedeem(
@@ -117,6 +128,15 @@ async function performRedeem(
   );
 
   return redeemed;
+}
+
+async function payOrderForCurrentUser(
+  featureContext: FeatureContext,
+  order: Order.OrderWithItems
+) {
+  const { userProfile, userToken, fixtures } = featureContext
+  const { apiServer } = fixtures.values;
+  await markOrderAsPaidForTest(apiServer, userToken, order, userProfile.openid!);
 }
 
 describeFeature(feature, ({
@@ -141,55 +161,6 @@ describeFeature(feature, ({
   AfterAllScenarios(async () => {
     await featureContext.fixtures.close();
   });
-
-  async function prepareExhibitionData(
-    exhibitionName: string,
-    sessionDateInput: string,
-    ticketName: string,
-    admittance: number,
-    inventory: number,
-    refundPolicy: 'NON_REFUNDABLE' | 'REFUNDABLE_48H_BEFORE' = 'NON_REFUNDABLE',
-  ): Promise<PreparedExhibitionContext> {
-    const { apiServer } = featureContext.fixtures.values;
-    const sessionDate = toSessionDateLabel(sessionDateInput);
-
-    const prepared = await prepareExhibitionSessionTicket(
-      apiServer,
-      featureContext.adminToken,
-      {
-        exhibitionOverrides: {
-          name: `${exhibitionName}_${Date.now()}`,
-          description: 'redeem test exhibition',
-          start_date: sessionDate,
-          end_date: sessionDate,
-        },
-        ticketOverrides: {
-          name: ticketName,
-          valid_duration_days: 1,
-          refund_policy: refundPolicy,
-          admittance,
-        },
-        maxInventory: inventory,
-      },
-    );
-
-    return prepared;
-  }
-
-
-  async function payOrderForCurrentUser(context: OrderContext) {
-    const { apiServer } = featureContext.fixtures.values;
-    const user = featureContext.usersByName.Alice;
-    expect(user).toBeTruthy();
-    expect(user.profile.openid).toBeTruthy();
-
-    await markOrderAsPaidForTest(
-      apiServer,
-      featureContext.userToken,
-      context.order,
-      user.profile.openid!,
-    );
-  }
 
   async function fetchOrderRedemption(order: Order.OrderWithItems): Promise<Redeem.RedemptionCodeWithOrder> {
     const { apiServer } = featureContext.fixtures.values;
@@ -333,53 +304,53 @@ describeFeature(feature, ({
       const { apiServer } = featureContext.fixtures.values;
       const token = await registerUser(apiServer, `${userName}_${Date.now()}`);
       const profile = await getUserProfile(apiServer, token);
-
-      if (userName === 'Alice') {
-        featureContext.userToken = token;
-      }
-      featureContext.usersByName = {
-        ...featureContext.usersByName,
-        [userName]: { token, profile },
-      };
+      featureContext.userToken = token;
+      featureContext.userProfile = profile;
+      featureContext.usersByName[userName] = { token, profile };
     });
 
     Given('默认核销展览活动已创建，开始时间为 {string}，结束时间为 {string}', async (_ctx, startDate: string, endDate: string) => {
-      const prepared = await prepareExhibitionData('CR7', startDate, 'early_bird', 1, 2);
-      featureContext.exhibition = prepared.exhibition;
-      featureContext.session = prepared.session;
-      featureContext.ticket = prepared.ticket;
-      expect(featureContext.ticket?.name).toBe('early_bird');
-      expect(toSessionDateLabel(startDate)).toBe(toSessionDateLabel(endDate));
+      const { fixtures, adminToken } = featureContext;
+      const { apiServer } = fixtures.values;
+      featureContext.exhibition = await prepareExhibition(apiServer, adminToken, {
+        name: `CR7_${Date.now()}`,
+        description: 'redeem test exhibition',
+        start_date: toDateLabel(startDate),
+        end_date: toDateLabel(endDate),
+      });
+      featureContext.sessions = await getSessions(apiServer, featureContext.exhibition.id, adminToken);
+      featureContext.session = featureContext.sessions[0];
+      featureContext.ticketByName = {};
+      expect(featureContext.sessions.length).toBeGreaterThan(0);
     });
 
     Given('展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天', async (_ctx, ticketName: string, admittance: number) => {
-      expect(featureContext.ticket).toBeTruthy();
-      expect(featureContext.ticket?.name).toBe(ticketName);
-      expect(featureContext.ticket?.admittance).toBe(admittance);
-      expect(featureContext.ticket?.valid_duration_days).toBe(1);
+      const { fixtures, adminToken, exhibition, ticketByName } = featureContext;
+      const { apiServer } = fixtures.values;
+      const ticket = await prepareTicketCategory(apiServer, adminToken, exhibition.id, {
+        name: ticketName,
+        admittance,
+        valid_duration_days: 1,
+        refund_policy: 'NON_REFUNDABLE',
+      });
+      featureContext.ticketByName = { ...ticketByName, [ticketName]: ticket };
     });
 
     Given('{string} 库存为 {int}', async (_ctx, ticketName: string, maxInventory: number) => {
-      expect(featureContext.ticket).toBeTruthy();
-      expect(featureContext.ticket?.name).toBe(ticketName);
+      const ticket = featureContext.ticketByName[ticketName];
+      expect(ticket, `Ticket '${ticketName}' not found`).toBeTruthy();
       const { apiServer } = featureContext.fixtures.values;
-      const { adminToken, exhibition, ticket } = featureContext;
-      await expect(updateTicketCategoryMaxInventory(
-        apiServer,
-        adminToken,
-        exhibition.id,
-        ticket.id,
-        maxInventory,
-      )).resolves.not.toThrow();
+      const { adminToken, exhibition } = featureContext;
+      await updateTicketCategoryMaxInventory(apiServer, adminToken, exhibition.id, ticket.id, maxInventory);
     });  });
 
   Scenario(
     '一个完成支付的订单拥有一个核销码',
     (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
       const { Given, And, When, Then, context } = s;
-      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
-        context.order = await createOrderForCurrentUser(featureContext, quantity);
-        await payOrderForCurrentUser(context);
+      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
+        context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
+        await payOrderForCurrentUser(featureContext, context.order);
       });
 
       Given('用户完成支付', async () => {
@@ -458,9 +429,9 @@ describeFeature(feature, ({
     '使用核销码完成订单核销',
     (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
       const { Given, And, When, Then, context } = s;
-      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
-        context.order = await createOrderForCurrentUser(featureContext, quantity);
-        await payOrderForCurrentUser(context);
+      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
+        context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
+        await payOrderForCurrentUser(featureContext, context.order);
         context.redemption = await fetchOrderRedemption(context.order);
       });
 
@@ -507,8 +478,8 @@ describeFeature(feature, ({
       const { Given, And, When, Then, context } = s;
 
 
-      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
-        context.order = await createOrderForCurrentUser(featureContext, quantity);
+      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
+        context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
       });
 
       When('用户查询订单核销信息', async () => {
@@ -533,9 +504,9 @@ describeFeature(feature, ({
     '已过期订单的核销码不可用',
     (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
       const { Given, And, When, Then, context } = s;
-      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
-        context.order = await createOrderForCurrentUser(featureContext, quantity);
-        await payOrderForCurrentUser(context);
+      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
+        context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
+        await payOrderForCurrentUser(featureContext, context.order);
         context.redemption = await fetchOrderRedemption(context.order);
       });
 
@@ -577,9 +548,9 @@ describeFeature(feature, ({
     '已核销订单的核销码不可重复使用',
     (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
       const { Given, And, When, Then, context } = s;
-      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
-        context.order = await createOrderForCurrentUser(featureContext, quantity);
-        await payOrderForCurrentUser(context);
+      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
+        context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
+        await payOrderForCurrentUser(featureContext, context.order);
         context.redemption = await fetchOrderRedemption(context.order);
       });
 
@@ -633,9 +604,9 @@ describeFeature(feature, ({
     '只有运营人员才能核销',
     (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
       const { Given, And, When, Then, context } = s;
-      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
-        context.order = await createOrderForCurrentUser(featureContext, quantity);
-        await payOrderForCurrentUser(context);
+      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
+        context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
+        await payOrderForCurrentUser(featureContext, context.order);
         context.redemption = await fetchOrderRedemption(context.order);
       });
 
@@ -711,9 +682,9 @@ describeFeature(feature, ({
     '当天场次的核销码从今天零点起有效',
     (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
       const { Given, And, When, Then, context } = s;
-      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number) => {
-        context.order = await createOrderForCurrentUser(featureContext, quantity);
-        await payOrderForCurrentUser(context);
+      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
+        context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
+        await payOrderForCurrentUser(featureContext, context.order);
         context.redemption = await fetchOrderRedemption(context.order);
       });
 
@@ -752,26 +723,33 @@ describeFeature(feature, ({
     (s: StepTest<ExhibitionContext & OrderContext & RedemptionContext & ErrorContext>) => {
       const { Given, When, Then, And, context } = s;
 
-      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDateLabel: string, ticketName: string) => {
-        const prepared = await prepareExhibitionData(
-          'CR7',
-          sessionDateLabel,
-          ticketName,
-          1,
-          10,
-          'REFUNDABLE_48H_BEFORE',
-        );
-        context.exhibition = prepared.exhibition;
-        context.session = prepared.session;
-        context.ticket = prepared.ticket;
-        featureContext.exhibition = prepared.exhibition;
-        featureContext.session = prepared.session;
-        featureContext.ticket = prepared.ticket;
-        context.order = await createOrderForCurrentUser(featureContext, quantity);
+      Given('该展会追加了一个 {string} 票种, 退票策略是 {string}', async (_ctx, ticketName: string, policyLabel: string) => {
+        const policy = policyLabel.includes('48') ? 'REFUNDABLE_48H_BEFORE' : 'NON_REFUNDABLE';
+        const { fixtures, adminToken, exhibition, ticketByName } = featureContext;
+        const { apiServer } = fixtures.values;
+        const ticket = await prepareTicketCategory(apiServer, adminToken, exhibition.id, {
+          name: ticketName,
+          refund_policy: policy,
+          admittance: 1,
+          valid_duration_days: 1,
+        });
+        featureContext.ticketByName = { ...ticketByName, [ticketName]: ticket };
+      });
+
+      And('{string} 库存为 {int}', async (_ctx, ticketName: string, maxInventory: number) => {
+        const ticket = featureContext.ticketByName[ticketName];
+        expect(ticket, `Ticket '${ticketName}' not found`).toBeTruthy();
+        const { fixtures, adminToken, exhibition } = featureContext;
+        const { apiServer } = fixtures.values;
+        await updateTicketCategoryMaxInventory(apiServer, adminToken, exhibition.id, ticket.id, maxInventory);
+      });
+
+      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
+        context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
       });
 
       When('用户完成支付', async () => {
-        await payOrderForCurrentUser(context);
+        await payOrderForCurrentUser(featureContext, context.order);
         context.redemption = await fetchOrderRedemption(context.order);
       });
 
@@ -824,28 +802,35 @@ describeFeature(feature, ({
   Scenario(
     '已经处于退款流程的订单不能被核销',
     (s: StepTest<ExhibitionContext & OrderContext & RedemptionContext & RefundContext & ErrorContext>) => {
-      const { Given, When, Then, context } = s;
+      const { Given, And, When, Then, context } = s;
 
-      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDateLabel: string, ticketName: string) => {
-        const prepared = await prepareExhibitionData(
-          'CR7',
-          sessionDateLabel,
-          ticketName,
-          1,
-          10,
-          'REFUNDABLE_48H_BEFORE',
-        );
-        context.exhibition = prepared.exhibition;
-        context.session = prepared.session;
-        context.ticket = prepared.ticket;
-        featureContext.exhibition = prepared.exhibition;
-        featureContext.session = prepared.session;
-        featureContext.ticket = prepared.ticket;
-        context.order = await createOrderForCurrentUser(featureContext, quantity);
+      Given('该展会追加了一个 {string} 票种, 退票策略是 {string}', async (_ctx, ticketName: string, policyLabel: string) => {
+        const policy = policyLabel.includes('48') ? 'REFUNDABLE_48H_BEFORE' : 'NON_REFUNDABLE';
+        const { fixtures, adminToken, exhibition, ticketByName } = featureContext;
+        const { apiServer } = fixtures.values;
+        const ticket = await prepareTicketCategory(apiServer, adminToken, exhibition.id, {
+          name: ticketName,
+          refund_policy: policy,
+          admittance: 1,
+          valid_duration_days: 1,
+        });
+        featureContext.ticketByName = { ...ticketByName, [ticketName]: ticket };
+      });
+
+      And('{string} 库存为 {int}', async (_ctx, ticketName: string, maxInventory: number) => {
+        const ticket = featureContext.ticketByName[ticketName];
+        expect(ticket, `Ticket '${ticketName}' not found`).toBeTruthy();
+        const { fixtures, adminToken, exhibition } = featureContext;
+        const { apiServer } = fixtures.values;
+        await updateTicketCategoryMaxInventory(apiServer, adminToken, exhibition.id, ticket.id, maxInventory);
+      });
+
+      Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
+        context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
       });
 
       When('用户完成支付', async () => {
-        await payOrderForCurrentUser(context);
+        await payOrderForCurrentUser(featureContext, context.order);
         context.redemption = await fetchOrderRedemption(context.order);
       });
 
