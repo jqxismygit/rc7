@@ -14,7 +14,7 @@ import { FixturesResult, useFixtures } from './lib/fixtures.js';
 import { assertAPIError } from './lib/api.js';
 import { Text2Date, toDateLabel } from './lib/relative-date.js';
 import { services_fixtures } from './fixtures/services.js';
-import { prepareAdminUser, registerUser, getUserProfile } from './fixtures/user.js';
+import { registerUser, getUserProfile, prepareAdminToken } from './fixtures/user.js';
 import {
   getSessions,
   prepareExhibition,
@@ -70,12 +70,13 @@ interface DefaultUserContext {
   adminToken: string;
   userToken: string;
   userProfile: User.Profile;
+  operatorToken: string;
+  operatorProfile: User.Profile;
+  usersByName: Record<string, { token: string; profile: User.Profile }>;
 }
 
 interface FeatureContext extends DefaultUserContext, ExhibitionContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer' | 'broker'>;
-  adminProfile: User.Profile;
-  usersByName: Record<string, { token: string; profile: User.Profile }>;
 }
 
 function getSessionByDate(
@@ -175,12 +176,10 @@ describeFeature(feature, ({
     await featureContext.fixtures.close();
   });
 
-  Background(({ Given }) => {
+  Background(({ Given, And }) => {
     Given('系统管理员已经创建并登录', async () => {
       const { apiServer } = featureContext.fixtures.values;
-      const { token: adminToken, profile: adminProfile } = await prepareAdminUser(apiServer, schema);
-      featureContext.adminToken = adminToken;
-      featureContext.adminProfile = adminProfile;
+      featureContext.adminToken = await prepareAdminToken(apiServer, schema);;
     });
 
     Given('用户 {string} 已注册并登录', async (_ctx, userName: string) => {
@@ -190,6 +189,27 @@ describeFeature(feature, ({
       featureContext.userToken = token;
       featureContext.userProfile = profile;
       featureContext.usersByName[userName] = { token, profile };
+    });
+
+    Given('{string} 已注册并登录', async (_ctx, userName: string) => {
+      const { apiServer } = featureContext.fixtures.values;
+      const token = await registerUser(apiServer, `${userName}_${Date.now()}`);
+      const profile = await getUserProfile(apiServer, token);
+      featureContext.operatorToken = token;
+      featureContext.operatorProfile = profile;
+      featureContext.usersByName[userName] = { token, profile };
+    });
+
+    And('{string} 被授予 {string} 角色', async (_ctx, userName: string, roleLabel: string) => {
+      expect(roleLabel).toBe('运营');
+      const user = featureContext.usersByName[userName];
+      expect(user).toBeTruthy();
+      await grantRoleToUserAPI(
+        featureContext.fixtures.values.apiServer,
+        featureContext.adminToken,
+        user.profile.id,
+        'OPERATOR',
+      );
     });
 
     Given('默认核销展览活动已创建，开始时间为 {string}，结束时间为 {string}', async (_ctx, startDate: string, endDate: string) => {
@@ -224,7 +244,8 @@ describeFeature(feature, ({
       const { apiServer } = featureContext.fixtures.values;
       const { adminToken, exhibition } = featureContext;
       await updateTicketCategoryMaxInventory(apiServer, adminToken, exhibition.id, ticket.id, maxInventory);
-    });  });
+    });
+  });
 
   Scenario(
     '一个完成支付的订单拥有一个核销码',
@@ -334,9 +355,9 @@ describeFeature(feature, ({
         expect(redemption.status).toBe('UNREDEEMED');
       });
 
-      When('"管理员" 将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
+      When('运营人员将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
         expect(featureContext.usersByName[userName]).toBeTruthy();
-        const token = featureContext.adminToken;
+        const token = featureContext.operatorToken;
 
         context.redemption = await performRedeem(featureContext, context.redemption, token);
       });
@@ -355,8 +376,8 @@ describeFeature(feature, ({
         expect(context.redemption.redeemed_at).toBeTruthy();
       });
 
-      And('核销码的核销人为 "管理员"', () => {
-        const operatorId = featureContext.adminProfile.id;
+      And('核销码的核销人为运营人员', () => {
+        const operatorId = featureContext.operatorProfile.id;
         expect(context.redemption.redeemed_by).toBe(operatorId);
       });
     },
@@ -426,9 +447,9 @@ describeFeature(feature, ({
         await expireRedemptionForOrder(featureContext, context.order.id);
       });
 
-      When('"管理员" 将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
+      When('运营人员将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
         expect(featureContext.usersByName[userName]).toBeTruthy();
-        const token = featureContext.adminToken;
+        const token = featureContext.operatorToken;
 
         try {
           context.redemption = await performRedeem(featureContext, context.redemption, token);
@@ -475,9 +496,9 @@ describeFeature(feature, ({
         expect(redemption.status).toBe('UNREDEEMED');
       });
 
-      When('"管理员" 将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
+      When('运营人员将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
         expect(featureContext.usersByName[userName]).toBeTruthy();
-        const token = featureContext.adminToken;
+        const token = featureContext.operatorToken;
 
         try {
           context.redemption = await performRedeem(featureContext, context.redemption, token);
@@ -491,9 +512,9 @@ describeFeature(feature, ({
         expect(context.redemption.status).toBe('REDEEMED');
       });
 
-      When('"管理员" 再次将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
+      When('运营人员再次将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
         expect(featureContext.usersByName[userName]).toBeTruthy();
-        const token = featureContext.adminToken;
+        const token = featureContext.operatorToken;
 
         try {
           await performRedeem(featureContext, context.redemption, token);
@@ -540,29 +561,6 @@ describeFeature(feature, ({
         expect(redemption.status).toBe('UNREDEEMED');
       });
 
-      Given('用户 {string} 已注册并登录', async (_ctx, userName: string) => {
-        const { apiServer } = featureContext.fixtures.values;
-        const token = await registerUser(apiServer, `${userName}_${Date.now()}`);
-        const profile = await getUserProfile(apiServer, token);
-
-        featureContext.usersByName = {
-          ...featureContext.usersByName,
-          [userName]: { token, profile },
-        };
-      });
-
-      And('用户 {string} 被授予 {string} 角色', async (_ctx, userName: string, roleLabel: string) => {
-        expect(roleLabel).toBe('运营');
-        const user = featureContext.usersByName[userName];
-        expect(user).toBeTruthy();
-        await grantRoleToUserAPI(
-          featureContext.fixtures.values.apiServer,
-          featureContext.adminToken,
-          user.profile.id,
-          'OPERATOR',
-        );
-      });
-
       When('用户 "Alice" 尝试核销用户 {string} 的订单核销码', async (_ctx, userName: string) => {
         expect(featureContext.usersByName[userName]).toBeTruthy();
         const token = featureContext.usersByName.Alice.token;
@@ -587,11 +585,9 @@ describeFeature(feature, ({
         expect(body.type).toBe(errorType);
       });
 
-      When('"运营人员" 将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
+      When('运营人员将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
         expect(featureContext.usersByName[userName]).toBeTruthy();
-        const operatorUser = featureContext.usersByName.Bob;
-        expect(operatorUser).toBeTruthy();
-        const token = operatorUser.token;
+        const token = featureContext.operatorToken;
 
         context.lastError = null;
         try {
@@ -607,9 +603,7 @@ describeFeature(feature, ({
       });
 
       And('核销码的核销人为 "运营人员"', () => {
-        const operatorUser = featureContext.usersByName.Bob;
-        expect(operatorUser).toBeTruthy();
-        const operatorId = operatorUser.profile.id;
+        const operatorId = featureContext.operatorProfile.id;
         expect(context.redemption.redeemed_by).toBe(operatorId);
       });
     },
@@ -650,8 +644,8 @@ describeFeature(feature, ({
         expect(validFrom.getTime()).toBe(todayMidnight.getTime());
       });
 
-      And('"管理员" 将用户 "Alice" 的订单核销码立即扫码核销成功', async () => {
-        const token = featureContext.adminToken;
+      And('运营人员将用户 "Alice" 的订单核销码立即扫码核销成功', async () => {
+        const token = featureContext.operatorToken;
         await expect(performRedeem(featureContext, context.redemption, token)).resolves.to.toMatchObject({
           status: 'REDEEMED',
         });
@@ -704,7 +698,7 @@ describeFeature(feature, ({
       });
 
       Given('订单已被核销', async () => {
-        const token = featureContext.adminToken;
+        const token = featureContext.operatorToken;
         context.redemption = await performRedeem(featureContext, context.redemption, token);
       });
 
@@ -811,8 +805,8 @@ describeFeature(feature, ({
         expect(order.status).toBe('REFUND_REQUESTED');
       });
 
-      When('"管理员"扫码核销用户的订单核销码', async () => {
-        const token = featureContext.adminToken;
+      When('运营人员扫码核销用户的订单核销码', async () => {
+        const token = featureContext.operatorToken;
         try {
           await performRedeem(featureContext, context.redemption, token);
         } catch (error) {
@@ -855,8 +849,8 @@ describeFeature(feature, ({
         expect(order.status).toBe('REFUND_PROCESSING');
       });
 
-      When('"管理员"再次扫码核销用户的订单核销码', async () => {
-        const token = featureContext.adminToken;
+      When('运营人员再次扫码核销用户的订单核销码', async () => {
+        const token = featureContext.operatorToken;
         try {
           await performRedeem(featureContext, context.redemption, token);
         } catch (error) {
@@ -880,8 +874,8 @@ describeFeature(feature, ({
         expect(order.status).toBe('REFUNDED');
       });
 
-      When('"管理员"在退款成功后再次扫码核销用户的订单核销码', async () => {
-        const token = featureContext.adminToken;
+      When('运营人员在退款成功后再次扫码核销用户的订单核销码', async () => {
+        const token = featureContext.operatorToken;
         try {
           await performRedeem(featureContext, context.redemption, token);
         } catch (error) {
