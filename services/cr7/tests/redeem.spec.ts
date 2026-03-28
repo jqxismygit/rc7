@@ -62,8 +62,6 @@ type ErrorContext = {
   lastError: unknown;
 };
 
-type RoleName = 'ADMIN' | 'OPERATOR';
-
 type ServiceWithPool = {
   pool: Pick<Pool, 'query'>;
 };
@@ -77,8 +75,6 @@ interface DefaultUserContext {
 interface FeatureContext extends DefaultUserContext, ExhibitionContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer' | 'broker'>;
   adminProfile: User.Profile;
-  operatorToken?: string;
-  operatorProfile?: User.Profile;
   usersByName: Record<string, { token: string; profile: User.Profile }>;
 }
 
@@ -138,6 +134,24 @@ async function payOrderForCurrentUser(
   await markOrderAsPaidForTest(apiServer, userToken, order, userProfile.openid!);
 }
 
+async function expireRedemptionForOrder(
+  featureContext: FeatureContext,
+  orderId: string,
+): Promise<void> {
+  const broker = featureContext.fixtures.values.broker as ServiceBroker;
+  const cr7Service = broker.getLocalService('cr7') as unknown as ServiceWithPool;
+  expect(cr7Service).toBeTruthy();
+  // Keep valid_until > valid_from while making the code effectively expired now.
+  await cr7Service.pool.query(
+    `UPDATE ${schema}.exhibit_redemption_codes
+    SET
+      valid_until = valid_from + INTERVAL '1 second',
+      updated_at = NOW()
+    WHERE order_id = $1`,
+    [orderId],
+  );
+}
+
 describeFeature(feature, ({
   BeforeAllScenarios,
   AfterAllScenarios,
@@ -160,136 +174,6 @@ describeFeature(feature, ({
   AfterAllScenarios(async () => {
     await featureContext.fixtures.close();
   });
-
-  async function fetchOrderRedemption(order: Order.OrderWithItems): Promise<Redeem.RedemptionCodeWithOrder> {
-    const { apiServer } = featureContext.fixtures.values;
-    const redemption = await getOrderRedemption(
-      apiServer,
-      order.id,
-      featureContext.userToken,
-    );
-
-    return redemption;
-  }
-
-  function assertLastAPIError(
-    context: ErrorContext,
-    options: {
-      status?: number;
-      method?: string;
-      messageIncludes?: string;
-    } = {},
-  ) {
-    expect(context.lastError).toBeTruthy();
-    return assertAPIError(context.lastError, options);
-  }
-
-  function assertLastAPIErrorType(
-    context: ErrorContext,
-    expectedType: string,
-  ) {
-    const error = assertLastAPIError(context);
-    expect(error.body).toBeTypeOf('object');
-    const body = error.body as { type?: string };
-    expect(body.type).toBe(expectedType);
-  }
-
-  async function sendRefundStatusNotification(
-    context: RefundContext,
-    status: 'PROCESSING' | 'SUCCESS',
-  ) {
-    await sendMockRefundCallback(
-      featureContext.fixtures.values.apiServer,
-      context.refundRecord,
-      status,
-      {
-        successTime: status === 'SUCCESS' ? new Date().toISOString() : undefined,
-      },
-    );
-  }
-
-  async function refreshOrder(context: OrderContext) {
-    return getOrder(
-      featureContext.fixtures.values.apiServer,
-      context.order.id,
-      featureContext.userToken,
-    );
-  }
-
-  function getCr7PoolForTestSupport() {
-    const broker = featureContext.fixtures.values.broker as ServiceBroker;
-    const cr7Service = broker.getLocalService('cr7') as unknown as ServiceWithPool;
-    expect(cr7Service).toBeTruthy();
-    return cr7Service.pool;
-  }
-
-  function resolveOperatorToken(operator: string) {
-    if (operator === '管理员') {
-      return featureContext.adminToken;
-    }
-
-    if (operator === '运营人员') {
-      expect(featureContext.operatorToken).toBeTruthy();
-      return featureContext.operatorToken!;
-    }
-
-    const user = featureContext.usersByName[operator];
-    expect(user).toBeTruthy();
-    return user.token;
-  }
-
-  function resolveOperatorProfileId(operator: string) {
-    if (operator === '管理员') {
-      return featureContext.adminProfile.id;
-    }
-
-    if (operator === '运营人员') {
-      expect(featureContext.operatorProfile).toBeTruthy();
-      return featureContext.operatorProfile!.id;
-    }
-
-    const user = featureContext.usersByName[operator];
-    expect(user).toBeTruthy();
-    return user.profile.id;
-  }
-
-  async function grantRoleToUser(
-    userName: string,
-    roleName: RoleName,
-  ) {
-    const user = featureContext.usersByName[userName];
-    expect(user).toBeTruthy();
-
-    const { apiServer } = featureContext.fixtures.values;
-    const result = await grantRoleToUserAPI(
-      apiServer,
-      featureContext.adminToken,
-      user.profile.id,
-      roleName,
-    );
-
-    if (roleName === 'OPERATOR') {
-      featureContext.operatorToken = user.token;
-      featureContext.operatorProfile = user.profile;
-    }
-
-    return result;
-  }
-
-  async function expireCurrentRedemption(context: OrderContext) {
-    const pool = getCr7PoolForTestSupport();
-    // Set valid_until to valid_from + 1 second: satisfies the DB constraint (valid_until > valid_from)
-    // and makes the code immediately expired since now >> valid_from + 1s
-    await pool.query(
-      `UPDATE ${schema}.exhibit_redemption_codes
-      SET
-        valid_until = valid_from + INTERVAL '1 second',
-        updated_at = NOW()
-      WHERE order_id = $1`,
-      [context.order.id],
-    );
-  }
-
 
   Background(({ Given }) => {
     Given('系统管理员已经创建并登录', async () => {
@@ -356,7 +240,11 @@ describeFeature(feature, ({
       });
 
       When('用户查询订单核销信息', async () => {
-        context.redemption = await fetchOrderRedemption(context.order);
+        context.redemption = await getOrderRedemption(
+          featureContext.fixtures.values.apiServer,
+          context.order.id,
+          featureContext.userToken,
+        );
       });
 
       Then('订单详情中包含一个核销码', () => {
@@ -430,7 +318,11 @@ describeFeature(feature, ({
       Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
         context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
         await payOrderForCurrentUser(featureContext, context.order);
-        context.redemption = await fetchOrderRedemption(context.order);
+        context.redemption = await getOrderRedemption(
+          featureContext.fixtures.values.apiServer,
+          context.order.id,
+          featureContext.userToken,
+        );
       });
 
       When('用户完成支付', async () => {
@@ -442,9 +334,9 @@ describeFeature(feature, ({
         expect(redemption.status).toBe('UNREDEEMED');
       });
 
-      When('{string} 将用户 {string} 的订单核销码扫码核销', async (_ctx, operator: string, userName: string) => {
+      When('"管理员" 将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
         expect(featureContext.usersByName[userName]).toBeTruthy();
-        const token = resolveOperatorToken(operator);
+        const token = featureContext.adminToken;
 
         context.redemption = await performRedeem(featureContext, context.redemption, token);
       });
@@ -463,8 +355,8 @@ describeFeature(feature, ({
         expect(context.redemption.redeemed_at).toBeTruthy();
       });
 
-      And('核销码的核销人为 {string}', (_ctx, operator: string) => {
-        const operatorId = resolveOperatorProfileId(operator);
+      And('核销码的核销人为 "管理员"', () => {
+        const operatorId = featureContext.adminProfile.id;
         expect(context.redemption.redeemed_by).toBe(operatorId);
       });
     },
@@ -482,18 +374,27 @@ describeFeature(feature, ({
 
       When('用户查询订单核销信息', async () => {
         try {
-          await fetchOrderRedemption(context.order);
+          await getOrderRedemption(
+            featureContext.fixtures.values.apiServer,
+            context.order.id,
+            featureContext.userToken,
+          );
         } catch (error) {
           context.lastError = error;
         }
       });
 
       Then('操作失败，状态码为 {int}', (_ctx, statusCode: number) => {
-        assertLastAPIError(context, { status: statusCode, method: 'GET' });
+        expect(context.lastError).toBeTruthy();
+        assertAPIError(context.lastError, { status: statusCode, method: 'GET' });
       });
 
       And('错误类型为 {string}', (_ctx, errorType: string) => {
-        assertLastAPIErrorType(context, errorType);
+        expect(context.lastError).toBeTruthy();
+        const error = assertAPIError(context.lastError, {});
+        expect(error.body).toBeTypeOf('object');
+        const body = error.body as { type?: string };
+        expect(body.type).toBe(errorType);
       });
     },
   );
@@ -505,7 +406,11 @@ describeFeature(feature, ({
       Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
         context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
         await payOrderForCurrentUser(featureContext, context.order);
-        context.redemption = await fetchOrderRedemption(context.order);
+        context.redemption = await getOrderRedemption(
+          featureContext.fixtures.values.apiServer,
+          context.order.id,
+          featureContext.userToken,
+        );
       });
 
       When('用户完成支付', async () => {
@@ -518,12 +423,12 @@ describeFeature(feature, ({
       });
 
       Given('核销码已过期', async () => {
-        await expireCurrentRedemption(context);
+        await expireRedemptionForOrder(featureContext, context.order.id);
       });
 
-      When('{string} 将用户 {string} 的订单核销码扫码核销', async (_ctx, operator: string, userName: string) => {
+      When('"管理员" 将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
         expect(featureContext.usersByName[userName]).toBeTruthy();
-        const token = resolveOperatorToken(operator);
+        const token = featureContext.adminToken;
 
         try {
           context.redemption = await performRedeem(featureContext, context.redemption, token);
@@ -533,11 +438,16 @@ describeFeature(feature, ({
       });
 
       Then('操作失败，状态码为 {int}', (_ctx, statusCode: number) => {
-        assertLastAPIError(context, { status: statusCode, method: 'POST' });
+        expect(context.lastError).toBeTruthy();
+        assertAPIError(context.lastError, { status: statusCode, method: 'POST' });
       });
 
       And('错误类型为 {string}', (_ctx, errorType: string) => {
-        assertLastAPIErrorType(context, errorType);
+        expect(context.lastError).toBeTruthy();
+        const error = assertAPIError(context.lastError, {});
+        expect(error.body).toBeTypeOf('object');
+        const body = error.body as { type?: string };
+        expect(body.type).toBe(errorType);
       });
     },
   );
@@ -549,7 +459,11 @@ describeFeature(feature, ({
       Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
         context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
         await payOrderForCurrentUser(featureContext, context.order);
-        context.redemption = await fetchOrderRedemption(context.order);
+        context.redemption = await getOrderRedemption(
+          featureContext.fixtures.values.apiServer,
+          context.order.id,
+          featureContext.userToken,
+        );
       });
 
       When('用户完成支付', async () => {
@@ -561,9 +475,9 @@ describeFeature(feature, ({
         expect(redemption.status).toBe('UNREDEEMED');
       });
 
-      When('{string} 将用户 {string} 的订单核销码扫码核销', async (_ctx, operator: string, userName: string) => {
+      When('"管理员" 将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
         expect(featureContext.usersByName[userName]).toBeTruthy();
-        const token = resolveOperatorToken(operator);
+        const token = featureContext.adminToken;
 
         try {
           context.redemption = await performRedeem(featureContext, context.redemption, token);
@@ -577,9 +491,9 @@ describeFeature(feature, ({
         expect(context.redemption.status).toBe('REDEEMED');
       });
 
-      When('{string} 再次将用户 {string} 的订单核销码扫码核销', async (_ctx, operator: string, userName: string) => {
+      When('"管理员" 再次将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
         expect(featureContext.usersByName[userName]).toBeTruthy();
-        const token = resolveOperatorToken(operator);
+        const token = featureContext.adminToken;
 
         try {
           await performRedeem(featureContext, context.redemption, token);
@@ -589,11 +503,16 @@ describeFeature(feature, ({
       });
 
       Then('操作失败，状态码为 {int}', (_ctx, statusCode: number) => {
-        assertLastAPIError(context, { status: statusCode, method: 'POST' });
+        expect(context.lastError).toBeTruthy();
+        assertAPIError(context.lastError, { status: statusCode, method: 'POST' });
       });
 
       And('错误类型为 {string}', (_ctx, errorType: string) => {
-        assertLastAPIErrorType(context, errorType);
+        expect(context.lastError).toBeTruthy();
+        const error = assertAPIError(context.lastError, {});
+        expect(error.body).toBeTypeOf('object');
+        const body = error.body as { type?: string };
+        expect(body.type).toBe(errorType);
       });
     },
   );
@@ -605,7 +524,11 @@ describeFeature(feature, ({
       Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
         context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
         await payOrderForCurrentUser(featureContext, context.order);
-        context.redemption = await fetchOrderRedemption(context.order);
+        context.redemption = await getOrderRedemption(
+          featureContext.fixtures.values.apiServer,
+          context.order.id,
+          featureContext.userToken,
+        );
       });
 
       When('用户完成支付', async () => {
@@ -630,12 +553,19 @@ describeFeature(feature, ({
 
       And('用户 {string} 被授予 {string} 角色', async (_ctx, userName: string, roleLabel: string) => {
         expect(roleLabel).toBe('运营');
-        await grantRoleToUser(userName, 'OPERATOR');
+        const user = featureContext.usersByName[userName];
+        expect(user).toBeTruthy();
+        await grantRoleToUserAPI(
+          featureContext.fixtures.values.apiServer,
+          featureContext.adminToken,
+          user.profile.id,
+          'OPERATOR',
+        );
       });
 
-      When('用户 {string} 尝试核销用户 {string} 的订单核销码', async (_ctx, actorName: string, userName: string) => {
+      When('用户 "Alice" 尝试核销用户 {string} 的订单核销码', async (_ctx, userName: string) => {
         expect(featureContext.usersByName[userName]).toBeTruthy();
-        const token = resolveOperatorToken(actorName);
+        const token = featureContext.usersByName.Alice.token;
 
         try {
           await performRedeem(featureContext, context.redemption, token);
@@ -645,16 +575,23 @@ describeFeature(feature, ({
       });
 
       Then('操作失败，状态码为 {int}', (_ctx, statusCode: number) => {
-        assertLastAPIError(context, { status: statusCode, method: 'POST' });
+        expect(context.lastError).toBeTruthy();
+        assertAPIError(context.lastError, { status: statusCode, method: 'POST' });
       });
 
       And('错误类型为 {string}', (_ctx, errorType: string) => {
-        assertLastAPIErrorType(context, errorType);
+        expect(context.lastError).toBeTruthy();
+        const error = assertAPIError(context.lastError, {});
+        expect(error.body).toBeTypeOf('object');
+        const body = error.body as { type?: string };
+        expect(body.type).toBe(errorType);
       });
 
-      When('{string} 将用户 {string} 的订单核销码扫码核销', async (_ctx, operator: string, userName: string) => {
+      When('"运营人员" 将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
         expect(featureContext.usersByName[userName]).toBeTruthy();
-        const token = resolveOperatorToken(operator);
+        const operatorUser = featureContext.usersByName.Bob;
+        expect(operatorUser).toBeTruthy();
+        const token = operatorUser.token;
 
         context.lastError = null;
         try {
@@ -669,8 +606,10 @@ describeFeature(feature, ({
         expect(context.redemption.status).toBe('REDEEMED');
       });
 
-      And('核销码的核销人为 {string}', (_ctx, operator: string) => {
-        const operatorId = resolveOperatorProfileId(operator);
+      And('核销码的核销人为 "运营人员"', () => {
+        const operatorUser = featureContext.usersByName.Bob;
+        expect(operatorUser).toBeTruthy();
+        const operatorId = operatorUser.profile.id;
         expect(context.redemption.redeemed_by).toBe(operatorId);
       });
     },
@@ -683,7 +622,11 @@ describeFeature(feature, ({
       Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
         context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
         await payOrderForCurrentUser(featureContext, context.order);
-        context.redemption = await fetchOrderRedemption(context.order);
+        context.redemption = await getOrderRedemption(
+          featureContext.fixtures.values.apiServer,
+          context.order.id,
+          featureContext.userToken,
+        );
       });
 
       When('用户完成支付', async () => {
@@ -708,7 +651,7 @@ describeFeature(feature, ({
       });
 
       And('"管理员" 将用户 "Alice" 的订单核销码立即扫码核销成功', async () => {
-        const token = resolveOperatorToken('管理员');
+        const token = featureContext.adminToken;
         await expect(performRedeem(featureContext, context.redemption, token)).resolves.to.toMatchObject({
           status: 'REDEEMED',
         });
@@ -748,7 +691,11 @@ describeFeature(feature, ({
 
       When('用户完成支付', async () => {
         await payOrderForCurrentUser(featureContext, context.order);
-        context.redemption = await fetchOrderRedemption(context.order);
+        context.redemption = await getOrderRedemption(
+          featureContext.fixtures.values.apiServer,
+          context.order.id,
+          featureContext.userToken,
+        );
       });
 
       Then('用户有一个有效的核销码', () => {
@@ -757,7 +704,7 @@ describeFeature(feature, ({
       });
 
       Given('订单已被核销', async () => {
-        const token = resolveOperatorToken('管理员');
+        const token = featureContext.adminToken;
         context.redemption = await performRedeem(featureContext, context.redemption, token);
       });
 
@@ -774,14 +721,16 @@ describeFeature(feature, ({
       });
 
       Then('操作失败，状态码为 {int}', (_ctx, statusCode: number) => {
-        assertLastAPIError(context, {
+        expect(context.lastError).toBeTruthy();
+        assertAPIError(context.lastError, {
           status: statusCode,
           method: 'POST',
         });
       });
 
       And('错误信息包含 {string}', (_ctx, message: string) => {
-        assertLastAPIError(context, {
+        expect(context.lastError).toBeTruthy();
+        assertAPIError(context.lastError, {
           status: 409,
           method: 'POST',
           messageIncludes: message,
@@ -789,7 +738,11 @@ describeFeature(feature, ({
       });
 
       And('订单状态仍然为 {string}', async (_ctx, statusLabel: string) => {
-        const order = await refreshOrder(context);
+        const order = await getOrder(
+          featureContext.fixtures.values.apiServer,
+          context.order.id,
+          featureContext.userToken,
+        );
         if (statusLabel === '已支付') {
           expect(order.status).toBe('PAID');
         }
@@ -829,7 +782,11 @@ describeFeature(feature, ({
 
       When('用户完成支付', async () => {
         await payOrderForCurrentUser(featureContext, context.order);
-        context.redemption = await fetchOrderRedemption(context.order);
+        context.redemption = await getOrderRedemption(
+          featureContext.fixtures.values.apiServer,
+          context.order.id,
+          featureContext.userToken,
+        );
       });
 
       Then('用户有一个有效的核销码', () => {
@@ -846,12 +803,16 @@ describeFeature(feature, ({
         );
         context.refundRecord = refundRecord;
 
-        const order = await refreshOrder(context);
+        const order = await getOrder(
+          featureContext.fixtures.values.apiServer,
+          context.order.id,
+          featureContext.userToken,
+        );
         expect(order.status).toBe('REFUND_REQUESTED');
       });
 
-      When('{string}扫码核销用户的订单核销码', async (_ctx, operator: string) => {
-        const token = resolveOperatorToken(operator);
+      When('"管理员"扫码核销用户的订单核销码', async () => {
+        const token = featureContext.adminToken;
         try {
           await performRedeem(featureContext, context.redemption, token);
         } catch (error) {
@@ -860,7 +821,8 @@ describeFeature(feature, ({
       });
 
       Then('核销失败，状态码为 {int}, 错误信息为 {string}', (_ctx, statusCode: number, message: string) => {
-        assertLastAPIError(context, {
+        expect(context.lastError).toBeTruthy();
+        assertAPIError(context.lastError, {
           status: statusCode,
           method: 'POST',
           messageIncludes: message,
@@ -868,7 +830,8 @@ describeFeature(feature, ({
       });
 
       Then('退款处理中导致再次核销失败，状态码为 {int}, 错误信息为 {string}', (_ctx, statusCode: number, message: string) => {
-        assertLastAPIError(context, {
+        expect(context.lastError).toBeTruthy();
+        assertAPIError(context.lastError, {
           status: statusCode,
           method: 'POST',
           messageIncludes: message,
@@ -877,14 +840,23 @@ describeFeature(feature, ({
 
       Given('微信支付服务通知 cr7 支付服务退款状态为 {string}', async (_ctx, statusLabel: string) => {
         expect(statusLabel).toBe('退款处理中');
-        await sendRefundStatusNotification(context, 'PROCESSING');
+        await sendMockRefundCallback(
+          featureContext.fixtures.values.apiServer,
+          context.refundRecord,
+          'PROCESSING',
+          {},
+        );
 
-        const order = await refreshOrder(context);
+        const order = await getOrder(
+          featureContext.fixtures.values.apiServer,
+          context.order.id,
+          featureContext.userToken,
+        );
         expect(order.status).toBe('REFUND_PROCESSING');
       });
 
-      When('{string}再次扫码核销用户的订单核销码', async (_ctx, operator: string) => {
-        const token = resolveOperatorToken(operator);
+      When('"管理员"再次扫码核销用户的订单核销码', async () => {
+        const token = featureContext.adminToken;
         try {
           await performRedeem(featureContext, context.redemption, token);
         } catch (error) {
@@ -893,14 +865,23 @@ describeFeature(feature, ({
       });
 
       Given('微信支付服务通知 cr7 支付服务退款结果，退款成功', async () => {
-        await sendRefundStatusNotification(context, 'SUCCESS');
+        await sendMockRefundCallback(
+          featureContext.fixtures.values.apiServer,
+          context.refundRecord,
+          'SUCCESS',
+          { successTime: new Date().toISOString() },
+        );
 
-        const order = await refreshOrder(context);
+        const order = await getOrder(
+          featureContext.fixtures.values.apiServer,
+          context.order.id,
+          featureContext.userToken,
+        );
         expect(order.status).toBe('REFUNDED');
       });
 
-      When('{string}在退款成功后再次扫码核销用户的订单核销码', async (_ctx, operator: string) => {
-        const token = resolveOperatorToken(operator);
+      When('"管理员"在退款成功后再次扫码核销用户的订单核销码', async () => {
+        const token = featureContext.adminToken;
         try {
           await performRedeem(featureContext, context.redemption, token);
         } catch (error) {
@@ -909,7 +890,8 @@ describeFeature(feature, ({
       });
 
       Then('退款成功导致的核销失败，状态码为 {int}, 错误信息为 {string}', (_ctx, statusCode: number, message: string) => {
-        assertLastAPIError(context, {
+        expect(context.lastError).toBeTruthy();
+        assertAPIError(context.lastError, {
           status: statusCode,
           method: 'POST',
           messageIncludes: message,
