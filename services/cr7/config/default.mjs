@@ -50,5 +50,13 @@ export default {
     wechat_pay_serial: 'your_wechat_pay_serial',
     wechat_pay_public_key_path: path.resolve(etc_path, 'wechatpay/wechatpay_pub_key.pem'),
     callback_base_url: `${host}/api`,
+  },
+  xiecheng: {
+    callback_base_url: host,
+    base_url: 'https://ttdopen.ctrip.com',
+    account_id: '5134daa94d22e8bc',
+    secret: '<--ignore-->',
+    aes_key: '<--ignore-->',
+    aes_iv: '<--ignore-->',
   }
 }

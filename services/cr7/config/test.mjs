@@ -38,5 +38,8 @@ export default {
     base_url: 'https://1.1.1.1',
     callback_base_url: 'https://1.1.1.1/api',
     client_key_path: path.resolve(fixtures_path, 'wechatpay/apiclient_key.pem'),
+  },
+  xiecheng: {
+    base_url: 'https://1.1.1.1'
   }
 }
