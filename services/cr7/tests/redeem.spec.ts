@@ -253,11 +253,10 @@ describeFeature(feature, ({
       const { Given, And, When, Then, context } = s;
       Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
         context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
-        await payOrderForCurrentUser(featureContext, context.order);
       });
 
       Given('用户完成支付', async () => {
-        // Payment is completed in booking step in this scenario.
+        await payOrderForCurrentUser(featureContext, context.order);
       });
 
       When('用户查询订单核销信息', async () => {
@@ -338,19 +337,18 @@ describeFeature(feature, ({
       const { Given, And, When, Then, context } = s;
       Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
         context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
+      });
+
+      When('用户完成支付', async () => {
         await payOrderForCurrentUser(featureContext, context.order);
+      });
+
+      Then('用户有一个有效的核销码', async () => {
         context.redemption = await getOrderRedemption(
           featureContext.fixtures.values.apiServer,
           context.order.id,
           featureContext.userToken,
         );
-      });
-
-      When('用户完成支付', async () => {
-        // Payment is completed in booking step in this scenario.
-      });
-
-      Then('用户有一个有效的核销码', () => {
         const redemption = context.redemption;
         expect(redemption.status).toBe('UNREDEEMED');
       });
@@ -426,19 +424,18 @@ describeFeature(feature, ({
       const { Given, And, When, Then, context } = s;
       Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
         context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
+      });
+
+      When('用户完成支付', async () => {
         await payOrderForCurrentUser(featureContext, context.order);
+      });
+
+      Then('用户有一个有效的核销码', async () => {
         context.redemption = await getOrderRedemption(
           featureContext.fixtures.values.apiServer,
           context.order.id,
           featureContext.userToken,
         );
-      });
-
-      When('用户完成支付', async () => {
-        // Payment is completed in booking step in this scenario.
-      });
-
-      Then('用户有一个有效的核销码', () => {
         const redemption = context.redemption;
         expect(redemption.status).toBe('UNREDEEMED');
       });
@@ -479,19 +476,18 @@ describeFeature(feature, ({
       const { Given, And, When, Then, context } = s;
       Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
         context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
+      });
+
+      When('用户完成支付', async () => {
         await payOrderForCurrentUser(featureContext, context.order);
+      });
+
+      Then('用户有一个有效的核销码', async () => {
         context.redemption = await getOrderRedemption(
           featureContext.fixtures.values.apiServer,
           context.order.id,
           featureContext.userToken,
         );
-      });
-
-      When('用户完成支付', async () => {
-        // Payment is completed in booking step in this scenario.
-      });
-
-      Then('用户有一个有效的核销码', () => {
         const redemption = context.redemption;
         expect(redemption.status).toBe('UNREDEEMED');
       });
@@ -544,19 +540,18 @@ describeFeature(feature, ({
       const { Given, And, When, Then, context } = s;
       Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
         context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
+      });
+
+      When('用户完成支付', async () => {
         await payOrderForCurrentUser(featureContext, context.order);
+      });
+
+      Then('用户有一个有效的核销码', async () => {
         context.redemption = await getOrderRedemption(
           featureContext.fixtures.values.apiServer,
           context.order.id,
           featureContext.userToken,
         );
-      });
-
-      When('用户完成支付', async () => {
-        // Payment is completed in booking step in this scenario.
-      });
-
-      Then('用户有一个有效的核销码', () => {
         const redemption = context.redemption;
         expect(redemption.status).toBe('UNREDEEMED');
       });
@@ -615,19 +610,18 @@ describeFeature(feature, ({
       const { Given, And, When, Then, context } = s;
       Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
         context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
+      });
+
+      When('用户完成支付', async () => {
         await payOrderForCurrentUser(featureContext, context.order);
+      });
+
+      Then('用户有一个有效的核销码', async () => {
         context.redemption = await getOrderRedemption(
           featureContext.fixtures.values.apiServer,
           context.order.id,
           featureContext.userToken,
         );
-      });
-
-      When('用户完成支付', async () => {
-        // Payment is completed in booking step in this scenario.
-      });
-
-      Then('用户有一个有效的核销码', () => {
         const redemption = context.redemption;
         expect(redemption.status).toBe('UNREDEEMED');
       });
@@ -685,14 +679,14 @@ describeFeature(feature, ({
 
       When('用户完成支付', async () => {
         await payOrderForCurrentUser(featureContext, context.order);
+      });
+
+      Then('用户有一个有效的核销码', async () => {
         context.redemption = await getOrderRedemption(
           featureContext.fixtures.values.apiServer,
           context.order.id,
           featureContext.userToken,
         );
-      });
-
-      Then('用户有一个有效的核销码', () => {
         const redemption = context.redemption;
         expect(redemption.status).toBe('UNREDEEMED');
       });
@@ -776,14 +770,14 @@ describeFeature(feature, ({
 
       When('用户完成支付', async () => {
         await payOrderForCurrentUser(featureContext, context.order);
+      });
+
+      Then('用户有一个有效的核销码', async () => {
         context.redemption = await getOrderRedemption(
           featureContext.fixtures.values.apiServer,
           context.order.id,
           featureContext.userToken,
         );
-      });
-
-      Then('用户有一个有效的核销码', () => {
         const redemption = context.redemption;
         expect(redemption.status).toBe('UNREDEEMED');
       });
