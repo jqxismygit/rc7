@@ -31,8 +31,15 @@ describe('xiecheng api requests', () => {
   };
 
   const expectedPlainBody = JSON.stringify(body);
-  const expectedEncryptedBody =
-    'jjeifplihbnkginolgbhlfillllekkjfghidgkpcaoecjinhlobacaghgoafhhlhhmlglfnebnoanmfidbgghligmddpencjaoaghlhpdoimmheofhjgbbcjneolhpiobaaomfelfmlpefoonhkkbnkfafnlmblgddccobnnammpnbdlkogfffclkopfehljdobgbiaabpbghklglgnmiljlcppaobfdnnohcoaofichnikmhfkbjihcilplbonmdedccjbnkjnnljfbcikcifakhieokabohbnemgkglboeajiplhfbomnmidlaekgegdoococamiaecohplklapmcopkoocccabkilgkcgpffapgmejjlpnbpnedbkkboacfmedklehedcnjcpeeoibinfolbbldag';
+  const expectedEncryptedBody = [
+    'jjeifplihbnkginolgbhlfillllekkjfghidgkpcaoecjinhlobacaghgoafhhlhhmlglfnebnoan',
+    'mfidbgghligmddpencjaoaghlhpdoimmheofhjgbbcjneolhpiobaaomfelfmlpefoonhkkbnkfa',
+    'fnlmblgddccobnnammpnbdlkogfffclkopfehljdobgbiaabpbghklglgnmiljlcppaobfdnnohc',
+    'oaofichnikmhfkbjihcilplbonmdedccjbnkjnnljfbcikcifakhieokabohbnemgkglboeajiplh',
+    'fbomnmidlaekgegdoococamiaecohplklapmcopkoocccabkilgkcgpffapgmejjlpnbpnedbkkbo',
+    'acfmedklehedcnjcpeeoibinfolbbldag'
+  ].join('');
+
   const expectedSign = '95aa5914312b45e10ee26f63616b0cf8';
 
   it('build xiecheng request payload with doc sample fields', () => {
