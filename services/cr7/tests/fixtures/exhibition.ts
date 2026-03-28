@@ -290,7 +290,7 @@ export function assertSession(data: Exhibition.Session) {
   expect(data).toBeTypeOf('object');
   expect(data).toHaveProperty('id', expect.any(String));
   expect(data).toHaveProperty('exhibit_id', expect.any(String));
-  expect(data).toHaveProperty('session_date', expect.any(String));
+  expect(data).toHaveProperty('session_date', expect.any(Date));
   expect(data).toHaveProperty('created_at', expect.any(String));
   expect(data).toHaveProperty('updated_at', expect.any(String));
 }

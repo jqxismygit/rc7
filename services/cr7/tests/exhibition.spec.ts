@@ -5,6 +5,7 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
+import { isSameDay } from 'date-fns';
 import { expect, vi } from 'vitest';
 import { Exhibition } from '@cr7/types';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
@@ -401,13 +402,13 @@ describeFeature(feature, ({
       And('首个场次日期与展览开始日期一致', () => {
         const exhibition = requireExhibition(context);
         const sessions = requireSessions(context);
-        expect(sessions[0].session_date).toBe(exhibition.start_date);
+        expect(isSameDay(sessions[0].session_date, new Date(exhibition.start_date))).toBe(true);
       });
 
       And('最后场次日期与展览结束日期一致', () => {
         const exhibition = requireExhibition(context);
         const sessions = requireSessions(context);
-        expect(sessions[sessions.length - 1].session_date).toBe(exhibition.end_date);
+        expect(isSameDay(sessions[sessions.length - 1].session_date, new Date(exhibition.end_date))).toBe(true);
       });
 
       And('场次数量等于展览持续天数', () => {
