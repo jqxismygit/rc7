@@ -52,6 +52,19 @@ Feature: Topics & Article
      Then 可以看到话题 "展会亮点"
       And 话题的描述为 "话题描述"
       And 话题的封面图片为 "http://example.com/cover.jpg"
+
+  Scenario: 用户查看话题详情
+    Given 话题 "展会亮点" 已创建
+      And 话题的描述为 "话题描述"
+      And 话题的封面图片为 "http://example.com/cover.jpg"
+    Given 文章 "必看展位" 添加在话题 "展会亮点" 下
+      And 文章内容为 "介绍必看的展位和产品"
+      And 文章的封面图片为 "http://example.com/article_cover.jpg"
+     Then 文章发布成功
+     When 用户查看话题 "展会亮点" 的详情
+     Then 话题的标题为 "展会亮点"
+      And 话题的描述为 "话题描述"
+      And 话题的封面图片为 "http://example.com/cover.jpg"
       And 话题下有 "1" 篇文章
       And 文章标题为 "必看展位"
       And 文章内容为 "介绍必看的展位和产品"
