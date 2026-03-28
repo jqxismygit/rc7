@@ -40,6 +40,11 @@ export default {
     client_key_path: path.resolve(fixtures_path, 'wechatpay/apiclient_key.pem'),
   },
   xiecheng: {
-    base_url: 'https://1.1.1.1'
+    base_url: 'https://1.1.1.1',
+    callback_base_url: 'https://1.1.1.1',
+    account_id: 'test_account_id',
+    secret: 'test_sign_secret',
+    aes_key: '1234567890abcdef',
+    aes_iv: 'abcdef1234567890',
   }
 }

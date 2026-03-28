@@ -60,6 +60,30 @@ interface XieChengRequestPayload {
 	body: string;
 }
 
+interface XieChengResponseHeader {
+	resultCode: string;
+	resultMessage?: string;
+}
+
+interface XieChengPriceInventoryResponse {
+	header?: XieChengResponseHeader;
+	[key: string]: unknown;
+}
+
+export class XieChengBusinessError extends Error {
+	resultCode: string;
+	resultMessage: string;
+	response: unknown;
+
+	constructor(resultCode: string, resultMessage: string, response: unknown) {
+		super(`[${resultCode}] ${resultMessage}`);
+		this.name = 'XieChengBusinessError';
+		this.resultCode = resultCode;
+		this.resultMessage = resultMessage;
+		this.response = response;
+	}
+}
+
 function formatRequestTime(date = new Date()) {
 	const year = date.getFullYear();
 	const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -208,4 +232,65 @@ export async function xieChengPostJSON<Res = unknown>(
 	}
 
 	return responseBody as Res;
+}
+
+function parseXieChengResponseHeader(response: unknown): XieChengResponseHeader {
+	if (typeof response !== 'object' || response === null) {
+		throw new MoleculerClientError('携程接口响应格式错误', 502, 'XIECHENG_RESPONSE_INVALID');
+	}
+
+	const header = (response as XieChengPriceInventoryResponse).header;
+	if (typeof header !== 'object' || header === null) {
+		throw new MoleculerClientError('携程接口响应格式错误', 502, 'XIECHENG_RESPONSE_INVALID');
+	}
+
+	const resultCode = header.resultCode;
+	if (typeof resultCode !== 'string' || resultCode.length === 0) {
+		throw new MoleculerClientError('携程接口响应格式错误', 502, 'XIECHENG_RESPONSE_INVALID');
+	}
+
+	const resultMessage = header.resultMessage;
+	return {
+		resultCode,
+		resultMessage: typeof resultMessage === 'string' ? resultMessage : undefined,
+	};
+}
+
+export function assertXieChengPriceInventoryResult(response: unknown) {
+	const { resultCode, resultMessage } = parseXieChengResponseHeader(response);
+	if (resultCode === '0000') {
+		return;
+	}
+
+	throw new XieChengBusinessError(
+		resultCode,
+		resultMessage ?? '携程接口返回业务错误',
+		response,
+	);
+}
+
+export async function xieChengSyncPrice(
+	url: string,
+	options: Omit<XieChengPostJSONOptions, 'serviceName'>,
+) {
+	const response = await xieChengPostJSON<XieChengPriceInventoryResponse>(url, {
+		...options,
+		serviceName: 'DatePriceModify',
+	});
+
+	assertXieChengPriceInventoryResult(response);
+	return response;
+}
+
+export async function xieChengSyncInventory(
+	url: string,
+	options: Omit<XieChengPostJSONOptions, 'serviceName'>,
+) {
+	const response = await xieChengPostJSON<XieChengPriceInventoryResponse>(url, {
+		...options,
+		serviceName: 'DateInventoryModify',
+	});
+
+	assertXieChengPriceInventoryResult(response);
+	return response;
 }

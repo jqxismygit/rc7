@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  assertXieChengPriceInventoryResult,
   buildXieChengRequest,
   buildXieChengSign,
   decryptXieChengBody,
   encryptXieChengBody,
+  XieChengBusinessError,
 } from '../src/libs/xiecheng.js';
 
 describe('xiecheng api requests', () => {
@@ -185,6 +187,24 @@ describe('xiecheng api requests', () => {
       version,
       sign,
     });
+  });
+
+  it('accepts price/inventory response when resultCode is 0000', () => {
+    expect(() => assertXieChengPriceInventoryResult({
+      header: {
+        resultCode: '0000',
+        resultMessage: '操作成功',
+      },
+    })).not.toThrow();
+  });
+
+  it('throws business error when resultCode is not 0000', () => {
+    expect(() => assertXieChengPriceInventoryResult({
+      header: {
+        resultCode: '1003',
+        resultMessage: '数据参数不合法',
+      },
+    })).toThrow(XieChengBusinessError);
   });
 
 });

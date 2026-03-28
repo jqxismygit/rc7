@@ -1,5 +1,7 @@
-import { Service } from "moleculer";
+import { Service, Errors } from "moleculer";
 import { Pool } from "pg";
+
+const { MoleculerClientError } = Errors;
 
 /**
  * RC7BaseService
@@ -34,6 +36,23 @@ export class RC7BaseService extends Service {
   async closePool() {
     if (this.pool) {
       await this.pool.end();
+    }
+  }
+
+  /**
+   * 检查当前用户是否满足 action 所需角色
+   */
+  async checkUserRole(ctx) {
+    const requiredRoles: string[] = ctx.action.roles || [];
+    if (requiredRoles.length === 0) {
+      return;
+    }
+
+    const roles = await ctx.call('user.roles');
+    const roleSet = new Set(roles.map(role => role.toLowerCase()));
+    const satisfy = requiredRoles.some(role => roleSet.has(role));
+    if (satisfy === false) {
+      throw new MoleculerClientError('Insufficient permissions', 403, 'FORBIDDEN_ACCESS');
     }
   }
 }

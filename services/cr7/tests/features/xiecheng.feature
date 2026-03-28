@@ -34,11 +34,10 @@ Feature: 对接携程 OTA
     Given 携程服务已经准备好接收场次价格同步信息
     Given "早鸟票" 的携程编号是 "xc_early_bird"
     When 管理员将 "早鸟票" 场次和价格同步给携程
-     And 同步信息中的 sequence Id 是 "test-sequence-id"
     Then 管理员可以查看 "早鸟票" 的携程价格同步记录
      And "早鸟票" 有 "1" 条携程价格同步记录
      And 同步结果为 "成功"
-     And sequence Id 是 "test-sequence-id"
+     And sequence Id 是同步信息中的 sequence Id
      And service Name 是 "DatePriceModify"
      And ota Option Id 是 "早鸟票" 的携程编号 "xc_early_bird"
      And 场次有 "3" 个
@@ -85,11 +84,10 @@ Feature: 对接携程 OTA
     Given 携程服务已经准备好接收场次库存同步信息
     Given "单人票" 的携程编号是 "xc_single_ticket"
     When 管理员将 "单人票" 剩余库存同步给携程
-     And 同步信息中的 sequence Id 是 "test-sequence-id-2"
     Then 管理员可以查看 "单人票" 的携程库存同步记录
      And "单人票" 有 "1" 条携程库存同步记录
      And 同步结果为 "成功"
-     And sequence Id 是 "test-sequence-id-2"
+     And sequence Id 是同步信息中的 sequence Id
      And service Name 是 "DateInventoryModify"
      And ota Option Id 是 "单人票" 的携程编号 "xc_single_ticket"
      And 场次有 "3" 个

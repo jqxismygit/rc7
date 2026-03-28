@@ -4,13 +4,17 @@ import {
   createExhibition,
   getExhibitionById,
   getExhibitions,
+  getTicketCategoryById,
   getTicketCategoriesByExhibitionId,
   getSessionsByExhibitionId,
   createTicketCategory,
+  updateTicketCategoryOtaXcOptionId,
+  listSessionInventoryByTicketAndDateRange,
   getSessionTicketCategoriesBySessionId,
   getSessionInventoryBySessionId,
   updateTicketCategoryInventoryMax
 } from "../data/exhibition.js";
+import { handleExhibitionError } from './errors.js';
 import { RC7BaseService } from "./cr7.base.js";
 
 interface UserMeta {
@@ -72,7 +76,17 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.getSessions': {
       rest: 'GET /:eid/sessions',
       params: {
-        eid: 'string'
+        eid: 'string',
+        start_session_date: {
+          type: 'date',
+          convert: true,
+          optional: true,
+        },
+        end_session_date: {
+          type: 'date',
+          convert: true,
+          optional: true,
+        },
       },
       handler: this.getSessions
     },
@@ -109,7 +123,43 @@ export class ExhibitionService extends RC7BaseService {
         quantity: 'number|min:0'
       },
       handler: this.updateTicketCategoryInventoryMax
-    }
+    },
+
+    'exhibition.getTicket': {
+      visibility: 'protected',
+      params: {
+        eid: 'string',
+        tid: 'string',
+      },
+      handler: this.getTicket,
+    },
+
+    'exhibition.updateTicketXcOptionId': {
+      visibility: 'protected',
+      params: {
+        eid: 'string',
+        tid: 'string',
+        ota_option_id: 'string|min:1',
+      },
+      handler: this.updateTicketXcOptionId,
+    },
+
+    'exhibition.listSessionInventoryByTicketAndDateRange': {
+      visibility: 'protected',
+      params: {
+        eid: 'string',
+        tid: 'string',
+        start_session_date: {
+          type: 'date',
+          convert: true,
+        },
+        end_session_date: {
+          type: 'date',
+          convert: true,
+        },
+      },
+      handler: this.listSessionInventoryByTicketAndDateRange,
+    },
   }
 
   async createExhibition(
@@ -160,13 +210,23 @@ export class ExhibitionService extends RC7BaseService {
   }
 
   async getSessions(
-    ctx: Context<{ eid: string }, { user: UserMeta }>
+    ctx: Context<{
+      eid: string;
+      start_session_date?: Date;
+      end_session_date?: Date;
+    }, { user: UserMeta }>
   ) {
-    const { eid } = ctx.params;
+    const { eid, start_session_date, end_session_date } = ctx.params;
     const client = this.pool;
     const schema = await this.getSchema();
 
-    const sessions = await getSessionsByExhibitionId(client, schema, eid);
+    const sessions = await getSessionsByExhibitionId(
+      client,
+      schema,
+      eid,
+      start_session_date,
+      end_session_date,
+    );
 
     return sessions;
   }
@@ -220,6 +280,28 @@ export class ExhibitionService extends RC7BaseService {
     await updateTicketCategoryInventoryMax(client, schema, eid, tid, quantity);
 
     ctx.meta.$statusCode = 204;
+  }
+
+  async getTicket(ctx: Context<{ eid: string; tid: string }>) {
+    const { eid, tid } = ctx.params;
+    const schema = await this.getSchema();
+    return getTicketCategoryById(this.pool, schema, eid, tid)
+    .catch(handleExhibitionError);
+  }
+
+  async updateTicketXcOptionId(ctx: Context<{ eid: string; tid: string; ota_option_id: string }>) {
+    const { eid, tid, ota_option_id } = ctx.params;
+    const schema = await this.getSchema();
+    return updateTicketCategoryOtaXcOptionId(this.pool, schema, eid, tid, ota_option_id)
+    .catch(handleExhibitionError);
+  }
+
+  async listSessionInventoryByTicketAndDateRange(
+    ctx: Context<{ eid: string; tid: string; start_session_date: Date; end_session_date: Date }>
+  ) {
+    const { eid, tid, start_session_date, end_session_date } = ctx.params;
+    const schema = await this.getSchema();
+    return listSessionInventoryByTicketAndDateRange(this.pool, schema, eid, tid, start_session_date, end_session_date);
   }
 }
 
