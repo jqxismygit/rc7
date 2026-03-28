@@ -1,8 +1,8 @@
-import { addDays, format } from 'date-fns';
 import { Server } from 'node:http';
 import { Redeem } from '@cr7/types';
 import { expect } from 'vitest';
 import { getJSON, postJSON } from '../lib/api.js';
+import { toDateLabel } from '../lib/relative-date.js';
 
 const CODE_LENGTH = 12;
 const CODE_PREFIX = 'R';
@@ -134,8 +134,5 @@ export async function redeemCode(
 }
 
 export function toSessionDateLabel(value: string) {
-  if (value === '今天') {
-    return format(addDays(new Date(), 0), 'yyyy-MM-dd');
-  }
-  return value;
+  return toDateLabel(value);
 }

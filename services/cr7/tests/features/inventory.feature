@@ -1,36 +1,30 @@
 Feature: manage inventory
 
   Background:
-    Given a user with role admin is logged in
+    Given 系统管理员已经创建并登录
+    Given 已创建一个包含 2 个场次的展览
+    Given 已为该展览创建 2 个票种
 
   Scenario: view inventory of a session
-    Given created exhibition with 2 sessions
-      And created 2 ticket categories for the exhibition
-    Given a session with inventory
-     When view inventory of the session
-     Then the inventory of all ticket categories in the session are empty by default
+    Given 场次库存已准备完成
+     When 查看该场次的库存
+     Then 该场次下所有票种库存默认都为 0
 
   Scenario: 可以一次更新 exhibition 下某个 ticket category 所有 session 的 inventory
-    Given created exhibition with 2 sessions
-      And created 2 ticket categories for the exhibition
-    Given inventory quantity 50 for ticket category "early_bird" in all sessions of the exhibition
-     When update inventory of ticket category "early_bird" in all sessions of the exhibition
-     Then the inventory of ticket category "early_bird" in all sessions of the exhibition is 50
-      And the inventory of another ticket category "regular" in all sessions of the exhibition is still 0
+    Given 已将票种 "early_bird" 在该展览所有场次的库存设置为 50
+     When 更新票种 "early_bird" 在该展览所有场次的库存
+     Then 票种 "early_bird" 在该展览所有场次的库存应为 50
+      And 另一票种 "regular" 在该展览所有场次的库存应仍为 0
 
   Scenario: 可以查看 一个 session 下所有 ticket category 的 inventory
-    Given created exhibition with 2 sessions
-      And created 2 ticket categories for the exhibition
-    Given inventory quantity 30 for ticket category "early_bird" in the first session of the exhibition
-    Given inventory quantity 20 for ticket category "regular" in the first session of the exhibition
-     When view inventory of the first session of the exhibition
-     Then the inventory of ticket category "early_bird" in the first session of the exhibition is 30
-      And the inventory of ticket category "regular" in the first session of the exhibition is 20
+    Given 已将票种 "early_bird" 在该展览首场次的库存设置为 30
+      And 并将票种 "regular" 在该展览首场次的库存设置为 20
+     When 查看该展览首场次的库存
+     Then 票种 "early_bird" 在该展览首场次的库存应为 30
+        And 另一票种 "regular" 在该展览首场次的库存应为 20
 
   Scenario: non-admin user cannot update inventory
-    Given created exhibition with 2 sessions by admin
-      And created 2 ticket categories for the exhibition by admin
-    Given a regular user is logged in
-    When try to update inventory of ticket category
-    Then permission denied error is returned
+    Given 普通用户已登录
+    When 普通用户尝试更新票种库存
+    Then 返回权限不足错误
 

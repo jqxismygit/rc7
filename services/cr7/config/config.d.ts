@@ -45,6 +45,14 @@ declare module 'config' {
       // 微信支付公钥路径
       wechat_pay_public_key_path: string;
       callback_base_url: string;
+    },
+    xiecheng: {
+      callback_base_url: string;
+      base_url: string;
+      account_id: string;
+      secret: string;
+      aes_key: string;
+      aes_iv: string;
     }
   }
 

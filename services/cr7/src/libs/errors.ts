@@ -4,6 +4,8 @@ import { UserDataError } from "../data/user.js";
 import { OrderDataError } from "../data/order.js";
 import { PaymentDataError } from "../data/payment.js";
 import { RedeemDataError } from "../data/redeem.js";
+import { ExhibitionDataError } from "../data/exhibition.js";
+import { XiechengDataError } from '../data/xiecheng.js';
 
 const { NotFoundError } = MoleculerWeb.Errors;
 const { MoleculerClientError } = Moleculer.Errors;
@@ -158,4 +160,56 @@ export function handleRedeemError(error: unknown): never {
   }
 
   throw new MoleculerClientError('核销服务错误', 500, 'REDEEM_ERROR');
+}
+
+export function handleExhibitionError(error: unknown): never {
+  if ((error instanceof ExhibitionDataError) === false) {
+    throw error;
+  }
+
+  if (error.code === 'EXHIBITION_NOT_FOUND') {
+    throw new MoleculerClientError('展会不存在', 404, 'EXHIBITION_NOT_FOUND');
+  }
+
+  if (error.code === 'TICKET_CATEGORY_NOT_FOUND') {
+    throw new MoleculerClientError('票种不存在或不属于该展会', 404, 'TICKET_CATEGORY_NOT_FOUND');
+  }
+
+  if (error.code === 'SESSION_NOT_FOUND') {
+    throw new MoleculerClientError('场次不存在', 404, 'SESSION_NOT_FOUND');
+  }
+
+  throw new MoleculerClientError('展览服务错误', 500, 'EXHIBITION_ERROR');
+}
+
+export function handleXiechengError(error: unknown): never {
+  if ((error instanceof XiechengDataError) === false) {
+    throw error;
+  }
+
+  if (error.code === 'TICKET_CATEGORY_NOT_FOUND') {
+    throw new MoleculerClientError('票种不存在或不属于该展会', 404, 'TICKET_CATEGORY_NOT_FOUND');
+  }
+
+  if (error.code === 'TICKET_CATEGORY_NOT_BOUND') {
+    throw new MoleculerClientError('票种未绑定携程编号', 409, 'TICKET_CATEGORY_NOT_BOUND');
+  }
+
+  if (error.code === 'SESSION_DATE_OUT_OF_RANGE') {
+    throw new MoleculerClientError('同步的场次时间不在展会时间范围内', 400, 'SESSION_DATE_OUT_OF_RANGE');
+  }
+
+  if (error.code === 'SESSION_END_TOO_FAR') {
+    throw new MoleculerClientError('同步结束时间不能超过今天后 210 天', 400, 'SESSION_END_TOO_FAR');
+  }
+
+  if (error.code === 'SYNC_QUANTITY_EXCEEDS_REMAINING') {
+    throw new MoleculerClientError('同步的库存数量超过实际剩余库存', 400, 'SYNC_QUANTITY_EXCEEDS_REMAINING');
+  }
+
+  if (error.code === 'INVALID_DATE_RANGE') {
+    throw new MoleculerClientError('场次时间范围不合法', 400, 'INVALID_DATE_RANGE');
+  }
+
+  throw new MoleculerClientError('携程同步服务错误', 500, 'XIECHENG_ERROR');
 }

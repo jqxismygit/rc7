@@ -21,7 +21,6 @@ export class ExhibitionDataError extends Error {
 export type TicketCategoryRefundPolicyRow = {
   refund_policy: 'NON_REFUNDABLE' | 'REFUNDABLE_48H_BEFORE';
 };
-
 export async function createExhibition(
   client: Pool,
   schema: string,
@@ -145,6 +144,7 @@ export async function getTicketCategoriesByExhibitionId(
       valid_duration_days,
       refund_policy,
       admittance,
+      ota_xc_option_id,
       created_at,
       updated_at
     FROM ${schema}.exhibit_ticket_categories
@@ -156,11 +156,117 @@ export async function getTicketCategoriesByExhibitionId(
   return rows;
 }
 
-export async function getSessionsByExhibitionId(
-  client: Pool,
+export async function getTicketCategoryById(
+  client: DBClient,
   schema: string,
-  eid: string
+  eid: string,
+  tid: string,
+): Promise<Exhibition.TicketCategory> {
+  const { rows } = await client.query<Exhibition.TicketCategory>(
+    `SELECT
+      id,
+      eid AS exhibit_id,
+      name,
+      price,
+      valid_duration_days,
+      refund_policy,
+      admittance,
+      ota_xc_option_id,
+      created_at,
+      updated_at
+    FROM ${schema}.exhibit_ticket_categories
+    WHERE id = $1
+      AND eid = $2`,
+    [tid, eid],
+  );
+
+  if (rows.length === 0) {
+    throw new ExhibitionDataError('Ticket category not found', 'TICKET_CATEGORY_NOT_FOUND');
+  }
+
+  return rows[0];
+}
+
+export async function updateTicketCategoryOtaXcOptionId(
+  client: DBClient,
+  schema: string,
+  eid: string,
+  tid: string,
+  otaOptionId: string,
+): Promise<Exhibition.TicketCategory> {
+  const { rows } = await client.query<Exhibition.TicketCategory>(
+    `UPDATE ${schema}.exhibit_ticket_categories
+    SET
+      ota_xc_option_id = $3,
+      updated_at = NOW()
+    WHERE id = $1
+      AND eid = $2
+    RETURNING
+      id,
+      eid AS exhibit_id,
+      name,
+      price,
+      valid_duration_days,
+      refund_policy,
+      admittance,
+      ota_xc_option_id,
+      created_at,
+      updated_at`,
+    [tid, eid, otaOptionId],
+  );
+
+  if (rows.length === 0) {
+    throw new ExhibitionDataError('Ticket category not found', 'TICKET_CATEGORY_NOT_FOUND');
+  }
+
+  return rows[0];
+}
+
+export async function listSessionInventoryByTicketAndDateRange(
+  client: DBClient,
+  schema: string,
+  eid: string,
+  tid: string,
+  startDate: Date,
+  endDate: Date,
+): Promise<Array<{ date: string; quantity: number }>> {
+  const { rows } = await client.query<{ date: string; quantity: number }>(
+    `SELECT
+      s.session_date::text AS date,
+      COALESCE((i.quantity - i.reserved_quantity), 0)::integer AS quantity
+    FROM ${schema}.exhibit_sessions s
+    LEFT JOIN ${schema}.exhibit_session_inventories i
+      ON i.session_id = s.id
+      AND i.ticket_category_id = $2
+    WHERE s.session_id = $1
+      AND s.session_date BETWEEN $3::date AND $4::date
+    ORDER BY s.session_date`,
+    [eid, tid, startDate, endDate],
+  );
+
+  return rows;
+}
+
+export async function getSessionsByExhibitionId(
+  client: DBClient,
+  schema: string,
+  eid: string,
+  startDate?: Date,
+  endDate?: Date,
 ): Promise<Exhibition.Session[]> {
+  const values: unknown[] = [eid];
+  const filters = ['session_id = $1'];
+
+  if (startDate !== undefined) {
+    values.push(startDate);
+    filters.push(`session_date >= $${values.length}::date`);
+  }
+
+  if (endDate !== undefined) {
+    values.push(endDate);
+    filters.push(`session_date <= $${values.length}::date`);
+  }
+
   const { rows } = await client.query(
     `SELECT
       id,
@@ -169,9 +275,9 @@ export async function getSessionsByExhibitionId(
       created_at,
       updated_at
     FROM ${schema}.exhibit_sessions
-    WHERE session_id = $1
+    WHERE ${filters.join(' AND ')}
     ORDER BY session_date`,
-    [eid]
+    values,
   );
 
   return rows;
@@ -196,6 +302,7 @@ export async function createTicketCategory(
       valid_duration_days,
       refund_policy,
       admittance,
+      ota_xc_option_id,
       created_at,
       updated_at`,
     [
@@ -226,6 +333,7 @@ export async function getSessionTicketCategoriesBySessionId(
       c.valid_duration_days,
       c.refund_policy,
       c.admittance,
+      c.ota_xc_option_id,
       c.created_at,
       c.updated_at
     FROM ${schema}.exhibit_sessions s

@@ -112,9 +112,21 @@ const routes = [
   ),
   routeConfig(
     '/exhibition',
-    ['cr7.exhibition.*'],
+    [
+      'cr7.exhibition.*',
+      'xiecheng.bindXiechengOptionId',
+      'xiecheng.syncXiechengPrice',
+      'xiecheng.syncXiechengInventory',
+      'xiecheng.listXiechengSyncLogs',
+    ],
     {
       autoAliases: true,
+      aliases: {
+        'PUT /:eid/tickets/:tid/ota/xc': 'xiecheng.bindXiechengOptionId',
+        'POST /:eid/tickets/:tid/ota/xc/sync': 'xiecheng.syncXiechengPrice',
+        'POST /:eid/tickets/:tid/ota/xc/sync/inventory': 'xiecheng.syncXiechengInventory',
+        'GET /:eid/tickets/:tid/ota/xc/sync/logs': 'xiecheng.listXiechengSyncLogs',
+      },
     }
   ),
   routeConfig(

@@ -4,3 +4,4 @@ export * as Inventory from './inventory.js';
 export * as Order from './order.js';
 export * as Payment from './payment.js';
 export * as Redeem from './redeem.js';
+export * as Xiecheng from './xiecheng.js';

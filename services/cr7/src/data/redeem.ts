@@ -89,23 +89,6 @@ function buildCandidateCode() {
   return `${payload}${buildLuhn2(payload)}`;
 }
 
-function toValidityStartDate(sessionDate: Date) {
-  return new Date(
-    sessionDate.getFullYear(),
-    sessionDate.getMonth(),
-    sessionDate.getDate(),
-  );
-}
-
-function buildValidity(sessionDate: Date, validDurationDays: number) {
-  const fromDate = toValidityStartDate(sessionDate);
-  const untilDate = addDays(fromDate, validDurationDays); // exclusive: start of the day after the last valid day
-  return {
-    valid_from: fromDate.toISOString(),
-    valid_until: untilDate.toISOString(),
-  };
-}
-
 function buildRedemptionWithOrder(
   row: RedemptionRow,
   order: Order.OrderWithItems,
@@ -209,7 +192,7 @@ export async function upsertRedemptionCodeByOrderId(
   sessionDate: Date,
   validDurationDays: number,
 ): Promise<string> {
-  const { valid_from, valid_until } = buildValidity(sessionDate, validDurationDays);
+  const valid_until = addDays(sessionDate, validDurationDays);
 
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const code = buildCandidateCode();
@@ -244,7 +227,7 @@ export async function upsertRedemptionCodeByOrderId(
         WHERE order_id = $3
           AND NOT EXISTS (SELECT 1 FROM inserted)
         LIMIT 1`,
-        [code, exhibitId, orderId, quantity, valid_from, valid_until],
+        [code, exhibitId, orderId, quantity, sessionDate, valid_until],
       );
 
       if (rows[0] !== undefined) {
