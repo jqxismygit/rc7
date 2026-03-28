@@ -42,7 +42,6 @@ const feature = await loadFeature('tests/features/redeem.feature');
 
 type ExhibitionContext = {
   exhibition: Exhibition.Exhibition;
-  session: Exhibition.Session;
   sessions: Exhibition.Session[];
   ticketByName: Record<string, Exhibition.TicketCategory>;
 };
@@ -319,7 +318,6 @@ describeFeature(feature, ({
         end_date: toDateLabel(endDate),
       });
       featureContext.sessions = await getSessions(apiServer, featureContext.exhibition.id, adminToken);
-      featureContext.session = featureContext.sessions[0];
       featureContext.ticketByName = {};
       expect(featureContext.sessions.length).toBeGreaterThan(0);
     });
