@@ -40,7 +40,7 @@ describe('xiecheng api requests', () => {
     'acfmedklehedcnjcpeeoibinfolbbldag'
   ].join('');
 
-  const expectedSign = '95aa5914312b45e10ee26f63616b0cf8';
+  const expectedSign = 'a93bf1cfd946d109ab5c0089600d8461';
 
   it('build xiecheng request payload with doc sample fields', () => {
     const result = buildXieChengRequest({
@@ -71,7 +71,7 @@ describe('xiecheng api requests', () => {
   });
 
   it('build xiecheng sign and decode body', () => {
-    const signResult = buildXieChengSign(expectedEncryptedBody, {
+    const signResult = buildXieChengSign(expectedPlainBody, {
       accountId,
       serviceName,
       requestTime,
@@ -81,7 +81,7 @@ describe('xiecheng api requests', () => {
 
     expect(signResult.message).toBe(
       `${accountId}${serviceName}${requestTime}`
-      + expectedEncryptedBody
+      + expectedPlainBody
       + `${version}${signKey}`
     );
     expect(signResult.sign).toBe(expectedSign);
@@ -90,6 +90,101 @@ describe('xiecheng api requests', () => {
     expect(decryptedBody).toBe(expectedPlainBody);
 
     expect(encryptXieChengBody(decryptedBody, aesKey, aesIv)).toBe(expectedEncryptedBody);
+  });
+
+  it('verifies request logic with ctrip sample data', () => {
+
+    const accountId = '4965E5E2530767C1';
+    const serviceName = 'CreateOrder';
+    const requestTime = '2017-11-30 14:43:20';
+    const version = '1.0';
+    const signKey = 'E0A73F3A5D78D198BF2FB57879CF9A79';
+    const aesKey = 'D2DN340LGYSsBrP6';
+    const aesIv = '5693259981590433';
+    const sign = '90754cadb24c437afecf2cb429edd4e5';
+    const encryptedBody = [
+      'ndgoebijlofhjbbghfldcjmdlbhfkbehoofoeafhljpjnceacdjnnahfhkjibplmclafjgdkpknpfpfammfcbcnoabjigcoglbdgdd',
+      'iljnaecfehccnhedpombockfajjihkkjmlnkabjegaklljfodpbiaammiemioajpehdlnlipflhnijkngbilhfghbcimejcnnkmdmbc',
+      'fndblhcbmncighpnolnlkgncmbjbfpphehoocdkchgfbbafjickhhfellheekdjofbjfedglbiidjmmebfffkpbjindepidcjbmoebpe',
+      'oeekcjhcmcgadcalchhnbcnkdbockljkbfejfiddpekebhnbkajmjihjhdfdnakohpgeejijlfbjciakjdcfeclbiellgjalajphblko',
+      'leiimcjkmajankcldmnnhofgopkefpdplbjabghbiapgomfpnkphdlobcojapaappchbacljconafemcdiplahdkgogidnkkkpdchmlf',
+      'hlkemccdennbfkandhhlhalhflfhodcmfjcnjkaelnoainmaakckekmjonbmmbhbdaiicljpibjjdcddggepaibniibifipehjllgpaj',
+      'ilagikmgnnopaiekbbhjcbhcologopheelcbjfhondfllknbfhpbipjccdpeemjciphdcdpghhmimogilfcbfgogaohpdanoileghhmp',
+      'mglnelfpafenpdcepbeimncjlolgahhljhgodjabcologlfgmikgdhmmgcinpeebaifgjpmemdmojhfhikhgjjjnnhokaniagmjohgmp',
+      'fepgekllajalldgfagoijlihklbhcihdbgdnaomikfkcjgjpohdcjdlfpiaccpfapcooalnmoeeddoifafhjdpoibpehdfckpmkblbgbh',
+      'dejfemljbmhgdeeembdimobcahfpahefkfodmlgefedelecolfgbmcfghcpleallolkdabdjjnjmmlbfdbdlmhgpkechggkpinimepnhe',
+      'gnbdippliaeokaollmafiogldjkahihglmgohcfpmgdelfkolcdiicfjngoijopfjgcbehamflfcaibdgfdggnhmpcedepfhcpngfehgd',
+      'oledhednombjnehgjlnbgakhcnlpadmchodgehhckkclbjamjadalphjhkbfnnblemognepjoejldllnjdihiojlagndkdefdalbjpmlo',
+      'echinhpdckcaoplckhhockbckngpfbcpgcieobmidkbcjgbpohbcepnahjlmijakoeoleeipdnooimceplefdeflbopcjbpgebomgaagg',
+      'lanfebicfhknbmkolldmoacheeffcjfebjaakgkhicpkbmmidgfohfiolagohlhleofiihfmjpgffafnlgfenninjjelnffkhjifefkkie',
+      'khfklljkjeanocpjdkhdflhdfbfjmfnfcojfpjjgdlomdncnhdebnkgjjcndbmogdngfekhgpbkaiaojlpkbngkignfmegiikmbcdlcjgd',
+      'jikfcpcidomgacaeonbjacgbmhmhhmemppefmjmkhfnphladoimkiaikffkknckmojobpllhbkpnoggeijfonmggfhdpacddlklbonlbpp',
+      'hpppklmilbggkeddekbokadeeeikcalcljhpadnakpoikikdaignicnlblmglncbgeabeamdccimkcginijjhibaochcbhlaonifahopig',
+      'eojongafpeancophigfmeppadkjcneokgmahinflmoehhipkjdjimeaflfdfangeiblihdopllcapgcfknfgafdnkhnhchmbdiidoebjlo',
+      'cbfjlkmegloadgcokemdadbaedjjlkfkicmhbgldjcopgpneoljeckpljlhklilmhelcbapgbbmbgbkmojeaephjamlkhkggkniglealmf',
+      'kpoebmpjggajjajeognlkmlelcjkpbfigmipmnhlfnanahjjpeecpbkklkioaafadikelcaleneilfnneaippdiokiccmpnpkpclmaalgf',
+      'hllbfajlcnblmojacbjbnglljgbkdhcifhjoljgblkdiklddgieejnkojjkljnokpiphbcapglknfjfaphmfbbalbcnnajkmhiihbmkgmef',
+      'jenppddbnpabmdpaipieijcpjbfhdekafgnfkcgkcboeabejijniojkmllkkkihefhembibgmgfggjojgnphdpheneogomddooffbmfnlh',
+      'cgfmkclmjnbboihcfhjofbdhmflpmbagdedeimlpeamohgchdnhfgnadeonihhgbghfgmmgegofhkhidigjaadodbjeddblflbhdjcbjbl',
+      'didinkfeefmbcefniacjhcegjmkdcbemdeokjlpafdhklppnkddehdlcgphhjlmgflilmklecapiknmbffghcmjibgnkicnkncieooiojni',
+      'oggifkjkhliigbikmanjlcfmpjclbngefehgpdfknpfpjjpiochcaapdaigmdkbpilgabjgphiaghdnhiifmbagkbjfpcjchieonalghogn',
+      'dcfplhbmdofndlclcmigiehgibkgdapdcfbdmocfggilfngobjndokkpkobonmnpdgnnbkfimdgkmejgmicgeimhcpecmhnecobmaddoleo',
+      'cepngjdndcoikfaoiaifegofkjciopichldlfifljlkmekhngpmimmfjnmlcpngmgnfaifmchmjjnhiolflandjeallbhijddcemfkjchce',
+      'mdimcgdbkeipeaocfcplhhipgdlclfpdaeliahdkfmooikhaakkmalnggifndfefkjadclhaakigmcllacmhfefmepcbbjnafnljalfccff',
+      'chmbkbnmpahhgkdlmdfkgpapjbfpgbgphmcjmffalljjpgnifmnphncookpgckacbpmehfeceeeebphgkoijikcoeiodefnocpbgijphdfal',
+      'opkjcnbalhmdddkfdocblmgbfoplcoakcojjhofbdejmoimmpbclcbfkmmmblnhlabldjcenlbblohljgigmfpagpdncphminmemcnlhnbg',
+      'fbjkbhdnhhcodccmbapjaaidjocaomkadedgpdocjngagjhgjiicipbfkhkelllapdjcngjodnaefclihahfinkccmigdhdjhlnglbmgieh',
+      'ddhgfbbhbicpofmmemkbebnpmmbalfknkfkhmfagafmopifclkleholjagkfemimflppjjgmlomeohokjoklghklpkhcplkkcbknmemajnp',
+      'dlinpdjkpifoekbfoeiemfiipioofnckeompfbccdobapkbdjkibleobiaocpamipncidmbdlecddhhgadcknpaolapkifdeabfcdakbilm',
+      'odkelmbbbgkcpmcemgldkgackeoojcfgdpodcibkbehgnnaglkmnlgliahcihlgcgb'
+    ].join('');
+
+    const decryptedBody = decryptXieChengBody(encryptedBody, aesKey, aesIv);
+    const sampleBodyObject = JSON.parse(decryptedBody);
+    expect(
+      JSON.stringify(sampleBodyObject)
+      .replace(/"cost":4.8/, '"cost":4.80')
+      .replace(/"price":5/, '"price":5.00')
+      .replace(/"price":3/, '"price":3.00')
+    ).toBe(decryptedBody);
+
+    expect(Object.keys(sampleBodyObject)).toEqual([
+      'otaOrderId',
+      'contactInfos',
+      'orderItems',
+      'sequenceId',
+      'confirmType',
+    ]);
+
+    const signResult = buildXieChengSign(decryptedBody, {
+      accountId,
+      serviceName,
+      requestTime,
+      version,
+      signKey,
+    });
+    expect(signResult.sign).toBe(sign);
+
+    const rebuiltRequest = buildXieChengRequest({
+      accountId,
+      serviceName,
+      requestTime,
+      version,
+      signKey,
+      aesKey,
+      aesIv,
+      body: decryptedBody,
+    });
+
+    expect(rebuiltRequest.encryptedBody).toBe(encryptedBody);
+    expect(rebuiltRequest.sign).toBe(sign);
+    expect(rebuiltRequest.payload.header).toEqual({
+      accountId,
+      serviceName,
+      requestTime,
+      version,
+      sign,
+    });
   });
 
 });

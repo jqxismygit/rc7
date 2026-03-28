@@ -40,9 +40,8 @@ interface XieChengCryptoOptions {
 	aesIv: string;
 }
 
-interface XieChengBuildRequestOptions extends XieChengSignOptions, Partial<XieChengCryptoOptions> {
+interface XieChengBuildRequestOptions extends XieChengSignOptions, XieChengCryptoOptions {
 	body: unknown;
-	encryptBody?: boolean;
 }
 
 interface XieChengPostJSONOptions extends Omit<RequestInit, 'method' | 'body'>, XieChengBuildRequestOptions {
@@ -152,12 +151,8 @@ export function buildXieChengRequest(options: XieChengBuildRequestOptions) {
 		? options.body
 		: JSON.stringify(options.body);
 
-	const encryptBody = options.encryptBody ?? true;
-	const body = encryptBody
-		? encryptXieChengBody(plainBody, options.aesKey ?? '', options.aesIv ?? '')
-		: plainBody;
-
-	const signResult = buildXieChengSign(body, options);
+	const body = encryptXieChengBody(plainBody, options.aesKey, options.aesIv);
+	const signResult = buildXieChengSign(plainBody, options);
 
 	const payload: XieChengRequestPayload = {
 		header: {
