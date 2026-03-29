@@ -201,11 +201,9 @@
 <script>
 import { useUserStore } from "@/stores/user";
 import { fetchUnreadCount } from "@/services/messages.js";
+import { HOME_TOPIC_IDS } from "@/config/home-topic-ids.js";
 import { fetchCr7News, fetchBrands, loadHomeTicketSection } from "@/services/home.js";
 import { fetchTopicWithArticles } from "@/services/topic.js";
-
-/** 首页 Hero 轮播：使用该话题下的文章封面，点击进文章详情 */
-const HOME_HERO_TOPIC_ID = "aa88d1ad-7faa-4243-98f0-7a73d524cd4b";
 import createTabBarMixin from "@/mixins/tabBar.js";
 import { HOME_TICKET_SECTION_EVENT } from "@/utils/eventBus.js";
 import { formatTicketEventCardMetaLine } from "@/utils/ticketEventDisplay.js";
@@ -299,12 +297,13 @@ export default {
 
     async loadHomeData() {
       try {
-        const topicHeroPromise = fetchTopicWithArticles(HOME_HERO_TOPIC_ID).catch(
-          (err) => {
-            console.error("首页 Hero 话题加载失败", err);
-            return { articles: [] };
-          },
-        );
+        const heroTid = String(HOME_TOPIC_IDS.hero || "").trim();
+        const topicHeroPromise = heroTid
+          ? fetchTopicWithArticles(heroTid).catch((err) => {
+              console.error("首页 Hero 话题加载失败", err);
+              return { articles: [] };
+            })
+          : Promise.resolve({ articles: [] });
         const [topicDetail, news, brandList, ticketSection] = await Promise.all([
           topicHeroPromise,
           fetchCr7News(),
