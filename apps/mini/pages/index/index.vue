@@ -373,7 +373,7 @@ export default {
             id: a.id,
             cover: a.cover_url || "",
             title,
-            desc: title,
+            desc: a.subtitle || "",
           };
         });
         const brandArticles = Array.isArray(topicBrandsDetail?.articles)

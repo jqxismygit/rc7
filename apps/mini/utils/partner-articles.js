@@ -10,8 +10,7 @@ export function mapArticlesToPartnerBrands(articles) {
       id: a.id,
       logo: a.cover_url || "",
       name,
-      tagline: "官方合作品牌",
-      description: "官方合作品牌",
+      tagline: a.subtitle || "",
     };
   });
 }

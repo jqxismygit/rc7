@@ -58,6 +58,7 @@ type ArticleRow = TopicTypes.Article;
 
 type ArticleFormValues = {
   title: string;
+  subtitle?: string;
   content: string;
   cover_url?: string;
 };
@@ -322,6 +323,7 @@ export default function CategoryDetailPage() {
                 setEditingArticle(row);
                 editArticleForm.setFieldsValue({
                   title: row.title,
+                  subtitle: row.subtitle ?? "",
                   content: row.content,
                   cover_url: row.cover_url ?? undefined,
                 });
@@ -370,6 +372,9 @@ export default function CategoryDetailPage() {
       setArticleSubmitting(true);
       await createArticleApi(tid, {
         title: values.title.trim(),
+        subtitle: values.subtitle?.trim()
+          ? values.subtitle.trim()
+          : undefined,
         content,
         cover_url: values.cover_url?.trim()
           ? values.cover_url.trim()
@@ -400,6 +405,7 @@ export default function CategoryDetailPage() {
       setArticleSubmitting(true);
       await updateArticleApi(editingArticle.id, {
         title: values.title.trim(),
+        subtitle: values.subtitle?.trim() ? values.subtitle.trim() : null,
         content,
         cover_url: values.cover_url?.trim() ? values.cover_url.trim() : null,
       });
@@ -611,7 +617,12 @@ export default function CategoryDetailPage() {
             setCreateArticleCoverFiles([]);
           }
         }}
-        initialValues={{ title: "", content: "<p><br></p>", cover_url: "" }}
+        initialValues={{
+          title: "",
+          subtitle: "",
+          content: "<p><br></p>",
+          cover_url: "",
+        }}
         modalProps={{
           destroyOnClose: true,
           maskClosable: false,
@@ -635,6 +646,11 @@ export default function CategoryDetailPage() {
           label="标题"
           placeholder="请输入文章标题"
           rules={[{ required: true, message: "请输入标题" }]}
+        />
+        <ProFormText
+          name="subtitle"
+          label="副标题"
+          placeholder="选填，展示在标题下方等位置"
         />
         <Form.Item
           name="content"
@@ -716,6 +732,11 @@ export default function CategoryDetailPage() {
           label="标题"
           placeholder="请输入文章标题"
           rules={[{ required: true, message: "请输入标题" }]}
+        />
+        <ProFormText
+          name="subtitle"
+          label="副标题"
+          placeholder="选填，展示在标题下方等位置"
         />
         <Form.Item
           name="content"
