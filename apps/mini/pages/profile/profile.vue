@@ -1,41 +1,45 @@
 <template>
   <view class="profile-page">
+    <view
+      class="profile-navbar"
+      :style="{ paddingTop: statusBarHeight + 'px' }"
+    >
+      <view class="navbar-row" :style="{ height: navBarContentHeight + 'px' }">
+        <view class="navbar-left">
+          <view class="navbar-notification" @click="goToMessages">
+            <sx-svg
+              class="nav-icon"
+              name="notification"
+              :width="42"
+              :height="42"
+              color="#FFFFFF"
+            />
+            <view v-if="unreadCount > 0" class="notification-dot"></view>
+          </view>
+        </view>
+        <view class="navbar-logo">
+          <sx-svg
+            class="logo-img"
+            name="logo"
+            :width="156"
+            :height="35"
+            color="#D8FC0F"
+          />
+        </view>
+        <view class="navbar-placeholder"></view>
+      </view>
+    </view>
+
     <scroll-view
       class="profile-scroll"
       scroll-y
       enhanced
       :show-scrollbar="false"
     >
-      <!-- 顶部导航栏 - 完全参考 index -->
       <view
-        class="profile-navbar"
-        :style="{ paddingTop: statusBarHeight + 'px' }"
-      >
-        <view class="navbar-row">
-          <view class="navbar-left">
-            <view class="navbar-notification" @click="goToMessages">
-              <sx-svg
-                class="nav-icon"
-                name="notification"
-                :width="42"
-                :height="42"
-                color="#FFFFFF"
-              />
-              <view v-if="unreadCount > 0" class="notification-dot"></view>
-            </view>
-          </view>
-          <view class="navbar-logo">
-            <sx-svg
-              class="logo-img"
-              name="logo"
-              :width="156"
-              :height="35"
-              color="#D8FC0F"
-            />
-          </view>
-          <view class="navbar-placeholder"></view>
-        </view>
-      </view>
+        class="profile-navbar-spacer"
+        :style="{ height: statusBarHeight + navBarContentHeight + 'px' }"
+      ></view>
 
       <!-- 用户信息 -->
       <view class="user-section" @click="goToProfileEdit">
@@ -179,6 +183,7 @@ export default {
   data() {
     return {
       statusBarHeight: 0,
+      navBarContentHeight: 44,
       userInfo: {},
       isEmployee: false,
       unreadCount: 0,
@@ -192,6 +197,14 @@ export default {
   onLoad() {
     const systemInfo = uni.getSystemInfoSync();
     this.statusBarHeight = systemInfo.statusBarHeight || 0;
+    const menuButtonInfo =
+      typeof uni.getMenuButtonBoundingClientRect === "function"
+        ? uni.getMenuButtonBoundingClientRect()
+        : null;
+    if (menuButtonInfo?.height) {
+      const topGap = Math.max(menuButtonInfo.top - this.statusBarHeight, 0);
+      this.navBarContentHeight = Math.round(menuButtonInfo.height + topGap * 2);
+    }
   },
 
   onShow() {
@@ -354,10 +367,16 @@ export default {
 
 /* 导航栏 - 完全参考 index */
 .profile-navbar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  width: 100%;
   z-index: 10;
   background: $cr7-black;
+}
+
+.profile-navbar-spacer {
+  width: 100%;
 }
 
 .navbar-row {
@@ -400,8 +419,9 @@ export default {
 
 .navbar-logo {
   position: absolute;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: center;
