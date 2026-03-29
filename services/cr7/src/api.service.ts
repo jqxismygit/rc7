@@ -185,6 +185,7 @@ const routes = [
       'cr7.topics.update',
       'cr7.topics.delete',
       'cr7.topics.createArticle',
+      'cr7.topics.reorderArticles',
       'cr7.topics.list',
       'cr7.topics.get',
     ],

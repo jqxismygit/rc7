@@ -228,5 +228,9 @@ export function handleTopicError(error: unknown): never {
     throw new MoleculerClientError('文章不存在', 404, 'ARTICLE_NOT_FOUND');
   }
 
+  if (error.code === 'TOPIC_ARTICLE_ORDER_INVALID') {
+    throw new MoleculerClientError('文章顺序参数不合法', 400, 'TOPIC_ARTICLE_ORDER_INVALID');
+  }
+
   throw new MoleculerClientError('话题服务错误', 500, 'TOPIC_ERROR');
 }

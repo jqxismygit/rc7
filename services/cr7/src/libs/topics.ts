@@ -13,9 +13,11 @@ import {
   deleteArticle,
   deleteTopic,
   getArticleWithTopic,
+  getTopicArticleIds,
   getTopicById,
   getTopicWithArticles,
   getTopics,
+  reorderTopicArticles,
   updateArticle,
   updateTopic,
 } from '../data/topics.js';
@@ -49,6 +51,17 @@ async function saveUploadAsWebp(
   return {
     url: new URL(name, `${baseUrl.replace(/\/?$/, '/')}`).toString(),
   };
+}
+
+function validateArticleIds(articleIds: string[]) {
+  if (articleIds.length === 0) {
+    throw new MoleculerClientError('文章顺序参数不合法', 400, 'TOPIC_ARTICLE_ORDER_INVALID');
+  }
+
+  const uniqueIds = new Set(articleIds);
+  if (uniqueIds.size !== articleIds.length) {
+    throw new MoleculerClientError('文章顺序参数不合法', 400, 'TOPIC_ARTICLE_ORDER_INVALID');
+  }
 }
 
 export class TopicService extends RC7BaseService {
@@ -105,6 +118,7 @@ export class TopicService extends RC7BaseService {
       params: {
         tid: 'string',
         title: { type: 'string', trim: true, min: 1 },
+        subtitle: { type: 'string', trim: true, optional: true, nullable: true, empty: false },
         content: { type: 'string', trim: true, min: 1 },
         cover_url: { type: 'url', optional: true, nullable: true },
       },
@@ -117,10 +131,21 @@ export class TopicService extends RC7BaseService {
       params: {
         aid: 'string',
         title: { type: 'string', trim: true, min: 1, optional: true },
+        subtitle: { type: 'string', trim: true, optional: true, nullable: true, empty: false },
         content: { type: 'string', trim: true, min: 1, optional: true },
         cover_url: { type: 'url', optional: true, nullable: true },
       },
       handler: this.updateArticle,
+    },
+
+    'topics.reorderArticles': {
+      rest: 'PATCH /:tid/articles/order',
+      roles: ['admin'],
+      params: {
+        tid: 'string',
+        article_ids: { type: 'array', items: 'string', min: 1 },
+      },
+      handler: this.reorderArticles,
     },
 
     'topics.deleteArticle': {
@@ -220,28 +245,30 @@ export class TopicService extends RC7BaseService {
   }
 
   async createArticle(
-    ctx: Context<{ tid: string; title: string; content: string; cover_url?: string | null }>
+    ctx: Context<{ tid: string; title: string; subtitle?: string | null; content: string; cover_url?: string | null }>
   ) {
-    const { tid, title, content, cover_url } = ctx.params;
+    const { tid, title, subtitle, content, cover_url } = ctx.params;
     const schema = await this.getSchema();
-
-    const normalizedCoverUrl = normalizeNullableText(cover_url);
 
     await getTopicById(this.pool, schema, tid).catch(handleTopicError);
     return createArticle(this.pool, schema, tid, {
       title,
+      subtitle: normalizeNullableText(subtitle),
       content,
-      cover_url: normalizedCoverUrl,
+      cover_url: normalizeNullableText(cover_url),
     }).catch(handleTopicError);
   }
 
   async updateArticle(ctx: Context<{ aid: string } & Topic.ArticlePatch>) {
-    const { aid, title, content, cover_url } = ctx.params;
+    const { aid, title, subtitle, content, cover_url } = ctx.params;
     const schema = await this.getSchema();
 
     const patch: Topic.ArticlePatch = {};
     if (title !== undefined) {
       patch.title = title;
+    }
+    if (subtitle !== undefined) {
+      patch.subtitle = normalizeNullableText(subtitle);
     }
     if (content !== undefined) {
       patch.content = content;
@@ -251,6 +278,30 @@ export class TopicService extends RC7BaseService {
     }
 
     return updateArticle(this.pool, schema, aid, patch).catch(handleTopicError);
+  }
+
+  async reorderArticles(ctx: Context<{ tid: string; article_ids: string[] }>) {
+    const { tid, article_ids: articleIds } = ctx.params;
+    const schema = await this.getSchema();
+
+    validateArticleIds(articleIds);
+    await getTopicById(this.pool, schema, tid).catch(handleTopicError);
+
+    const existingIds = await getTopicArticleIds(this.pool, schema, tid);
+    if (existingIds.length !== articleIds.length) {
+      throw new MoleculerClientError('文章顺序参数不合法', 400, 'TOPIC_ARTICLE_ORDER_INVALID');
+    }
+
+    const existingSet = new Set(existingIds);
+    if (articleIds.every(id => existingSet.has(id)) === false) {
+      throw new MoleculerClientError('文章顺序参数不合法', 400, 'TOPIC_ARTICLE_ORDER_INVALID');
+    }
+
+    await reorderTopicArticles(this.pool, schema, tid, articleIds).catch(handleTopicError);
+    return {
+      topic_id: tid,
+      article_ids: articleIds,
+    } satisfies Topic.ReorderTopicArticlesResult;
   }
 
   async deleteArticle(ctx: Context<{ aid: string }, { $statusCode?: number }>) {

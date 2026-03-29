@@ -5,7 +5,8 @@ type DBClient = Pool | PoolClient;
 
 export type TOPIC_DATA_ERROR_CODES =
   | 'TOPIC_NOT_FOUND'
-  | 'ARTICLE_NOT_FOUND';
+  | 'ARTICLE_NOT_FOUND'
+  | 'TOPIC_ARTICLE_ORDER_INVALID';
 
 export class TopicDataError extends Error {
   code: TOPIC_DATA_ERROR_CODES;
@@ -79,7 +80,7 @@ export async function updateTopic(
     return getTopicById(client, schema, tid);
   }
 
-  fields.push(`updated_at = NOW()`);
+  fields.push('updated_at = NOW()');
   values.push(tid);
 
   const { rows } = await client.query(
@@ -116,10 +117,10 @@ export async function createArticle(
   draft: Omit<Topic.ArticleDraft, 'topic_id'>,
 ): Promise<Topic.Article> {
   const { rows: [result] } = await client.query(
-    `INSERT INTO ${schema}.topic_articles (topic_id, title, content, cover_url)
-     VALUES ($1, $2, $3, $4)
-     RETURNING id, topic_id, title, content, cover_url, created_at, updated_at`,
-    [tid, draft.title, draft.content, draft.cover_url ?? null],
+    `INSERT INTO ${schema}.topic_articles (topic_id, title, subtitle, content, cover_url)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, topic_id, title, subtitle, content, cover_url, sort_order, created_at, updated_at`,
+    [tid, draft.title, draft.subtitle ?? null, draft.content, draft.cover_url ?? null],
   );
   return result;
 }
@@ -130,7 +131,7 @@ export async function getArticleById(
   aid: string,
 ): Promise<Topic.Article> {
   const { rows } = await client.query(
-    `SELECT id, topic_id, title, content, cover_url, created_at, updated_at
+    `SELECT id, topic_id, title, subtitle, content, cover_url, sort_order, created_at, updated_at
      FROM ${schema}.topic_articles
      WHERE id = $1`,
     [aid],
@@ -155,6 +156,10 @@ export async function updateArticle(
     fields.push(`title = $${idx++}`);
     values.push(patch.title);
   }
+  if ('subtitle' in patch) {
+    fields.push(`subtitle = $${idx++}`);
+    values.push(patch.subtitle ?? null);
+  }
   if ('content' in patch) {
     fields.push(`content = $${idx++}`);
     values.push(patch.content);
@@ -168,14 +173,14 @@ export async function updateArticle(
     return getArticleById(client, schema, aid);
   }
 
-  fields.push(`updated_at = NOW()`);
+  fields.push('updated_at = NOW()');
   values.push(aid);
 
   const { rows } = await client.query(
     `UPDATE ${schema}.topic_articles
      SET ${fields.join(', ')}
      WHERE id = $${idx}
-     RETURNING id, topic_id, title, content, cover_url, created_at, updated_at`,
+     RETURNING id, topic_id, title, subtitle, content, cover_url, sort_order, created_at, updated_at`,
     values,
   );
   if (rows.length === 0) {
@@ -238,10 +243,10 @@ export async function getTopicWithArticles(
   const topic = topicRows[0];
 
   const { rows: articleRows } = await client.query(
-    `SELECT id, topic_id, title, content, cover_url, created_at, updated_at
+    `SELECT id, topic_id, title, subtitle, content, cover_url, sort_order, created_at, updated_at
      FROM ${schema}.topic_articles
      WHERE topic_id = $1
-     ORDER BY created_at DESC`,
+     ORDER BY sort_order ASC, created_at DESC`,
     [tid],
   );
 
@@ -258,8 +263,10 @@ export async function getArticleWithTopic(
        a.id,
        a.topic_id,
        a.title,
+       a.subtitle,
        a.content,
        a.cover_url,
+       a.sort_order,
        a.created_at,
        a.updated_at,
        t.id AS topic_id_join,
@@ -277,8 +284,10 @@ export async function getArticleWithTopic(
     id: row.id,
     topic_id: row.topic_id,
     title: row.title,
+    subtitle: row.subtitle,
     content: row.content,
     cover_url: row.cover_url,
+    sort_order: row.sort_order,
     created_at: row.created_at,
     updated_at: row.updated_at,
     topic: {
@@ -286,4 +295,45 @@ export async function getArticleWithTopic(
       title: row.topic_title,
     },
   };
+}
+
+export async function getTopicArticleIds(
+  client: DBClient,
+  schema: string,
+  tid: string,
+): Promise<string[]> {
+  const { rows } = await client.query(
+    `SELECT id
+     FROM ${schema}.topic_articles
+     WHERE topic_id = $1`,
+    [tid],
+  );
+  return rows.map((row: { id: string }) => row.id);
+}
+
+export async function reorderTopicArticles(
+  client: DBClient,
+  schema: string,
+  tid: string,
+  articleIds: string[],
+): Promise<void> {
+  const { rowCount } = await client.query(
+    `WITH order_items AS (
+      SELECT
+        u.article_id,
+        (u.ordinality - 1)::int AS sort_order
+      FROM UNNEST($2::uuid[]) WITH ORDINALITY AS u(article_id, ordinality)
+    )
+    UPDATE ${schema}.topic_articles AS a
+    SET sort_order = order_items.sort_order,
+        updated_at = NOW()
+    FROM order_items
+    WHERE a.id = order_items.article_id
+      AND a.topic_id = $1`,
+    [tid, articleIds],
+  );
+
+  if (rowCount !== articleIds.length) {
+    throw new TopicDataError('Invalid article order', 'TOPIC_ARTICLE_ORDER_INVALID');
+  }
 }

@@ -57,6 +57,18 @@ export async function updateArticle(
   });
 }
 
+export async function reorderTopicArticles(
+  server: Server,
+  token: string,
+  tid: string,
+  articleIds: string[],
+) {
+  return patchJSON<Topic.ReorderTopicArticlesResult>(server, `/topics/${tid}/articles/order`, {
+    token,
+    body: { article_ids: articleIds } satisfies Topic.ReorderTopicArticlesRequest,
+  });
+}
+
 export async function deleteArticle(
   server: Server,
   token: string,
@@ -137,6 +149,9 @@ export function assertArticle(article: Topic.Article) {
   expect(article.topic_id).toEqual(expect.any(String));
   expect(article.title).toEqual(expect.any(String));
   expect(article.content).toEqual(expect.any(String));
+  expect(article).toHaveProperty('subtitle', expect.toBeOneOf([expect.any(String), null]));
+  expect(article).toHaveProperty('cover_url', expect.toBeOneOf([expect.any(String), null]));
+  expect(article).toHaveProperty('sort_order', expect.any(Number));
   expect(article.created_at).toEqual(expect.any(String));
   expect(article.updated_at).toEqual(expect.any(String));
 }

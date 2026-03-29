@@ -24,6 +24,7 @@ import {
   getArticle,
   getTopic,
   listTopics,
+  reorderTopicArticles,
   updateArticle,
   updateTopic,
   uploadImage,
@@ -70,10 +71,12 @@ async function ensureArticle(
   title: string,
   content: string,
   coverUrl: string | null = null,
+  subtitle: string | null = null,
 ): Promise<Topic.Article> {
   const { apiServer } = featureContext.fixtures.values;
   return createArticle(apiServer, featureContext.adminToken, topic.id, {
     title,
+    subtitle,
     content,
     cover_url: coverUrl,
   });
@@ -201,6 +204,13 @@ describeFeature(feature, ({
       context.article = await createArticle(apiServer, featureContext.adminToken, context.topic!.id, {
         title: articleTitle,
         content: '待更新',
+      });
+    });
+
+    And('文章副标题为 {string}', async (_ctx, subtitle: string) => {
+      const { apiServer } = featureContext.fixtures.values;
+      context.article = await updateArticle(apiServer, featureContext.adminToken, context.article!.id, {
+        subtitle,
       });
     });
 
@@ -414,6 +424,58 @@ describeFeature(feature, ({
 
     And('文章封面图片应为 {string}', (_ctx, coverUrl: string) => {
       expect(context.topicWithArticles?.articles[0]?.cover_url).toBe(coverUrl);
+    });
+  });
+
+  Scenario('管理员调整话题文章顺序', (s: StepTest<TopicScenarioContext>) => {
+    const { Given, When, Then, And, context } = s;
+
+    Given('话题 {string} 已创建', async (_ctx, title: string) => {
+      context.topic = await ensureTopic(featureContext, title);
+    });
+
+    Given('文章 {string} 添加在话题 {string} 下', async (_ctx, articleTitle: string, _topicTitle: string) => {
+      context.article = await ensureArticle(featureContext, context.topic!, articleTitle, '默认内容');
+    });
+
+    Given('文章 {string} 继续添加在话题 {string} 下', async (_ctx, articleTitle: string, _topicTitle: string) => {
+      context.article = await ensureArticle(featureContext, context.topic!, articleTitle, '默认内容');
+    });
+
+    When('用户查看话题 {string} 的详情', async () => {
+      const { apiServer } = featureContext.fixtures.values;
+      context.topicWithArticles = await getTopic(apiServer, context.topic!.id, featureContext.userToken);
+    });
+
+    Then('话题下有 {int} 篇文章', (_ctx, count: number) => {
+      expect(context.topicWithArticles?.articles.length).toBe(count);
+    });
+
+    And('文章顺序为 {string}, {string}', (_ctx, firstTitle: string, secondTitle: string) => {
+      expect(context.topicWithArticles?.articles[0]?.title).toBe(firstTitle);
+      expect(context.topicWithArticles?.articles[1]?.title).toBe(secondTitle);
+    });
+
+    Then('更新后文章顺序为 {string}, {string}', (_ctx, firstTitle: string, secondTitle: string) => {
+      expect(context.topicWithArticles?.articles[0]?.title).toBe(firstTitle);
+      expect(context.topicWithArticles?.articles[1]?.title).toBe(secondTitle);
+    });
+
+    When('指定文章顺序为 {string}, {string}', async (_ctx, firstTitle: string, secondTitle: string) => {
+      const { apiServer } = featureContext.fixtures.values;
+      expect(context.topicWithArticles?.articles).toBeTruthy();
+      const articles = context.topicWithArticles!.articles;
+      const first = articles.find((item) => item.title === firstTitle);
+      const second = articles.find((item) => item.title === secondTitle);
+      expect(first).toBeTruthy();
+      expect(second).toBeTruthy();
+
+      await reorderTopicArticles(apiServer, featureContext.adminToken, context.topic!.id, [
+        first!.id,
+        second!.id,
+      ]);
+
+      context.topicWithArticles = await getTopic(apiServer, context.topic!.id, featureContext.userToken);
     });
   });
 
