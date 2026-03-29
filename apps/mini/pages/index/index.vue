@@ -12,7 +12,7 @@
               :height="42"
               color="#FFFFFF"
             />
-            <view v-if="unreadCount > 0" class="notification-dot"></view>
+            <!-- <view v-if="unreadCount > 0" class="notification-dot"></view> -->
           </view>
         </view>
         <view class="navbar-logo">
@@ -171,7 +171,8 @@
             v-if="showBrandsViewAll"
             class="section-link"
             @click="openBrandAll"
-          >查看全部</text>
+            >查看全部</text
+          >
         </view>
         <view class="brand-grid">
           <view
@@ -343,13 +344,17 @@ export default {
               return { articles: [] };
             })
           : Promise.resolve({ articles: [] });
-        const [topicHeroDetail, topicNewsDetail, topicBrandsDetail, ticketSection] =
-          await Promise.all([
-            topicHeroPromise,
-            topicNewsPromise,
-            topicBrandsPromise,
-            loadHomeTicketSection(),
-          ]);
+        const [
+          topicHeroDetail,
+          topicNewsDetail,
+          topicBrandsDetail,
+          ticketSection,
+        ] = await Promise.all([
+          topicHeroPromise,
+          topicNewsPromise,
+          topicBrandsPromise,
+          loadHomeTicketSection(),
+        ]);
         const heroArticles = Array.isArray(topicHeroDetail?.articles)
           ? topicHeroDetail.articles
           : [];

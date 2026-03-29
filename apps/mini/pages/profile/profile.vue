@@ -14,7 +14,7 @@
               :height="42"
               color="#FFFFFF"
             />
-            <view v-if="unreadCount > 0" class="notification-dot"></view>
+            <!-- <view v-if="unreadCount > 0" class="notification-dot"></view> -->
           </view>
         </view>
         <view class="navbar-logo">

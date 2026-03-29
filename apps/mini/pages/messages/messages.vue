@@ -2,9 +2,36 @@
   <view class="container">
     <cr7-nav-bar title="消息中心" />
 
-    <!-- 空状态 -->
-    <view v-if="messages.length === 0 && !loading" class="empty">
-      <text class="empty-text">暂无消息</text>
+    <!-- 空状态（Figma 68242:13918，图标为占位，后续可换正式资源） -->
+    <view
+      v-if="messages.length === 0 && !loading"
+      class="empty"
+      :style="{ paddingTop: navInsetPx + 'px' }"
+    >
+      <view class="empty-inner">
+        <view class="empty-illustration">
+          <view class="empty-icon-halo" aria-hidden="true" />
+          <view class="empty-icon-ring">
+            <sx-svg
+              class="empty-msg-icon-svg"
+              name="no-message"
+              :width="84"
+              :height="84"
+              color="#D8FC0F"
+            />
+          </view>
+        </view>
+        <view class="empty-copy">
+          <text class="empty-title">暂无消息</text>
+        </view>
+        <button
+          class="btn-gold empty-btn"
+          hover-class="none"
+          @click="goExplore"
+        >
+          去探索活动
+        </button>
+      </view>
     </view>
 
     <!-- 消息列表 -->
@@ -65,8 +92,8 @@ export default {
     async loadMessages() {
       this.loading = true;
       try {
-        const list = await fetchMessages();
-        this.messages = list;
+        // const list = await fetchMessages();
+        // this.messages = list;
       } catch (e) {
         console.error("加载消息列表失败", e);
         uni.showToast({
@@ -97,6 +124,10 @@ export default {
       }
     },
 
+    goExplore() {
+      uni.switchTab({ url: "/pages/index/index" });
+    },
+
     async handleMessageClick(msg) {
       if (!msg.isRead) {
         msg.isRead = true;
@@ -123,19 +154,98 @@ export default {
   background: $cr7-black;
 }
 
-/* 空状态 */
+/* 空状态（与票夹空状态同结构，Figma 68242:13918） */
 .empty {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding-left: 62rpx;
+  padding-right: 62rpx;
+  padding-bottom: 40rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.empty-inner {
+  flex: 1;
+  width: 100%;
+  max-width: 620rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding-top: 400rpx;
-  color: $text-light;
+  padding-bottom: 120rpx;
 }
 
-.empty-text {
-  font-size: $font-base;
-  color: $text-muted;
+.empty-illustration {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 62rpx;
+}
+
+.empty-icon-halo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 277rpx;
+  height: 277rpx;
+  margin: -138rpx 0 0 -138rpx;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(216, 252, 15, 0.12) 0%,
+    rgba(216, 252, 15, 0) 70%
+  );
+  pointer-events: none;
+}
+
+.empty-icon-ring {
+  position: relative;
+  width: 185rpx;
+  height: 185rpx;
+  border-radius: 50%;
+  background: #20230f;
+  border: 2rpx solid rgba(255, 255, 255, 0.05);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 48rpx 96rpx -23rpx rgba(0, 0, 0, 0.25);
+}
+
+.empty-msg-icon-svg {
+  position: relative;
+  z-index: 1;
+  width: 84rpx;
+  height: 84rpx;
+}
+
+.empty-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 158rpx;
+}
+
+.empty-title {
+  font-size: 40rpx;
+  font-weight: 400;
+  color: $text-white;
+  line-height: 62rpx;
+  letter-spacing: -1.15rpx;
+  text-align: center;
+}
+
+.empty-btn {
+  width: 331rpx;
+  height: 81rpx;
+  border-radius: 52rpx;
+  font-size: 32rpx;
+  font-weight: 400;
+  line-height: 1;
+  margin-top: 0;
 }
 
 /* 消息列表 */
