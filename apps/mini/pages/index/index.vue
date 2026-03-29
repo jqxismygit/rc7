@@ -128,14 +128,19 @@
         </view>
       </view>
 
-      <!-- CR7 News -->
-      <view class="section">
+      <!-- CR7 News（首页最多 3 条；超过则显示查看全部） -->
+      <view v-if="cr7News.length" class="section">
         <view class="section-header">
           <text class="section-title">CR7 News</text>
+          <text
+            v-if="showNewsViewAll"
+            class="section-link"
+            @click="openNewsAll"
+          >查看全部</text>
         </view>
         <view class="news-list">
           <view
-            v-for="item in cr7News"
+            v-for="item in cr7NewsPreview"
             :key="item.id"
             class="news-card"
             @click="openNewsItem(item)"
@@ -149,7 +154,7 @@
             </view>
             <view class="news-content">
               <text class="news-title">{{ item.title }}</text>
-              <text class="news-desc">{{ item.title }}</text>
+              <text class="news-desc">{{ item.desc }}</text>
             </view>
             <image
               src="/static/icons/arrow-right.svg"
@@ -208,6 +213,9 @@ import createTabBarMixin from "@/mixins/tabBar.js";
 import { HOME_TICKET_SECTION_EVENT } from "@/utils/eventBus.js";
 import { formatTicketEventCardMetaLine } from "@/utils/ticketEventDisplay.js";
 
+/** 首页 CR7 News 预览条数 */
+const NEWS_HOME_PREVIEW_LIMIT = 3;
+
 export default {
   mixins: [createTabBarMixin(0)],
   computed: {
@@ -216,6 +224,12 @@ export default {
         this.ticketSection.ticketEvent,
       );
       return line || "-";
+    },
+    cr7NewsPreview() {
+      return this.cr7News.slice(0, NEWS_HOME_PREVIEW_LIMIT);
+    },
+    showNewsViewAll() {
+      return this.cr7News.length > NEWS_HOME_PREVIEW_LIMIT;
     },
   },
   data() {
@@ -406,6 +420,10 @@ export default {
       uni.navigateTo({
         url: `/pages/article-detail/article-detail?aid=${encodeURIComponent(item.id)}`,
       });
+    },
+
+    openNewsAll() {
+      uni.navigateTo({ url: "/pages/news-all/news-all" });
     },
 
     openBrandAll() {

@@ -160,6 +160,15 @@
         "navigationBarBackgroundColor": "#090a07",
         "backgroundColor": "#090a07"
       }
+    },
+    {
+      "path": "pages/news-all/news-all",
+      "style": {
+        "navigationBarTitleText": "全部新闻",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#090a07",
+        "backgroundColor": "#090a07"
+      }
     }
   ],
   "tabBar": {
