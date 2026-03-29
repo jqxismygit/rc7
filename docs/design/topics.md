@@ -8,6 +8,7 @@
 
 - 支持管理员创建、修改、删除话题。
 - 支持管理员在话题下创建、修改、删除文章。
+- 支持管理员调整同一话题下的文章顺序。
 - 支持用户查看话题列表和文章详情。
 - 支持管理员上传文章/话题图片，统一生成 webp URL。
 
@@ -15,7 +16,7 @@
 
 - 不实现评论、点赞、收藏等互动能力。
 - 不实现文章版本历史。
-- 不实现话题推荐排序算法（先按创建时间倒序）。
+- 不实现话题推荐排序算法（话题默认按创建时间倒序）。
 
 ## 2. 权限模型
 
@@ -26,6 +27,7 @@
 权限规则：
 - `POST /topics`、`PATCH /topics/:tid`、`DELETE /topics/:tid` 仅管理员可调用。
 - `POST /topics/:tid/articles`、`PATCH /articles/:aid`、`DELETE /articles/:aid` 仅管理员可调用。
+- `PATCH /topics/:tid/articles/order` 仅管理员可调用。
 - `POST /assets/images` 仅管理员可调用。
 - `GET /topics`、`GET /articles/:aid` 为公开接口。
 - 资源不存在统一返回 `404`，不泄漏内部状态。
@@ -33,12 +35,14 @@
 ## 3. 领域模型
 
 - Topic：`id`、`title`、`description`、`cover_url`、时间戳。
-- Article：`id`、`topic_id`、`title`、`content`、`cover_url`、时间戳。
+- Article：`id`、`topic_id`、`title`、`subtitle`、`content`、`cover_url`、`sort_order`、时间戳。
 
 业务约束：
 - 文章必须归属一个话题（`topic_id` 必填）。
 - `description` 为可选字段；未提供时存储为 `null`。
 - `cover_url` 为可选字段；未提供时存储为 `null`。
+- `subtitle` 为可选字段；未提供时存储为 `null`。
+- `sort_order` 为文章在话题内的顺序值，数值越小越靠前。
 - 删除话题时级联删除其文章。
 
 
@@ -74,7 +78,7 @@
 
 1. 校验管理员身份。
 2. 校验目标话题存在。
-3. 校验文章标题、内容；若传入封面 URL，再校验其格式。
+3. 校验文章标题、内容；若传入副标题或封面 URL，再校验其格式。
 4. 写入 article 并返回。
 
 ### 4.5 修改文章
@@ -83,7 +87,7 @@
 
 1. 校验管理员身份。
 2. 校验文章存在。
-3. 对文章可变字段做部分更新。
+3. 对文章可变字段做部分更新（含 `subtitle`）。
 
 ### 4.6 删除文章
 
@@ -105,7 +109,7 @@
 接口：`GET /topics/:tid`
 
 1. 按 `tid` 查询话题。
-2. 汇总该话题下的文章列表。
+2. 汇总该话题下的文章列表（按 `sort_order ASC, created_at DESC` 排序）。
 3. 返回 `TopicWithArticles`（含话题信息 + 文章摘要列表）。
 
 ### 4.9 查看文章详情
@@ -124,7 +128,17 @@
 3. action 直接接收该 stream，并校验文件类型（jpg/jpeg/png/webp）。
 4. 将 stream 直接 pipe 到 `sharp` 做图片转码。
 5. 统一输出为 webp，并写入 `assets` 目录。
-6. 返回静态资源 URL：`/assets/<uuid>.webp`。
+6. 返回静态资源 URL：`<assets.base_url>/<uuid>.webp`。
+
+### 4.11 调整文章顺序
+
+接口：`PATCH /topics/:tid/articles/order`
+
+1. 校验管理员身份。
+2. 校验话题存在。
+3. 校验 `article_ids` 为当前话题下文章 ID 的完整集合（不允许缺失、重复或跨话题 ID）。
+4. 在事务中按请求数组顺序重写 `sort_order`（从 `0` 递增）。
+5. 返回更新后的顺序结果。
 
 ## 5. 幂等与一致性
 
@@ -132,6 +146,7 @@
 - 话题删除与文章级联删除由数据库外键保证一致性。
 - 话题列表只返回话题基本信息，文章详情通过话题详情接口单独获取。
 - 话题详情中的文章列表通过聚合查询实时获取，避免冗余字段漂移。
+- 话题详情中的文章列表按 `sort_order` 稳定排序，未显式调整时保持“新建优先”。
 - 上传接口只负责生成可复用图片 URL；业务表中的 `cover_url` 可为空。
 - 图片处理链路不经过临时文件，直接由 action 接收 stream 并 pipe 到 `sharp` 后写入 `assets` 目录。
 
@@ -149,4 +164,5 @@
 - 用户查看文章详情。
 - 用户查看话题列表（仅基本信息）。
 - 用户查看话题详情（含文章列表）。
-- 管理员上传图片并返回 `/assets/<uuid>.webp`。
+- 管理员调整话题下文章顺序。
+- 管理员上传图片并返回 `${assets.base_url}/<uuid>.webp`。

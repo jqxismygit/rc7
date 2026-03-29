@@ -24,6 +24,7 @@ Feature: Topics & Article
   Scenario: 管理员在话题下发布文章
     Given 话题 "展会亮点" 已创建
     When 文章 "必看展位" 添加在话题 "展会亮点" 下
+     And 文章副标题为 "展会必看展位和产品推荐"
      And 文章内容为 "介绍必看的展位和产品"
      And 文章的封面图片为 "http://example.com/article_cover.jpg"
     Then 文章发布成功
@@ -69,6 +70,16 @@ Feature: Topics & Article
       And 文章标题为 "必看展位"
       And 文章内容应为 "介绍必看的展位和产品"
       And 文章封面图片应为 "http://example.com/article_cover.jpg"
+
+  Scenario:
+    Given 话题 "展会亮点" 已创建
+    Given 文章 "必看展位" 添加在话题 "展会亮点
+    Given 文章 "参展品牌" 添加在话题 "展会亮点"
+    When 用户查看话题 "展会亮点" 的详情
+    Then 话题下有 2 篇文章
+     And 文章顺序为 "参展品牌", "必看展位"
+    When 指定文章顺序为 "必看展位", "参展品牌"
+    Then 文章顺序为 "必看展位", "参展品牌"
 
   Scenario: 管理员删除文章
     Given 文章 "必看展位" 已发布在话题 "展会亮点" 下

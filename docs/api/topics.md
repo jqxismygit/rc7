@@ -5,10 +5,11 @@
 ## 概念说明
 
 - Topic（话题）：内容聚合主题，包含标题、描述、封面图。
-- Article（文章）：归属于某个话题的内容条目，包含标题、正文和封面图。
+- Article（文章）：归属于某个话题的内容条目，包含标题、副标题、正文和封面图。
 - 关键字段：
   - `description`：话题描述，可为空。
   - `cover_url`：图片上传成功后返回的 URL，可为空。
+  - `sort_order`：文章在话题内的排序值，数值越小越靠前。
 
 ## 管理员创建话题
 
@@ -112,7 +113,7 @@
   - `404 Not Found`：话题不存在
 
 - 说明：
-  - `cover_url` 为可选字段；未传时返回 `null`。
+  - `subtitle`、`cover_url` 为可选字段；未传时返回 `null`。
 
 ## 管理员修改文章
 
@@ -215,7 +216,40 @@
   - `404 Not Found`：话题不存在
 
 - 说明：
-  - 返回话题完整信息，包含文章摘要列表。
+  - 返回话题完整信息，包含文章列表。
+  - 文章列表排序规则：先按 `sort_order ASC`，再按 `created_at DESC`。
+  - 文章项包含 `subtitle` 字段（可能为 `null`）。
+
+## 管理员调整话题下文章顺序
+
+- URL: `/topics/:tid/articles/order`
+- Method: `PATCH`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Params:
+  ```ts
+  { tid: string }
+  ```
+- Request Body:
+  ```ts
+  Topic.ReorderTopicArticlesRequest
+  ```
+- Response Body:
+  ```ts
+  Topic.ReorderTopicArticlesResult
+  ```
+- Response Status:
+  - `200 OK`：调整成功
+  - `400 Bad Request`：参数错误（空数组、重复文章 ID、文章不属于该话题等）
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：无管理员权限
+  - `404 Not Found`：话题不存在
+
+- 说明：
+  - `article_ids` 需包含该话题下全部文章且不重复。
+  - 服务端按数组顺序重写 `sort_order`（从 `0` 递增）。
 
 ## 管理员上传图片
 
@@ -244,7 +278,8 @@
   - action 直接接收上传文件的 stream，不落临时文件。
   - 上传 stream 直接 pipe 到 `sharp`，统一转为 webp。
   - 转码后的文件保存到 `assets` 目录。
-  - 返回图片 URL 路径格式为 `/assets/<uuid>.webp`。
+  - 返回图片 URL 使用配置 `assets.base_url` 作为前缀。
+  - 返回图片 URL 的后缀固定为 `.webp`。
 
 ## 错误响应
 

@@ -11,8 +11,10 @@ export interface Article {
   id: string;
   topic_id: string;
   title: string;
+  subtitle: string | null;
   content: string;
   cover_url: string | null;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -28,11 +30,12 @@ export type TopicPatch = Partial<Pick<Topic, 'title' | 'description' | 'cover_ur
 export interface ArticleDraft {
   topic_id: string;
   title: string;
+  subtitle?: string | null;
   content: string;
   cover_url?: string | null;
 }
 
-export type ArticlePatch = Partial<Pick<Article, 'title' | 'content' | 'cover_url'>>;
+export type ArticlePatch = Partial<Pick<Article, 'title' | 'subtitle' | 'content' | 'cover_url'>>;
 
 export interface TopicSummary extends Topic {
   article_count: number;
@@ -40,6 +43,15 @@ export interface TopicSummary extends Topic {
 
 export interface TopicWithArticles extends Topic {
   articles: Article[];
+}
+
+export interface ReorderTopicArticlesRequest {
+  article_ids: string[];
+}
+
+export interface ReorderTopicArticlesResult {
+  topic_id: string;
+  article_ids: string[];
 }
 
 export interface TopicListResult {
