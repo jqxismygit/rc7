@@ -96,6 +96,18 @@
                   activeDateKey === chip.key ? 'active' : '',
                 ]"
               >
+                <view
+                  v-if="activeDateKey === 'all'"
+                  class="date-chip-close"
+                  @click.stop="clearDateSelection"
+                >
+                  <sx-svg
+                    name="close"
+                    :width="14"
+                    :height="14"
+                    color="#090a07"
+                  />
+                </view>
                 <sx-svg
                   v-if="chip.icon"
                   class="chip-icon"
@@ -124,6 +136,17 @@
               ]"
               @click="onChipClick(chip)"
             >
+              <view
+                v-if="
+                  activeDateKey === chip.key &&
+                  chip.key !== defaultDateChipKey &&
+                  !chip.disabled
+                "
+                class="date-chip-close"
+                @click.stop="clearDateSelection"
+              >
+                <sx-svg name="close" :width="14" :height="14" color="#090a07" />
+              </view>
               <sx-svg
                 v-if="chip.icon"
                 class="chip-icon"
@@ -318,6 +341,13 @@ export default {
     totalPrice() {
       if (!this.selectedTicket) return 199;
       return this.selectedTicket.price * this.quantity;
+    },
+
+    /** 与 initDateSelection 一致：首个有场次的预设日，用于判断是否为「默认」选中 */
+    defaultDateChipKey() {
+      const chips = this.dateChips.filter((c) => c.key !== "all");
+      const firstAvailable = chips.find((c) => !c.disabled && c.date);
+      return firstAvailable?.key || "today";
     },
 
     dateChips() {
@@ -545,6 +575,20 @@ export default {
       this.activeDateKey = firstAvailable.key;
       const sid = this.sessionIdByDate(firstAvailable.date);
       this.sessionId = sid;
+    },
+
+    /** 取消当前日期筛选：回到首个有场次的预设日，并刷新票种 */
+    async clearDateSelection() {
+      this.allDateLabel = "";
+      this.initDateSelection();
+      const sid = this.sessionId;
+      if (sid) {
+        await this.loadTicketsBySession(sid);
+      } else {
+        this.ticketTypes = [];
+        this.selectedTicket = null;
+        this.quantity = 1;
+      }
     },
 
     formatDate(d) {
@@ -937,6 +981,7 @@ export default {
 }
 
 .date-chip {
+  position: relative;
   // min-width: 138rpx;
   height: 64rpx;
   border-radius: 21rpx;
@@ -947,11 +992,31 @@ export default {
   justify-content: center;
   flex-shrink: 0;
   padding: 0 12rpx;
+  overflow: visible;
+}
+
+.date-chip-close {
+  position: absolute;
+  top: -16rpx;
+  right: -16rpx;
+  z-index: 2;
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+  background: $cr7-gold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .date-chip-wide {
   // width: 197rpx;
-  padding: 0 16rpx;
+  // padding: 0 16rpx;
+  width: 160rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chip-icon {
@@ -963,6 +1028,7 @@ export default {
 
 .chip-main {
   font-size: 24rpx;
+  line-height: 24rpx;
   color: $text-white;
   font-weight: 400;
   margin-left: 9rpx;
