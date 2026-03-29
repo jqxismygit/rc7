@@ -10,8 +10,8 @@ echo $PKG;
 echo "deploying to $dst ..";
 cd "/var/lib/cr7";
 
-mkdir -p $APP/$dst;
-cd $APP/$dst;
+mkdir -p $dst;
+cd $dst;
 tar xf $PKG --strip-components=1 --exclude "*.map";
 
 cd ..;

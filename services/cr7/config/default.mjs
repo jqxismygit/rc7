@@ -29,7 +29,7 @@ export default {
   },
   assets: {
     path: '/var/lib/cr7/assets',
-    base_url: `${host}/assets`,
+    base_url: `${host}/data`,
   },
   pg: {
     host: 'localhost',
