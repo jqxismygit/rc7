@@ -165,9 +165,11 @@ export default {
 .login-page {
   position: relative;
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
   background: $cr7-black;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .login-bg-wrap {
@@ -208,7 +210,8 @@ export default {
 .login-body {
   position: relative;
   z-index: 1;
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   padding-bottom: 320rpx;

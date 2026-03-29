@@ -34,7 +34,8 @@
         "navigationBarTitleText": "登录",
         "navigationStyle": "custom",
         "navigationBarBackgroundColor": "#090a07",
-        "backgroundColor": "#090a07"
+        "backgroundColor": "#090a07",
+        "disableScroll": true
       }
     },
     {

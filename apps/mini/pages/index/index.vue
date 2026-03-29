@@ -723,7 +723,7 @@ export default {
   overflow: hidden;
   flex-shrink: 0;
   margin-right: 21rpx;
-  border: 2rpx solid $cr7-border;
+  border: 1rpx solid $cr7-border;
 }
 
 .news-thumb-img {
