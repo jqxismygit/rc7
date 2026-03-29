@@ -3,9 +3,26 @@ import {
   useEffect,
   useMemo,
   useState,
+  type CSSProperties,
   type Dispatch,
+  type HTMLAttributes,
   type SetStateAction,
 } from "react";
+import {
+  closestCenter,
+  DndContext,
+  type DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Link, useNavigate, useParams } from "react-router";
 import type { ColumnsType } from "antd/es/table";
 import type { FormInstance } from "antd/es/form";
@@ -42,6 +59,7 @@ import {
   createArticleApi,
   deleteArticleApi,
   getTopicDetailApi,
+  reorderTopicArticlesApi,
   updateArticleApi,
   uploadTopicImageApi,
 } from "@/apis/topic";
@@ -55,6 +73,50 @@ import {
 import "./category.less";
 
 type ArticleRow = TopicTypes.Article;
+
+type ArticleSortableRowProps = HTMLAttributes<HTMLTableRowElement> & {
+  "data-row-key"?: string | number;
+};
+
+function ArticleSortableTableRow({
+  children,
+  style,
+  ...restProps
+}: ArticleSortableRowProps) {
+  const id = String(restProps["data-row-key"] ?? "");
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+  const mergedStyle: CSSProperties = {
+    ...style,
+    transform: CSS.Transform.toString(transform),
+    transition,
+    cursor: isDragging ? "grabbing" : "grab",
+    ...(isDragging
+      ? {
+          position: "relative",
+          zIndex: 9999,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+        }
+      : {}),
+  };
+  return (
+    <tr
+      ref={setNodeRef}
+      style={mergedStyle}
+      {...restProps}
+      {...attributes}
+      {...listeners}
+    >
+      {children}
+    </tr>
+  );
+}
 
 type ArticleFormValues = {
   title: string;
@@ -130,7 +192,8 @@ function buildArticleCoverUploadProps(
     disabled: uploading,
     beforeUpload: (file) => {
       const ok =
-        file.type.startsWith("image/") || /\.(jpe?g|png|webp)$/i.test(file.name);
+        file.type.startsWith("image/") ||
+        /\.(jpe?g|png|webp)$/i.test(file.name);
       if (!ok) {
         messageApi.error("仅支持 jpg / png / webp 图片");
         return Upload.LIST_IGNORE;
@@ -195,8 +258,74 @@ export default function CategoryDetailPage() {
   const [editArticleCoverFiles, setEditArticleCoverFiles] = useState<
     UploadFile[]
   >([]);
+  const [localArticles, setLocalArticles] = useState<ArticleRow[]>([]);
+  const [articlePagination, setArticlePagination] = useState({
+    current: 1,
+    pageSize: 10,
+  });
+  const [orderSaving, setOrderSaving] = useState(false);
   const createTitleWatch = Form.useWatch("title", createArticleForm);
   const editTitleWatch = Form.useWatch("title", editArticleForm);
+
+  const articleTablePageStart =
+    (articlePagination.current - 1) * articlePagination.pageSize;
+
+  const serverArticleIds = useMemo(
+    () => (topic?.articles ?? []).map((a) => a.id),
+    [topic?.articles],
+  );
+
+  const hasLocalReorder = useMemo(() => {
+    if (localArticles.length !== serverArticleIds.length) return false;
+    return localArticles.some((a, i) => a.id !== serverArticleIds[i]);
+  }, [localArticles, serverArticleIds]);
+
+  useEffect(() => {
+    if (topic?.articles) {
+      setLocalArticles([...topic.articles]);
+    } else {
+      setLocalArticles([]);
+    }
+  }, [topic]);
+
+  useEffect(() => {
+    setArticlePagination((p) => {
+      const totalPages = Math.max(
+        1,
+        Math.ceil(localArticles.length / p.pageSize),
+      );
+      if (p.current > totalPages) {
+        return { ...p, current: totalPages };
+      }
+      return p;
+    });
+  }, [localArticles.length, articlePagination.pageSize]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+  );
+
+  const onArticleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const { current, pageSize } = articlePagination;
+      const start = (current - 1) * pageSize;
+      const pageItems = localArticles.slice(start, start + pageSize);
+      const oldIndex = pageItems.findIndex((r) => r.id === active.id);
+      const newIndex = pageItems.findIndex((r) => r.id === over.id);
+      if (oldIndex < 0 || newIndex < 0) return;
+      const movedPage = arrayMove(pageItems, oldIndex, newIndex);
+      const next = [...localArticles];
+      movedPage.forEach((row, i) => {
+        next[start + i] = row;
+      });
+      setLocalArticles(next);
+    },
+    [articlePagination, localArticles],
+  );
 
   const loadDetail = useCallback(async () => {
     if (!tid) {
@@ -217,6 +346,22 @@ export default function CategoryDetailPage() {
       setLoading(false);
     }
   }, [tid]);
+
+  const saveArticleOrder = useCallback(async () => {
+    if (!tid || !hasLocalReorder) return;
+    try {
+      setOrderSaving(true);
+      await reorderTopicArticlesApi(tid, {
+        article_ids: localArticles.map((a) => a.id),
+      });
+      message.success("文章顺序已保存");
+      await loadDetail();
+    } catch (err) {
+      message.error(pickApiErrorMessage(err) || "保存顺序失败");
+    } finally {
+      setOrderSaving(false);
+    }
+  }, [hasLocalReorder, loadDetail, localArticles, message, tid]);
 
   useEffect(() => {
     void loadDetail();
@@ -252,7 +397,7 @@ export default function CategoryDetailPage() {
         key: "index",
         width: 64,
         align: "center",
-        render: (_, __, index) => index + 1,
+        render: (_, __, index) => articleTablePageStart + index + 1,
       },
       {
         title: "封面",
@@ -296,7 +441,9 @@ export default function CategoryDetailPage() {
         dataIndex: "created_at",
         width: 170,
         render: (v: string) => (
-          <Typography.Text type="secondary">{formatDateTime(v)}</Typography.Text>
+          <Typography.Text type="secondary">
+            {formatDateTime(v)}
+          </Typography.Text>
         ),
       },
       {
@@ -304,7 +451,9 @@ export default function CategoryDetailPage() {
         dataIndex: "updated_at",
         width: 170,
         render: (v: string) => (
-          <Typography.Text type="secondary">{formatDateTime(v)}</Typography.Text>
+          <Typography.Text type="secondary">
+            {formatDateTime(v)}
+          </Typography.Text>
         ),
       },
       {
@@ -358,7 +507,7 @@ export default function CategoryDetailPage() {
         ),
       },
     ],
-    [confirmDeleteArticle, editArticleForm],
+    [articleTablePageStart, confirmDeleteArticle, editArticleForm],
   );
 
   async function submitCreateArticle(values: ArticleFormValues) {
@@ -372,9 +521,7 @@ export default function CategoryDetailPage() {
       setArticleSubmitting(true);
       await createArticleApi(tid, {
         title: values.title.trim(),
-        subtitle: values.subtitle?.trim()
-          ? values.subtitle.trim()
-          : undefined,
+        subtitle: values.subtitle?.trim() ? values.subtitle.trim() : undefined,
         content,
         cover_url: values.cover_url?.trim()
           ? values.cover_url.trim()
@@ -455,10 +602,7 @@ export default function CategoryDetailPage() {
           },
           {
             title: (
-              <Link
-                to="/category"
-                style={{ color: token.colorTextSecondary }}
-              >
+              <Link to="/category" style={{ color: token.colorTextSecondary }}>
                 分类
               </Link>
             ),
@@ -480,14 +624,19 @@ export default function CategoryDetailPage() {
         message="说明"
         description={
           <ol>
-            <li>话题信息来自「话题详情」接口；文章列表一并返回，表格为前端分页。</li>
             <li>
-              文章标题必填；正文为富文本（HTML），弹窗右侧为 iPhone 框 + 小程序深色主题实时预览；封面可选，规则与话题封面一致（限
-              1 张，先删再换）。
+              话题信息来自「话题详情」接口；文章列表一并返回，表格为前端分页。
+            </li>
+            <li>
+              文章标题必填；正文为富文本（HTML），弹窗右侧为 iPhone 框 +
+              小程序深色主题实时预览；封面可选，规则与话题封面一致（限 1
+              张，先删再换）。
             </li>
             <li>
               小程序文章详情路径：
-              <Typography.Text code>/pages/article-detail/article-detail?aid=文章ID</Typography.Text>
+              <Typography.Text code>
+                /pages/article-detail/article-detail?aid=文章ID
+              </Typography.Text>
               （需在小程序内配置合法域名等）。
             </li>
           </ol>
@@ -511,10 +660,7 @@ export default function CategoryDetailPage() {
             <Spin size="large" />
           </div>
         ) : error ? (
-          <Empty
-            description={error}
-            style={{ padding: 48 }}
-          >
+          <Empty description={error} style={{ padding: 48 }}>
             <Button type="primary" onClick={() => navigate("/category")}>
               返回话题列表
             </Button>
@@ -573,13 +719,22 @@ export default function CategoryDetailPage() {
           variant="borderless"
           title="文章列表"
           extra={
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => setCreateArticleOpen(true)}
-            >
-              新建文章
-            </Button>
+            <Space>
+              <Button
+                disabled={!hasLocalReorder}
+                loading={orderSaving}
+                onClick={() => void saveArticleOrder()}
+              >
+                保存顺序
+              </Button>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => setCreateArticleOpen(true)}
+              >
+                新建文章
+              </Button>
+            </Space>
           }
           style={{
             marginTop: token.marginMD,
@@ -587,20 +742,52 @@ export default function CategoryDetailPage() {
             boxShadow: token.boxShadowSecondary,
           }}
         >
-          <Table<ArticleRow>
-            className="category-detail-articles-table"
-            rowKey="id"
-            columns={articleColumns}
-            dataSource={topic.articles ?? []}
-            pagination={{
-              pageSize: 10,
-              showSizeChanger: true,
-              pageSizeOptions: [10, 20, 50],
-              showTotal: (total) => `共 ${total} 篇`,
-            }}
-            locale={{ emptyText: "暂无文章，请点击「新建文章」" }}
-            scroll={{ x: "max-content" }}
-          />
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={onArticleDragEnd}
+          >
+            <SortableContext
+              items={localArticles
+                .slice(
+                  articleTablePageStart,
+                  articleTablePageStart + articlePagination.pageSize,
+                )
+                .map((a) => a.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <Table<ArticleRow>
+                className="category-detail-articles-table"
+                rowKey="id"
+                columns={articleColumns}
+                dataSource={localArticles.slice(
+                  articleTablePageStart,
+                  articleTablePageStart + articlePagination.pageSize,
+                )}
+                pagination={{
+                  current: articlePagination.current,
+                  pageSize: articlePagination.pageSize,
+                  total: localArticles.length,
+                  showSizeChanger: true,
+                  pageSizeOptions: [10, 20, 50],
+                  showTotal: (total) => `共 ${total} 篇`,
+                  onChange: (page, size) => {
+                    setArticlePagination((p) => ({
+                      current: page,
+                      pageSize: size ?? p.pageSize,
+                    }));
+                  },
+                }}
+                components={{
+                  body: {
+                    row: ArticleSortableTableRow,
+                  },
+                }}
+                locale={{ emptyText: "暂无文章，请点击「新建文章」" }}
+                scroll={{ x: "max-content" }}
+              />
+            </SortableContext>
+          </DndContext>
         </Card>
       ) : null}
 
@@ -755,7 +942,9 @@ export default function CategoryDetailPage() {
         >
           <ArticleEditorWithInlinePreview
             editorKey={
-              editingArticle ? `edit-article-${editingArticle.id}` : "edit-article"
+              editingArticle
+                ? `edit-article-${editingArticle.id}`
+                : "edit-article"
             }
             navTitle={typeof editTitleWatch === "string" ? editTitleWatch : ""}
           />
@@ -782,7 +971,6 @@ export default function CategoryDetailPage() {
           </Upload>
         </div>
       </ModalForm>
-
     </div>
   );
 }

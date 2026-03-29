@@ -86,6 +86,17 @@ export async function deleteArticleApi(aid: string): Promise<void> {
   await request.delete(`/articles/${encodeURIComponent(aid)}`);
 }
 
+export async function reorderTopicArticlesApi(
+  tid: string,
+  data: TopicTypes.ReorderTopicArticlesRequest,
+): Promise<TopicTypes.ReorderTopicArticlesResult> {
+  const raw = await request.patch(
+    `/topics/${encodeURIComponent(tid)}/articles/order`,
+    data,
+  );
+  return raw as unknown as TopicTypes.ReorderTopicArticlesResult;
+}
+
 /**
  * 管理员上传图片：请求体为文件二进制流（非 multipart），与 services 测试 fixtures 一致。
  * 返回图片 URL（多为 `/assets/<uuid>.webp` 形式，依服务端 base_url 而定）。
