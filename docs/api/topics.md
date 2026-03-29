@@ -259,11 +259,12 @@
   ```ts
   {
     Authorization: `Bearer ${token}`,
-    'Content-Type': 'multipart/form-data'
+    // 与文件格式一致，例如 image/jpeg、image/png、image/webp
+    'Content-Type': string
   }
   ```
 - Request Body:
-  - File Stream，字段名为 `image`，支持 jpg/jpeg/png/webp 格式。
+  - 原始图片二进制流（非 `multipart/form-data`），支持 jpg/jpeg/png/webp 等可被 sharp 解码的格式。
 - Response Body:
   ```ts
   Topic.UploadedImage
