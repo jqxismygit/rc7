@@ -17,7 +17,7 @@
       @click.stop
       :style="{ marginTop: navBlockPx + 'px' }"
     >
-      <view class="tool-item" @click="goToExchange">
+      <view class="tool-item" @click="syncThirdTickets">
         <view class="tool-icon-box">
           <sx-svg name="ticket" :width="36" :height="36" color="#FFFFFF" />
         </view>

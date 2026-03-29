@@ -13,7 +13,7 @@
       <view class="main">
         <view class="hero">
           <view class="hero-icon-wrap">
-            <sx-svg name="ticket" :width="56" :height="56" color="#D8FC0F" />
+            <sx-svg name="ticket2" :width="53" :height="35" color="#D8FC0F" />
           </view>
           <text class="hero-title">输入兑换码</text>
           <text class="hero-desc"
