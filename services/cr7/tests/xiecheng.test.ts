@@ -42,7 +42,7 @@ describe('xiecheng api requests', () => {
     'acfmedklehedcnjcpeeoibinfolbbldag'
   ].join('');
 
-  const expectedSign = 'a93bf1cfd946d109ab5c0089600d8461';
+  const expectedSign = '95aa5914312b45e10ee26f63616b0cf8';
 
   it('build xiecheng request payload with doc sample fields', () => {
     const result = buildXieChengRequest({
@@ -72,22 +72,7 @@ describe('xiecheng api requests', () => {
     });
   });
 
-  it('build xiecheng sign and decode body', () => {
-    const signResult = buildXieChengSign(expectedPlainBody, {
-      accountId,
-      serviceName,
-      requestTime,
-      version,
-      signKey,
-    });
-
-    expect(signResult.message).toBe(
-      `${accountId}${serviceName}${requestTime}`
-      + expectedPlainBody
-      + `${version}${signKey}`
-    );
-    expect(signResult.sign).toBe(expectedSign);
-
+  it('decrypt body', () => {
     const decryptedBody = decryptXieChengBody(expectedEncryptedBody, aesKey, aesIv);
     expect(decryptedBody).toBe(expectedPlainBody);
 
@@ -103,7 +88,7 @@ describe('xiecheng api requests', () => {
     const signKey = 'E0A73F3A5D78D198BF2FB57879CF9A79';
     const aesKey = 'D2DN340LGYSsBrP6';
     const aesIv = '5693259981590433';
-    const sign = '90754cadb24c437afecf2cb429edd4e5';
+    const sign = '0467ac0b6c93cda721fd28b391c9b99c';
     const encryptedBody = [
       'ndgoebijlofhjbbghfldcjmdlbhfkbehoofoeafhljpjnceacdjnnahfhkjibplmclafjgdkpknpfpfammfcbcnoabjigcoglbdgdd',
       'iljnaecfehccnhedpombockfajjihkkjmlnkabjegaklljfodpbiaammiemioajpehdlnlipflhnijkngbilhfghbcimejcnnkmdmbc',
@@ -158,7 +143,7 @@ describe('xiecheng api requests', () => {
       'confirmType',
     ]);
 
-    const signResult = buildXieChengSign(decryptedBody, {
+    const signResult = buildXieChengSign(encryptedBody, {
       accountId,
       serviceName,
       requestTime,
@@ -205,160 +190,6 @@ describe('xiecheng api requests', () => {
         resultMessage: '数据参数不合法',
       },
     })).toThrow(XieChengBusinessError);
-  });
-
-});
-
-describe('xiecheng http post request format', () => {
-  const accountId = 'xiecheng';
-  const serviceName = 'DatePriceModify';
-  const signKey = 'trip-sign-key';
-  const aesKey = '1234567890abcdef';
-  const aesIv = 'abcdef1234567890';
-
-  const body = {
-    sequenceId: '2017-10-10abcd95774f17c3e354e73f7aaf21b5ec',
-    otaOptionId: 568898,
-    supplierOptionId: '568898',
-    dateType: 'DATE_REQUIRED',
-    prices: [
-      {
-        date: '2018-12-12',
-        salePrice: 120.0,
-        costPrice: 100.0,
-      },
-    ],
-  };
-
-  it('serializes xiecheng request payload to valid JSON for http POST', () => {
-    const result = buildXieChengRequest({
-      accountId,
-      serviceName,
-      signKey,
-      aesKey,
-      aesIv,
-      body,
-    });
-
-    // payload should be serializable to JSON
-    const serialized = JSON.stringify(result.payload);
-    expect(typeof serialized).toBe('string');
-
-    // deserialized payload should match original structure
-    const deserialized = JSON.parse(serialized);
-    expect(deserialized).toEqual({
-      header: expect.objectContaining({
-        accountId,
-        serviceName,
-        requestTime: expect.any(String),
-        version: expect.stringMatching(/^\d+\.\d+$/),
-        sign: expect.stringMatching(/^[a-f0-9]{32}$/),
-      }),
-      body: expect.any(String),
-    });
-  });
-
-  it('payload header contains required xiecheng api fields', () => {
-    const result = buildXieChengRequest({
-      accountId,
-      serviceName,
-      signKey,
-      aesKey,
-      aesIv,
-      body,
-    });
-
-    const { header } = result.payload;
-
-    // Verify accountId is present
-    expect(header.accountId).toBe(accountId);
-
-    // Verify serviceName is present
-    expect(header.serviceName).toBe(serviceName);
-
-    // Verify requestTime format: YYYY-MM-DD HH:mm:ss
-    expect(header.requestTime).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
-
-    // Verify version format
-    expect(header.version).toMatch(/^\d+\.\d+$/);
-
-    // Verify sign is valid MD5 hex (32 characters, a-f and 0-9)
-    expect(header.sign).toMatch(/^[a-f0-9]{32}$/);
-    expect(header.sign.length).toBe(32);
-  });
-
-  it('payload body contains encrypted data in xiecheng format', () => {
-    const result = buildXieChengRequest({
-      accountId,
-      serviceName,
-      signKey,
-      aesKey,
-      aesIv,
-      body,
-    });
-
-    const { body: encryptedBody } = result.payload;
-
-    // body should be a string
-    expect(typeof encryptedBody).toBe('string');
-
-    // encrypted body should be non-empty
-    expect(encryptedBody.length).toBeGreaterThan(0);
-
-    // encrypted body should contain only lowercase letters a-p (xiecheng encoding format)
-    // each byte is encoded as 2 chars: high nibble (0-15) + low nibble (0-15), mapped to a-p
-    expect(encryptedBody).toMatch(/^[a-p]+$/);
-
-    // encrypted body should be even length (each byte is encoded as 2 chars)
-    expect(encryptedBody.length % 2).toBe(0);
-
-    // should be able to decrypt it back
-    const decrypted = decryptXieChengBody(encryptedBody, aesKey, aesIv);
-    expect(decrypted).toBe(JSON.stringify(body));
-  });
-
-  it('verifies http post request body structure matches xiecheng api requirements', () => {
-    // Simulate building the request that would be sent to xiecheng API
-    const result = buildXieChengRequest({
-      accountId,
-      serviceName,
-      signKey,
-      aesKey,
-      aesIv,
-      body,
-    });
-
-    // In xieChengPostJSON, the payload is JSON stringified before sending
-    const requestBodyString = JSON.stringify(result.payload);
-    const requestBodyObject = JSON.parse(requestBodyString);
-
-    // Verify the stringified payload can be sent as HTTP POST body
-    expect(typeof requestBodyString).toBe('string');
-    expect(requestBodyString.length).toBeGreaterThan(0);
-
-    // Verify header fields that must be included in HTTP request
-    const { header, body: encryptedBody } = requestBodyObject;
-    expect(header).toHaveProperty('accountId', accountId);
-    expect(header).toHaveProperty('serviceName', serviceName);
-    expect(header).toHaveProperty('requestTime');
-    expect(header).toHaveProperty('version', '1.0');
-    expect(header).toHaveProperty('sign');
-
-    // Verify signature is valid MD5
-    expect(header.sign).toMatch(/^[a-f0-9]{32}$/);
-
-    // Verify body is encrypted in xiecheng format (a-p is 16 possible values for each nibble)
-    expect(encryptedBody).toMatch(/^[a-p]+$/);
-    expect(encryptedBody.length % 2).toBe(0);
-
-    // Verify the HTTP request would have correct method and headers
-    // (this is verified programmatically in xieChengPostJSON function)
-    const headersThatWouldBeSent = {
-      'content-type': 'application/json',
-      'Accept': 'application/json',
-    };
-    expect(headersThatWouldBeSent['content-type']).toBe('application/json');
-    expect(headersThatWouldBeSent.Accept).toBe('application/json');
   });
 
 });

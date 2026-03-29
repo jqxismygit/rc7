@@ -176,7 +176,7 @@ export function buildXieChengRequest(options: XieChengBuildRequestOptions) {
 		: JSON.stringify(options.body);
 
 	const body = encryptXieChengBody(plainBody, options.aesKey, options.aesIv);
-	const signResult = buildXieChengSign(plainBody, options);
+	const signResult = buildXieChengSign(body, options);
 
 	const payload: XieChengRequestPayload = {
 		header: {
