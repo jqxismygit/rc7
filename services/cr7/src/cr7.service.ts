@@ -3,6 +3,7 @@ import { ExhibitionService } from "./libs/exhibition.js";
 import { OrderService } from "./libs/order.js";
 import { PaymentService } from "./libs/payment.js";
 import { RedemptionService } from './libs/redeem.js';
+import { TopicService } from './libs/topics.js';
 
 /**
  * RC7Service
@@ -14,6 +15,7 @@ export default class RC7Service extends RC7BaseService {
     const exhibitionService = new ExhibitionService(broker);
     const orderService = new OrderService(broker);
     const redemptionService = new RedemptionService(broker);
+    const topicService = new TopicService(broker);
     const { actions_payment, methods: payment_methods } = new PaymentService(broker);
 
     this.parseServiceSchema({
@@ -37,6 +39,7 @@ export default class RC7Service extends RC7BaseService {
         ...exhibitionService.actions_exhibition,
         ...orderService.actions_order,
         ...redemptionService.actions_redemption,
+        ...topicService.actions_topics,
         ...actions_payment,
       },
 

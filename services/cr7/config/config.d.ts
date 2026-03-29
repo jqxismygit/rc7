@@ -25,6 +25,10 @@ declare module 'config' {
       database: string;
       schema: string;
     },
+    assets: {
+      path: string;
+      base_url: string;
+    },
     wechat: {
       base_url: string;
       appid: string;

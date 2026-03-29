@@ -27,6 +27,10 @@ export default {
       expiresIn: '7d',
     }
   },
+  assets: {
+    path: path.resolve(__dirname, '../../../assets'),
+    base_url: `${host}/assets`,
+  },
   pg: {
     host: 'localhost',
     port: 5432,

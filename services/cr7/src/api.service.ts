@@ -178,6 +178,43 @@ const routes = [
       }
     }
   ),
+  routeConfig(
+    '/topics',
+    [
+      'cr7.topics.create',
+      'cr7.topics.update',
+      'cr7.topics.delete',
+      'cr7.topics.createArticle',
+      'cr7.topics.list',
+      'cr7.topics.get',
+    ],
+    {
+      autoAliases: true,
+    }
+  ),
+  routeConfig(
+    '/articles',
+    [
+      'cr7.topics.updateArticle',
+      'cr7.topics.deleteArticle',
+      'cr7.topics.getArticle',
+    ],
+    {
+      autoAliases: true,
+    }
+  ),
+  routeConfig(
+    '/assets',
+    ['cr7.topics.uploadImage'],
+    {
+      aliases: {
+        'POST /images': {
+          type: 'stream',
+          action: 'cr7.topics.uploadImage',
+        },
+      }
+    }
+  ),
 ]
 
 export default {

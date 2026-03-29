@@ -1,0 +1,287 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
+import { randomUUID } from 'node:crypto';
+import Moleculer from 'moleculer';
+import { Context, ServiceSchema } from 'moleculer';
+import config from 'config';
+import sharp from 'sharp';
+import type { Topic } from '@cr7/types';
+import { RC7BaseService } from './cr7.base.js';
+import {
+  createArticle,
+  createTopic,
+  deleteArticle,
+  deleteTopic,
+  getArticleWithTopic,
+  getTopicById,
+  getTopicWithArticles,
+  getTopics,
+  updateArticle,
+  updateTopic,
+} from '../data/topics.js';
+import { handleTopicError } from './errors.js';
+
+const { MoleculerClientError } = Moleculer.Errors;
+
+function normalizeNullableText(value?: string | null): string | null | undefined {
+  const text = value?.trim() ?? '';
+  return text.length === 0 ? null : text;
+}
+
+async function saveUploadAsWebp(
+  fileStream: NodeJS.ReadableStream,
+): Promise<{ url: string }> {
+  const dataDir = config.assets.path;
+  await fs.promises.mkdir(dataDir, { recursive: true });
+
+  const name = `${randomUUID()}.webp`;
+  const target = path.join(dataDir, name);
+
+  try {
+    await pipeline(
+      fileStream,
+      sharp().webp(),
+      fs.createWriteStream(target),
+    );
+  } catch {
+    throw new MoleculerClientError('文件格式不支持', 400, 'IMAGE_INVALID_TYPE');
+  }
+
+  return {
+    url: new URL(name, `${config.assets.base_url.replace(/\/?$/, '/')}`).toString(),
+  };
+}
+
+export class TopicService extends RC7BaseService {
+  constructor(broker) {
+    super(broker);
+  }
+
+  actions_topics: ServiceSchema['actions'] = {
+    'topics.create': {
+      rest: 'POST /',
+      roles: ['admin'],
+      params: {
+        title: { type: 'string', trim: true, min: 1 },
+        description: { type: 'string', trim: true, optional: true, nullable: true, empty: false },
+        cover_url: { type: 'url', optional: true, nullable: true },
+      },
+      handler: this.createTopic,
+    },
+
+    'topics.update': {
+      rest: 'PATCH /:tid',
+      roles: ['admin'],
+      params: {
+        tid: 'string',
+        title: { type: 'string', trim: true, min: 1, optional: true },
+        description: { type: 'string', trim: true, optional: true, nullable: true, empty: false },
+        cover_url: { type: 'url', optional: true, nullable: true },
+      },
+      handler: this.updateTopic,
+    },
+
+    'topics.delete': {
+      rest: 'DELETE /:tid',
+      roles: ['admin'],
+      params: {
+        tid: 'string',
+      },
+      handler: this.deleteTopic,
+    },
+
+    'topics.createArticle': {
+      rest: 'POST /:tid/articles',
+      roles: ['admin'],
+      params: {
+        tid: 'string',
+        title: { type: 'string', trim: true, min: 1 },
+        content: { type: 'string', trim: true, min: 1 },
+        cover_url: { type: 'url', optional: true, nullable: true },
+      },
+      handler: this.createArticle,
+    },
+
+    'topics.updateArticle': {
+      rest: 'PATCH /:aid',
+      roles: ['admin'],
+      params: {
+        aid: 'string',
+        title: { type: 'string', trim: true, min: 1, optional: true },
+        content: { type: 'string', trim: true, min: 1, optional: true },
+        cover_url: { type: 'url', optional: true, nullable: true },
+      },
+      handler: this.updateArticle,
+    },
+
+    'topics.deleteArticle': {
+      rest: 'DELETE /:aid',
+      roles: ['admin'],
+      params: {
+        aid: 'string',
+      },
+      handler: this.deleteArticle,
+    },
+
+    'topics.getArticle': {
+      rest: 'GET /:aid',
+      params: {
+        aid: 'string',
+      },
+      handler: this.getArticle,
+    },
+
+    'topics.list': {
+      rest: 'GET /',
+      params: {
+        page: {
+          type: 'number',
+          integer: true,
+          positive: true,
+          optional: true,
+          default: 1,
+          convert: true,
+        },
+        limit: {
+          type: 'number',
+          integer: true,
+          positive: true,
+          optional: true,
+          default: 20,
+          convert: true,
+        },
+      },
+      handler: this.listTopics,
+    },
+
+    'topics.get': {
+      rest: 'GET /:tid',
+      params: {
+        tid: 'string',
+      },
+      handler: this.getTopic,
+    },
+
+    'topics.uploadImage': {
+      rest: 'POST /assets/images',
+      roles: ['admin'],
+      handler: this.uploadImage,
+    },
+  };
+
+  async createTopic(ctx: Context<Topic.TopicDraft>) {
+    const schema = await this.getSchema();
+    const draft = {
+      title: ctx.params.title,
+      description: normalizeNullableText(ctx.params.description),
+      cover_url: normalizeNullableText(ctx.params.cover_url),
+    };
+
+    return createTopic(this.pool, schema, draft).catch(handleTopicError);
+  }
+
+  async updateTopic(ctx: Context<{ tid: string } & Topic.TopicPatch>) {
+    const { tid, title, description, cover_url } = ctx.params;
+    const schema = await this.getSchema();
+
+    const patch: Topic.TopicPatch = {};
+    if (title !== undefined) {
+      patch.title = title;
+    }
+    if (description !== undefined) {
+      patch.description = normalizeNullableText(description);
+    }
+    if (cover_url !== undefined) {
+      patch.cover_url = normalizeNullableText(cover_url);
+    }
+
+    return updateTopic(this.pool, schema, tid, patch).catch(handleTopicError);
+  }
+
+  async deleteTopic(ctx: Context<{ tid: string }, { $statusCode?: number }>) {
+    const { tid } = ctx.params;
+    const schema = await this.getSchema();
+    await deleteTopic(this.pool, schema, tid).catch(handleTopicError);
+    ctx.meta.$statusCode = 204;
+    return null;
+  }
+
+  async createArticle(
+    ctx: Context<{ tid: string; title: string; content: string; cover_url?: string | null }>
+  ) {
+    const { tid, title, content, cover_url } = ctx.params;
+    const schema = await this.getSchema();
+
+    const normalizedCoverUrl = normalizeNullableText(cover_url);
+
+    await getTopicById(this.pool, schema, tid).catch(handleTopicError);
+    return createArticle(this.pool, schema, tid, {
+      title,
+      content,
+      cover_url: normalizedCoverUrl,
+    }).catch(handleTopicError);
+  }
+
+  async updateArticle(ctx: Context<{ aid: string } & Topic.ArticlePatch>) {
+    const { aid, title, content, cover_url } = ctx.params;
+    const schema = await this.getSchema();
+
+    const patch: Topic.ArticlePatch = {};
+    if (title !== undefined) {
+      patch.title = title;
+    }
+    if (content !== undefined) {
+      patch.content = content;
+    }
+    if (cover_url !== undefined) {
+      patch.cover_url = normalizeNullableText(cover_url);
+    }
+
+    return updateArticle(this.pool, schema, aid, patch).catch(handleTopicError);
+  }
+
+  async deleteArticle(ctx: Context<{ aid: string }, { $statusCode?: number }>) {
+    const { aid } = ctx.params;
+    const schema = await this.getSchema();
+    await deleteArticle(this.pool, schema, aid).catch(handleTopicError);
+    ctx.meta.$statusCode = 204;
+    return null;
+  }
+
+  async getArticle(ctx: Context<{ aid: string }>) {
+    const { aid } = ctx.params;
+    const schema = await this.getSchema();
+    return getArticleWithTopic(this.pool, schema, aid).catch(handleTopicError);
+  }
+
+  async listTopics(ctx: Context<{ page?: number; limit?: number }>) {
+    const { page = 1, limit = 20 } = ctx.params;
+    const schema = await this.getSchema();
+    const result = await getTopics(this.pool, schema, page, limit);
+
+    return {
+      topics: result.topics,
+      total: result.total,
+      page,
+      limit,
+    } satisfies Topic.TopicListResult;
+  }
+
+  async getTopic(ctx: Context<{ tid: string }>) {
+    const { tid } = ctx.params;
+    const schema = await this.getSchema();
+    return getTopicWithArticles(this.pool, schema, tid).catch(handleTopicError);
+  }
+
+  async uploadImage(
+    ctx: Context<
+      NodeJS.ReadableStream & { headers?: Record<string, string | string[] | undefined> },
+      { $statusCode?: number }
+    >
+  ) {
+    const result = await saveUploadAsWebp(ctx.params);
+    ctx.meta.$statusCode = 201;
+    return result;
+  }
+}

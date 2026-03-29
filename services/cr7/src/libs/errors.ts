@@ -6,6 +6,7 @@ import { PaymentDataError } from "../data/payment.js";
 import { RedeemDataError } from "../data/redeem.js";
 import { ExhibitionDataError } from "../data/exhibition.js";
 import { XiechengDataError } from '../data/xiecheng.js';
+import { TopicDataError } from '../data/topics.js';
 
 const { NotFoundError } = MoleculerWeb.Errors;
 const { MoleculerClientError } = Moleculer.Errors;
@@ -212,4 +213,20 @@ export function handleXiechengError(error: unknown): never {
   }
 
   throw new MoleculerClientError('携程同步服务错误', 500, 'XIECHENG_ERROR');
+}
+
+export function handleTopicError(error: unknown): never {
+  if ((error instanceof TopicDataError) === false) {
+    throw error;
+  }
+
+  if (error.code === 'TOPIC_NOT_FOUND') {
+    throw new MoleculerClientError('话题不存在', 404, 'TOPIC_NOT_FOUND');
+  }
+
+  if (error.code === 'ARTICLE_NOT_FOUND') {
+    throw new MoleculerClientError('文章不存在', 404, 'ARTICLE_NOT_FOUND');
+  }
+
+  throw new MoleculerClientError('话题服务错误', 500, 'TOPIC_ERROR');
 }

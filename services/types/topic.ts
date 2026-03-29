@@ -34,12 +34,16 @@ export interface ArticleDraft {
 
 export type ArticlePatch = Partial<Pick<Article, 'title' | 'content' | 'cover_url'>>;
 
+export interface TopicSummary extends Topic {
+  article_count: number;
+}
+
 export interface TopicWithArticles extends Topic {
   articles: Article[];
 }
 
 export interface TopicListResult {
-  topics: Topic[];
+  topics: TopicSummary[];
   total: number;
   page: number;
   limit: number;
