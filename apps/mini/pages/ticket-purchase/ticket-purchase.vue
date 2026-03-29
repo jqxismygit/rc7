@@ -937,21 +937,21 @@ export default {
 }
 
 .date-chip {
-  min-width: 138rpx;
+  // min-width: 138rpx;
   height: 64rpx;
   border-radius: 21rpx;
   background: $cr7-dark;
-  border: 1rpx solid transparent;
+  border: 2rpx solid transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  padding: 0 20rpx;
+  padding: 0 12rpx;
 }
 
 .date-chip-wide {
   // width: 197rpx;
-  padding: 0 18rpx;
+  padding: 0 16rpx;
 }
 
 .chip-icon {
@@ -970,8 +970,9 @@ export default {
 
 .chip-sub {
   margin-left: 4rpx;
-  font-size: 18rpx;
+  font-size: 24rpx;
   color: $text-white;
+  font-weight: 400;
 }
 
 .date-chip.active {
