@@ -5,7 +5,7 @@
 export const HOME_TOPIC_IDS = {
   /** Hero 轮播：该话题下的文章封面，点击进文章详情 */
   hero: "aa88d1ad-7faa-4243-98f0-7a73d524cd4b",
-  /** CR7 News：后续可改为拉取该话题下文章替代 mock */
+  /** CR7 News：首页列表拉取该话题下文章（desc 暂同 title） */
   news: "c59d1736-35b3-46cc-9893-97677d576f55",
   /** 合作伙伴 / 品牌联名：后续可绑定话题或独立接口 */
   brands: "de47573b-d515-4000-abc4-c0174885bdb0",

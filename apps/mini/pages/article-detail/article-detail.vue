@@ -21,10 +21,10 @@
           :src="article.cover_url"
           mode="widthFix"
         /> -->
-        <text class="headline">{{ article.title }}</text>
+        <!-- <text class="headline">{{ article.title }}</text>
         <text v-if="article.topic && article.topic.title" class="topic-line">{{
           article.topic.title
-        }}</text>
+        }}</text> -->
         <rich-text :nodes="htmlNodes" class="article-rich-text" />
       </view>
       <view class="safe-bottom safe-area-bottom" />

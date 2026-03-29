@@ -149,7 +149,7 @@
             </view>
             <view class="news-content">
               <text class="news-title">{{ item.title }}</text>
-              <text class="news-desc">{{ item.desc }}</text>
+              <text class="news-desc">{{ item.title }}</text>
             </view>
             <image
               src="/static/icons/arrow-right.svg"
@@ -202,7 +202,7 @@
 import { useUserStore } from "@/stores/user";
 import { fetchUnreadCount } from "@/services/messages.js";
 import { HOME_TOPIC_IDS } from "@/config/home-topic-ids.js";
-import { fetchCr7News, fetchBrands, loadHomeTicketSection } from "@/services/home.js";
+import { fetchBrands, loadHomeTicketSection } from "@/services/home.js";
 import { fetchTopicWithArticles } from "@/services/topic.js";
 import createTabBarMixin from "@/mixins/tabBar.js";
 import { HOME_TICKET_SECTION_EVENT } from "@/utils/eventBus.js";
@@ -298,28 +298,47 @@ export default {
     async loadHomeData() {
       try {
         const heroTid = String(HOME_TOPIC_IDS.hero || "").trim();
+        const newsTid = String(HOME_TOPIC_IDS.news || "").trim();
         const topicHeroPromise = heroTid
           ? fetchTopicWithArticles(heroTid).catch((err) => {
               console.error("首页 Hero 话题加载失败", err);
               return { articles: [] };
             })
           : Promise.resolve({ articles: [] });
-        const [topicDetail, news, brandList, ticketSection] = await Promise.all([
-          topicHeroPromise,
-          fetchCr7News(),
-          fetchBrands(),
-          loadHomeTicketSection(),
-        ]);
-        const articles = Array.isArray(topicDetail?.articles)
-          ? topicDetail.articles
+        const topicNewsPromise = newsTid
+          ? fetchTopicWithArticles(newsTid).catch((err) => {
+              console.error("首页 CR7 News 话题加载失败", err);
+              return { articles: [] };
+            })
+          : Promise.resolve({ articles: [] });
+        const [topicHeroDetail, topicNewsDetail, brandList, ticketSection] =
+          await Promise.all([
+            topicHeroPromise,
+            topicNewsPromise,
+            fetchBrands(),
+            loadHomeTicketSection(),
+          ]);
+        const heroArticles = Array.isArray(topicHeroDetail?.articles)
+          ? topicHeroDetail.articles
           : [];
-        this.heroBanners = articles.map((a) => ({
+        this.heroBanners = heroArticles.map((a) => ({
           id: a.id,
           cover: a.cover_url || "",
           title: a.title || "",
         }));
         this.currentBannerIndex = 0;
-        this.cr7News = news;
+        const newsArticles = Array.isArray(topicNewsDetail?.articles)
+          ? topicNewsDetail.articles
+          : [];
+        this.cr7News = newsArticles.map((a) => {
+          const title = a.title || "";
+          return {
+            id: a.id,
+            cover: a.cover_url || "",
+            title,
+            desc: title,
+          };
+        });
         this.brands = brandList.map((b) => ({
           ...b,
           tagline: b.description || "官方合作品牌",
@@ -383,15 +402,10 @@ export default {
     },
 
     openNewsItem(item) {
-      if (item.route) {
-        uni.navigateTo({ url: item.route });
-      } else if (item.type === "video") {
-        uni.navigateTo({ url: "/pages/schedule/schedule" });
-      } else if (item.type === "career") {
-        uni.navigateTo({ url: "/pages/schedule/schedule" });
-      } else {
-        uni.showToast({ title: "详情页即将上线", icon: "none" });
-      }
+      if (!item?.id) return;
+      uni.navigateTo({
+        url: `/pages/article-detail/article-detail?aid=${encodeURIComponent(item.id)}`,
+      });
     },
 
     openBrandAll() {
