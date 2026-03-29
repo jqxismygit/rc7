@@ -50,11 +50,7 @@
             mode="aspectFill"
           />
           <view class="camera-btn">
-            <image
-              src="/static/icons/camera.svg"
-              class="camera-icon"
-              mode="aspectFit"
-            />
+            <sx-svg name="camera" :width="36" :height="36" color="#090A07" />
           </view>
         </view>
         <view class="user-name-row">
@@ -72,9 +68,9 @@
           <view class="menu-icon-wrap">
             <sx-svg
               class="menu-icon"
-              name="ticket"
-              :width="42"
-              :height="42"
+              name="ticket2"
+              :width="38"
+              :height="38"
               color="#FFFFFF"
             />
           </view>
@@ -465,7 +461,7 @@ export default {
   left: 0;
   width: 56rpx;
   height: 56rpx;
-  background: $cr7-dark;
+  background: $cr7-gold;
   border-radius: 50%;
   display: flex;
   align-items: center;
