@@ -38,11 +38,25 @@
     <template v-else>
       <!-- 空状态 -->
       <view v-if="tickets.length === 0" class="empty">
-        <view class="empty-badge">
-          <text class="empty-cr7">CR7</text>
+        <view class="empty-illustration">
+          <view class="empty-icon-halo" aria-hidden="true" />
+          <view class="empty-icon-ring">
+            <sx-svg
+              class="empty-ticket-svg"
+              name="ticket"
+              :width="84"
+              :height="84"
+              color="#D8FC0F"
+            />
+          </view>
         </view>
-        <text class="empty-text">暂无票券，先去解锁一次传奇体验吧</text>
-        <button class="btn-gold empty-btn" @click="goToBuy">立即购票</button>
+        <view class="empty-copy">
+          <text class="empty-title">暂无票券</text>
+          <text class="empty-subtitle">快去首页选购你喜欢的演出吧</text>
+        </view>
+        <button class="btn-gold empty-btn" hover-class="none" @click="goToBuy">
+          去探索活动
+        </button>
       </view>
 
       <!-- 票券列表 -->
@@ -502,41 +516,96 @@ export default {
   font-weight: 500;
 }
 
-/* ===== 空状态 ===== */
+/* ===== 空状态（Figma 68242:13957，750 画布 1px=1rpx）===== */
 .empty {
-  padding-top: 200rpx;
+  padding: 300rpx 62rpx 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  box-sizing: border-box;
 }
 
-.empty-badge {
-  width: 160rpx;
-  height: 160rpx;
+.empty-illustration {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 62rpx;
+}
+
+.empty-icon-halo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 277rpx;
+  height: 277rpx;
+  margin: -138rpx 0 0 -138rpx;
   border-radius: 50%;
-  background: $cr7-gold;
+  background: radial-gradient(
+    circle,
+    rgba(216, 252, 15, 0.12) 0%,
+    rgba(216, 252, 15, 0) 70%
+  );
+  pointer-events: none;
+}
+
+.empty-icon-ring {
+  position: relative;
+  width: 185rpx;
+  height: 185rpx;
+  border-radius: 50%;
+  background: #20230f;
+  border: 2rpx solid rgba(255, 255, 255, 0.05);
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 32rpx;
+  box-shadow: 0 48rpx 96rpx -23rpx rgba(0, 0, 0, 0.25);
 }
 
-.empty-cr7 {
-  font-size: 52rpx;
-  font-weight: 800;
-  color: $cr7-black;
+.empty-ticket-svg {
+  position: relative;
+  z-index: 1;
+  width: 84rpx;
+  height: 84rpx;
 }
 
-.empty-text {
-  font-size: $font-sm;
-  color: $text-light;
-  margin-bottom: 32rpx;
+.empty-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 23rpx;
+  width: 100%;
+  max-width: 620rpx;
+  margin-bottom: 48rpx;
+}
+
+.empty-title {
+  font-size: 40rpx;
+  font-weight: 500;
+  color: $text-white;
+  line-height: 62rpx;
+  letter-spacing: -1.15rpx;
+  text-align: center;
+}
+
+.empty-subtitle {
+  font-size: 27rpx;
+  font-weight: 500;
+  color: #787878;
+  line-height: 44rpx;
+  letter-spacing: 0.67rpx;
+  text-align: center;
 }
 
 .empty-btn {
-  width: 360rpx;
-  height: 88rpx;
-  margin-top: 8rpx;
+  width: 331rpx;
+  height: 81rpx;
+  border-radius: 52rpx;
+  font-size: 32rpx;
+  font-weight: 400;
+  line-height: 1;
+  margin-top: 0;
 }
 
 /* ===== 票券列表 ===== */
