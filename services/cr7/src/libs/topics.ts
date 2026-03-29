@@ -4,7 +4,6 @@ import { pipeline } from 'node:stream/promises';
 import { randomUUID } from 'node:crypto';
 import Moleculer from 'moleculer';
 import { Context, ServiceSchema } from 'moleculer';
-import config from 'config';
 import sharp from 'sharp';
 import type { Topic } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
@@ -31,10 +30,9 @@ function normalizeNullableText(value?: string | null): string | null | undefined
 
 async function saveUploadAsWebp(
   fileStream: NodeJS.ReadableStream,
+  dataDir: string,
+  baseUrl: string,
 ): Promise<{ url: string }> {
-  const dataDir = config.assets.path;
-  await fs.promises.mkdir(dataDir, { recursive: true });
-
   const name = `${randomUUID()}.webp`;
   const target = path.join(dataDir, name);
 
@@ -49,13 +47,23 @@ async function saveUploadAsWebp(
   }
 
   return {
-    url: new URL(name, `${config.assets.base_url.replace(/\/?$/, '/')}`).toString(),
+    url: new URL(name, `${baseUrl.replace(/\/?$/, '/')}`).toString(),
   };
 }
 
 export class TopicService extends RC7BaseService {
   constructor(broker) {
     super(broker);
+  }
+
+  async ensureAssetsDir() {
+    const assetsConfig = await this.getAssetsConfig();
+    await fs.promises.mkdir(assetsConfig.path, { recursive: true });
+  }
+
+  async getAssetsConfig() {
+    const { default: config } = await import('config');
+    return config.assets;
   }
 
   actions_topics: ServiceSchema['actions'] = {
@@ -170,6 +178,10 @@ export class TopicService extends RC7BaseService {
     },
   };
 
+  methods = {
+    getAssetsConfig: this.getAssetsConfig,
+  };
+
   async createTopic(ctx: Context<Topic.TopicDraft>) {
     const schema = await this.getSchema();
     const draft = {
@@ -280,7 +292,8 @@ export class TopicService extends RC7BaseService {
       { $statusCode?: number }
     >
   ) {
-    const result = await saveUploadAsWebp(ctx.params);
+    const { path: dataDir, base_url } = await this.getAssetsConfig();
+    const result = await saveUploadAsWebp(ctx.params, dataDir, base_url);
     ctx.meta.$statusCode = 201;
     return result;
   }

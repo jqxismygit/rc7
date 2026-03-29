@@ -28,7 +28,7 @@ export default {
     }
   },
   assets: {
-    path: path.resolve(__dirname, '../../../assets'),
+    path: '/var/lib/cr7/assets',
     base_url: `${host}/assets`,
   },
   pg: {

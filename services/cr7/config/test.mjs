@@ -1,4 +1,5 @@
 import path from 'node:path';
+import os from 'node:os';
 import { URL } from 'node:url';
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
@@ -28,6 +29,9 @@ export default {
         port: 0,
       }
     }
+  },
+  assets: {
+    path: path.resolve(os.tmpdir(), 'cr7_test_assets'),
   },
   wechat: {
     base_url: 'https://1.1.1.1',

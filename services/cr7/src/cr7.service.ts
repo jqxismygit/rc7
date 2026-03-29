@@ -33,6 +33,7 @@ export default class RC7Service extends RC7BaseService {
 
       methods: {
         ...payment_methods,
+        ...topicService.methods
       },
 
       actions: {
@@ -45,6 +46,7 @@ export default class RC7Service extends RC7BaseService {
 
       async started() {
         await this.initPool();
+        await topicService.ensureAssetsDir();
       },
 
       async stopped() {
