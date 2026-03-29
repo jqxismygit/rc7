@@ -423,16 +423,13 @@ export default function CategoryDetailPage() {
         ellipsis: true,
       },
       {
-        title: "正文预览",
-        dataIndex: "content",
+        title: "副标题",
+        dataIndex: "subtitle",
         ellipsis: true,
         width: 320,
         render: (text: string) => {
-          const plain = articleHtmlToPlainText(text, 160);
           return (
-            <Typography.Text type="secondary" ellipsis={{ tooltip: plain }}>
-              {plain || "—"}
-            </Typography.Text>
+            <Typography.Text type="secondary">{text || "—"}</Typography.Text>
           );
         },
       },
@@ -769,7 +766,7 @@ export default function CategoryDetailPage() {
                   pageSize: articlePagination.pageSize,
                   total: localArticles.length,
                   showSizeChanger: true,
-                  pageSizeOptions: [10, 20, 50],
+                  pageSizeOptions: [10, 20, 50, 100, 200, 500],
                   showTotal: (total) => `共 ${total} 篇`,
                   onChange: (page, size) => {
                     setArticlePagination((p) => ({
