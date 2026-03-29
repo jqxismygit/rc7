@@ -18,9 +18,9 @@ export interface TicketCategory {
   name: string;
   price: number; // 单位为分
   valid_duration_days: number;
-  refund_policy: 'NON_REFUNDABLE' | 'REFUNDABLE_48H_BEFORE';
+  refund_policy: "NON_REFUNDABLE" | "REFUNDABLE_48H_BEFORE";
   admittance: number;
-  ota_xc_option_id: string | null;
+  ota_xc_option_id?: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -36,4 +36,3 @@ export interface Session {
   created_at: Date;
   updated_at: Date;
 }
-
