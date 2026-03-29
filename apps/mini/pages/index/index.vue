@@ -88,6 +88,13 @@
               <text class="event-meta">{{ ticketEventCardLine }}</text>
             </view>
           </view>
+          <button
+            class="btn-gold event-card-buy-btn"
+            hover-class="none"
+            @click.stop="openTicketEvent"
+          >
+            立即购票
+          </button>
         </view>
         <view class="ticket-list">
           <view
@@ -549,6 +556,7 @@ export default {
 
 /* 活动卡片 - 设计稿：上半图片 350rpx，下半信息区 $cr7-dark，总高 492rpx */
 .event-card {
+  position: relative;
   width: 100%;
   height: 492rpx;
   max-width: 680rpx;
@@ -574,11 +582,23 @@ export default {
 .event-info-bottom {
   flex: 1;
   min-height: 0;
-  padding: 20rpx 22rpx;
+  padding: 20rpx 196rpx 20rpx 22rpx;
   background: $cr7-dark;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+}
+
+/* 设计稿：距卡片右 24rpx、底 43rpx */
+.event-card-buy-btn {
+  position: absolute;
+  right: 24rpx;
+  bottom: 43rpx;
+  z-index: 2;
+  height: 60rpx;
+  padding: 0 30rpx;
+  font-size: 23rpx;
+  font-weight: 500;
 }
 
 .event-info-left {
