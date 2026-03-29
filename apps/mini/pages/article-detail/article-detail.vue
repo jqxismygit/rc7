@@ -15,12 +15,12 @@
         <text class="state-text">{{ errorText }}</text>
       </view>
       <view v-else-if="article" class="article-body">
-        <image
+        <!-- <image
           v-if="article.cover_url"
           class="cover"
           :src="article.cover_url"
           mode="widthFix"
-        />
+        /> -->
         <text class="headline">{{ article.title }}</text>
         <text v-if="article.topic && article.topic.title" class="topic-line">{{
           article.topic.title

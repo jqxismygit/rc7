@@ -372,7 +372,7 @@ const CategoryPage = () => {
             ),
           },
           {
-            title: <span style={{ color: token.colorText }}>分类 / 话题</span>,
+            title: <span style={{ color: token.colorText }}>分类</span>,
           },
         ]}
       />

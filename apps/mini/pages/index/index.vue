@@ -35,18 +35,18 @@
         :style="{ height: statusBarHeight + navBarContentHeight + 'px' }"
       ></view>
 
-      <!-- Hero 轮播 -->
-      <view class="hero-section">
+      <!-- Hero 轮播：指定话题下的文章，点击进详情 -->
+      <view v-if="heroBanners.length" class="hero-section">
         <swiper
           class="hero-swiper"
-          circular
-          autoplay
+          :circular="heroBanners.length > 1"
+          :autoplay="heroBanners.length > 1"
           :interval="4000"
           :duration="500"
           @change="onSwiperChange"
         >
-          <swiper-item v-for="(item, index) in heroBanners" :key="index">
-            <view class="hero-slide">
+          <swiper-item v-for="item in heroBanners" :key="item.id">
+            <view class="hero-slide" @click="openHeroArticle(item)">
               <image
                 :src="item.cover || '/static/images/event-card.jpg'"
                 class="hero-image"
@@ -55,10 +55,10 @@
             </view>
           </swiper-item>
         </swiper>
-        <view class="hero-dots">
+        <view v-if="heroBanners.length > 1" class="hero-dots">
           <view
             v-for="(item, index) in heroBanners"
-            :key="index"
+            :key="item.id"
             :class="['hero-dot', { active: index === currentBannerIndex }]"
           ></view>
         </view>
@@ -201,12 +201,11 @@
 <script>
 import { useUserStore } from "@/stores/user";
 import { fetchUnreadCount } from "@/services/messages.js";
-import {
-  fetchHeroBanners,
-  fetchCr7News,
-  fetchBrands,
-  loadHomeTicketSection,
-} from "@/services/home.js";
+import { fetchCr7News, fetchBrands, loadHomeTicketSection } from "@/services/home.js";
+import { fetchTopicWithArticles } from "@/services/topic.js";
+
+/** 首页 Hero 轮播：使用该话题下的文章封面，点击进文章详情 */
+const HOME_HERO_TOPIC_ID = "aa88d1ad-7faa-4243-98f0-7a73d524cd4b";
 import createTabBarMixin from "@/mixins/tabBar.js";
 import { HOME_TICKET_SECTION_EVENT } from "@/utils/eventBus.js";
 import { formatTicketEventCardMetaLine } from "@/utils/ticketEventDisplay.js";
@@ -300,13 +299,27 @@ export default {
 
     async loadHomeData() {
       try {
-        const [hero, news, brandList, ticketSection] = await Promise.all([
-          fetchHeroBanners(),
+        const topicHeroPromise = fetchTopicWithArticles(HOME_HERO_TOPIC_ID).catch(
+          (err) => {
+            console.error("首页 Hero 话题加载失败", err);
+            return { articles: [] };
+          },
+        );
+        const [topicDetail, news, brandList, ticketSection] = await Promise.all([
+          topicHeroPromise,
           fetchCr7News(),
           fetchBrands(),
           loadHomeTicketSection(),
         ]);
-        this.heroBanners = hero.length ? hero : [{ cover: "" }, { cover: "" }];
+        const articles = Array.isArray(topicDetail?.articles)
+          ? topicDetail.articles
+          : [];
+        this.heroBanners = articles.map((a) => ({
+          id: a.id,
+          cover: a.cover_url || "",
+          title: a.title || "",
+        }));
+        this.currentBannerIndex = 0;
         this.cr7News = news;
         this.brands = brandList.map((b) => ({
           ...b,
@@ -334,6 +347,13 @@ export default {
 
     onSwiperChange(e) {
       this.currentBannerIndex = e.detail.current;
+    },
+
+    openHeroArticle(item) {
+      if (!item?.id) return;
+      uni.navigateTo({
+        url: `/pages/article-detail/article-detail?aid=${encodeURIComponent(item.id)}`,
+      });
     },
 
     goToMessages() {
