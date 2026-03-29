@@ -1,15 +1,12 @@
 <template>
   <view class="purchase-page">
-    <!-- 悬浮导航栏 -->
-    <view class="nav-bar safe-area-top">
-      <view class="nav-back" @click="goBack">
-        <text class="nav-back-icon">‹</text>
-      </view>
-      <text class="nav-title">马上购票</text>
-      <view class="nav-placeholder"></view>
-    </view>
+    <cr7-nav-bar title="马上购票" />
 
-    <scroll-view class="purchase-scroll" scroll-y>
+    <scroll-view
+      class="purchase-scroll"
+      scroll-y
+      :style="{ paddingTop: navInsetPx + 'px' }"
+    >
       <!-- 背景大图区域 -->
       <view class="hero-section">
         <image class="hero-bg" :src="heroCover" mode="aspectFill" />
@@ -263,11 +260,18 @@ import {
 import { createOrder, ORDER_CONFIRM_CONTEXT_KEY } from "@/services/order.js";
 import persistStorage from "@/utils/persistStorage.js";
 import request from "@/utils/request.js";
+import { getNavBarInsetPx } from "@/utils/navBar.js";
+import Cr7NavBar from "@/components/cr7-nav-bar/cr7-nav-bar.vue";
 import dayjs from "dayjs";
 
 export default {
+  components: {
+    Cr7NavBar,
+  },
+
   data() {
     return {
+      navInsetPx: 0,
       /** 首页 setStorage 传入的 { ticketEvent, ticketTypes } */
       homeTicketSection: null,
       eventId: "",
@@ -395,6 +399,7 @@ export default {
   },
 
   onLoad(options) {
+    this.navInsetPx = getNavBarInsetPx();
     if (options.prefill === "home") {
       this.$bus.once(HOME_TICKET_SECTION_EVENT, (section) => {
         if (section?.ticketEvent) {
@@ -451,14 +456,6 @@ export default {
   },
 
   methods: {
-    goBack() {
-      if (getCurrentPages().length > 1) {
-        uni.navigateBack();
-      } else {
-        uni.switchTab({ url: "/pages/index/index" });
-      }
-    },
-
     applyDefaultEventAndTickets(options) {
       this.eventId = options.eventId || options.id;
       this.loadEventInfo();
@@ -782,6 +779,7 @@ export default {
   width: 100%;
   height: 570rpx;
   overflow: hidden;
+  margin-top: 26rpx;
 }
 
 .hero-bg {
@@ -799,51 +797,6 @@ export default {
   top: 0;
   bottom: 0;
   background: linear-gradient(180deg, rgba(9, 10, 7, 0) 40%, $cr7-black 96%);
-}
-
-.nav-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  padding: 0 $spacing-lg;
-  padding-top: 56rpx;
-  height: 196rpx;
-  display: flex;
-  align-items: center;
-  z-index: 20;
-  background: rgba(9, 10, 7, 0.62);
-  // backdrop-filter: blur(10rpx);
-}
-
-.nav-back {
-  width: 70rpx;
-  height: 70rpx;
-  border-radius: 40rpx;
-  background: $cr7-dark;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.nav-back-icon {
-  color: $text-white;
-  font-size: 40rpx;
-  margin-top: -4rpx;
-}
-
-.nav-title {
-  flex: 1;
-  text-align: center;
-  font-size: 36rpx;
-  line-height: 36rpx;
-  color: $text-white;
-  font-weight: 400;
-}
-
-.nav-placeholder {
-  width: 70rpx;
-  height: 70rpx;
 }
 
 .hero-bottom {

@@ -71,8 +71,10 @@
     {
       "path": "pages/ticket-purchase/ticket-purchase",
       "style": {
-        "navigationBarTitleText": "购票",
-        "navigationStyle": "custom"
+        "navigationBarTitleText": "马上购票",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#090a07",
+        "backgroundColor": "#090a07"
       }
     },
     {
