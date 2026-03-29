@@ -200,7 +200,7 @@
 
       <!-- 选择张数 -->
       <view class="quantity-section">
-        <text class="quantity-label">选择张数</text>
+        <text class="section-title quantity-section__title">选择张数</text>
         <view class="quantity-controls">
           <view
             class="quantity-btn quantity-btn-minus"
@@ -1104,16 +1104,14 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 30rpx;
-  margin: 0 30rpx 0;
+  // margin: 0 30rpx 0;
   border-radius: $radius-lg;
   background: transparent;
 }
 
-.quantity-label {
-  font-size: 30rpx;
-  color: $text-white;
-  font-weight: 700;
-  line-height: 46rpx;
+.quantity-section__title {
+  margin-bottom: 0;
+  flex-shrink: 0;
 }
 
 .quantity-controls {
