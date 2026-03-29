@@ -5,7 +5,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import {
   Alert,
   Breadcrumb,
@@ -24,6 +24,7 @@ import type { UploadFile, UploadProps } from "antd";
 import {
   DeleteOutlined,
   EditOutlined,
+  EyeOutlined,
   HomeOutlined,
   PlusOutlined,
   UploadOutlined,
@@ -48,6 +49,7 @@ import {
   useTableQuery,
 } from "@/hooks/use-table-query";
 import { formatDateTime } from "@/utils/format-datetime";
+import { pickApiErrorMessage } from "@/utils/pick-api-error";
 import "./category.less";
 
 type TopicRow = TopicTypes.TopicSummary;
@@ -58,19 +60,8 @@ type TopicFormValues = {
   cover_url?: string;
 };
 
-function pickApiErrorMessage(err: unknown): string {
-  if (err && typeof err === "object" && "response" in err) {
-    const data = (err as { response?: { data?: { message?: string } } })
-      .response?.data;
-    if (data?.message && typeof data.message === "string") {
-      return data.message;
-    }
-  }
-  if (err instanceof Error) return err.message;
-  return String(err);
-}
-
 const CategoryPage = () => {
+  const navigate = useNavigate();
   const { token } = theme.useToken();
   const actionRef = useRef<ActionType>(null);
   const [createForm] = Form.useForm<TopicFormValues>();
@@ -148,11 +139,20 @@ const CategoryPage = () => {
       {
         title: "操作",
         key: "option",
-        width: 160,
+        width: 220,
         fixed: "right",
         search: false,
         render: (_, row) => (
           <Space size="middle">
+            <Button
+              type="link"
+              size="small"
+              icon={<EyeOutlined />}
+              style={{ padding: 0, height: "auto" }}
+              onClick={() => navigate(`/category/${row.id}`)}
+            >
+              详情
+            </Button>
             <Button
               type="link"
               size="small"
@@ -196,7 +196,7 @@ const CategoryPage = () => {
         ),
       },
     ],
-    [rowIndexBase],
+    [rowIndexBase, navigate],
   );
 
   function confirmDelete(row: TopicRow) {
@@ -353,10 +353,9 @@ const CategoryPage = () => {
           <ol>
             <li>话题列表来自接口分页（page / limit），每页最多 100 条。</li>
             <li>
-              新建 /
-              编辑时可填写标题、描述与封面；封面仅支持 1
-              张图片（jpg/png/webp）。已有封面时仅可预览 / 删除；更换请先删除再上传，服务端会转为
-              webp。
+              新建 / 编辑时可填写标题、描述与封面；封面仅支持 1
+              张图片（jpg/png/webp）。已有封面时仅可预览 /
+              删除；更换请先删除再上传，服务端会转为 webp。
             </li>
             <li>删除话题会级联删除其下所有文章，请谨慎操作。</li>
           </ol>
@@ -541,7 +540,11 @@ const CategoryPage = () => {
             上传封面（限 1 张）
           </Typography.Text>
           <Upload
-            {...buildCoverUploadProps(editForm, editCoverFiles, setEditCoverFiles)}
+            {...buildCoverUploadProps(
+              editForm,
+              editCoverFiles,
+              setEditCoverFiles,
+            )}
           >
             {editCoverFiles.length === 0 ? (
               <button type="button" style={{ border: 0, background: "none" }}>

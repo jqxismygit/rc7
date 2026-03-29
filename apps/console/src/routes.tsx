@@ -41,6 +41,7 @@ const Exhibition = React.lazy(() => import("./pages/exhibition"));
 const CommonLayout = React.lazy(() => import("./layout/common"));
 const ExhibitionDetail = React.lazy(() => import("./pages/exhibition/detail"));
 const Category = React.lazy(() => import("./pages/category"));
+const CategoryDetail = React.lazy(() => import("./pages/category/detail"));
 
 // 路由配置类型
 export interface RouteConfig {
@@ -102,6 +103,12 @@ export const routes: RouteConfig[] = [
         name: "分类列表",
         hideInMenu: true,
         element: <Category />,
+      },
+      {
+        path: ":tid",
+        name: "话题详情",
+        hideInMenu: true,
+        element: <CategoryDetail />,
       },
     ],
   },
