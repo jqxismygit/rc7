@@ -27,7 +27,7 @@ import {
   message,
   theme,
 } from "antd";
-import { ArticleMobilePreviewDrawer } from "@/components/article-mobile-preview/ArticleMobilePreviewDrawer";
+import { ArticleInlineMiniPreview } from "@/components/article-inline-mini-preview/ArticleInlineMiniPreview";
 import { ArticleRichEditor } from "@/components/article-rich-editor/ArticleRichEditor";
 import type { UploadFile, UploadProps } from "antd";
 import {
@@ -62,6 +62,46 @@ type ArticleFormValues = {
   content: string;
   cover_url?: string;
 };
+
+type ArticleEditorWithInlinePreviewProps = {
+  value?: string;
+  onChange?: (html: string) => void;
+  editorKey: string;
+  /** 模拟小程序导航栏标题，通常取表单「标题」 */
+  navTitle?: string;
+};
+
+function ArticleEditorWithInlinePreview({
+  value,
+  onChange,
+  editorKey,
+  navTitle,
+}: ArticleEditorWithInlinePreviewProps) {
+  return (
+    <div className="category-article-editor-split">
+      <div className="category-article-editor-split__editor">
+        <ArticleRichEditor
+          editorKey={editorKey}
+          height={480}
+          value={value}
+          onChange={onChange}
+        />
+      </div>
+      <div className="category-article-editor-split__preview">
+        <Typography.Text
+          type="secondary"
+          style={{ display: "block", marginBottom: 8 }}
+        >
+          iPhone · 微信小程序（深色 rich-text）
+        </Typography.Text>
+        <ArticleInlineMiniPreview
+          html={sanitizeArticleHtml(typeof value === "string" ? value : "")}
+          navTitle={navTitle?.trim() || "文章预览"}
+        />
+      </div>
+    </div>
+  );
+}
 
 function buildArticleCoverUploadProps(
   form: FormInstance<ArticleFormValues>,
@@ -148,15 +188,8 @@ export default function CategoryDetailPage() {
   const [editArticleCoverFiles, setEditArticleCoverFiles] = useState<
     UploadFile[]
   >([]);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewHtml, setPreviewHtml] = useState("");
-
-  function openArticlePreview(form: FormInstance<ArticleFormValues>) {
-    const raw = form.getFieldValue("content");
-    const s = typeof raw === "string" ? raw : "";
-    setPreviewHtml(sanitizeArticleHtml(s));
-    setPreviewOpen(true);
-  }
+  const createTitleWatch = Form.useWatch("title", createArticleForm);
+  const editTitleWatch = Form.useWatch("title", editArticleForm);
 
   const loadDetail = useCallback(async () => {
     if (!tid) {
@@ -435,7 +468,7 @@ export default function CategoryDetailPage() {
           <ol>
             <li>话题信息来自「话题详情」接口；文章列表一并返回，表格为前端分页。</li>
             <li>
-              文章标题必填；正文为富文本（HTML），可在弹窗内使用「移动端预览」；封面可选，规则与话题封面一致（限
+              文章标题必填；正文为富文本（HTML），弹窗右侧为 iPhone 框 + 小程序深色主题实时预览；封面可选，规则与话题封面一致（限
               1 张，先删再换）。
             </li>
             <li>
@@ -575,6 +608,9 @@ export default function CategoryDetailPage() {
           destroyOnClose: true,
           maskClosable: false,
           zIndex: 1100,
+          styles: {
+            body: { maxHeight: "calc(100vh - 100px)", overflowY: "auto" },
+          },
         }}
         submitter={{
           searchConfig: {
@@ -583,7 +619,7 @@ export default function CategoryDetailPage() {
           resetButtonProps: { children: "重置" },
         }}
         onFinish={submitCreateArticle}
-        width={840}
+        width={1200}
         layout="vertical"
       >
         <ProFormText
@@ -594,19 +630,7 @@ export default function CategoryDetailPage() {
         />
         <Form.Item
           name="content"
-          label={
-            <Space size="small" wrap>
-              <span>正文（富文本）</span>
-              <Button
-                type="link"
-                size="small"
-                style={{ padding: 0, height: "auto" }}
-                onClick={() => openArticlePreview(createArticleForm)}
-              >
-                移动端预览
-              </Button>
-            </Space>
-          }
+          label="正文（富文本）"
           rules={[
             { required: true, message: "请输入正文" },
             {
@@ -619,7 +643,12 @@ export default function CategoryDetailPage() {
             },
           ]}
         >
-          <ArticleRichEditor editorKey="create-article" height={360} />
+          <ArticleEditorWithInlinePreview
+            editorKey="create-article"
+            navTitle={
+              typeof createTitleWatch === "string" ? createTitleWatch : ""
+            }
+          />
         </Form.Item>
         <ProFormText
           name="cover_url"
@@ -660,6 +689,9 @@ export default function CategoryDetailPage() {
           destroyOnClose: true,
           maskClosable: false,
           zIndex: 1100,
+          styles: {
+            body: { maxHeight: "calc(100vh - 100px)", overflowY: "auto" },
+          },
         }}
         submitter={{
           searchConfig: {
@@ -668,7 +700,7 @@ export default function CategoryDetailPage() {
           resetButtonProps: false,
         }}
         onFinish={submitEditArticle}
-        width={840}
+        width={1200}
         layout="vertical"
       >
         <ProFormText
@@ -679,19 +711,7 @@ export default function CategoryDetailPage() {
         />
         <Form.Item
           name="content"
-          label={
-            <Space size="small" wrap>
-              <span>正文（富文本）</span>
-              <Button
-                type="link"
-                size="small"
-                style={{ padding: 0, height: "auto" }}
-                onClick={() => openArticlePreview(editArticleForm)}
-              >
-                移动端预览
-              </Button>
-            </Space>
-          }
+          label="正文（富文本）"
           rules={[
             { required: true, message: "请输入正文" },
             {
@@ -704,11 +724,11 @@ export default function CategoryDetailPage() {
             },
           ]}
         >
-          <ArticleRichEditor
+          <ArticleEditorWithInlinePreview
             editorKey={
               editingArticle ? `edit-article-${editingArticle.id}` : "edit-article"
             }
-            height={360}
+            navTitle={typeof editTitleWatch === "string" ? editTitleWatch : ""}
           />
         </Form.Item>
         <ProFormText
@@ -734,11 +754,6 @@ export default function CategoryDetailPage() {
         </div>
       </ModalForm>
 
-      <ArticleMobilePreviewDrawer
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
-        html={previewHtml}
-      />
     </div>
   );
 }

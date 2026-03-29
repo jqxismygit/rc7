@@ -85,3 +85,28 @@ ul,ol{padding-left:1.25em;margin:0 0 12px;}
 a{color:#1677ff;}
 </style></head><body>${safe}</body></html>`;
 }
+
+/**
+ * 小程序文章详情页风格（深色底、浅色字），用于控制台内联 iPhone 预览
+ */
+export function buildArticleMiniProgramPreviewSrcDoc(html: string): string {
+  const safe = sanitizeArticleHtml(html);
+  const origin =
+    typeof window !== "undefined" ? window.location.origin : "";
+  const baseHref = origin ? `${origin}/api` : "";
+  return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>${
+    baseHref ? `<base href="${baseHref}/"/>` : ""
+  }<style>
+body{margin:0;padding:24px 16px;font-size:16px;line-height:1.8;color:#adadad;word-break:break-word;background:#090a07;box-sizing:border-box;min-height:100%;}
+img{max-width:100%;height:auto;vertical-align:middle;border-radius:8px;}
+p{margin:0 0 12px;}
+h1,h2,h3,h4,h5,h6{margin:16px 0 8px;font-weight:700;color:#ffffff;}
+strong,b,em{color:#e6e6e6;}
+ul,ol{padding-left:1.25em;margin:0 0 12px;}
+a{color:#d8fc0f;}
+blockquote{margin:12px 0;padding-left:12px;border-left:3px solid #d8fc0f;color:#787878;}
+hr{border:none;border-top:1px solid #2a2a2a;margin:16px 0;}
+code,pre{font-size:14px;background:#161714;color:#adadad;border-radius:6px;}
+pre{padding:12px;overflow:auto;}
+</style></head><body>${safe}</body></html>`;
+}
