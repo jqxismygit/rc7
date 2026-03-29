@@ -27,6 +27,8 @@ import {
   message,
   theme,
 } from "antd";
+import { ArticleMobilePreviewDrawer } from "@/components/article-mobile-preview/ArticleMobilePreviewDrawer";
+import { ArticleRichEditor } from "@/components/article-rich-editor/ArticleRichEditor";
 import type { UploadFile, UploadProps } from "antd";
 import {
   DeleteOutlined,
@@ -35,7 +37,7 @@ import {
   PlusOutlined,
   UploadOutlined,
 } from "@ant-design/icons";
-import { ModalForm, ProFormText, ProFormTextArea } from "@ant-design/pro-components";
+import { ModalForm, ProFormText } from "@ant-design/pro-components";
 import type { Topic as TopicTypes } from "@cr7/types";
 import {
   createArticleApi,
@@ -46,6 +48,11 @@ import {
 } from "@/apis/topic";
 import { formatDateTime } from "@/utils/format-datetime";
 import { pickApiErrorMessage } from "@/utils/pick-api-error";
+import {
+  articleHtmlToPlainText,
+  isArticleHtmlEmpty,
+  sanitizeArticleHtml,
+} from "@/utils/article-html";
 import "./category.less";
 
 type ArticleRow = TopicTypes.Article;
@@ -141,6 +148,15 @@ export default function CategoryDetailPage() {
   const [editArticleCoverFiles, setEditArticleCoverFiles] = useState<
     UploadFile[]
   >([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState("");
+
+  function openArticlePreview(form: FormInstance<ArticleFormValues>) {
+    const raw = form.getFieldValue("content");
+    const s = typeof raw === "string" ? raw : "";
+    setPreviewHtml(sanitizeArticleHtml(s));
+    setPreviewOpen(true);
+  }
 
   const loadDetail = useCallback(async () => {
     if (!tid) {
@@ -226,11 +242,14 @@ export default function CategoryDetailPage() {
         dataIndex: "content",
         ellipsis: true,
         width: 320,
-        render: (text: string) => (
-          <Typography.Text type="secondary" ellipsis={{ tooltip: text }}>
-            {text}
-          </Typography.Text>
-        ),
+        render: (text: string) => {
+          const plain = articleHtmlToPlainText(text, 160);
+          return (
+            <Typography.Text type="secondary" ellipsis={{ tooltip: plain }}>
+              {plain || "—"}
+            </Typography.Text>
+          );
+        },
       },
       {
         title: "创建时间",
@@ -303,11 +322,16 @@ export default function CategoryDetailPage() {
 
   async function submitCreateArticle(values: ArticleFormValues) {
     if (!tid) return false;
+    const content = sanitizeArticleHtml(values.content);
+    if (isArticleHtmlEmpty(content)) {
+      message.error("正文不能为空");
+      return false;
+    }
     try {
       setArticleSubmitting(true);
       await createArticleApi(tid, {
         title: values.title.trim(),
-        content: values.content.trim(),
+        content,
         cover_url: values.cover_url?.trim()
           ? values.cover_url.trim()
           : undefined,
@@ -328,11 +352,16 @@ export default function CategoryDetailPage() {
 
   async function submitEditArticle(values: ArticleFormValues) {
     if (!editingArticle) return false;
+    const content = sanitizeArticleHtml(values.content);
+    if (isArticleHtmlEmpty(content)) {
+      message.error("正文不能为空");
+      return false;
+    }
     try {
       setArticleSubmitting(true);
       await updateArticleApi(editingArticle.id, {
         title: values.title.trim(),
-        content: values.content.trim(),
+        content,
         cover_url: values.cover_url?.trim() ? values.cover_url.trim() : null,
       });
       message.success("已保存");
@@ -405,7 +434,15 @@ export default function CategoryDetailPage() {
         description={
           <ol>
             <li>话题信息来自「话题详情」接口；文章列表一并返回，表格为前端分页。</li>
-            <li>文章需填写标题与正文；封面可选，规则与话题封面一致（限 1 张，先删再换）。</li>
+            <li>
+              文章标题必填；正文为富文本（HTML），可在弹窗内使用「移动端预览」；封面可选，规则与话题封面一致（限
+              1 张，先删再换）。
+            </li>
+            <li>
+              小程序文章详情路径：
+              <Typography.Text code>/pages/article-detail/article-detail?aid=文章ID</Typography.Text>
+              （需在小程序内配置合法域名等）。
+            </li>
           </ol>
         }
         style={{
@@ -533,8 +570,12 @@ export default function CategoryDetailPage() {
             setCreateArticleCoverFiles([]);
           }
         }}
-        initialValues={{ title: "", content: "", cover_url: "" }}
-        modalProps={{ destroyOnClose: true, maskClosable: false }}
+        initialValues={{ title: "", content: "<p><br></p>", cover_url: "" }}
+        modalProps={{
+          destroyOnClose: true,
+          maskClosable: false,
+          zIndex: 1100,
+        }}
         submitter={{
           searchConfig: {
             submitText: articleSubmitting ? "提交中…" : "创建",
@@ -542,7 +583,7 @@ export default function CategoryDetailPage() {
           resetButtonProps: { children: "重置" },
         }}
         onFinish={submitCreateArticle}
-        width={640}
+        width={840}
         layout="vertical"
       >
         <ProFormText
@@ -551,13 +592,35 @@ export default function CategoryDetailPage() {
           placeholder="请输入文章标题"
           rules={[{ required: true, message: "请输入标题" }]}
         />
-        <ProFormTextArea
+        <Form.Item
           name="content"
-          label="正文"
-          placeholder="请输入正文"
-          rules={[{ required: true, message: "请输入正文" }]}
-          fieldProps={{ rows: 8, showCount: true }}
-        />
+          label={
+            <Space size="small" wrap>
+              <span>正文（富文本）</span>
+              <Button
+                type="link"
+                size="small"
+                style={{ padding: 0, height: "auto" }}
+                onClick={() => openArticlePreview(createArticleForm)}
+              >
+                移动端预览
+              </Button>
+            </Space>
+          }
+          rules={[
+            { required: true, message: "请输入正文" },
+            {
+              validator: async (_, v) => {
+                if (isArticleHtmlEmpty(typeof v === "string" ? v : "")) {
+                  return Promise.reject(new Error("正文不能为空"));
+                }
+                return Promise.resolve();
+              },
+            },
+          ]}
+        >
+          <ArticleRichEditor editorKey="create-article" height={360} />
+        </Form.Item>
         <ProFormText
           name="cover_url"
           label="封面 URL"
@@ -593,7 +656,11 @@ export default function CategoryDetailPage() {
             setEditArticleCoverFiles([]);
           }
         }}
-        modalProps={{ destroyOnClose: true, maskClosable: false }}
+        modalProps={{
+          destroyOnClose: true,
+          maskClosable: false,
+          zIndex: 1100,
+        }}
         submitter={{
           searchConfig: {
             submitText: articleSubmitting ? "保存中…" : "保存",
@@ -601,7 +668,7 @@ export default function CategoryDetailPage() {
           resetButtonProps: false,
         }}
         onFinish={submitEditArticle}
-        width={640}
+        width={840}
         layout="vertical"
       >
         <ProFormText
@@ -610,13 +677,40 @@ export default function CategoryDetailPage() {
           placeholder="请输入文章标题"
           rules={[{ required: true, message: "请输入标题" }]}
         />
-        <ProFormTextArea
+        <Form.Item
           name="content"
-          label="正文"
-          placeholder="请输入正文"
-          rules={[{ required: true, message: "请输入正文" }]}
-          fieldProps={{ rows: 8, showCount: true }}
-        />
+          label={
+            <Space size="small" wrap>
+              <span>正文（富文本）</span>
+              <Button
+                type="link"
+                size="small"
+                style={{ padding: 0, height: "auto" }}
+                onClick={() => openArticlePreview(editArticleForm)}
+              >
+                移动端预览
+              </Button>
+            </Space>
+          }
+          rules={[
+            { required: true, message: "请输入正文" },
+            {
+              validator: async (_, v) => {
+                if (isArticleHtmlEmpty(typeof v === "string" ? v : "")) {
+                  return Promise.reject(new Error("正文不能为空"));
+                }
+                return Promise.resolve();
+              },
+            },
+          ]}
+        >
+          <ArticleRichEditor
+            editorKey={
+              editingArticle ? `edit-article-${editingArticle.id}` : "edit-article"
+            }
+            height={360}
+          />
+        </Form.Item>
         <ProFormText
           name="cover_url"
           label="封面 URL"
@@ -639,6 +733,12 @@ export default function CategoryDetailPage() {
           </Upload>
         </div>
       </ModalForm>
+
+      <ArticleMobilePreviewDrawer
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        html={previewHtml}
+      />
     </div>
   );
 }

@@ -25,7 +25,9 @@ export interface TopicDraft {
   cover_url?: string | null;
 }
 
-export type TopicPatch = Partial<Pick<Topic, 'title' | 'description' | 'cover_url'>>;
+export type TopicPatch = Partial<
+  Pick<Topic, "title" | "description" | "cover_url">
+>;
 
 export interface ArticleDraft {
   topic_id: string;
@@ -35,7 +37,9 @@ export interface ArticleDraft {
   cover_url?: string | null;
 }
 
-export type ArticlePatch = Partial<Pick<Article, 'title' | 'subtitle' | 'content' | 'cover_url'>>;
+export type ArticlePatch = Partial<
+  Pick<Article, "title" | "subtitle" | "content" | "cover_url">
+>;
 
 export interface TopicSummary extends Topic {
   article_count: number;
@@ -62,7 +66,7 @@ export interface TopicListResult {
 }
 
 export interface ArticleWithTopic extends Article {
-  topic: Pick<Topic, 'id' | 'title'>;
+  topic: Pick<Topic, "id" | "title">;
 }
 
 export interface UploadedImage {
