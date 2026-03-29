@@ -29,10 +29,15 @@ import {
   StockOutlined,
   TableOutlined,
 } from "@ant-design/icons";
+import Order from "./pages/order";
+import User from "./pages/user";
 
 const GRAFANA_PREFIX_URL = window.location.origin.includes("localhost")
   ? "https://errows.ghostiee.cc"
   : window.location.origin;
+
+/** 未匹配任何路由时的跳转目标；与 App.tsx 中 `path: "*"` 兜底保持一致 */
+export const APP_FALLBACK_PATH = "/exhibition" as const;
 
 // 页面组件懒加载
 const Banners = React.lazy(() => import("./pages/banners"));
@@ -111,6 +116,18 @@ export const routes: RouteConfig[] = [
         element: <CategoryDetail />,
       },
     ],
+  },
+  {
+    path: "/order",
+    name: "订单",
+    icon: <DollarOutlined />,
+    element: <Order />,
+  },
+  {
+    path: "/user",
+    name: "用户",
+    icon: <UserOutlined />,
+    element: <User />,
   },
 ];
 

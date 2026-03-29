@@ -4,7 +4,11 @@ import type { RouteObject } from "react-router";
 import { App as AntdApp, ConfigProvider, Spin } from "antd";
 import Login from "./pages/login";
 import BasicLayout from "./layout";
-import { routeConfigToRouteObject, routes } from "./routes";
+import {
+  APP_FALLBACK_PATH,
+  routeConfigToRouteObject,
+  routes,
+} from "./routes";
 import zhCN from "antd/locale/zh_CN";
 import "./App.less";
 
@@ -15,9 +19,12 @@ function AppRoutes() {
       {
         path: "/",
         element: <BasicLayout />,
-        children: routes.map(routeConfigToRouteObject),
+        children: [
+          { index: true, element: <Navigate to={APP_FALLBACK_PATH} replace /> },
+          ...routes.map(routeConfigToRouteObject),
+        ],
       },
-      { path: "*", element: <Navigate to="/" replace /> },
+      { path: "*", element: <Navigate to={APP_FALLBACK_PATH} replace /> },
     ];
   }, []);
 
