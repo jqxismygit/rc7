@@ -1,86 +1,130 @@
 <template>
   <view class="brands-page">
-    <scroll-view class="brands-scroll" scroll-y>
-      <view class="brand-grid">
-        <view
-          v-for="brand in brands"
-          :key="brand.id"
-          class="brand-card"
-          @click="handleBrandClick(brand)"
-        >
-          <view class="brand-cover-area">
-            <image
-              :src="brand.logo || '/static/images/event-card.jpg'"
-              class="brand-cover-img"
-              mode="aspectFill"
-            />
+    <cr7-nav-bar title="合作伙伴" />
+
+    <scroll-view
+      class="brands-scroll"
+      scroll-y
+      :style="{ paddingTop: navInsetPx + 'px' }"
+    >
+      <view v-if="loading" class="state-wrap">
+        <text class="state-text">加载中…</text>
+      </view>
+      <view v-else-if="errorText" class="state-wrap">
+        <text class="state-text">{{ errorText }}</text>
+      </view>
+      <view v-else class="brands-inner">
+        <view v-if="!brands.length" class="state-wrap">
+          <text class="state-text">暂无合作伙伴内容</text>
+        </view>
+        <view v-else class="brand-grid">
+          <view
+            v-for="brand in brands"
+            :key="brand.id"
+            class="brand-card"
+            @click="openPartnerArticle(brand)"
+          >
+            <view class="brand-cover-area">
+              <image
+                :src="brand.logo || '/static/images/event-card.jpg'"
+                class="brand-cover-img"
+                mode="aspectFill"
+              />
+            </view>
+            <text class="brand-name">{{ brand.name }}</text>
+            <text class="brand-desc">{{ brand.description }}</text>
           </view>
-          <text class="brand-name">{{ brand.name }}</text>
-          <text class="brand-desc">{{ brand.description }}</text>
         </view>
       </view>
-
-      <view class="safe-bottom safe-area-bottom"></view>
+      <view class="safe-bottom safe-area-bottom" />
     </scroll-view>
   </view>
 </template>
 
 <script>
-import { mockBrands } from '@/utils/mockData.js'
+import Cr7NavBar from "@/components/cr7-nav-bar/cr7-nav-bar.vue";
+import { getNavBarInsetPx } from "@/utils/navBar.js";
+import { HOME_TOPIC_IDS } from "@/config/home-topic-ids.js";
+import { fetchTopicWithArticles } from "@/services/topic.js";
+import { mapArticlesToPartnerBrands } from "@/utils/partner-articles.js";
 
 export default {
+  components: { Cr7NavBar },
   data() {
     return {
-      brands: []
-    }
+      navInsetPx: 0,
+      loading: true,
+      errorText: "",
+      brands: [],
+    };
   },
-
   onLoad() {
-    this.loadBrands()
+    this.navInsetPx = getNavBarInsetPx();
+    this.loadList();
   },
-
   methods: {
-    loadBrands() {
-      this.brands = mockBrands
-    },
-
-    handleBrandClick(brand) {
-      if (brand.miniAppId) {
-        uni.showModal({
-          title: '跳转确认',
-          content: `即将跳转至「${brand.name}」品牌小程序，是否继续？`,
-          success: (res) => {
-            if (res.confirm) {
-              uni.showToast({
-                title: '小程序跳转需在真机环境测试',
-                icon: 'none',
-                duration: 2000
-              })
-            }
-          }
-        })
-      } else {
-        uni.showToast({
-          title: '该品牌商城即将上线',
-          icon: 'none'
-        })
+    async loadList() {
+      const tid = String(HOME_TOPIC_IDS.brands || "").trim();
+      if (!tid) {
+        this.loading = false;
+        this.errorText = "未配置合作伙伴话题";
+        return;
       }
-    }
-  }
-}
+      this.loading = true;
+      this.errorText = "";
+      try {
+        const topic = await fetchTopicWithArticles(tid);
+        const articles = Array.isArray(topic?.articles) ? topic.articles : [];
+        this.brands = mapArticlesToPartnerBrands(articles);
+      } catch (e) {
+        const msg =
+          e?.data?.message ||
+          e?.errMsg ||
+          (typeof e?.message === "string" ? e.message : "") ||
+          "加载失败";
+        this.errorText = msg;
+        this.brands = [];
+      } finally {
+        this.loading = false;
+      }
+    },
+    openPartnerArticle(brand) {
+      if (!brand?.id) return;
+      uni.navigateTo({
+        url: `/pages/article-detail/article-detail?aid=${encodeURIComponent(brand.id)}`,
+      });
+    },
+  },
+};
 </script>
 
 <style lang="scss" scoped>
-@import '@/uni.scss';
+@import "@/uni.scss";
 
-/* 设计稿 327.4×300.4 卡片，与首页合作伙伴区块一致 */
 .brands-page {
   min-height: 100vh;
   background: $cr7-black;
 }
 
 .brands-scroll {
-  padding: 24rpx 36rpx;
+  box-sizing: border-box;
+  height: 100vh;
+}
+
+.state-wrap {
+  padding: 80rpx 35rpx;
+  display: flex;
+  justify-content: center;
+}
+
+.state-text {
+  font-size: 28rpx;
+  color: $text-disabled;
+}
+
+.brands-inner {
+  padding: 24rpx 36rpx 0;
+  box-sizing: border-box;
 }
 
 .brand-grid {
@@ -125,6 +169,10 @@ export default {
   text-align: center;
   line-height: 42rpx;
   margin-bottom: 2rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
 }
 
 .brand-desc {
@@ -133,6 +181,10 @@ export default {
   color: $text-light;
   text-align: center;
   line-height: 38rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
 }
 
 .safe-bottom {

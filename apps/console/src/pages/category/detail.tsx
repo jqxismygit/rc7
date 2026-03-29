@@ -11,6 +11,7 @@ import type { ColumnsType } from "antd/es/table";
 import type { FormInstance } from "antd/es/form";
 import {
   Alert,
+  App,
   Breadcrumb,
   Button,
   Card,
@@ -18,13 +19,11 @@ import {
   Empty,
   Form,
   Image,
-  Modal,
   Space,
   Spin,
   Table,
   Typography,
   Upload,
-  message,
   theme,
 } from "antd";
 import { ArticleInlineMiniPreview } from "@/components/article-inline-mini-preview/ArticleInlineMiniPreview";
@@ -103,72 +102,79 @@ function ArticleEditorWithInlinePreview({
   );
 }
 
+type ArticleCoverMessageApi = {
+  success: (content: string) => void;
+  error: (content: string) => void;
+};
+
 function buildArticleCoverUploadProps(
   form: FormInstance<ArticleFormValues>,
   fileList: UploadFile[],
   setFileList: Dispatch<SetStateAction<UploadFile[]>>,
   uploading: boolean,
   setUploading: Dispatch<SetStateAction<boolean>>,
+  messageApi: ArticleCoverMessageApi,
 ): UploadProps {
   return {
-  accept: "image/jpeg,image/jpg,image/png,image/webp",
-  multiple: false,
-  maxCount: 1,
-  fileList,
-  listType: "picture-card",
-  className: "category-form-cover-upload",
-  showUploadList: {
-    showPreviewIcon: true,
-    showRemoveIcon: true,
-  },
-  disabled: uploading,
-  beforeUpload: (file) => {
-    const ok =
-      file.type.startsWith("image/") || /\.(jpe?g|png|webp)$/i.test(file.name);
-    if (!ok) {
-      message.error("仅支持 jpg / png / webp 图片");
-      return Upload.LIST_IGNORE;
-    }
-    return true;
-  },
-  onChange: ({ fileList: fl }) => {
-    setFileList(fl.length > 1 ? [fl[fl.length - 1]!] : fl);
-  },
-  onRemove: () => {
-    form.setFieldValue("cover_url", "");
-    setFileList([]);
-    return true;
-  },
-  customRequest: async (options) => {
-    const { file, onError, onSuccess } = options;
-    try {
-      setUploading(true);
-      const rcFile = file as File & { uid?: string };
-      const res = await uploadTopicImageApi(rcFile);
-      form.setFieldValue("cover_url", res.url);
-      message.success("上传成功");
-      setFileList([
-        {
-          uid: String(rcFile.uid ?? `${Date.now()}`),
-          name: rcFile.name || "cover",
-          status: "done",
-          url: res.url,
-        },
-      ]);
-      onSuccess?.(res, new XMLHttpRequest());
-    } catch (err) {
-      message.error(pickApiErrorMessage(err) || "上传失败");
-      onError?.(err as Error);
-    } finally {
-      setUploading(false);
-    }
-  },
-};
+    accept: "image/jpeg,image/jpg,image/png,image/webp",
+    multiple: false,
+    maxCount: 1,
+    fileList,
+    listType: "picture-card",
+    className: "category-form-cover-upload",
+    showUploadList: {
+      showPreviewIcon: true,
+      showRemoveIcon: true,
+    },
+    disabled: uploading,
+    beforeUpload: (file) => {
+      const ok =
+        file.type.startsWith("image/") || /\.(jpe?g|png|webp)$/i.test(file.name);
+      if (!ok) {
+        messageApi.error("仅支持 jpg / png / webp 图片");
+        return Upload.LIST_IGNORE;
+      }
+      return true;
+    },
+    onChange: ({ fileList: fl }) => {
+      setFileList(fl.length > 1 ? [fl[fl.length - 1]!] : fl);
+    },
+    onRemove: () => {
+      form.setFieldValue("cover_url", "");
+      setFileList([]);
+      return true;
+    },
+    customRequest: async (options) => {
+      const { file, onError, onSuccess } = options;
+      try {
+        setUploading(true);
+        const rcFile = file as File & { uid?: string };
+        const res = await uploadTopicImageApi(rcFile);
+        form.setFieldValue("cover_url", res.url);
+        messageApi.success("上传成功");
+        setFileList([
+          {
+            uid: String(rcFile.uid ?? `${Date.now()}`),
+            name: rcFile.name || "cover",
+            status: "done",
+            url: res.url,
+          },
+        ]);
+        onSuccess?.(res, new XMLHttpRequest());
+      } catch (err) {
+        messageApi.error(pickApiErrorMessage(err) || "上传失败");
+        onError?.(err as Error);
+      } finally {
+        setUploading(false);
+      }
+    },
+  };
 }
 
 export default function CategoryDetailPage() {
   const { tid = "" } = useParams<{ tid: string }>();
   const navigate = useNavigate();
+  const { message, modal } = App.useApp();
   const { token } = theme.useToken();
 
   const [topic, setTopic] = useState<TopicTypes.TopicWithArticles | null>(null);
@@ -217,7 +223,7 @@ export default function CategoryDetailPage() {
 
   const confirmDeleteArticle = useCallback(
     (row: ArticleRow) => {
-      Modal.confirm({
+      modal.confirm({
         title: "删除文章",
         content: `确定删除「${row.title}」？删除后不可恢复。`,
         okText: "删除",
@@ -235,7 +241,7 @@ export default function CategoryDetailPage() {
         },
       });
     },
-    [loadDetail],
+    [loadDetail, message, modal],
   );
 
   const articleColumns = useMemo<ColumnsType<ArticleRow>>(
@@ -418,6 +424,7 @@ export default function CategoryDetailPage() {
     setCreateArticleCoverFiles,
     uploading,
     setUploading,
+    message,
   );
   const editUploadProps = buildArticleCoverUploadProps(
     editArticleForm,
@@ -425,6 +432,7 @@ export default function CategoryDetailPage() {
     setEditArticleCoverFiles,
     uploading,
     setUploading,
+    message,
   );
 
   return (

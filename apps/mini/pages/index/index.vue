@@ -132,11 +132,9 @@
       <view v-if="cr7News.length" class="section">
         <view class="section-header">
           <text class="section-title">CR7 News</text>
-          <text
-            v-if="showNewsViewAll"
-            class="section-link"
-            @click="openNewsAll"
-          >查看全部</text>
+          <text v-if="showNewsViewAll" class="section-link" @click="openNewsAll"
+            >查看全部</text
+          >
         </view>
         <view class="news-list">
           <view
@@ -165,15 +163,19 @@
         </view>
       </view>
 
-      <!-- 合作伙伴 -->
-      <view class="section">
+      <!-- 合作伙伴（话题文章；首页 2×2 预览，超过则查看全部） -->
+      <view v-if="brands.length" class="section">
         <view class="section-header">
           <text class="section-title">合作伙伴</text>
-          <text class="section-link" @click="openBrandAll">查看全部</text>
+          <text
+            v-if="showBrandsViewAll"
+            class="section-link"
+            @click="openBrandAll"
+          >查看全部</text>
         </view>
         <view class="brand-grid">
           <view
-            v-for="brand in brands"
+            v-for="brand in brandsPreview"
             :key="brand.id"
             class="brand-card"
             @click="openBrand(brand)"
@@ -207,14 +209,17 @@
 import { useUserStore } from "@/stores/user";
 import { fetchUnreadCount } from "@/services/messages.js";
 import { HOME_TOPIC_IDS } from "@/config/home-topic-ids.js";
-import { fetchBrands, loadHomeTicketSection } from "@/services/home.js";
+import { loadHomeTicketSection } from "@/services/home.js";
 import { fetchTopicWithArticles } from "@/services/topic.js";
+import { mapArticlesToPartnerBrands } from "@/utils/partner-articles.js";
 import createTabBarMixin from "@/mixins/tabBar.js";
 import { HOME_TICKET_SECTION_EVENT } from "@/utils/eventBus.js";
 import { formatTicketEventCardMetaLine } from "@/utils/ticketEventDisplay.js";
 
 /** 首页 CR7 News 预览条数 */
 const NEWS_HOME_PREVIEW_LIMIT = 3;
+/** 首页合作伙伴网格预览（2×2） */
+const BRANDS_HOME_PREVIEW_LIMIT = 4;
 
 export default {
   mixins: [createTabBarMixin(0)],
@@ -230,6 +235,12 @@ export default {
     },
     showNewsViewAll() {
       return this.cr7News.length > NEWS_HOME_PREVIEW_LIMIT;
+    },
+    brandsPreview() {
+      return this.brands.slice(0, BRANDS_HOME_PREVIEW_LIMIT);
+    },
+    showBrandsViewAll() {
+      return this.brands.length > BRANDS_HOME_PREVIEW_LIMIT;
     },
   },
   data() {
@@ -313,6 +324,7 @@ export default {
       try {
         const heroTid = String(HOME_TOPIC_IDS.hero || "").trim();
         const newsTid = String(HOME_TOPIC_IDS.news || "").trim();
+        const brandsTid = String(HOME_TOPIC_IDS.brands || "").trim();
         const topicHeroPromise = heroTid
           ? fetchTopicWithArticles(heroTid).catch((err) => {
               console.error("首页 Hero 话题加载失败", err);
@@ -325,11 +337,17 @@ export default {
               return { articles: [] };
             })
           : Promise.resolve({ articles: [] });
-        const [topicHeroDetail, topicNewsDetail, brandList, ticketSection] =
+        const topicBrandsPromise = brandsTid
+          ? fetchTopicWithArticles(brandsTid).catch((err) => {
+              console.error("首页合作伙伴话题加载失败", err);
+              return { articles: [] };
+            })
+          : Promise.resolve({ articles: [] });
+        const [topicHeroDetail, topicNewsDetail, topicBrandsDetail, ticketSection] =
           await Promise.all([
             topicHeroPromise,
             topicNewsPromise,
-            fetchBrands(),
+            topicBrandsPromise,
             loadHomeTicketSection(),
           ]);
         const heroArticles = Array.isArray(topicHeroDetail?.articles)
@@ -353,10 +371,10 @@ export default {
             desc: title,
           };
         });
-        this.brands = brandList.map((b) => ({
-          ...b,
-          tagline: b.description || "官方合作品牌",
-        }));
+        const brandArticles = Array.isArray(topicBrandsDetail?.articles)
+          ? topicBrandsDetail.articles
+          : [];
+        this.brands = mapArticlesToPartnerBrands(brandArticles);
         const ev = ticketSection?.ticketEvent;
         this.ticketSection.ticketEvent = {
           ...this.ticketSection.ticketEvent,
@@ -431,7 +449,10 @@ export default {
     },
 
     openBrand(brand) {
-      uni.navigateTo({ url: "/pages/brands/brands" });
+      if (!brand?.id) return;
+      uni.navigateTo({
+        url: `/pages/article-detail/article-detail?aid=${encodeURIComponent(brand.id)}`,
+      });
     },
 
     goToScanTicket() {
