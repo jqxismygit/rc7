@@ -8,6 +8,7 @@ import {
 import { Link, useNavigate } from "react-router";
 import {
   Alert,
+  App,
   Breadcrumb,
   Button,
   Card,
@@ -17,11 +18,11 @@ import {
   Space,
   Typography,
   Upload,
-  message,
   theme,
 } from "antd";
 import type { UploadFile, UploadProps } from "antd";
 import {
+  CopyOutlined,
   DeleteOutlined,
   EditOutlined,
   EyeOutlined,
@@ -62,6 +63,7 @@ type TopicFormValues = {
 
 const CategoryPage = () => {
   const navigate = useNavigate();
+  const { message } = App.useApp();
   const { token } = theme.useToken();
   const actionRef = useRef<ActionType>(null);
   const [createForm] = Form.useForm<TopicFormValues>();
@@ -91,6 +93,37 @@ const CategoryPage = () => {
         render: (_, __, index) => rowIndexBase + index + 1,
       },
       {
+        title: "ID",
+        dataIndex: "id",
+        width: 200,
+        search: false,
+        render: (_, row) => (
+          <Space size={6} align="center" wrap={false}>
+            <Typography.Text
+              ellipsis={{ tooltip: row.id }}
+              style={{ maxWidth: 132, fontSize: 12 }}
+            >
+              {row.id}
+            </Typography.Text>
+            <Button
+              type="link"
+              size="small"
+              icon={<CopyOutlined />}
+              style={{ padding: 0, height: "auto" }}
+              aria-label="复制 ID"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(row.id);
+                  message.success("已复制");
+                } catch {
+                  message.error("复制失败");
+                }
+              }}
+            />
+          </Space>
+        ),
+      },
+      {
         title: "封面",
         dataIndex: "cover_url",
         width: 88,
@@ -114,21 +147,21 @@ const CategoryPage = () => {
         ellipsis: true,
         width: 200,
       },
-      {
-        title: "描述",
-        dataIndex: "description",
-        ellipsis: true,
-        search: false,
-        width: 260,
-        render: (_, row) => (
-          <Typography.Text
-            type="secondary"
-            ellipsis={{ tooltip: row.description ?? undefined }}
-          >
-            {row.description ?? "—"}
-          </Typography.Text>
-        ),
-      },
+      // {
+      //   title: "描述",
+      //   dataIndex: "description",
+      //   ellipsis: true,
+      //   search: false,
+      //   width: 260,
+      //   render: (_, row) => (
+      //     <Typography.Text
+      //       type="secondary"
+      //       ellipsis={{ tooltip: row.description ?? undefined }}
+      //     >
+      //       {row.description ?? "—"}
+      //     </Typography.Text>
+      //   ),
+      // },
       {
         title: "文章数",
         dataIndex: "article_count",
@@ -196,7 +229,7 @@ const CategoryPage = () => {
         ),
       },
     ],
-    [rowIndexBase, navigate],
+    [rowIndexBase, navigate, message],
   );
 
   function confirmDelete(row: TopicRow) {
