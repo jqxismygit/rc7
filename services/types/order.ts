@@ -8,6 +8,8 @@ export type OrderStatus =
   | 'CANCELLED'         // 已取消
   | 'EXPIRED';          // 已过期
 
+export type OrderSource = 'DIRECT' | 'CTRIP';
+
 export interface Order {
   id: string;
   user_id: string;
@@ -21,6 +23,8 @@ export interface Order {
   cancelled_at: string | null;
   released_at: string | null;
   hidden_at: string | null;
+  // DIRECT for CR7 native orders, CTRIP for orders created by the Ctrip OTA callback.
+  source: OrderSource;
   created_at: string;
   updated_at: string;
 }

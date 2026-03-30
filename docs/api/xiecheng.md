@@ -169,7 +169,7 @@
   - 当 `otaOrderId` 已在 CR7 创建成功时，必须按携程幂等要求直接返回成功，并复用首次创建得到的 `supplierOrderId`。
   - 成功时 CR7 会通过领域服务创建或复用用户、创建或复用订单。
 
-## 查看单条携程订单记录详情
+## 查看携程订单同步记录列表
 
 - URL: `/ota/ctrip/orders/:rid`
 - Method: `GET`
@@ -183,13 +183,15 @@
   ```
 - Response Body:
   ```ts
-  Xiecheng.XcOrderSyncRecord
+  Xiecheng.XcOrderSyncRecord[]
   ```
 - 说明：
   - 同步记录只保留可成功解密的请求；解密失败请求不会生成可查询记录。
   - 该接口是订单场景测试和后台排障的校验入口，不允许用数据库直查替代。
+  - `rid` 支持两种取值：同步记录 `id`，或携程 `otaOrderId`。两种方式都返回同一个携程订单的同步记录列表。
+  - 列表按 `created_at DESC` 排序，第一条即最新同步记录。
   - 当携程对同一 `otaOrderId` 重复通知时，最新同步记录中的 `order_id` 必须与首条成功记录保持一致，不能生成新的 CR7 订单。
-  - 同步记录会保存解密后的请求 body，但不保存响应快照；该接口返回排障所需的请求头、解密后的请求体、聚合后的订单关联信息与业务快照。
+  - 同步记录在数据库中会保存请求快照与响应快照；当前管理端接口返回 `Xiecheng.XcOrderSyncRecord[]`，用于排障所需的请求头、解密后的请求体、订单关联信息与总价快照，不返回 `response_body`。
 
 ## 携程返回码约定
 
@@ -207,7 +209,7 @@
 ## 类型定义位置
 
 - 携程同步类型：`services/types/xiecheng.ts` 中 `Xiecheng.XcSyncLog`、`Xiecheng.XcSyncItem` 等。
-- 携程订单回调与记录类型：`services/types/xiecheng.ts` 中 `Xiecheng.XcEncryptedOrderNotification`、`Xiecheng.XcCreatePreOrderBody` 等。
+- 携程订单回调与记录类型：`services/types/xiecheng.ts` 中 `Xiecheng.XcEncryptedOrderNotification`、`Xiecheng.XcCreatePreOrderBody`、`Xiecheng.XcOrderSyncRecord` 等。
 
 ## 管理端 HTTP 状态码约定
 

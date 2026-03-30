@@ -42,9 +42,9 @@ Feature: 对接携程 OTA 订单系统
     When 携程重复发送同样的订单创建请求
      And 携程订单号是 "xc_order_12345"
      And 携程 sequence id 是 "xc_seq_54321"
-    Then cr7 系统收到订单创建通知
-     And 订单信息可以正常解密
-    Then cr7 系统按照携程的要求返回订单创建成功的响应
+    Then cr7 系统再次收到订单创建通知
+     And 再次收到的订单信息可以正常解密
+    Then cr7 系统再次按照携程的要求返回订单创建成功的响应
     Then 用户 "Alice_xc" 只有一个账号
     Then cr7 系统只有一个订单，订单号是 "xc_order_12345"，订单状态为 "待支付"
 

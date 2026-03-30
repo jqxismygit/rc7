@@ -13,7 +13,7 @@
 ### 2.1 新表 `xc_order_sync_records`
 
 ```sql
-CREATE TABLE cr7.xc_order_sync_records (
+CREATE TABLE xc_order_sync_records (
   id                     UUID PRIMARY KEY DEFAULT GEN_RANDOM_UUID(),
   service_name           VARCHAR(64) NOT NULL,
   ota_order_id           VARCHAR(128),
@@ -25,8 +25,8 @@ CREATE TABLE cr7.xc_order_sync_records (
   country_code           VARCHAR(16),
   total_amount           INTEGER,
   sync_status            VARCHAR(32) NOT NULL,
-  user_id                UUID REFERENCES cr7.users(id) ON DELETE SET NULL,
-  order_id               UUID REFERENCES cr7.exhibit_orders(id) ON DELETE SET NULL,
+  user_id                UUID REFERENCES users(id) ON DELETE SET NULL,
+  order_id               UUID REFERENCES exhibit_orders(id) ON DELETE SET NULL,
   created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT chk_xc_order_sync_records_service_name
@@ -48,23 +48,25 @@ CREATE TABLE cr7.xc_order_sync_records (
 
 ```sql
 CREATE UNIQUE INDEX uq_xc_order_sync_records_sequence_id
-  ON cr7.xc_order_sync_records(sequence_id);
+  ON xc_order_sync_records(sequence_id);
 
 CREATE INDEX idx_xc_order_sync_records_ota_order_id_created_at
-  ON cr7.xc_order_sync_records(ota_order_id, created_at DESC);
+  ON xc_order_sync_records(ota_order_id, created_at DESC);
 
 CREATE INDEX idx_xc_order_sync_records_phone_country_code_created_at
-  ON cr7.xc_order_sync_records(country_code, phone, created_at DESC);
+  ON xc_order_sync_records(country_code, phone, created_at DESC);
 
 CREATE INDEX idx_xc_order_sync_records_sync_status_created_at
-  ON cr7.xc_order_sync_records(sync_status, created_at DESC);
+  ON xc_order_sync_records(sync_status, created_at DESC);
 
 CREATE INDEX idx_xc_order_sync_records_order_id
-  ON cr7.xc_order_sync_records(order_id);
+  ON xc_order_sync_records(order_id);
 
 CREATE INDEX idx_xc_order_sync_records_user_id
-  ON cr7.xc_order_sync_records(user_id);
+  ON xc_order_sync_records(user_id);
 ```
+
+说明：migration 在运行时会先设置当前业务 schema 的 `search_path`，因此 SQL 文件中不固定写死 schema 名。
 
 设计理由：
 
@@ -109,10 +111,12 @@ CREATE INDEX idx_xc_order_sync_records_user_id
 
 ## 5. 查询模型建议
 
-单条记录接口 `GET /ota/ctrip/orders/:rid` 建议以 `xc_order_sync_records` 为主表，再按需补齐聚合字段：
+记录列表接口 `GET /ota/ctrip/orders/:rid` 当前以 `xc_order_sync_records` 为主表直接返回同一订单的同步记录视图：
 
 - 同步记录主字段直接从 `xc_order_sync_records` 读取。
-- 订单状态、总价可从 `exhibit_orders` 读取。
+- `rid` 既可以是记录主键 `id`，也可以是 `otaOrderId`；两种入参都返回同一个携程订单的同步记录列表。
+- 列表按 `created_at DESC, sequence_id DESC` 排序。
+- 当前接口返回 `total_amount`、`user_id`、`order_id`、`request_header`、`request_body` 等字段，不返回 `response_body`。
 - 对同一 `ota_order_id` 的重复通知，记录中的 `order_id` 必须保持一致。
 
 ## 6. 迁移顺序建议

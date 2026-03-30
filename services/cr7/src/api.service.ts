@@ -179,6 +179,26 @@ const routes = [
     }
   ),
   routeConfig(
+    '/ota/ctrip/callback',
+    ['xiecheng.receiveCtripCallback'],
+    {
+      authentication: false,
+      authorization: false,
+      aliases: {
+        'POST /': 'xiecheng.receiveCtripCallback',
+      }
+    }
+  ),
+  routeConfig(
+    '/ota/ctrip',
+    ['xiecheng.getCtripOrderRecord'],
+    {
+      aliases: {
+        'GET /orders/:rid': 'xiecheng.getCtripOrderRecord',
+      }
+    }
+  ),
+  routeConfig(
     '/topics',
     [
       'cr7.topics.create',

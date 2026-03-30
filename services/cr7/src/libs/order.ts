@@ -1,4 +1,4 @@
-import { Context, ServiceSchema } from 'moleculer';
+import { Context, Errors, ServiceSchema } from 'moleculer';
 import type { Order } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
 import {
@@ -12,6 +12,8 @@ import {
 } from '../data/order.js';
 import { handleOrderError } from './errors.js';
 
+const { MoleculerClientError } = Errors;
+
 interface UserMeta {
   uid: string;
 }
@@ -21,13 +23,31 @@ export class OrderService extends RC7BaseService {
     super(broker);
   }
 
+  methods_order: ServiceSchema['methods'] = {
+    createOrderWithTransaction: this.createOrderWithTransaction,
+  };
+
   actions_order: ServiceSchema['actions'] = {
     'order.create': {
       rest: 'POST /:eid/sessions/:sid/orders',
       params: {
+        id: {
+          type: 'string',
+          optional: true,
+        },
+        user_id: {
+          type: 'string',
+          optional: true,
+        },
         eid: 'string',
         sid: 'string',
         items: 'array',
+        source: {
+          type: 'enum',
+          values: ['DIRECT', 'CTRIP'],
+          optional: true,
+          default: 'DIRECT',
+        },
       },
       handler: this.createOrder,
     },
@@ -142,23 +162,54 @@ export class OrderService extends RC7BaseService {
       },
       handler: this.expireOrders,
     },
+
   };
 
   async createOrder(
-    ctx: Context<{ eid: string; sid: string; items: Order.CreateOrderItem[] }, { user: UserMeta }>
+    ctx: Context<{
+      id?: string;
+      user_id?: string;
+      eid: string;
+      sid: string;
+      items: Order.CreateOrderItem[];
+      source?: Order.OrderSource;
+    }, { user?: UserMeta }>
   ) {
-    const { eid, sid, items } = ctx.params;
-    const { uid } = ctx.meta.user;
+    const { id, user_id: inputUserId, eid, sid, items, source = 'DIRECT' } = ctx.params;
+    const authUserId = ctx.meta.user?.uid;
+
+    if (authUserId && inputUserId && inputUserId !== authUserId) {
+      throw new MoleculerClientError('Insufficient permissions', 403, 'FORBIDDEN_ACCESS');
+    }
+
+    const user_id = inputUserId ?? authUserId;
+    if (!user_id) {
+      throw new MoleculerClientError('Missing user_id', 400, 'USER_ID_REQUIRED');
+    }
+
+    return this.createOrderWithTransaction({ id, user_id, eid, sid, items, source });
+  }
+
+  async createOrderWithTransaction(params: {
+    id?: string;
+    user_id: string;
+    eid: string;
+    sid: string;
+    items: Order.CreateOrderItem[];
+    source: Order.OrderSource;
+  }) {
     const schema = await this.getSchema();
     const dbClient = await this.pool.connect();
 
     try {
       await dbClient.query('BEGIN');
       const order = await createOrder(dbClient, schema, {
-        user_id: uid,
-        exhibit_id: eid,
-        session_id: sid,
-        items,
+        id: params.id,
+        user_id: params.user_id,
+        exhibit_id: params.eid,
+        session_id: params.sid,
+        items: params.items,
+        source: params.source,
       });
       await dbClient.query('COMMIT');
       return order;

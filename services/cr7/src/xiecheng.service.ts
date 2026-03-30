@@ -2,13 +2,31 @@ import { randomUUID } from 'node:crypto';
 import { addDays, format, isAfter, isBefore, parseISO, startOfDay } from 'date-fns';
 import config from 'config';
 import { Context, Errors } from 'moleculer';
+import MoleculerWeb from 'moleculer-web';
 import type { Exhibition, Xiecheng } from '@cr7/types';
-import { createXcSyncLog, listXcSyncLogs, XiechengDataError } from './data/xiecheng.js';
+import {
+  createXcSyncLog,
+  listXcSyncLogs,
+  XiechengDataError,
+  createXcOrderSyncRecord,
+  getXcOrderSyncRecordById,
+  getFirstSuccessfulXcOrderSyncRecordByOtaOrderId,
+  listXcOrderSyncRecordsByOtaOrderId,
+  XcOrderDataError,
+} from './data/xiecheng.js';
 import { handleXiechengError } from './libs/errors.js';
 import { RC7BaseService } from './libs/cr7.base.js';
-import { xieChengSyncInventory, xieChengSyncPrice, XieChengBusinessError } from './libs/xiecheng.js';
+import {
+  xieChengSyncInventory,
+  xieChengSyncPrice,
+  XieChengBusinessError,
+  decryptXieChengBody,
+  buildXieChengSign,
+  encryptXieChengBody,
+} from './libs/xiecheng.js';
 
 const { MoleculerClientError } = Errors;
+const { NotFoundError } = MoleculerWeb.Errors;
 
 interface UserMeta {
   uid: string;
@@ -62,6 +80,10 @@ function assertSyncDateRange(
 
 function toYuan(cents: number): number {
   return Number((cents / 100).toFixed(2));
+}
+
+function isUuidLike(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 export default class XiechengService extends RC7BaseService {
@@ -147,6 +169,28 @@ export default class XiechengService extends RC7BaseService {
             },
           },
           handler: this.listXiechengSyncLogs,
+        },
+
+        receiveCtripCallback: {
+          rest: 'POST /callback',
+          roles: [],
+          params: {
+            header: 'object',
+            body: {
+              type: 'string',
+              optional: true,
+            },
+          },
+          handler: this.receiveCtripCallback,
+        },
+
+        getCtripOrderRecord: {
+          rest: 'GET /orders/:rid',
+          roles: ['admin'],
+          params: {
+            rid: 'string',
+          },
+          handler: this.getCtripOrderRecord,
         },
       },
 
@@ -406,5 +450,441 @@ export default class XiechengService extends RC7BaseService {
       tid: params.tid,
       serviceName: params.service_name,
     }).catch(handleXiechengError);
+  }
+
+  buildXcErrorResponse(resultCode: string, resultMessage: string): Xiecheng.XcEncryptedOrderResponse {
+    return {
+      header: { resultCode, resultMessage },
+    };
+  }
+
+  buildXcSuccessResponse(
+    successBody: Xiecheng.XcCreatePreOrderSuccessBody,
+  ): Xiecheng.XcEncryptedOrderResponse {
+    const xcConfig = config.xiecheng;
+    const plainBody = JSON.stringify(successBody);
+    const encryptedBody = encryptXieChengBody(plainBody, xcConfig.aes_key, xcConfig.aes_iv);
+    return {
+      header: { resultCode: '0000', resultMessage: '操作成功' },
+      body: encryptedBody,
+    };
+  }
+
+  validateCtripNotificationHeader(
+    header: Xiecheng.XcRequestHeader,
+    encryptedBody: string | undefined,
+  ): Xiecheng.XcEncryptedOrderResponse | null {
+    const xcConfig = config.xiecheng;
+
+    if (header.accountId !== xcConfig.account_id) {
+      return this.buildXcErrorResponse('0003', '供应商账户信息不正确');
+    }
+
+    const encBodyForSign = encryptedBody ?? '';
+    const { sign: expectedSign } = buildXieChengSign(encBodyForSign, {
+      accountId: header.accountId,
+      serviceName: header.serviceName,
+      requestTime: header.requestTime,
+      version: header.version,
+      signKey: xcConfig.secret,
+    });
+
+    if (header.sign !== expectedSign) {
+      return this.buildXcErrorResponse('0002', '签名错误');
+    }
+
+    return null;
+  }
+
+  decryptCtripOrderBody(
+    encryptedBody: string | undefined,
+  ): Xiecheng.XcCreatePreOrderBody | null {
+    const xcConfig = config.xiecheng;
+
+    try {
+      if (!encryptedBody) {
+        return null;
+      }
+      const plainBody = decryptXieChengBody(encryptedBody, xcConfig.aes_key, xcConfig.aes_iv);
+      return JSON.parse(plainBody) as Xiecheng.XcCreatePreOrderBody;
+    } catch {
+      return null;
+    }
+  }
+
+  async tryGetTicketCategoryByPlu(
+    ctx: Context<Xiecheng.XcEncryptedOrderNotification, Record<string, unknown>>,
+    plu: string,
+  ): Promise<Exhibition.TicketCategory | null> {
+    try {
+      return await ctx.call('cr7.exhibition.getTicketByIdGlobal', { tid: plu }) as Exhibition.TicketCategory;
+    } catch {
+      return null;
+    }
+  }
+
+  async tryGetSessionByUseDate(
+    ctx: Context<Xiecheng.XcEncryptedOrderNotification, Record<string, unknown>>,
+    exhibitId: string,
+    useDate: string,
+  ): Promise<Exhibition.Session | null> {
+    try {
+      const sessions = await ctx.call('cr7.exhibition.getSessions', { eid: exhibitId }) as Exhibition.Session[];
+      return sessions.find(s => format(new Date(s.session_date), 'yyyy-MM-dd') === useDate) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  async tryFindOrCreateUserIdByPhone(
+    ctx: Context<Xiecheng.XcEncryptedOrderNotification, Record<string, unknown>>,
+    phone: string | null,
+    countryCode: string | null,
+    fallbackName: string,
+  ): Promise<string | null> {
+    if (!phone || !countryCode) {
+      return null;
+    }
+
+    try {
+      return await ctx.call('user.findOrCreateByPhone', {
+        country_code: countryCode,
+        phone,
+        name: fallbackName,
+      }) as string;
+    } catch {
+      return null;
+    }
+  }
+
+  sanitizeOrderSyncRecord(
+    record: Xiecheng.XcOrderSyncRecord & { response_body?: unknown },
+  ): Xiecheng.XcOrderSyncRecord {
+    const { response_body: _ignored, ...sanitized } = record;
+    return sanitized;
+  }
+
+  async persistRecord(params: {
+    schema: string;
+    otaOrderId: string;
+    sequenceId: string;
+    header: Xiecheng.XcRequestHeader;
+    orderBody: Xiecheng.XcCreatePreOrderBody;
+    phone: string | null;
+    countryCode: string | null;
+    recordParams: {
+      id?: string;
+      responseBody: Xiecheng.XcEncryptedOrderResponse;
+      totalAmount: number | null;
+      syncStatus: Xiecheng.XcOrderSyncStatus;
+      userId: string | null;
+      orderId: string | null;
+    };
+  }): Promise<Xiecheng.XcOrderSyncRecord> {
+    return createXcOrderSyncRecord(this.pool, params.schema, {
+      id: params.recordParams.id,
+      serviceName: 'CreatePreOrder',
+      otaOrderId: params.otaOrderId,
+      sequenceId: params.sequenceId,
+      requestHeader: params.header,
+      requestBody: params.orderBody,
+      responseBody: params.recordParams.responseBody,
+      phone: params.phone,
+      countryCode: params.countryCode,
+      totalAmount: params.recordParams.totalAmount,
+      syncStatus: params.recordParams.syncStatus,
+      userId: params.recordParams.userId,
+      orderId: params.recordParams.orderId,
+    });
+  }
+
+  async failAndPersist(params: {
+    schema: string;
+    otaOrderId: string;
+    sequenceId: string;
+    header: Xiecheng.XcRequestHeader;
+    orderBody: Xiecheng.XcCreatePreOrderBody;
+    phone: string | null;
+    countryCode: string | null;
+    resultCode: string;
+    resultMessage: string;
+    extra?: { userId?: string | null; orderId?: string | null; totalAmount?: number | null };
+  }): Promise<Xiecheng.XcEncryptedOrderResponse> {
+    const responseBody = this.buildXcErrorResponse(params.resultCode, params.resultMessage);
+    await this.persistRecord({
+      schema: params.schema,
+      otaOrderId: params.otaOrderId,
+      sequenceId: params.sequenceId,
+      header: params.header,
+      orderBody: params.orderBody,
+      phone: params.phone,
+      countryCode: params.countryCode,
+      recordParams: {
+        responseBody,
+        totalAmount: params.extra?.totalAmount ?? null,
+        syncStatus: 'FAILED',
+        userId: params.extra?.userId ?? null,
+        orderId: params.extra?.orderId ?? null,
+      },
+    });
+    return responseBody;
+  }
+
+  async receiveCtripCallback(
+    ctx: Context<Xiecheng.XcEncryptedOrderNotification, Record<string, unknown>>,
+  ): Promise<Xiecheng.XcEncryptedOrderResponse> {
+    ctx.meta.$statusCode = 200;
+    const { header, body: encryptedBody } = ctx.params;
+
+    const headerError = this.validateCtripNotificationHeader(header, encryptedBody);
+    if (headerError) {
+      return headerError;
+    }
+
+    const orderBody = this.decryptCtripOrderBody(encryptedBody);
+    if (!orderBody) {
+      return this.buildXcErrorResponse('0001', '报文解析失败');
+    }
+
+    const { otaOrderId, sequenceId, contacts, items } = orderBody;
+    const schema = await this.getSchema();
+    const firstSuccessRecord = await getFirstSuccessfulXcOrderSyncRecordByOtaOrderId(
+      this.pool, schema, otaOrderId,
+    );
+
+    const contact = contacts?.[0] ?? {};
+    const phone = contact.mobile ?? null;
+    const countryCode = contact.intlCode ?? null;
+
+    if (firstSuccessRecord) {
+      const responseBody = this.buildXcSuccessResponse({
+        otaOrderId,
+        supplierOrderId: firstSuccessRecord.order_id!,
+        items: items.map(item => ({ itemId: item.plu, quantity: item.quantity })),
+      });
+
+      await this.persistRecord({
+        schema,
+        otaOrderId,
+        sequenceId,
+        header,
+        orderBody,
+        phone,
+        countryCode,
+        recordParams: {
+          responseBody,
+          totalAmount: firstSuccessRecord.total_amount,
+          syncStatus: 'DUPLICATE_ORDER',
+          userId: firstSuccessRecord.user_id,
+          orderId: firstSuccessRecord.order_id,
+        },
+      });
+
+      return responseBody;
+    }
+
+    if (!items || items.length === 0) {
+      return this.failAndPersist({
+        schema,
+        otaOrderId,
+        sequenceId,
+        header,
+        orderBody,
+        phone,
+        countryCode,
+        resultCode: '1001',
+        resultMessage: '产品 PLU 不存在',
+      });
+    }
+
+    const item = items[0];
+    const ticketCategory = await this.tryGetTicketCategoryByPlu(ctx, item.plu);
+    if (!ticketCategory) {
+      return this.failAndPersist({
+        schema,
+        otaOrderId,
+        sequenceId,
+        header,
+        orderBody,
+        phone,
+        countryCode,
+        resultCode: '1001',
+        resultMessage: '产品 PLU 不存在',
+      });
+    }
+
+    const exhibitId = ticketCategory.exhibit_id;
+    const matchSession = await this.tryGetSessionByUseDate(ctx, exhibitId, item.useDate);
+    if (!matchSession) {
+      return this.failAndPersist({
+        schema,
+        otaOrderId,
+        sequenceId,
+        header,
+        orderBody,
+        phone,
+        countryCode,
+        resultCode: '1009',
+        resultMessage: '日期错误',
+      });
+    }
+
+    const userId = await this.tryFindOrCreateUserIdByPhone(
+      ctx,
+      phone,
+      countryCode,
+      contact.name ?? (phone ? `ctrip_${phone}` : 'ctrip_user'),
+    );
+
+    const candidateOrderId = randomUUID();
+    let createdOrderId: string | null = null;
+    let totalAmount: number | null = null;
+
+    const orderItems = items.map(i => ({
+      ticket_category_id: i.plu,
+      quantity: i.quantity,
+    }));
+
+    try {
+      const order = await ctx.call('cr7.order.create', {
+        id: candidateOrderId,
+        eid: exhibitId,
+        sid: matchSession.id,
+        items: orderItems,
+        source: 'CTRIP',
+        ...(userId ? { user_id: userId } : {}),
+      }) as { id: string; total_amount: number };
+
+      createdOrderId = order.id;
+      totalAmount = order.total_amount;
+      const responseBody = this.buildXcSuccessResponse({
+        otaOrderId,
+        supplierOrderId: createdOrderId,
+        items: items.map(i => ({ itemId: i.plu, quantity: i.quantity })),
+      });
+
+      // The first successful sync record uses id = order_id for quick identity checks.
+      await this.persistRecord({
+        schema,
+        otaOrderId,
+        sequenceId,
+        header,
+        orderBody,
+        phone,
+        countryCode,
+        recordParams: {
+          id: createdOrderId,
+          responseBody,
+          totalAmount,
+          syncStatus: 'SUCCESS',
+          userId,
+          orderId: createdOrderId,
+        },
+      });
+
+      return responseBody;
+    } catch (error) {
+      const errCode = (error as { code?: string })?.code;
+      if (errCode === 'INVENTORY_NOT_ENOUGH') {
+        return this.failAndPersist({
+          schema,
+          otaOrderId,
+          sequenceId,
+          header,
+          orderBody,
+          phone,
+          countryCode,
+          resultCode: '1003',
+          resultMessage: '库存不足',
+          extra: { userId, orderId: createdOrderId, totalAmount },
+        });
+      }
+      if (errCode === 'SESSION_EXPIRED' || errCode === 'SESSION_NOT_FOUND') {
+        return this.failAndPersist({
+          schema,
+          otaOrderId,
+          sequenceId,
+          header,
+          orderBody,
+          phone,
+          countryCode,
+          resultCode: '1009',
+          resultMessage: '日期错误',
+          extra: { userId, orderId: createdOrderId, totalAmount },
+        });
+      }
+      if (errCode === 'TICKET_CATEGORY_NOT_FOUND') {
+        return this.failAndPersist({
+          schema,
+          otaOrderId,
+          sequenceId,
+          header,
+          orderBody,
+          phone,
+          countryCode,
+          resultCode: '1001',
+          resultMessage: '产品 PLU 不存在',
+          extra: { userId, orderId: createdOrderId, totalAmount },
+        });
+      }
+
+      return this.failAndPersist({
+        schema,
+        otaOrderId,
+        sequenceId,
+        header,
+        orderBody,
+        phone,
+        countryCode,
+        resultCode: '1100',
+        resultMessage: `创建订单失败: ${(error as Error).message}`,
+        extra: { userId, orderId: createdOrderId, totalAmount },
+      });
+    }
+  }
+
+  async getCtripOrderRecord(
+    ctx: Context<{ rid: string }, UserMeta>,
+  ): Promise<Xiecheng.XcOrderSyncRecord[]> {
+    const { rid } = ctx.params;
+    const schema = await this.getSchema();
+
+    const listAndSanitizeByOtaOrderId = async (otaOrderId: string) => {
+      const records = await listXcOrderSyncRecordsByOtaOrderId(this.pool, schema, otaOrderId);
+      return records.map(record => this.sanitizeOrderSyncRecord(
+        record as Xiecheng.XcOrderSyncRecord & { response_body?: unknown },
+      ));
+    };
+
+    try {
+      if (isUuidLike(rid)) {
+        const record = await getXcOrderSyncRecordById(this.pool, schema, rid);
+        if (record.ota_order_id) {
+          return await listAndSanitizeByOtaOrderId(record.ota_order_id);
+        }
+        return [this.sanitizeOrderSyncRecord(record as Xiecheng.XcOrderSyncRecord & { response_body?: unknown })];
+      }
+    } catch (error) {
+      if (error instanceof XcOrderDataError && error.code === 'XC_ORDER_SYNC_RECORD_NOT_FOUND') {
+        try {
+          return await listAndSanitizeByOtaOrderId(rid);
+        } catch (lookupError) {
+          if (lookupError instanceof XcOrderDataError && lookupError.code === 'XC_ORDER_SYNC_RECORD_NOT_FOUND') {
+            throw new NotFoundError('携程订单同步记录不存在', 'XC_ORDER_SYNC_RECORD_NOT_FOUND');
+          }
+          throw lookupError;
+        }
+      }
+      throw error;
+    }
+
+    try {
+      return await listAndSanitizeByOtaOrderId(rid);
+    } catch (error) {
+      if (error instanceof XcOrderDataError && error.code === 'XC_ORDER_SYNC_RECORD_NOT_FOUND') {
+        throw new NotFoundError('携程订单同步记录不存在', 'XC_ORDER_SYNC_RECORD_NOT_FOUND');
+      }
+      throw error;
+    }
   }
 }

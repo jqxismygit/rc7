@@ -12,7 +12,8 @@ import {
   listSessionInventoryByTicketAndDateRange,
   getSessionTicketCategoriesBySessionId,
   getSessionInventoryBySessionId,
-  updateTicketCategoryInventoryMax
+  updateTicketCategoryInventoryMax,
+  getTicketCategoryByIdGlobal,
 } from "../data/exhibition.js";
 import { handleExhibitionError } from './errors.js';
 import { RC7BaseService } from "./cr7.base.js";
@@ -160,6 +161,14 @@ export class ExhibitionService extends RC7BaseService {
       },
       handler: this.listSessionInventoryByTicketAndDateRange,
     },
+
+    'exhibition.getTicketByIdGlobal': {
+      visibility: 'protected',
+      params: {
+        tid: 'string',
+      },
+      handler: this.getTicketByIdGlobal,
+    },
   }
 
   async createExhibition(
@@ -302,6 +311,13 @@ export class ExhibitionService extends RC7BaseService {
     const { eid, tid, start_session_date, end_session_date } = ctx.params;
     const schema = await this.getSchema();
     return listSessionInventoryByTicketAndDateRange(this.pool, schema, eid, tid, start_session_date, end_session_date);
+  }
+
+  async getTicketByIdGlobal(ctx: Context<{ tid: string }>) {
+    const { tid } = ctx.params;
+    const schema = await this.getSchema();
+    return getTicketCategoryByIdGlobal(this.pool, schema, tid)
+      .catch(handleExhibitionError);
   }
 }
 

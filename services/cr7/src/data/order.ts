@@ -4,10 +4,12 @@ import type { Order } from '@cr7/types';
 type DBClient = Pool | PoolClient;
 
 type CreateOrderInput = {
+  id?: string;
   user_id: string;
   exhibit_id: string;
   session_id: string;
   items: Order.CreateOrderItem[];
+  source?: Order.OrderSource;
 };
 
 type AggregatedItem = {
@@ -269,6 +271,7 @@ export async function getOrderById(
       o.cancelled_at,
       o.released_at,
       o.hidden_at,
+      o.source,
       o.created_at,
       o.updated_at
     FROM ${schema}.exhibit_orders o
@@ -314,6 +317,7 @@ export async function getOrderByIdAdmin(
       o.cancelled_at,
       o.released_at,
       o.hidden_at,
+      o.source,
       o.created_at,
       o.updated_at
     FROM ${schema}.exhibit_orders o
@@ -392,6 +396,7 @@ export async function getOrders(
         o.cancelled_at,
         o.released_at,
         o.hidden_at,
+        o.source,
         o.created_at,
         o.updated_at
       FROM ${schema}.exhibit_orders o
@@ -413,6 +418,7 @@ export async function getOrders(
       cancelled_at,
       released_at,
       hidden_at,
+      source,
       created_at,
       updated_at
     FROM order_rows
@@ -492,6 +498,7 @@ export async function getOrdersAdmin(
         o.cancelled_at,
         o.released_at,
         o.hidden_at,
+        o.source,
         o.created_at,
         o.updated_at
       FROM ${schema}.exhibit_orders o
@@ -511,6 +518,7 @@ export async function getOrdersAdmin(
       cancelled_at,
       released_at,
       hidden_at,
+      source,
       created_at,
       updated_at
     FROM order_rows
@@ -623,15 +631,17 @@ export async function createOrder(
 
   const { rows: [createdOrder] } = await client.query<{ id: string }>(
     `INSERT INTO ${schema}.exhibit_orders (
+      id,
       user_id,
       exhibit_id,
       session_id,
       total_amount,
+      source,
       expires_at
     )
-    VALUES ($1, $2, $3, $4, NOW() + INTERVAL '30 minutes')
+    VALUES (COALESCE($5::uuid, GEN_RANDOM_UUID()), $1, $2, $3, $4, $6, NOW() + INTERVAL '30 minutes')
     RETURNING id`,
-    [input.user_id, input.exhibit_id, input.session_id, totalAmount]
+    [input.user_id, input.exhibit_id, input.session_id, totalAmount, input.id ?? null, input.source ?? 'DIRECT']
   );
 
   for (const item of aggregatedItems) {

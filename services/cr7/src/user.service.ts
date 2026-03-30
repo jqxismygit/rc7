@@ -9,6 +9,7 @@ import {
   updatePassword,
   getRoleIdByName,
   assignRoleToUser,
+  upsertUserByPhone,
 } from './data/user.js';
 import { handleUserError } from './libs/errors.js';
 
@@ -90,7 +91,17 @@ export default class UserService extends Service {
             const { uid } = ctx.params;
             return { token: { uid } };
           }
-        }
+        },
+
+        findOrCreateByPhone: {
+          visibility: 'protected',
+          params: {
+            country_code: 'string',
+            phone: 'string',
+            name: 'string',
+          },
+          handler: this.findOrCreateByPhone,
+        },
       },
 
       async started() {
@@ -204,5 +215,14 @@ export default class UserService extends Service {
 
     const roles = await getUserRoles(this.pool, schema, uid);
     return { role_names: roles.map(role => role.name) };
+  }
+
+  async findOrCreateByPhone(
+    ctx: Context<{ country_code: string; phone: string; name: string }>
+  ) {
+    const { country_code, phone, name } = ctx.params;
+    const schema = await this.getSchema();
+    const uid = await upsertUserByPhone(this.pool, schema, country_code, phone, name);
+    return uid;
   }
 }

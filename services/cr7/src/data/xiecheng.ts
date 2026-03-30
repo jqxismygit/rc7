@@ -110,3 +110,186 @@ export async function listXcSyncLogs(
 
   return rows;
 }
+
+export type XcOrderDataErrorCode =
+  | 'XC_ORDER_SYNC_RECORD_NOT_FOUND';
+
+export class XcOrderDataError extends Error {
+  code: XcOrderDataErrorCode;
+
+  constructor(message: string, code: XcOrderDataErrorCode) {
+    super(message);
+    this.name = 'XcOrderDataError';
+    this.code = code;
+  }
+}
+
+export async function createXcOrderSyncRecord(
+  client: DBClient,
+  schema: string,
+  params: {
+    id?: string;
+    serviceName: Xiecheng.XcOrderServiceName;
+    otaOrderId: string | null;
+    sequenceId: string;
+    requestHeader: Xiecheng.XcRequestHeader;
+    requestBody: Xiecheng.XcCreatePreOrderBody;
+    responseBody: Xiecheng.XcEncryptedOrderResponse;
+    phone: string | null;
+    countryCode: string | null;
+    totalAmount: number | null;
+    syncStatus: Xiecheng.XcOrderSyncStatus;
+    userId: string | null;
+    orderId: string | null;
+  },
+): Promise<Xiecheng.XcOrderSyncRecord> {
+  const { rows } = await client.query<Xiecheng.XcOrderSyncRecord>(
+    `INSERT INTO ${schema}.xc_order_sync_records (
+      id,
+      service_name,
+      ota_order_id,
+      sequence_id,
+      request_header,
+      request_body,
+      response_body,
+      phone,
+      country_code,
+      total_amount,
+      sync_status,
+      user_id,
+      order_id
+    )
+    VALUES (COALESCE($1::uuid, GEN_RANDOM_UUID()), $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9, $10, $11, $12, $13)
+    RETURNING
+      id,
+      service_name,
+      ota_order_id,
+      sequence_id,
+      request_header,
+      request_body,
+      response_body,
+      phone,
+      country_code,
+      total_amount,
+      sync_status,
+      user_id,
+      order_id,
+      created_at`,
+    [
+      params.id ?? null,
+      params.serviceName,
+      params.otaOrderId,
+      params.sequenceId,
+      JSON.stringify(params.requestHeader),
+      JSON.stringify(params.requestBody),
+      JSON.stringify(params.responseBody),
+      params.phone,
+      params.countryCode,
+      params.totalAmount,
+      params.syncStatus,
+      params.userId,
+      params.orderId,
+    ],
+  );
+
+  return rows[0];
+}
+
+export async function getXcOrderSyncRecordById(
+  client: DBClient,
+  schema: string,
+  id: string,
+): Promise<Xiecheng.XcOrderSyncRecord> {
+  const { rows } = await client.query<Xiecheng.XcOrderSyncRecord>(
+    `SELECT
+      id,
+      service_name,
+      ota_order_id,
+      sequence_id,
+      request_header,
+      request_body,
+      response_body,
+      phone,
+      country_code,
+      total_amount,
+      sync_status,
+      user_id,
+      order_id,
+      created_at
+    FROM ${schema}.xc_order_sync_records
+    WHERE id = $1`,
+    [id],
+  );
+
+  if (rows.length === 0) {
+    throw new XcOrderDataError('XcOrderSyncRecord not found', 'XC_ORDER_SYNC_RECORD_NOT_FOUND');
+  }
+
+  return rows[0];
+}
+
+export async function getFirstSuccessfulXcOrderSyncRecordByOtaOrderId(
+  client: DBClient,
+  schema: string,
+  otaOrderId: string,
+): Promise<Xiecheng.XcOrderSyncRecord | null> {
+  const { rows } = await client.query<Xiecheng.XcOrderSyncRecord>(
+    `SELECT
+      id,
+      service_name,
+      ota_order_id,
+      sequence_id,
+      request_header,
+      request_body,
+      response_body,
+      phone,
+      country_code,
+      total_amount,
+      sync_status,
+      user_id,
+      order_id,
+      created_at
+    FROM ${schema}.xc_order_sync_records
+    WHERE ota_order_id = $1
+      AND sync_status = 'SUCCESS'
+    ORDER BY created_at ASC
+    LIMIT 1`,
+    [otaOrderId],
+  );
+
+  return rows[0] ?? null;
+}
+
+export async function listXcOrderSyncRecordsByOtaOrderId(
+  client: DBClient,
+  schema: string,
+  otaOrderId: string,
+): Promise<Xiecheng.XcOrderSyncRecord[]> {
+  const { rows } = await client.query<Xiecheng.XcOrderSyncRecord>(
+    `SELECT
+      id,
+      service_name,
+      ota_order_id,
+      sequence_id,
+      request_header,
+      request_body,
+      response_body,
+      phone,
+      country_code,
+      total_amount,
+      sync_status,
+      user_id,
+      order_id,
+      created_at
+    FROM ${schema}.xc_order_sync_records
+    WHERE ota_order_id = $1
+    ORDER BY created_at DESC, sequence_id DESC`,
+    [otaOrderId],
+  );
+
+  if (rows.length === 0) {
+    throw new XcOrderDataError('XcOrderSyncRecord not found', 'XC_ORDER_SYNC_RECORD_NOT_FOUND');
+  }
+
+  return rows;
+}

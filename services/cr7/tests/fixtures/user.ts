@@ -20,6 +20,23 @@ export function getUserProfile(server: Server, token: string) {
   return getJSON<User.Profile>(server, '/user/profile', { token });
 }
 
+export async function suUserToken(
+  server: Server,
+  adminToken: string,
+  uid: string,
+): Promise<string> {
+  const response = await postJSON<{ token: string }>(
+    server,
+    '/user/su',
+    {
+      token: adminToken,
+      body: { uid },
+    },
+  );
+
+  return response.token;
+}
+
 export function passwordLogin(
   server: Server,
   country_code: string,

@@ -29,6 +29,7 @@
   - `released_at`：库存释放时间（取消或过期时写入，用于幂等控制）
   - `hidden_at`：用户隐藏时间（仅影响用户自己的订单列表，不影响管理员视图）
   - `current_refund_out_refund_no`：订单当前绑定的退款单号；没有退款流程时为 `null`
+  - `source`：订单来源；用户在 CR7 站内下单为 `DIRECT`，携程回调创建的订单为 `CTRIP`
 
 ## 订单状态流转
 

@@ -94,6 +94,8 @@ export interface XcOrderSyncRecord {
   country_code: string | null;
   user_id: string | null;
   order_id: string | null;
+  total_amount: number;
   request_header: XcRequestHeader;
+  request_body: XcCreatePreOrderBody;
   created_at: string;
-}
+};

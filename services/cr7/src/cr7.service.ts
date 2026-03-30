@@ -17,6 +17,7 @@ export default class RC7Service extends RC7BaseService {
     const redemptionService = new RedemptionService(broker);
     const topicService = new TopicService(broker);
     const { actions_payment, methods: payment_methods } = new PaymentService(broker);
+    const { methods_order } = orderService;
 
     this.parseServiceSchema({
       name: 'cr7',
@@ -32,6 +33,7 @@ export default class RC7Service extends RC7BaseService {
       },
 
       methods: {
+        ...methods_order,
         ...payment_methods,
         ...topicService.methods
       },

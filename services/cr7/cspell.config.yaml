@@ -10,6 +10,7 @@ ignoreWords:
   - NOTPAY
 words:
   - apiclient
+  - Ctrip
   - Luhn
   - mchid
   - moleculer

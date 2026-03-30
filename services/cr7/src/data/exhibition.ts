@@ -348,6 +348,35 @@ export async function getSessionTicketCategoriesBySessionId(
   return rows;
 }
 
+export async function getTicketCategoryByIdGlobal(
+  client: DBClient,
+  schema: string,
+  tid: string,
+): Promise<Exhibition.TicketCategory> {
+  const { rows } = await client.query<Exhibition.TicketCategory>(
+    `SELECT
+      id,
+      eid AS exhibit_id,
+      name,
+      price,
+      valid_duration_days,
+      refund_policy,
+      admittance,
+      ota_xc_option_id,
+      created_at,
+      updated_at
+    FROM ${schema}.exhibit_ticket_categories
+    WHERE id = $1`,
+    [tid],
+  );
+
+  if (rows.length === 0) {
+    throw new ExhibitionDataError('Ticket category not found', 'TICKET_CATEGORY_NOT_FOUND');
+  }
+
+  return rows[0];
+}
+
 export async function getTicketCategoryRefundPoliciesByOrderId(
   client: DBClient,
   schema: string,

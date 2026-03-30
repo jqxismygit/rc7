@@ -14,11 +14,12 @@ export async function createOrder(
   sid: string,
   items: Order.CreateOrderItem[],
   token: string,
+  source: Order.OrderSource = 'DIRECT',
 ) {
   return postJSON<Order.OrderWithItems>(
     server,
     `/exhibition/${eid}/sessions/${sid}/orders`,
-    { body: { items }, token }
+    { body: { items, source }, token }
   );
 }
 
