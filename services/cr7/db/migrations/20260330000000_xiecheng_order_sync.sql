@@ -40,4 +40,11 @@ CREATE INDEX idx_xc_order_sync_records_user_id
 
 -- Add source field to exhibit_orders to track OTA origin
 ALTER TABLE exhibit_orders
-  ADD COLUMN source VARCHAR(32) NOT NULL;
+  ADD COLUMN source VARCHAR(32);
+
+UPDATE exhibit_orders
+  SET source = 'DIRECT'
+  WHERE source IS NULL;
+
+ALTER TABLE exhibit_orders
+  ALTER COLUMN source SET NOT NULL;
