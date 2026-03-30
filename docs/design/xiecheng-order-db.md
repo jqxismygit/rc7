@@ -113,6 +113,7 @@ CREATE INDEX idx_xc_order_sync_records_user_id
 
 - 同步记录主字段直接从 `xc_order_sync_records` 读取。
 - 订单状态、总价可从 `exhibit_orders` 读取。
+- 对同一 `ota_order_id` 的重复通知，记录中的 `order_id` 必须保持一致。
 
 ## 6. 迁移顺序建议
 

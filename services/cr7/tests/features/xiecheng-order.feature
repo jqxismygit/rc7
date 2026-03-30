@@ -62,6 +62,7 @@ Feature: 对接携程 OTA 订单系统
      And 携程 sequence id 是 "xc_seq_54321"
     Then 管理员在系统后台可以获取订单号 "xc_order_12345" 的携程最新同步记录
      And 同步记录内容包含订单号 "xc_order_12345",序列号 "xc_seq_54321", 同步状态为 "重复订单"
+    And 最新的同步记录中的 order id 和第一次同步记录中的 order id 保持一致
 
   Scenario: 用户从携程下单购买门票，订单信息被篡改
     When cr7 系统收到订单创建通知
