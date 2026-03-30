@@ -301,7 +301,8 @@ describeFeature(feature, ({
           contacts: [{}],
           items: [{
             PLU: '',
-            useDate: toDateLabel('今天'),
+            useStartDate: toDateLabel('今天'),
+            useEndDate: toDateLabel('今天'),
             quantity: 1,
             price: 0,
           }],
@@ -313,7 +314,8 @@ describeFeature(feature, ({
       const ticket = getTicketByName(featureContext, ticketName);
       featureContext.draftOrder!.body.items = [{
         PLU: ticket.id,
-        useDate: toDateLabel(dateLabel),
+        useStartDate: toDateLabel(dateLabel),
+        useEndDate: toDateLabel(dateLabel),
         quantity,
         price: ticket.price,
       }];
@@ -557,7 +559,8 @@ describeFeature(feature, ({
       expect(context.firstRecord?.request_body.items).toHaveLength(1);
       expect(context.firstRecord?.request_body.items[0].PLU).toBe(ticket.id);
       expect(context.firstRecord?.request_body.items[0].quantity).toBe(quantity);
-      expect(context.firstRecord?.request_body.items[0].useDate).toBe(toDateLabel(dateLabel));
+      expect(context.firstRecord?.request_body.items[0].useStartDate).toBe(toDateLabel(dateLabel));
+      expect(context.firstRecord?.request_body.items[0].useEndDate).toBe(toDateLabel(dateLabel));
     });
 
     And('同步记录中包含订单总价 {string} 的价格', (_ctx, ticketName: string) => {

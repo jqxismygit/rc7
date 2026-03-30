@@ -523,14 +523,14 @@ export default class XiechengService extends RC7BaseService {
     }
   }
 
-  async tryGetSessionByUseDate(
+  async tryGetSessionByDate(
     ctx: Context<Xiecheng.XcEncryptedOrderNotification, Record<string, unknown>>,
     exhibitId: string,
-    useDate: string,
+    date: string,
   ): Promise<Exhibition.Session | null> {
     try {
       const sessions = await ctx.call('cr7.exhibition.getSessions', { eid: exhibitId }) as Exhibition.Session[];
-      return sessions.find(s => format(new Date(s.session_date), 'yyyy-MM-dd') === useDate) ?? null;
+      return sessions.find(s => format(new Date(s.session_date), 'yyyy-MM-dd') === date) ?? null;
     } catch {
       return null;
     }
@@ -714,7 +714,21 @@ export default class XiechengService extends RC7BaseService {
     }
 
     const exhibitId = ticketCategory.exhibit_id;
-    const matchSession = await this.tryGetSessionByUseDate(ctx, exhibitId, item.useDate);
+    if (!item.useStartDate || !item.useEndDate || item.useStartDate !== item.useEndDate) {
+      return this.failAndPersist({
+        schema,
+        otaOrderId,
+        sequenceId,
+        header,
+        orderBody,
+        phone,
+        countryCode,
+        resultCode: '1009',
+        resultMessage: '日期错误',
+      });
+    }
+
+    const matchSession = await this.tryGetSessionByDate(ctx, exhibitId, item.useStartDate);
     if (!matchSession) {
       return this.failAndPersist({
         schema,

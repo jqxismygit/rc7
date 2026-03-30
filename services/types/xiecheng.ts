@@ -44,7 +44,8 @@ export interface XcCreatePreOrderContact {
 
 export interface XcCreatePreOrderItem {
   PLU: string;
-  useDate: string;
+  useStartDate: string;
+  useEndDate: string;
   quantity: number;
   price: number;
 }
