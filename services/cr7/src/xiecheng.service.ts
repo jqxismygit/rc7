@@ -660,7 +660,7 @@ export default class XiechengService extends RC7BaseService {
       const responseBody = this.buildXcSuccessResponse({
         otaOrderId,
         supplierOrderId: firstSuccessRecord.order_id!,
-        items: items.map(item => ({ itemId: item.plu, quantity: item.quantity })),
+        items: items.map(item => ({ itemId: item.PLU, quantity: item.quantity })),
       });
 
       await this.persistRecord({
@@ -698,7 +698,7 @@ export default class XiechengService extends RC7BaseService {
     }
 
     const item = items[0];
-    const ticketCategory = await this.tryGetTicketCategoryByPlu(ctx, item.plu);
+    const ticketCategory = await this.tryGetTicketCategoryByPlu(ctx, item.PLU);
     if (!ticketCategory) {
       return this.failAndPersist({
         schema,
@@ -741,7 +741,7 @@ export default class XiechengService extends RC7BaseService {
     let totalAmount: number | null = null;
 
     const orderItems = items.map(i => ({
-      ticket_category_id: i.plu,
+      ticket_category_id: i.PLU,
       quantity: i.quantity,
     }));
 
@@ -760,7 +760,7 @@ export default class XiechengService extends RC7BaseService {
       const responseBody = this.buildXcSuccessResponse({
         otaOrderId,
         supplierOrderId: createdOrderId,
-        items: items.map(i => ({ itemId: i.plu, quantity: i.quantity })),
+        items: items.map(i => ({ itemId: i.PLU, quantity: i.quantity })),
       });
 
       // The first successful sync record uses id = order_id for quick identity checks.

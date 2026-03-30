@@ -300,7 +300,7 @@ describeFeature(feature, ({
           otaOrderId: `xc_order_${Date.now()}`,
           contacts: [{}],
           items: [{
-            plu: '',
+            PLU: '',
             useDate: toDateLabel('今天'),
             quantity: 1,
             price: 0,
@@ -312,7 +312,7 @@ describeFeature(feature, ({
     And('携程订单的包含 {string} {int} 张，场次时间为 {string}', (_ctx, ticketName: string, quantity: number, dateLabel: string) => {
       const ticket = getTicketByName(featureContext, ticketName);
       featureContext.draftOrder!.body.items = [{
-        plu: ticket.id,
+        PLU: ticket.id,
         useDate: toDateLabel(dateLabel),
         quantity,
         price: ticket.price,
@@ -345,7 +345,7 @@ describeFeature(feature, ({
 
     And('携程订单中的 PLU id 是 cr7 系统中 {string} 的 ID', (_ctx, ticketName: string) => {
       const ticket = getTicketByName(featureContext, ticketName);
-      featureContext.draftOrder!.body.items[0].plu = ticket.id;
+      featureContext.draftOrder!.body.items[0].PLU = ticket.id;
     });
 
     And('携程订单号是 {string}', (_ctx, otaOrderId: string) => {
@@ -555,7 +555,7 @@ describeFeature(feature, ({
     And('同步记录中包含 {string} {int} 张，场次时间为 {string}', (_ctx, ticketName: string, quantity: number, dateLabel: string) => {
       const ticket = getTicketByName(featureContext, ticketName);
       expect(context.firstRecord?.request_body.items).toHaveLength(1);
-      expect(context.firstRecord?.request_body.items[0].plu).toBe(ticket.id);
+      expect(context.firstRecord?.request_body.items[0].PLU).toBe(ticket.id);
       expect(context.firstRecord?.request_body.items[0].quantity).toBe(quantity);
       expect(context.firstRecord?.request_body.items[0].useDate).toBe(toDateLabel(dateLabel));
     });

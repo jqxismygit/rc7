@@ -43,7 +43,7 @@ export interface XcCreatePreOrderContact {
 }
 
 export interface XcCreatePreOrderItem {
-  plu: string;
+  PLU: string;
   useDate: string;
   quantity: number;
   price: number;
