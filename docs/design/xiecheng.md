@@ -1,200 +1,206 @@
 # 携程 OTA 对接设计文档
 
+本文档覆盖两个阶段的携程能力：
+
+- 管理员维护票种与携程价格、库存同步。
+- 携程按 CreatePreOrder 协议通知 CR7 创建订单，并提供后台排障与测试校验能力。
+
+数据库结构单独见 [xiecheng-order-db.md](./xiecheng-order-db.md)。
+
 ## 1. 目标与边界
 
 ### 1.1 目标
 
 - 支持管理员在票种上绑定携程 OTA Option ID。
-- 支持管理员将票种的场次日期和价格信息同步至携程 DatePriceModify 接口。
-- 支持管理员将票种的场次库存信息同步至携程 DateInventoryModify 接口。
-- 记录每次同步操作的结果，包含 sequence ID、场次范围、价格或库存及同步状态，供管理员查阅。
+- 支持管理员把票种场次价格同步到携程 `DatePriceModify`。
+- 支持管理员把票种场次库存同步到携程 `DateInventoryModify`。
+- 支持携程通过 `CreatePreOrder` 回调创建 CR7 用户和订单。
+- 提供可通过 API 校验的管理端读取能力，覆盖 feature 中的全部断言。
 
-### 1.2 非目标
+### 1.2 边界
 
-- 不实现携程订单回调或退款联动。
-- 不实现多 OTA 平台统一抽象层（当前仅携程）。
-- 不实现自动定时同步，仅支持手动触发。
+- `xiecheng` data layer 只负责携程同步与订单通知快照数据。
+- 用户、订单、库存、票种映射等主业务数据均通过 `ctx.call(...)` 调用对应领域 action 处理，不允许由 `xiecheng` data layer 直接写入这些表。
+- 测试中的断言不允许直查数据库，必须走公开 API。
+- 订单同步记录只保留可成功解密的请求。
 
----
+### 1.3 非目标
 
-## 2. 携程集成方案
+- 本次不实现 `PayPreOrder`、`CancelPreOrder`、退款、核销等其他携程订单接口。
+- 不实现多 OTA 平台统一抽象层。
+- 不为测试暴露专用清理 HTTP API。
 
-### 2.1 绑定 OTA Option ID
+## 2. 外部接口范围
 
-管理员在票种上设置携程分配的 `ota_option_id`（存储在 `exhibit_ticket_categories.ota_xc_option_id`）。同步时此 ID 作为 `otaOptionId` 传给携程，用于标识携程侧对应的产品选项。
+### 2.1 管理端同步接口
 
-### 2.2 场次价格同步（DatePriceModify）
+- `PUT /exhibition/:eid/tickets/:tid/ota/xc`
+- `POST /exhibition/:eid/tickets/:tid/ota/xc/sync`
+- `POST /exhibition/:eid/tickets/:tid/ota/xc/sync/inventory`
+- `GET /exhibition/:eid/tickets/:tid/ota/xc/sync/logs`
 
-携程价格单位是元，服务端价格单位为分，需转换后同步。
-同步接口由管理员传入 `start_session_date` 与 `end_session_date`，服务端在该区间内按天生成场次价格记录（含起止日期）。每条记录包含：
-因为携程价格同步接口有如下限制：
-```text
-价格同步接口，支持商家更新资源的价格，每次调用最多接收90条的价格数据，最远同步距离当日210天的价格数据，接口调用频率要小于100次/分钟，同一资源更新频率小于5次/分钟; 适用于景点/玩乐品类产品资源的价格同步。
-```
-因此服务端需要对请求日期区间做约束校验，确保单次同步日期的结束时间距离今天不超过 210 天，并在必要时进行分批调用（每次不超过 90 条）。
+这些接口维持现有职责，只处理票种与携程商品的配置和场次同步。
 
-| 携程字段 | 来源 |
-|---|---|
-| `otaOptionId` | 票种 `ota_xc_option_id` |
-| `supplierOptionId` | 票种 `id` |
-| `date` | 场次日期（yyyy-MM-dd） |
-| `salePrice` | 票种 `price`（元） |
-| `costPrice` | 票种 `price`（元，成本价等于售价） |
-| `serviceName` | 固定值 `"DatePriceModify"` |
+### 2.2 携程订单回调接口
 
-### 2.3 场次库存同步（DateInventoryModify）
+- `POST /ota/ctrip/callback`
 
-库存同步接口同样由管理员传入 `start_session_date` 与 `end_session_date`，可选传入 `quantity`。服务端在该区间内按天生成库存记录（含起止日期）：
+该地址配置给携程开放平台的 `CreatePreOrder`。CR7 作为供应商接口实现方接收请求并返回携程标准报文。
 
-- 未传 `quantity` 时：默认使用各场次当前剩余库存进行同步。
-- 传入 `quantity` 时：按指定数量同步到区间内每个场次。
+### 2.3 管理端校验接口
 
-日期区间约束与价格同步一致：
+- `GET /ota/ctrip/orders/:rid`
 
-- 同步区间需落在展览 `start_date ~ end_date` 范围内。
-- 结束日期距离今天不超过 210 天。
+该接口是订单 feature 的校验入口，返回聚合后的用户、订单、请求快照和响应快照信息。
 
-| 携程字段 | 来源 |
-|---|---|
-| `otaOptionId` | 票种 `ota_xc_option_id` |
-| `supplierOptionId` | 票种 `id` |
-| `date` | 场次日期（yyyy-MM-dd） |
-| `quantity` | 请求体 `quantity`（有值时）或场次剩余库存（默认） |
-| `serviceName` | 固定值 `"DateInventoryModify"` |
+## 3. 同步接口设计
 
-### 2.4 加密与签名
+### 3.1 绑定 OTA Option ID
 
-携程 OTA 接口要求对请求体进行 AES 加密，并附带 HMAC-SHA256 签名，以保证传输安全与来源验证。
+管理员在票种上设置 `ota_option_id`，存储于 `exhibit_ticket_categories.ota_xc_option_id`。该字段只用于价格、库存同步到携程商品。CreatePreOrder 订单场景中的票种识别不走 `ota_xc_option_id`，而是直接使用携程请求里的 `plu = CR7 ticket id`。
 
-流程：
+### 3.2 场次价格同步
 
-```
-原始 JSON payload
-    ↓ AES-CBC 加密（密钥从携程后台配置获取）
-加密后的 ciphertext（Base64）
-    ↓ HMAC-SHA256 签名（使用签名密钥）
-最终请求体 { data: ciphertext, sign: signature }
-```
+价格同步由管理员传入 `start_session_date` 与 `end_session_date`。服务端按天展开场次，并把票种 `price` 从分转换为携程要求的金额格式。
 
-- AES 密钥与 HMAC 密钥在 config 中配置，不硬编码于代码中。
-- 携程接收端使用同一套密钥对请求体解密并校验签名。
+约束：
 
----
+- 日期区间必须落在展览 `start_date ~ end_date` 范围内。
+- 结束日期距离今天不能超过 210 天。
+- 单次调用需要遵守携程的单次条数和频率限制，必要时按批发送。
 
-## 3. 数据模型
+### 3.3 场次库存同步
 
-### 3.1 `exhibit_ticket_categories` 新增字段
+库存同步和价格同步共享相同的日期约束。若未传 `quantity`，则通过 `ctx.call('cr7.exhibition.listSessionInventoryByTicketAndDateRange', ...)` 读取各场次剩余库存；若传入 `quantity`，则以该值覆盖，但不能超过剩余库存。
 
-在现有票种表上新增携程 OTA Option ID 字段：
+### 3.4 同步日志
 
-```sql
-ALTER TABLE exhibit_ticket_categories
-  ADD COLUMN ota_xc_option_id VARCHAR(255);
-```
+价格和库存同步继续使用 `exhibit_xc_sync_logs` 记录：
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `ota_xc_option_id` | `VARCHAR(255)` NULL | 携程 OTA Option ID，未绑定时为 NULL |
+- 快照语义：记录同步时使用的 `ota_option_id`、同步项和携程返回。
+- 失败可追踪：网络异常和携程业务异常都保留原始响应摘要。
+- 无业务编排：日志表不承载订单、用户、库存主状态。
 
-### 3.2 `exhibit_xc_sync_logs` 同步记录表（新建）
+## 4. CreatePreOrder 订单处理方案
 
-记录每次向携程发起 DatePriceModify 或 DateInventoryModify 同步操作的完整信息：
+### 4.1 处理原则
 
-```sql
-CREATE TABLE exhibit_xc_sync_logs (
-  sequence_id           UUID PRIMARY KEY DEFAULT GEN_RANDOM_UUID(),
-  ticket_category_id    UUID NOT NULL REFERENCES exhibit_ticket_categories(id) ON DELETE CASCADE,
-  service_name          VARCHAR(64) NOT NULL,
-  ota_option_id         VARCHAR(255) NOT NULL,
-  sync_items            JSONB NOT NULL,
-  sync_response         JSONB,
-  status                VARCHAR(20) NOT NULL,
-  created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+- 以 `otaOrderId` 作为 CR7 侧的外部订单幂等键。
+- 以 `sequenceId` 作为单次通知流水号，完整记录每次请求。
+- 成功解密后先确定 `order_id`，再调用订单领域创建订单；同一个 `otaOrderId` 的重试必须复用同一 `order_id`。
+- 对重复订单必须返回首次成功的业务结果，不重复创建用户和订单。
+- 解密失败请求直接返回标准错误响应，不写订单同步记录。
 
-CREATE INDEX idx_xc_sync_logs_ticket_category_id
-  ON exhibit_xc_sync_logs(ticket_category_id);
-CREATE INDEX idx_xc_sync_logs_created_at
-  ON exhibit_xc_sync_logs(created_at DESC);
-```
-
-#### 字段说明
-
-| 字段 | 说明 |
-|---|---|
-| `ticket_category_id` | 关联的票种 ID |
-| `sequence_id` | 携程返回或本次请求生成的全局唯一序列号 |
-| `service_name` | 携程服务名：`DatePriceModify`, `DateInventoryModify` |
-| `ota_option_id` | 本次同步使用的携程 Option ID（快照，防止后续修改影响历史记录） |
-| `status` | 同步结果：`SUCCESS` \| `FAILURE` |
-| `sync_items` | 本次同步的数据快照, 价格同步存价格，库存同步存库存 |
-| `sync_response` | 携程返回的响应信息（JSONB） |
-
-> `ota_option_id`、`sync_items`、`sync_response` 均为快照字段，记录本次同步时实际使用的值，与票种后续修改解耦。
-
----
-
-## 4. 核心流程
-
-### 4.1 绑定携程编号
+### 4.2 请求处理流程
 
 ```
-管理员 PUT /exhibition/:eid/tickets/:tid/ota/xc
-    ↓ 验证票种属于该展览
-    ↓ 更新 exhibit_ticket_categories.ota_xc_option_id
-    ↓ 返回更新后的 TicketCategory
+携程 POST /ota/ctrip/callback
+    ↓ 校验 accountId / serviceName / sign
+    ↓ 尝试 AES 解密 body
+    ↓ 若解密失败，构造标准失败响应并结束（不写同步记录）
+    ↓ 根据 otaOrderId 查找已存在同步记录，若存在则复用其中的 order_id
+    ↓ 若不存在则先生成 candidate order_id，并在本次处理上下文中保留
+    ↓ 根据 plu（即 CR7 ticket id）通过 exhibition 领域解析票种与场次
+    ↓ 根据手机号、国别码通过 user 领域查找或创建用户
+    ↓ 根据 otaOrderId 通过 order 领域查找是否已存在关联订单
+    ↓ 若已存在，标记同步记录为 DUPLICATE_ORDER，并返回幂等成功响应
+    ↓ 若不存在，调用 order 领域创建订单，并显式传入预先确定的 order_id
+    ↓ 在订单创建或复用后写入/更新订单同步记录中的 user_id / order_id / 同步状态
+    ↓ 返回携程成功响应
 ```
 
-### 4.2 同步场次价格
+### 4.3 领域调用边界
 
-```
-管理员 POST /exhibition/:eid/tickets/:tid/ota/xc/sync
-    ↓ 检查票种已绑定 ota_xc_option_id（否则 409）
-    ↓ 校验请求参数 start_session_date / end_session_date
-    ↓ 校验日期区间在展览 start_date ~ end_date 内（否则 400）
-    ↓ 校验结束日期距离今天不超过 210 天（否则 400）
-    ↓ 生成区间内场次日期列表
-    ↓ 组装 DatePriceModify payload（每日一条）
-    ↓ AES 加密 + HMAC 签名
-    ↓ 调用携程 DatePriceModify 接口
-    ↓ 写入 exhibit_xc_sync_logs（SUCCESS 或 FAILURE）
-    ↓ 返回同步日志记录
-```
+订单场景下 `xiecheng.service` 只做协议转换、编排和同步记录写入，主业务必须下沉到既有领域 action：
 
-### 4.3 同步场次库存
+- 票种映射：通过 exhibition 领域 action 完成，如“按 ticket id 读取票种，并校验该 id 是否可用于当前携程订单项”。
+- 用户创建或复用：通过 user 领域 action 完成，如“按手机号查找或创建用户”。
+- 订单创建或查询：通过 order 领域 action 完成，如“按携程订单号查询已关联订单”“创建订单并关联携程订单号”。
+- `order.create` 需要支持上游显式传入 `id`，让 `xiecheng.service` 可以复用预分配的 `order_id` 实现幂等。
+- 后台聚合查询：读取同步记录后，再通过 order 和 user 领域补齐聚合视图。
 
-```
-管理员 POST /exhibition/:eid/tickets/:tid/ota/xc/sync/inventory
-    ↓ 检查票种已绑定 ota_xc_option_id（否则 409）
-    ↓ 校验请求参数 start_session_date / end_session_date / quantity(optional)
-    ↓ 校验日期区间在展览 start_date ~ end_date 内（否则 400）
-    ↓ 校验结束日期距离今天不超过 210 天（否则 400）
-    ↓ 生成区间内场次日期列表
-    ↓ 未传 quantity 时按场次剩余库存组装 payload
-    ↓ 传 quantity 时按指定数量组装 payload（每日一条）
-    ↓ AES 加密 + HMAC 签名
-    ↓ 调用携程 DateInventoryModify 接口
-    ↓ 写入 exhibit_xc_sync_logs（SUCCESS 或 FAILURE）
-    ↓ 返回同步日志记录
-```
+这样可以保证：
 
-### 4.4 查询同步记录
+- `xiecheng` data layer 不感知订单和用户的表结构。
+- 订单状态、库存占用、用户幂等仍由对应领域统一控制。
+- 后续接入其他 OTA 时不会把订单逻辑复制到多个 data layer。
 
-```
-管理员 GET /exhibition/:eid/tickets/:tid/ota/xc/sync/logs
-    ↓ 按 ticket_category_id 查 exhibit_xc_sync_logs
-    ↓ 可选按 query.service_name 过滤（DatePriceModify / DateInventoryModify）
-    ↓ 按 created_at DESC 排序返回
-```
+## 5. 携程响应构造器
 
----
+### 5.1 设计要求
 
-## 5. 关键特性
+CreatePreOrder 的返回需要统一由共享 helper 构造，不在 action 中拼散落对象。建议提供形如 `buildXiechengOrderResponse(...)` 的方法，职责如下：
 
-- **快照语义**：同步日志中的 `ota_option_id`、`sync_items`、`sync_response` 均为同步时的快照，后续票种修改不影响历史记录。
-- **幂等写日志**：每次调用同步接口均写入一条新日志（包含 `SUCCESS` 和 `FAILURE`），不覆盖历史，便于追踪每次同步尝试。
-- **加密密钥隔离**：AES 密钥与 HMAC 密钥通过环境变量注入，不存储在数据库中。
-- **前提校验**：同步前强制检查票种已绑定 `ota_xc_option_id`，防止携程侧因缺少 Option ID 导致静默失败。
-- **区间可控同步**：通过 `start_session_date` / `end_session_date` 精确控制本次同步范围，支持按业务需要分段同步。
-- **统一日志模型**：价格与库存同步共用 `exhibit_xc_sync_logs`，通过 `service_name` 区分同步类型，便于追踪和查询。
-- **库存同步策略**：库存同步支持“默认按场次剩余库存”与“按指定数量同步”两种模式。
+- 根据 `resultCode` 和 `resultMessage` 生成 `header`。
+- 成功时把业务 body 先序列化、再 AES 加密后写入响应 `body`。
+- 失败时按携程规范决定是否返回业务 `body`；解密失败场景可以不返回 `body`。
+- 对同一 `otaOrderId` 的重复请求复用首次成功生成的 `supplierOrderId` 和业务 body。
+
+### 5.2 返回码映射
+
+优先使用携程标准错误码：
+
+- `0000`：创建成功，或重复通知幂等成功。
+- `0001`：报文解析失败。
+- `0002`：签名错误。
+- `0003`：供应商账户信息不正确。
+- `1001`：找不到 `plu` 对应票种。
+- `1003`：库存不足。
+- `1009`：日期不合法。
+
+只有标准码无法表达时，才使用 `1100-1199` 自定义业务错误，并在 `resultMessage` 中写明真实原因。
+
+## 6. 后台读取模型
+
+`GET /ota/ctrip/orders/:rid` 返回聚合后的读取模型，覆盖以下信息：
+
+- 本次请求的 `ota_order_id`、`sequence_id`、`sync_status`。
+- 手机号、国别码。
+- 关联的 `user_id`、`order_id`。
+- 订单状态、订单总价。
+- 票种、数量、场次日期、单价的快照。
+
+这样 feature 中“账号只创建一次”“订单只创建一次”“后台可检查同步记录内容”等断言都可以仅通过 API 完成。
+
+该接口侧重排障，返回：
+
+- 原始 `request_header`。
+- 解密后的请求 body。
+- 请求关联的手机号、国别码、订单业务快照。
+- 关联 `user_id`、`order_id`。
+
+## 7. 测试策略
+
+### 7.1 数据校验
+
+- 所有断言必须通过公开 API 完成。
+- 不允许在 spec 中通过 `pool.query(...)` 或 data 层 helper 直接读取数据库。
+- 优先复用 `GET /ota/ctrip/orders/:rid` 作为聚合校验入口，减少测试里拼装多个读取路径。
+
+### 7.2 场景清理
+
+每个 scenario 执行结束后，必须清理本次场景创建的数据，避免手机号、外部订单号和 sequence ID 冲突。
+
+约束：
+
+- 清理逻辑通过 `broker.call(...)` 调内部 action 完成。
+- 不暴露对外 HTTP API。
+- 不允许测试直接执行 SQL 删除数据。
+- 不封装 `xiecheng.test.cleanupScenarioData` 这类聚合清理 action；直接在 spec 中按依赖顺序调用各领域已有 action 进行最小清理。
+
+### 7.3 Step 复用
+
+`vitest-cucumber` 同一 scenario 内不能定义两段文本完全相同的 step。遇到重复断言时：
+
+- 优先在 spec 中复用同一个 step implementation。
+- 如果文案必须区分前置与断言，则只调整自然语言，不复制同样的逻辑实现。
+- 复用共通 helper，不要在多个 scenario 内各写一份用户、订单、记录校验代码。
+
+## 8. 关键特性
+
+- 幂等：同一 `otaOrderId` 只创建一个 CR7 订单；重复请求只新增同步记录。
+- 幂等：同一 `otaOrderId` 复用同一个预分配 `order_id`，避免订单创建阶段因重试生成多个订单。
+- 协议隔离：携程 AES/签名/返回码规则收敛在 `xiecheng` 领域，避免污染订单领域。
+- 领域边界清晰：用户、订单、库存的状态机仍由对应领域维护。
+- API 可验证：测试与后台排障都通过 API，而不是数据库直查。
+- 失败可追踪：重复订单和业务失败保留快照记录；解密失败按协议直接返回错误。
