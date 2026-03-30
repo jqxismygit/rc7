@@ -68,8 +68,11 @@ export interface XcResponseHeader {
 }
 
 export interface XcCreatePreOrderResponseItem {
-  itemId?: string;
-  quantity?: number;
+  PLU: string;
+  inventorys: Array<{
+    useDate: string;
+    quantity: number;
+  }>;
 }
 
 export interface XcCreatePreOrderSuccessBody {

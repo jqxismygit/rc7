@@ -660,7 +660,13 @@ export default class XiechengService extends RC7BaseService {
       const responseBody = this.buildXcSuccessResponse({
         otaOrderId,
         supplierOrderId: firstSuccessRecord.order_id!,
-        items: items.map(item => ({ itemId: item.PLU, quantity: item.quantity })),
+        items: items.map(item => ({
+          PLU: item.PLU,
+          inventorys: [{
+            useDate: item.useStartDate,
+            quantity: item.quantity,
+          }],
+        })),
       });
 
       await this.persistRecord({
@@ -774,7 +780,13 @@ export default class XiechengService extends RC7BaseService {
       const responseBody = this.buildXcSuccessResponse({
         otaOrderId,
         supplierOrderId: createdOrderId,
-        items: items.map(i => ({ itemId: i.PLU, quantity: i.quantity })),
+        items: items.map(i => ({
+          PLU: i.PLU,
+          inventorys: [{
+            useDate: i.useStartDate,
+            quantity: i.quantity,
+          }],
+        })),
       });
 
       // The first successful sync record uses id = order_id for quick identity checks.
