@@ -463,7 +463,10 @@ export default class XiechengService extends RC7BaseService {
     }).catch(handleXiechengError);
   }
 
-  buildXcErrorResponse(resultCode: string, resultMessage: string): Xiecheng.XcEncryptedOrderResponse {
+  buildXcErrorResponse(
+    resultCode: string,
+    resultMessage: string
+  ): Xiecheng.XcEncryptedOrderResponse {
     return {
       header: { resultCode, resultMessage },
     };
@@ -524,7 +527,7 @@ export default class XiechengService extends RC7BaseService {
     countryCode: string | null;
     recordParams: {
       id?: string;
-      responseBody: Xiecheng.XcEncryptedOrderResponse;
+      responseBody: Record<string, unknown>;
       totalAmount: number | null;
       syncStatus: Xiecheng.XcOrderSyncStatus;
       userId: string | null;
@@ -560,7 +563,10 @@ export default class XiechengService extends RC7BaseService {
     resultMessage: string;
     extra?: { userId?: string | null; orderId?: string | null; totalAmount?: number | null };
   }): Promise<Xiecheng.XcEncryptedOrderResponse> {
-    const responseBody = this.buildXcErrorResponse(params.resultCode, params.resultMessage);
+    const responseBody = this.buildXcErrorResponse(
+      params.resultCode, params.resultMessage
+    );
+
     await this.persistRecord({
       schema: params.schema,
       otaOrderId: params.otaOrderId,
@@ -663,7 +669,7 @@ export default class XiechengService extends RC7BaseService {
     const countryCode = contact.intlCode ?? null;
 
     if (firstSuccessRecord) {
-      const responseBody = this.buildXcSuccessResponse({
+      const responseBody = {
         otaOrderId,
         supplierOrderId: firstSuccessRecord.order_id!,
         items: items.map(item => ({
@@ -673,7 +679,7 @@ export default class XiechengService extends RC7BaseService {
             quantity: item.quantity,
           }],
         })),
-      });
+      };
 
       await this.persistRecord({
         schema,
@@ -692,7 +698,7 @@ export default class XiechengService extends RC7BaseService {
         },
       });
 
-      return responseBody;
+      return this.buildXcSuccessResponse(responseBody);
     }
 
     if (!items || items.length === 0) {
@@ -792,7 +798,7 @@ export default class XiechengService extends RC7BaseService {
 
       createdOrderId = order.id;
       totalAmount = order.total_amount;
-      const responseBody = this.buildXcSuccessResponse({
+      const responseBody = {
         otaOrderId,
         supplierOrderId: createdOrderId,
         items: items.map(i => ({
@@ -802,7 +808,7 @@ export default class XiechengService extends RC7BaseService {
             quantity: i.quantity,
           }],
         })),
-      });
+      };
 
       // The first successful sync record uses id = order_id for quick identity checks.
       await this.persistRecord({
@@ -823,7 +829,7 @@ export default class XiechengService extends RC7BaseService {
         },
       });
 
-      return responseBody;
+      return this.buildXcSuccessResponse(responseBody);
     } catch (error) {
       const errCode = (error as { code?: string })?.code;
       if (errCode === 'INVENTORY_NOT_ENOUGH') {

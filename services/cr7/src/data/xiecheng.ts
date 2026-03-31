@@ -134,7 +134,7 @@ export async function createXcOrderSyncRecord(
     sequenceId: string;
     requestHeader: Xiecheng.XcRequestHeader;
     requestBody: Xiecheng.XcCreatePreOrderBody;
-    responseBody: Xiecheng.XcEncryptedOrderResponse;
+    responseBody: Record<string, unknown>;
     phone: string | null;
     countryCode: string | null;
     totalAmount: number | null;

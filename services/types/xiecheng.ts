@@ -81,7 +81,7 @@ export interface XcCreatePreOrderSuccessBody {
   items: XcCreatePreOrderResponseItem[];
 }
 
-export interface XcEncryptedOrderResponse {
+export interface XcEncryptedOrderResponse extends Record<string, unknown> {
   header: XcResponseHeader;
   body?: string;
 }
