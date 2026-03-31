@@ -93,7 +93,7 @@ function toXcOrderStatus(status: Order.OrderStatus): number {
     case 'CANCELLED':
     case 'EXPIRED':
     case 'REFUNDED': return 3;
-    default: return 1;
+    default: return 11;
   }
 }
 
@@ -634,8 +634,9 @@ export default class XiechengService extends RC7BaseService {
     const xcOrderStatus = toXcOrderStatus(order.status);
     const isCancelled = ['CANCELLED', 'EXPIRED', 'REFUNDED'].includes(order.status);
 
-    const items: Xiecheng.XcQueryOrderResponseItem[] = record.request_body.items.map(item => ({
-      itemId: item.PLU,
+    const items: Xiecheng.XcQueryOrderResponseItem[] = record.request_body.items
+    .map((item, idx) => ({
+      itemId: idx,
       useStartDate: item.useStartDate,
       useEndDate: item.useEndDate,
       orderStatus: xcOrderStatus,
