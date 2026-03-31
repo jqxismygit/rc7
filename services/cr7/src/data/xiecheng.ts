@@ -283,7 +283,7 @@ export async function listXcOrderSyncRecordsByOtaOrderId(
       created_at
     FROM ${schema}.xc_order_sync_records
     WHERE ota_order_id = $1
-    ORDER BY created_at DESC, sequence_id DESC`,
+    ORDER BY created_at DESC`,
     [otaOrderId],
   );
 

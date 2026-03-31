@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS uq_xc_order_sync_records_sequence_id;
