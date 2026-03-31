@@ -3,7 +3,7 @@ import { addDays, format, isAfter, isBefore, parseISO, startOfDay } from 'date-f
 import config from 'config';
 import { Context, Errors } from 'moleculer';
 import MoleculerWeb from 'moleculer-web';
-import type { Exhibition, Xiecheng } from '@cr7/types';
+import type { Exhibition, Order, Xiecheng } from '@cr7/types';
 import {
   createXcSyncLog,
   listXcSyncLogs,
@@ -14,6 +14,7 @@ import {
   listXcOrderSyncRecordsByOtaOrderId,
   XcOrderDataError,
 } from './data/xiecheng.js';
+import { getOrderByIdAdmin } from './data/order.js';
 import { handleXiechengError } from './libs/errors.js';
 import { RC7BaseService } from './libs/cr7.base.js';
 import {
@@ -84,6 +85,16 @@ function toYuan(cents: number): number {
 
 function isUuidLike(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function toXcOrderStatus(status: Order.OrderStatus): number {
+  switch (status) {
+    case 'PAID': return 2;
+    case 'CANCELLED':
+    case 'EXPIRED':
+    case 'REFUNDED': return 3;
+    default: return 1;
+  }
 }
 
 export default class XiechengService extends RC7BaseService {
@@ -459,7 +470,7 @@ export default class XiechengService extends RC7BaseService {
   }
 
   buildXcSuccessResponse(
-    successBody: Xiecheng.XcCreatePreOrderSuccessBody,
+    successBody: Xiecheng.XcCreatePreOrderSuccessBody | Xiecheng.XcQueryOrderSuccessBody,
   ): Xiecheng.XcEncryptedOrderResponse {
     const xcConfig = config.xiecheng;
     const plainBody = JSON.stringify(successBody);
@@ -494,67 +505,6 @@ export default class XiechengService extends RC7BaseService {
     }
 
     return null;
-  }
-
-  decryptCtripOrderBody(
-    encryptedBody: string | undefined,
-  ): Xiecheng.XcCreatePreOrderBody | null {
-    const xcConfig = config.xiecheng;
-
-    try {
-      if (!encryptedBody) {
-        return null;
-      }
-      const plainBody = decryptXieChengBody(encryptedBody, xcConfig.aes_key, xcConfig.aes_iv);
-      return JSON.parse(plainBody) as Xiecheng.XcCreatePreOrderBody;
-    } catch {
-      return null;
-    }
-  }
-
-  async tryGetTicketCategoryByPlu(
-    ctx: Context<Xiecheng.XcEncryptedOrderNotification, Record<string, unknown>>,
-    plu: string,
-  ): Promise<Exhibition.TicketCategory | null> {
-    try {
-      return await ctx.call('cr7.exhibition.getTicketByIdGlobal', { tid: plu }) as Exhibition.TicketCategory;
-    } catch {
-      return null;
-    }
-  }
-
-  async tryGetSessionByDate(
-    ctx: Context<Xiecheng.XcEncryptedOrderNotification, Record<string, unknown>>,
-    exhibitId: string,
-    date: string,
-  ): Promise<Exhibition.Session | null> {
-    try {
-      const sessions = await ctx.call('cr7.exhibition.getSessions', { eid: exhibitId }) as Exhibition.Session[];
-      return sessions.find(s => format(new Date(s.session_date), 'yyyy-MM-dd') === date) ?? null;
-    } catch {
-      return null;
-    }
-  }
-
-  async tryFindOrCreateUserIdByPhone(
-    ctx: Context<Xiecheng.XcEncryptedOrderNotification, Record<string, unknown>>,
-    phone: string | null,
-    countryCode: string | null,
-    fallbackName: string,
-  ): Promise<string | null> {
-    if (!phone || !countryCode) {
-      return null;
-    }
-
-    try {
-      return await ctx.call('user.findOrCreateByPhone', {
-        country_code: countryCode,
-        phone,
-        name: fallbackName,
-      }) as string;
-    } catch {
-      return null;
-    }
   }
 
   sanitizeOrderSyncRecord(
@@ -641,13 +591,69 @@ export default class XiechengService extends RC7BaseService {
       return headerError;
     }
 
-    const orderBody = this.decryptCtripOrderBody(encryptedBody);
-    if (!orderBody) {
+    const xcConfig = config.xiecheng;
+    let decryptBody = null;
+    try {
+      const plain = decryptXieChengBody(encryptedBody, xcConfig.aes_key, xcConfig.aes_iv);
+      decryptBody = JSON.parse(plain)
+    } catch {
       return this.buildXcErrorResponse('0001', '报文解析失败');
     }
 
-    const { otaOrderId, sequenceId, contacts, items } = orderBody;
     const schema = await this.getSchema();
+
+    if (header.serviceName === 'QueryOrder') {
+      return this.handleQueryOrder(schema, decryptBody);
+    }
+
+    if (header.serviceName === 'CreatePreOrder') {
+      return this.handleCreateOrder(ctx, schema, header, decryptBody);
+    }
+
+    throw new MoleculerClientError('不支持的服务名称', 400, 'UNSUPPORTED_SERVICE_NAME');
+  }
+
+  async handleQueryOrder(
+    schema: string,
+    decryptBody: Xiecheng.XcQueryOrderBody,
+  ): Promise<Xiecheng.XcEncryptedOrderResponse> {
+
+    const { otaOrderId } = decryptBody!;
+    const record = await getFirstSuccessfulXcOrderSyncRecordByOtaOrderId(this.pool, schema, otaOrderId);
+    if (!record || !record.order_id) {
+      return this.buildXcErrorResponse('1001', '订单不存在');
+    }
+
+    const order = await getOrderByIdAdmin(this.pool, schema, record.order_id);
+    const xcOrderStatus = toXcOrderStatus(order.status);
+    const isCancelled = ['CANCELLED', 'EXPIRED', 'REFUNDED'].includes(order.status);
+
+    const items: Xiecheng.XcQueryOrderResponseItem[] = record.request_body.items.map(item => ({
+      itemId: item.PLU,
+      useStartDate: item.useStartDate,
+      useEndDate: item.useEndDate,
+      orderStatus: xcOrderStatus,
+      quantity: item.quantity,
+      useQuantity: order.status === 'PAID' ? item.quantity : 0,
+      cancelQuantity: isCancelled ? item.quantity : 0,
+      passengers: [],
+      vouchers: [],
+    }));
+
+    return this.buildXcSuccessResponse({
+      otaOrderId,
+      supplierOrderId: record.order_id,
+      items,
+    });
+  }
+
+  async handleCreateOrder(
+    ctx: Context<Xiecheng.XcEncryptedOrderNotification, Record<string, unknown>>,
+    schema: string,
+    header: Xiecheng.XcRequestHeader,
+    orderBody: Xiecheng.XcCreatePreOrderBody,
+  ): Promise<Xiecheng.XcEncryptedOrderResponse> {
+    const { otaOrderId, sequenceId, contacts, items } = orderBody;
     const firstSuccessRecord = await getFirstSuccessfulXcOrderSyncRecordByOtaOrderId(
       this.pool, schema, otaOrderId,
     );
@@ -704,7 +710,10 @@ export default class XiechengService extends RC7BaseService {
     }
 
     const item = items[0];
-    const ticketCategory = await this.tryGetTicketCategoryByPlu(ctx, item.PLU);
+    const ticketCategory = await ctx.call<
+      Exhibition.TicketCategory, { tid: string }
+    >('cr7.exhibition.getTicketByIdGlobal', { tid: item.PLU })
+    .catch(() => null);
     if (!ticketCategory) {
       return this.failAndPersist({
         schema,
@@ -734,7 +743,11 @@ export default class XiechengService extends RC7BaseService {
       });
     }
 
-    const matchSession = await this.tryGetSessionByDate(ctx, exhibitId, item.useStartDate);
+    const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
+      'cr7.exhibition.getSessions', { eid: exhibitId }
+    );
+    const matchSession = sessions
+    .find(s => format(new Date(s.session_date), 'yyyy-MM-dd') === item.useStartDate) ?? null;
     if (!matchSession) {
       return this.failAndPersist({
         schema,
@@ -749,12 +762,14 @@ export default class XiechengService extends RC7BaseService {
       });
     }
 
-    const userId = await this.tryFindOrCreateUserIdByPhone(
-      ctx,
-      phone,
-      countryCode,
-      contact.name ?? (phone ? `ctrip_${phone}` : 'ctrip_user'),
-    );
+    const userId = await ctx.call(
+      'user.findOrCreateByPhone',
+      {
+        country_code: countryCode,
+        phone,
+        name: contact.name,
+      }
+    ) as string;
 
     const candidateOrderId = randomUUID();
     let createdOrderId: string | null = null;
@@ -772,7 +787,7 @@ export default class XiechengService extends RC7BaseService {
         sid: matchSession.id,
         items: orderItems,
         source: 'CTRIP',
-        ...(userId ? { user_id: userId } : {}),
+        user_id: userId,
       }) as { id: string; total_amount: number };
 
       createdOrderId = order.id;

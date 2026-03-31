@@ -1,6 +1,6 @@
 export type XcServiceName = 'DatePriceModify' | 'DateInventoryModify';
 
-export type XcOrderServiceName = 'CreatePreOrder';
+export type XcOrderServiceName = 'CreatePreOrder' | 'QueryOrder';
 
 export type XcSyncStatus = 'SUCCESS' | 'FAILURE';
 
@@ -103,3 +103,27 @@ export interface XcOrderSyncRecord {
   request_body: XcCreatePreOrderBody;
   created_at: string;
 };
+
+export interface XcQueryOrderBody {
+  sequenceId: string;
+  otaOrderId: string;
+  supplierOrderId?: string;
+}
+
+export interface XcQueryOrderResponseItem {
+  itemId: string;
+  useStartDate: string;
+  useEndDate: string;
+  orderStatus: number;
+  quantity: number;
+  useQuantity: number;
+  cancelQuantity: number;
+  passengers: Array<{ passengerId: string; passengerStatus: number }>;
+  vouchers: Array<{ voucherId: string; voucherStatus: number }>;
+}
+
+export interface XcQueryOrderSuccessBody {
+  otaOrderId: string;
+  supplierOrderId: string;
+  items: XcQueryOrderResponseItem[];
+}

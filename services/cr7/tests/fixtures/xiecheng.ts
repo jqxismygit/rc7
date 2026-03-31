@@ -91,7 +91,7 @@ export interface CtripOrderNotificationOptions {
   aesKey: string;
   aesIv: string;
   serviceName?: Xiecheng.XcOrderServiceName;
-  body: Xiecheng.XcCreatePreOrderBody;
+  body: Xiecheng.XcCreatePreOrderBody | Xiecheng.XcQueryOrderBody;
   /** Optionally tamper with body to test failure scenarios */
   tamperBody?: boolean;
 }
@@ -150,14 +150,14 @@ export async function getCtripOrderSyncRecords(
   );
 }
 
-export function decryptCtripResponseBody(
+export function decryptCtripResponseBody<Body>(
   response: Xiecheng.XcEncryptedOrderResponse,
   aesKey: string,
   aesIv: string,
-): Xiecheng.XcCreatePreOrderSuccessBody | null {
+): Body | null {
   if (!response.body) return null;
   const plain = decryptXieChengBody(response.body, aesKey, aesIv);
-  return JSON.parse(plain) as Xiecheng.XcCreatePreOrderSuccessBody;
+  return JSON.parse(plain) as Body;
 }
 
 export function assertCtripSuccessResponse(response: Xiecheng.XcEncryptedOrderResponse) {

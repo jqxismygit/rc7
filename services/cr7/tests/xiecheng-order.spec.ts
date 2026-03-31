@@ -75,6 +75,13 @@ type ErrorContext = {
   lastError?: unknown;
 };
 
+type QueryOrderContext = {
+  cr7OrderId?: string;
+  draftQueryOrderBody?: Xiecheng.XcQueryOrderBody;
+  queryOrderResponse?: Xiecheng.XcEncryptedOrderResponse;
+  decryptedQueryResponse?: Xiecheng.XcQueryOrderSuccessBody | null;
+};
+
 function getSessionByDate(sessions: Exhibition.Session[], dateLabel: string): Exhibition.Session {
   const sessionDate = toDateLabel(dateLabel);
   const session = sessions.find(item => format(new Date(item.session_date), 'yyyy-MM-dd') === sessionDate);
@@ -115,7 +122,9 @@ async function submitCtripOrder(
       featureContext.fixtures.values.apiServer,
       notification,
     );
-    scenarioContext.decryptedResponseBody = decryptCtripResponseBody(
+    scenarioContext.decryptedResponseBody = decryptCtripResponseBody<
+      Xiecheng.XcCreatePreOrderSuccessBody
+    >(
       scenarioContext.callbackResponse,
       config.xiecheng.aes_key,
       config.xiecheng.aes_iv,
@@ -630,6 +639,112 @@ describeFeature(feature, ({
     And('cr7 系统按照携程的要求返回订单创建失败的响应', () => {
       assertCtripFailureResponse(context.callbackResponse!, '0001');
       expect(context.callbackResponse?.body).toBeUndefined();
+    });
+  });
+
+  Scenario('用户在携程下单后，可以查询订单详情', (s: StepTest<
+    CallbackContext & SyncRecordContext & UserSessionContext
+    & OrderResultContext & QueryOrderContext
+  >) => {
+    const { Given, Then, And, context } = s;
+
+    Given('用户提交订单', async () => {
+      await submitCtripOrder(featureContext, context);
+    });
+
+    Then('cr7 系统收到订单创建通知', () => {
+      expect(context.callbackResponse).toBeTruthy();
+    });
+
+    And('订单信息可以正常解密', () => {
+      expect(context.decryptedResponseBody).toBeTruthy();
+    });
+
+    And('订单详情包含 {string} {int} 张，场次时间为 {string}', (_ctx, ticketName: string, quantity: number, dateLabel: string) => {
+      const ticket = getTicketByName(featureContext, ticketName);
+      expect(context.decryptedResponseBody?.items[0]).toHaveProperty('PLU', ticket.id);
+      expect(context.decryptedResponseBody?.items[0].inventorys[0]).toHaveProperty('quantity', quantity);
+      expect(context.decryptedResponseBody?.items[0].inventorys[0]).toHaveProperty('useDate', toDateLabel(dateLabel));
+    });
+
+    And('订单 ota order id 是 {string}', (_ctx, otaOrderId: string) => {
+      expect(context.decryptedResponseBody?.otaOrderId).toBe(toScenarioScopedId(featureContext, otaOrderId));
+    });
+
+    Then('cr7 创建了一个订单', async () => {
+      await fetchOrderSyncRecordsByOtaOrderId(featureContext, context, featureContext.draftOrder!.body.otaOrderId);
+      await fetchUserProfileByRecord(featureContext, context);
+      await fetchOrderByRecord(featureContext, context);
+      expect(context.order).toBeTruthy();
+    });
+
+    And('cr7 订单 id 是 {string}', (_ctx, _idLabel: string) => {
+      context.cr7OrderId = context.latestRecord?.order_id ?? context.order?.id;
+      expect(context.cr7OrderId).toBeTruthy();
+    });
+
+    And('携程发来了 service name 是 {string} 的订单查询请求', (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
+      context.draftQueryOrderBody = {
+        sequenceId: `xc_query_seq_${Date.now()}`,
+        otaOrderId: featureContext.draftOrder!.body.otaOrderId,
+      };
+      expect(serviceName).toBe('QueryOrder');
+    });
+
+    And('携程订单查询请求中的 ota order id 是 {string}', (_ctx, otaOrderId: string) => {
+      context.draftQueryOrderBody!.otaOrderId = toScenarioScopedId(featureContext, otaOrderId);
+    });
+
+    And('携程订单中的 supplier order id 是 cr7 订单 id', async () => {
+      context.draftQueryOrderBody!.supplierOrderId = context.cr7OrderId!;
+
+      const notification = buildCtripOrderNotification({
+        accountId: config.xiecheng.account_id,
+        signKey: config.xiecheng.secret,
+        aesKey: config.xiecheng.aes_key,
+        aesIv: config.xiecheng.aes_iv,
+        serviceName: 'QueryOrder',
+        body: context.draftQueryOrderBody!,
+      });
+
+      context.queryOrderResponse = await sendCtripOrderCallback(
+        featureContext.fixtures.values.apiServer,
+        notification,
+      );
+      context.decryptedQueryResponse = decryptCtripResponseBody<Xiecheng.XcQueryOrderSuccessBody>(
+        context.queryOrderResponse,
+        config.xiecheng.aes_key,
+        config.xiecheng.aes_iv,
+      );
+    });
+
+    Then('cr7 系统按照携程的要求返回订单查询响应', () => {
+      assertCtripSuccessResponse(context.queryOrderResponse!);
+    });
+
+    And('订单查询响应中包含 supplier order id', () => {
+      expect(context.decryptedQueryResponse?.supplierOrderId).toBe(context.cr7OrderId);
+    });
+
+    And('订单查询响应中包含 ota order id {string}', (_ctx, otaOrderId: string) => {
+      expect(context.decryptedQueryResponse?.otaOrderId).toBe(toScenarioScopedId(featureContext, otaOrderId));
+    });
+
+    And('订单查询响应中包含 item id 为票种 id 的订单项，数量为 {int}', (_ctx, quantity: number) => {
+      const expectedItemId = featureContext.draftOrder!.body.items[0].PLU;
+      expect(context.decryptedQueryResponse?.items).toHaveLength(1);
+      expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', expectedItemId);
+      expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('quantity', quantity);
+    });
+
+    And('订单查询响应中包含 use start date 和 use end date 分别为 {string} 的开始和结束时间', (_ctx, dateLabel: string) => {
+      const expectedDate = toDateLabel(dateLabel);
+      expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('useStartDate', expectedDate);
+      expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('useEndDate', expectedDate);
+    });
+
+    And('订单查询响应中包含订单状态 {string} 值为 {int}', (_ctx, _statusLabel: string, statusValue: number) => {
+      expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('orderStatus', statusValue);
     });
   });
 });

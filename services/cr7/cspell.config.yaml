@@ -11,6 +11,7 @@ ignoreWords:
 words:
   - apiclient
   - Ctrip
+  - inventorys
   - Luhn
   - mchid
   - moleculer
