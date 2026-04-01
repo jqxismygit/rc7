@@ -29,9 +29,9 @@ export async function createExhibition(
   const { rows: [result] } = await client.query(
     `INSERT INTO ${schema}.exhibitions (
       name, description, start_date, end_date,
-      opening_time, closing_time, last_entry_time, location
+      opening_time, closing_time, last_entry_time, location, cover_url
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     RETURNING
       id, name, description,
       start_date,
@@ -40,6 +40,7 @@ export async function createExhibition(
       closing_time,
       last_entry_time,
       location,
+      cover_url,
       created_at,
       updated_at`,
     [
@@ -50,7 +51,8 @@ export async function createExhibition(
       exhibition.opening_time,
       exhibition.closing_time,
       exhibition.last_entry_time,
-      exhibition.location
+      exhibition.location,
+      exhibition.cover_url ?? null
     ]
   );
 
@@ -83,6 +85,7 @@ export async function getExhibitionById(
       closing_time,
       last_entry_time,
       location,
+      cover_url,
       created_at,
       updated_at
     FROM ${schema}.exhibitions
@@ -119,6 +122,7 @@ export async function getExhibitions(
       closing_time,
       last_entry_time,
       location,
+      cover_url,
       created_at,
       updated_at
     FROM ${schema}.exhibitions
@@ -426,6 +430,76 @@ export async function updateTicketCategoryInventoryMax(
       updated_at = NOW()`,
     [eid, tid, quantity]
   );
+}
+
+export async function updateExhibition(
+  client: Pool,
+  schema: string,
+  eid: string,
+  patch: Exhibition.ExhibitionPatch,
+): Promise<Exhibition.Exhibition> {
+  const fields: string[] = [];
+  const values: unknown[] = [eid];
+  let idx = 2;
+
+  if ('name' in patch) {
+    fields.push(`name = $${idx++}`);
+    values.push(patch.name);
+  }
+  if ('description' in patch) {
+    fields.push(`description = $${idx++}`);
+    values.push(patch.description);
+  }
+  if ('opening_time' in patch) {
+    fields.push(`opening_time = $${idx++}`);
+    values.push(patch.opening_time);
+  }
+  if ('closing_time' in patch) {
+    fields.push(`closing_time = $${idx++}`);
+    values.push(patch.closing_time);
+  }
+  if ('last_entry_time' in patch) {
+    fields.push(`last_entry_time = $${idx++}`);
+    values.push(patch.last_entry_time);
+  }
+  if ('location' in patch) {
+    fields.push(`location = $${idx++}`);
+    values.push(patch.location);
+  }
+  if ('cover_url' in patch) {
+    fields.push(`cover_url = $${idx++}`);
+    values.push(patch.cover_url ?? null);
+  }
+
+  if (fields.length === 0) {
+    return getExhibitionById(client, schema, eid);
+  }
+
+  fields.push(`updated_at = NOW()`);
+
+  const { rows } = await client.query<Exhibition.Exhibition>(
+    `UPDATE ${schema}.exhibitions
+    SET ${fields.join(', ')}
+    WHERE id = $1
+    RETURNING
+      id, name, description,
+      start_date,
+      end_date,
+      opening_time,
+      closing_time,
+      last_entry_time,
+      location,
+      cover_url,
+      created_at,
+      updated_at`,
+    values,
+  );
+
+  if (rows.length === 0) {
+    throw new ExhibitionDataError('Exhibition not found', 'EXHIBITION_NOT_FOUND');
+  }
+
+  return rows[0];
 }
 
 export async function getSessionById(

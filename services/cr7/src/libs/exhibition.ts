@@ -8,6 +8,7 @@ import {
   getTicketCategoriesByExhibitionId,
   getSessionsByExhibitionId,
   createTicketCategory,
+  updateExhibition,
   updateTicketCategoryOtaXcOptionId,
   listSessionInventoryByTicketAndDateRange,
   getSessionTicketCategoriesBySessionId,
@@ -103,6 +104,22 @@ export class ExhibitionService extends RC7BaseService {
         admittance: 'number'
       },
       handler: this.addTicketCategory
+    },
+
+    'exhibition.update': {
+      rest: 'PATCH /:eid',
+      roles: ['admin'],
+      params: {
+        eid: 'string',
+        name: { type: 'string', optional: true, min: 1 },
+        description: { type: 'string', optional: true },
+        opening_time: { type: 'string', optional: true },
+        closing_time: { type: 'string', optional: true },
+        last_entry_time: { type: 'string', optional: true },
+        location: { type: 'string', optional: true },
+        cover_url: { type: 'url', optional: true, nullable: true },
+      },
+      handler: this.updateExhibition
     },
 
     'exhibition.getSessionTickets': {
@@ -244,6 +261,19 @@ export class ExhibitionService extends RC7BaseService {
     const ticketCategory = await createTicketCategory(client, schema, eid, category);
 
     return ticketCategory;
+  }
+
+  async updateExhibition(
+    ctx: Context<{ eid: string } & Exhibition.ExhibitionPatch, { user: UserMeta }>
+  ) {
+    const { eid, ...patch } = ctx.params;
+    const client = this.pool;
+    const schema = await this.getSchema();
+
+    const exhibition = await updateExhibition(client, schema, eid, patch)
+      .catch(handleExhibitionError);
+
+    return exhibition;
   }
 
   async getSessionTickets(

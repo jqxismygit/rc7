@@ -73,7 +73,7 @@ Feature: manage exhibition
     Then 返回权限不足错误
 
   Scenario: 可以更新展览的基本信息
-    Given 展览名称为 "cr7_life_museum"
+    Given 展览名称为 "cr7_museum_to_update"
       And 描述为 "welcome to cr7 life museum"
       And 开始日期为 "3天后"
       And 结束日期为 "60天后"
@@ -85,12 +85,12 @@ Feature: manage exhibition
      When 创建展览
      Then 展览创建成功
     Given 准备更新展览名称为 "updated_cr7_life_museum"
-      And 描述为 "updated description"
-      And 开放时间为 "09:00"
-      And 闭馆时间为 "17:00"
-      And 最晚入场时间为 "16:00"
-      And 地点为 "Beijing"
-      And 封面图为 "https://example.com/updated_cr7_life_museum.jpg"
+      And 准备更新描述为 "updated description"
+      And 准备更新开放时间为 "09:00"
+      And 准备更新闭馆时间为 "17:00"
+      And 准备更新最晚入场时间为 "16:00"
+      And 准备更新地点为 "Beijing"
+      And 准备更新封面图为 "https://example.com/updated_cr7_life_museum.jpg"
      When 更新展览信息
      Then 展览描述更新成功
 
