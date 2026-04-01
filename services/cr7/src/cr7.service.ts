@@ -1,17 +1,20 @@
 import { RC7BaseService } from "./libs/cr7.base.js";
+import { AssetsService } from './libs/assets.js';
 import { ExhibitionService } from "./libs/exhibition.js";
 import { OrderService } from "./libs/order.js";
 import { PaymentService } from "./libs/payment.js";
 import { RedemptionService } from './libs/redeem.js';
 import { TopicService } from './libs/topics.js';
+import { ServiceBroker } from "moleculer";
 
 /**
  * RC7Service
  * RC7 主服务，继承所有子服务功能
  */
 export default class RC7Service extends RC7BaseService {
-  constructor(broker) {
+  constructor(broker: ServiceBroker) {
     super(broker);
+    const assetsService = new AssetsService(broker);
     const exhibitionService = new ExhibitionService(broker);
     const orderService = new OrderService(broker);
     const redemptionService = new RedemptionService(broker);
@@ -35,10 +38,10 @@ export default class RC7Service extends RC7BaseService {
       methods: {
         ...methods_order,
         ...payment_methods,
-        ...topicService.methods
       },
 
       actions: {
+        ...assetsService.actions_assets,
         ...exhibitionService.actions_exhibition,
         ...orderService.actions_order,
         ...redemptionService.actions_redemption,
@@ -48,7 +51,7 @@ export default class RC7Service extends RC7BaseService {
 
       async started() {
         await this.initPool();
-        await topicService.ensureAssetsDir();
+        await assetsService.ensureAssetsDir();
       },
 
       async stopped() {

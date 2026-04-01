@@ -29,17 +29,24 @@ import {
   StockOutlined,
   TableOutlined,
 } from "@ant-design/icons";
+import Order from "./pages/order";
+import User from "./pages/user";
 
 const GRAFANA_PREFIX_URL = window.location.origin.includes("localhost")
   ? "https://errows.ghostiee.cc"
   : window.location.origin;
 
+/** 未匹配任何路由时的跳转目标；与 App.tsx 中 `path: "*"` 兜底保持一致 */
+export const APP_FALLBACK_PATH = "/exhibition" as const;
+
 // 页面组件懒加载
 const Banners = React.lazy(() => import("./pages/banners"));
 const News = React.lazy(() => import("./pages/news"));
 const Exhibition = React.lazy(() => import("./pages/exhibition"));
-const ExhibitionLayout = React.lazy(() => import("./pages/exhibition/layout"));
+const CommonLayout = React.lazy(() => import("./layout/common"));
 const ExhibitionDetail = React.lazy(() => import("./pages/exhibition/detail"));
+const Category = React.lazy(() => import("./pages/category"));
+const CategoryDetail = React.lazy(() => import("./pages/category/detail"));
 
 // 路由配置类型
 export interface RouteConfig {
@@ -58,23 +65,23 @@ export interface RouteConfig {
 
 // 统一的路由和菜单配置
 export const routes: RouteConfig[] = [
-  {
-    path: "/banners",
-    name: "轮播图",
-    icon: <PictureOutlined />,
-    element: <Banners />,
-  },
-  {
-    path: "/news",
-    name: "新闻",
-    icon: <DashboardOutlined />,
-    element: <News />,
-  },
+  // {
+  //   path: "/banners",
+  //   name: "轮播图",
+  //   icon: <PictureOutlined />,
+  //   element: <Banners />,
+  // },
+  // {
+  //   path: "/news",
+  //   name: "新闻",
+  //   icon: <DashboardOutlined />,
+  //   element: <News />,
+  // },
   {
     path: "/exhibition",
     name: "展会",
     icon: <CalendarOutlined />,
-    element: <ExhibitionLayout />,
+    element: <CommonLayout />,
     children: [
       {
         index: true,
@@ -89,6 +96,38 @@ export const routes: RouteConfig[] = [
         element: <ExhibitionDetail />,
       },
     ],
+  },
+  {
+    path: "/category",
+    name: "分类",
+    icon: <AppstoreOutlined />,
+    element: <CommonLayout />,
+    children: [
+      {
+        index: true,
+        name: "分类列表",
+        hideInMenu: true,
+        element: <Category />,
+      },
+      {
+        path: ":tid",
+        name: "话题详情",
+        hideInMenu: true,
+        element: <CategoryDetail />,
+      },
+    ],
+  },
+  {
+    path: "/order",
+    name: "订单",
+    icon: <DollarOutlined />,
+    element: <Order />,
+  },
+  {
+    path: "/user",
+    name: "用户",
+    icon: <UserOutlined />,
+    element: <User />,
   },
 ];
 
@@ -140,14 +179,14 @@ export function filterRoutesByPermission(
 }
 
 /** 侧栏菜单中展示的路由（排除 hideInMenu） */
-export function routesForMenu(routeList: RouteConfig[] = routes): RouteConfig[] {
+export function routesForMenu(
+  routeList: RouteConfig[] = routes,
+): RouteConfig[] {
   return routeList
     .filter((r) => !r.hideInMenu)
     .map((r) => ({
       ...r,
-      children: r.children?.length
-        ? routesForMenu(r.children)
-        : undefined,
+      children: r.children?.length ? routesForMenu(r.children) : undefined,
     }));
 }
 

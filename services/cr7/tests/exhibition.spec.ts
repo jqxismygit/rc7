@@ -18,6 +18,7 @@ import {
   getTicketCategories,
   getSessions,
   listExhibitions,
+  updateExhibition,
   ExhibitionListResponse,
   DraftExhibition,
   DraftTicketCategory,
@@ -26,7 +27,7 @@ import {
   assertTicketCategory,
 } from './fixtures/exhibition.js';
 import { registerUser, prepareAdminToken } from './fixtures/user.js';
-import { APIError } from './lib/api.js';
+import { APIError, assertAPIError, patchJSON } from './lib/api.js';
 
 const schema = 'test_exhibition';
 const services = ['api', 'cr7', 'user'];
@@ -82,6 +83,8 @@ type NonAdminCreateScenarioContext = PermissionErrorContext & DraftExhibitionCon
 type NonAdminAddTicketScenarioContext = PermissionErrorContext & ExhibitionContext & DraftTicketContext & {
   regularUserToken?: string;
 };
+
+type UpdateExhibitionValidationScenarioContext = ExhibitionContext & PermissionErrorContext;
 
 interface ScenarioContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
@@ -177,6 +180,7 @@ describeFeature(feature, ({
             closing_time: null,
             last_entry_time: null,
             location: null,
+            cover_url: null,
           },
         });
       });
@@ -207,6 +211,10 @@ describeFeature(feature, ({
 
       And('地点为 {string}', (_ctx, location: string) => {
         requireDraftExhibition(context).location = location;
+      });
+
+      And('封面图为 {string}', (_ctx, coverUrl: string) => {
+        requireDraftExhibition(context).cover_url = coverUrl;
       });
 
       When('创建展览', async () => {
@@ -587,4 +595,204 @@ describeFeature(feature, ({
       });
     }
   );
-});
+
+    type UpdateExhibitionScenarioContext = DraftExhibitionContext & ExhibitionContext & {
+      draftUpdate?: Exhibition.ExhibitionPatch;
+    };
+
+    Scenario(
+      '可以更新展览的基本信息',
+      (s: StepTest<UpdateExhibitionScenarioContext>) => {
+          const { Given, When, Then, And, context } = s;
+
+          Given('展览名称为 {string}', (_ctx, name: string) => {
+            Object.assign(context, {
+              draftExhibition: {
+                name,
+                description: null,
+                start_date: null,
+                end_date: null,
+                opening_time: null,
+                closing_time: null,
+                last_entry_time: null,
+                location: null,
+                cover_url: null,
+              },
+            });
+          });
+
+          And('描述为 {string}', (_ctx, description: string) => {
+            requireDraftExhibition(context).description = description;
+          });
+
+          And('开始日期为 {string}', (_ctx, startDate: string) => {
+            requireDraftExhibition(context).start_date = toDateLabel(startDate);
+          });
+
+          And('结束日期为 {string}', (_ctx, endDate: string) => {
+            requireDraftExhibition(context).end_date = toDateLabel(endDate);
+          });
+
+          And('开放时间为 {string}', (_ctx, openingTime: string) => {
+            requireDraftExhibition(context).opening_time = openingTime;
+          });
+
+          And('闭馆时间为 {string}', (_ctx, closingTime: string) => {
+            requireDraftExhibition(context).closing_time = closingTime;
+          });
+
+          And('最晚入场时间为 {string}', (_ctx, lastEntryTime: string) => {
+            requireDraftExhibition(context).last_entry_time = lastEntryTime;
+          });
+
+          And('地点为 {string}', (_ctx, location: string) => {
+            requireDraftExhibition(context).location = location;
+          });
+
+          And('封面图为 {string}', (_ctx, coverUrl: string) => {
+            requireDraftExhibition(context).cover_url = coverUrl;
+          });
+
+          When('创建展览', async () => {
+            const { apiServer } = scenarioContext.fixtures.values;
+            const exhibition = await createExhibition(
+              apiServer,
+              scenarioContext.adminToken,
+              requireDraftExhibition(context) as Required<DraftExhibition>,
+            );
+            context.exhibition = exhibition;
+          });
+
+          Then('展览创建成功', () => {
+            assertExhibition(requireExhibition(context));
+          });
+
+          Given('准备更新展览名称为 {string}', (_ctx, name: string) => {
+            context.draftUpdate = { name };
+          });
+
+          And('准备更新描述为 {string}', (_ctx, description: string) => {
+            context.draftUpdate!.description = description;
+          });
+
+          And('准备更新开放时间为 {string}', (_ctx, openingTime: string) => {
+            context.draftUpdate!.opening_time = openingTime;
+          });
+
+          And('准备更新闭馆时间为 {string}', (_ctx, closingTime: string) => {
+            context.draftUpdate!.closing_time = closingTime;
+          });
+
+          And('准备更新最晚入场时间为 {string}', (_ctx, lastEntryTime: string) => {
+            context.draftUpdate!.last_entry_time = lastEntryTime;
+          });
+
+          And('准备更新地点为 {string}', (_ctx, location: string) => {
+            context.draftUpdate!.location = location;
+          });
+
+          And('准备更新封面图为 {string}', (_ctx, coverUrl: string) => {
+            context.draftUpdate!.cover_url = coverUrl;
+          });
+
+          When('更新展览信息', async () => {
+            const { apiServer } = scenarioContext.fixtures.values;
+            const updated = await updateExhibition(
+              apiServer,
+              scenarioContext.adminToken,
+              requireExhibition(context).id,
+              context.draftUpdate!,
+            );
+            context.exhibition = updated;
+          });
+
+          Then('展览描述更新成功', () => {
+            const exhibition = requireExhibition(context);
+            assertExhibition(exhibition);
+            expect(exhibition.description).toBe('updated description');
+            expect(exhibition.cover_url).toBe('https://example.com/updated_cr7_life_museum.jpg');
+            expect(exhibition.opening_time).toBe('09:00:00');
+            expect(exhibition.closing_time).toBe('17:00:00');
+            expect(exhibition.last_entry_time).toBe('16:00:00');
+            expect(exhibition.location).toBe('Beijing');
+          });
+        }
+      );
+
+    Scenario(
+      '更新展览时必须至少提供一个参数',
+      (s: StepTest<UpdateExhibitionValidationScenarioContext>) => {
+        const { Given, When, Then, context } = s;
+
+        Given('已创建展览', async () => {
+          const { apiServer } = scenarioContext.fixtures.values;
+          const [exhibition] = await createExhibitions(apiServer, scenarioContext.adminToken, 1);
+          Object.assign(context, { exhibition });
+        });
+
+        When('不提供任何参数更新展览', async () => {
+          const { apiServer } = scenarioContext.fixtures.values;
+
+          try {
+            await updateExhibition(
+              apiServer,
+              scenarioContext.adminToken,
+              requireExhibition(context).id,
+              {},
+            );
+          } catch (error) {
+            rememberError(context, error);
+          }
+        });
+
+        Then('返回参数不合法错误', () => {
+          assertAPIError(context.lastError, {
+            status: 400,
+            method: 'PATCH',
+            messageIncludes: '参数不合法',
+          });
+        });
+      }
+    );
+
+    Scenario(
+      '更新展览时不能修改开始和结束日期',
+      (s: StepTest<UpdateExhibitionValidationScenarioContext>) => {
+        const { Given, When, Then, context } = s;
+
+        Given('已创建展览', async () => {
+          const { apiServer } = scenarioContext.fixtures.values;
+          const [exhibition] = await createExhibitions(apiServer, scenarioContext.adminToken, 1);
+          Object.assign(context, { exhibition });
+        });
+
+        When('尝试更新展览开始和结束日期', async () => {
+          const { apiServer } = scenarioContext.fixtures.values;
+
+          try {
+            await patchJSON<Exhibition.Exhibition>(
+              apiServer,
+              `/exhibition/${requireExhibition(context).id}`,
+              {
+                token: scenarioContext.adminToken,
+                body: {
+                  start_date: toDateLabel('5天后'),
+                  end_date: toDateLabel('66天后'),
+                },
+              },
+            );
+          } catch (error) {
+            rememberError(context, error);
+          }
+        });
+
+        Then('返回参数不合法错误', () => {
+          assertAPIError(context.lastError, {
+            status: 400,
+            method: 'PATCH',
+            messageIncludes: '参数不合法',
+          });
+        });
+      }
+    );
+  });

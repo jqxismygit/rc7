@@ -251,36 +251,6 @@
   - `article_ids` 需包含该话题下全部文章且不重复。
   - 服务端按数组顺序重写 `sort_order`（从 `0` 递增）。
 
-## 管理员上传图片
-
-- URL: `/assets/images`
-- Method: `POST`
-- Request Header:
-  ```ts
-  {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'multipart/form-data'
-  }
-  ```
-- Request Body:
-  - File Stream，字段名为 `image`，支持 jpg/jpeg/png/webp 格式。
-- Response Body:
-  ```ts
-  Topic.UploadedImage
-  ```
-- Response Status:
-  - `201 Created`：上传成功
-  - `400 Bad Request`：文件为空或格式不支持
-  - `401 Unauthorized`：未认证
-  - `403 Forbidden`：无管理员权限
-
-- 说明：
-  - action 直接接收上传文件的 stream，不落临时文件。
-  - 上传 stream 直接 pipe 到 `sharp`，统一转为 webp。
-  - 转码后的文件保存到 `assets` 目录。
-  - 返回图片 URL 使用配置 `assets.base_url` 作为前缀。
-  - 返回图片 URL 的后缀固定为 `.webp`。
-
 ## 错误响应
 
 所有接口在出错时返回以下格式：
@@ -300,5 +270,4 @@
 - `TOPIC_DESCRIPTION_INVALID`（400）
 - `TOPIC_COVER_URL_INVALID`（400）
 - `ARTICLE_COVER_URL_INVALID`（400）
-- `IMAGE_INVALID_TYPE`（400）
 - `PERMISSION_DENIED`（403）

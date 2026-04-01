@@ -1,4 +1,4 @@
-import { Context, ServiceSchema } from "moleculer";
+import { Context, Errors, ServiceSchema } from "moleculer";
 import type { Exhibition } from "@cr7/types";
 import {
   createExhibition,
@@ -8,6 +8,7 @@ import {
   getTicketCategoriesByExhibitionId,
   getSessionsByExhibitionId,
   createTicketCategory,
+  updateExhibition,
   updateTicketCategoryOtaXcOptionId,
   listSessionInventoryByTicketAndDateRange,
   getSessionTicketCategoriesBySessionId,
@@ -17,6 +18,18 @@ import {
 } from "../data/exhibition.js";
 import { handleExhibitionError } from './errors.js';
 import { RC7BaseService } from "./cr7.base.js";
+
+const { MoleculerClientError } = Errors;
+
+const EXHIBITION_UPDATE_FIELDS = [
+  'name',
+  'description',
+  'opening_time',
+  'closing_time',
+  'last_entry_time',
+  'location',
+  'cover_url',
+] as const;
 
 interface UserMeta {
   uid: string;
@@ -104,6 +117,22 @@ export class ExhibitionService extends RC7BaseService {
         admittance: 'number'
       },
       handler: this.addTicketCategory
+    },
+
+    'exhibition.update': {
+      rest: 'PATCH /:eid',
+      roles: ['admin'],
+      params: {
+        eid: 'string',
+        name: { type: 'string', optional: true, min: 1 },
+        description: { type: 'string', optional: true },
+        opening_time: { type: 'string', optional: true },
+        closing_time: { type: 'string', optional: true },
+        last_entry_time: { type: 'string', optional: true },
+        location: { type: 'string', optional: true },
+        cover_url: { type: 'url', optional: true, nullable: true },
+      },
+      handler: this.updateExhibition
     },
 
     'exhibition.getSessionTickets': {
@@ -253,6 +282,29 @@ export class ExhibitionService extends RC7BaseService {
     const ticketCategory = await createTicketCategory(client, schema, eid, category);
 
     return ticketCategory;
+  }
+
+  async updateExhibition(
+    ctx: Context<{ eid: string } & Exhibition.ExhibitionPatch, { user: UserMeta }>
+  ) {
+    const { eid, ...patch } = ctx.params;
+
+    if ('start_date' in patch || 'end_date' in patch) {
+      throw new MoleculerClientError('参数不合法', 400, 'INVALID_ARGUMENT');
+    }
+
+
+    if (EXHIBITION_UPDATE_FIELDS.every(field => Object.hasOwn(patch, field) === false)) {
+      throw new MoleculerClientError('参数不合法', 400, 'INVALID_ARGUMENT');
+    }
+
+    const client = this.pool;
+    const schema = await this.getSchema();
+
+    const exhibition = await updateExhibition(client, schema, eid, patch)
+      .catch(handleExhibitionError);
+
+    return exhibition;
   }
 
   async getSessionTickets(
