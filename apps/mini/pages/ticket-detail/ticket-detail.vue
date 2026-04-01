@@ -289,6 +289,7 @@ export default {
           exhibition = null;
         }
         this.ticket = buildTicketDetailFromOrder(order, exhibition);
+        console.log("order", order, exhibition);
         await this.loadRedemption(order);
         this.pageLoading = false;
       } catch (e) {
