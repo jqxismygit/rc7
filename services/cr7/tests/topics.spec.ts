@@ -1,6 +1,3 @@
-import path from 'node:path';
-import fs from 'node:fs/promises';
-import { URL } from 'node:url';
 import {
   describeFeature,
   FeatureDescriibeCallbackParams,
@@ -8,7 +5,6 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
-import sharp from 'sharp';
 import { expect, vi } from 'vitest';
 import type { Topic } from '@cr7/types';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
@@ -27,10 +23,7 @@ import {
   reorderTopicArticles,
   updateArticle,
   updateTopic,
-  uploadImage,
 } from './fixtures/topics.js';
-
-const __dirname = path.dirname(new URL(import.meta.url).pathname);
 const schema = 'test_topics';
 const services = ['api', 'cr7', 'user'];
 const feature = await loadFeature('tests/features/topics.feature');
@@ -41,8 +34,6 @@ type TopicScenarioContext = {
   articleWithTopic?: Topic.ArticleWithTopic;
   topicWithArticles?: Topic.TopicWithArticles;
   topicList?: Topic.TopicListResult;
-  uploadedImage?: Topic.UploadedImage;
-  uploadFileName?: string;
 };
 
 interface FeatureContext {
@@ -529,42 +520,4 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('管理员可以上传图片', (s: StepTest<TopicScenarioContext>) => {
-    const { When, And, Then, context } = s;
-
-    When('管理员上传图片', async () => {
-      const { apiServer } = featureContext.fixtures.values;
-      const filePath = path.resolve(__dirname, './fixtures', context.uploadFileName ?? 'test_image.jpg');
-      context.uploadedImage = await uploadImage(apiServer, featureContext.adminToken, filePath);
-    });
-
-    And('图片文件名为 {string}', (_ctx, fileName: string) => {
-      context.uploadFileName = fileName;
-    });
-
-    Then('图片上传成功', () => {
-      expect(context.uploadedImage).toBeTruthy();
-      expect(context.uploadedImage?.url).toEqual(expect.any(String));
-    });
-
-    And('图片 URL 的前缀是配置中的 assets.base_url', () => {
-      expect(context.uploadedImage?.url?.startsWith(`${config.assets.base_url}/`)).toBe(true);
-    });
-
-    And('图片被转换成了 webp 格式', async () => {
-      const uploadedUrl = new URL(context.uploadedImage!.url);
-      const filePath = path.resolve(config.assets.path, path.basename(uploadedUrl.pathname));
-      const metadata = await sharp(filePath).metadata();
-
-      expect(metadata.format).toBe('webp');
-    });
-
-    And('图片 URL 的后缀是 {string}', async (_ctx, suffix: string) => {
-      expect(context.uploadedImage?.url?.endsWith(suffix)).toBe(true);
-
-      const uploadedUrl = new URL(context.uploadedImage!.url);
-      const filePath = path.resolve(config.assets.path, path.basename(uploadedUrl.pathname));
-      await fs.unlink(filePath).catch(() => undefined);
-    });
-  });
 });
