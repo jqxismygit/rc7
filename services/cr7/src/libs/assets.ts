@@ -41,11 +41,7 @@ async function saveUploadAsOriginal(
   const name = `${randomUUID()}${ext}`;
   const target = path.join(dataDir, name);
 
-  try {
-    await pipeline(fileStream, fs.createWriteStream(target));
-  } catch {
-    throw new MoleculerClientError('文件格式不支持', 400, 'VIDEO_INVALID_TYPE');
-  }
+  await pipeline(fileStream, fs.createWriteStream(target));
 
   return {
     url: new URL(name, `${baseUrl.replace(/\/?$/, '/')}`).toString(),
