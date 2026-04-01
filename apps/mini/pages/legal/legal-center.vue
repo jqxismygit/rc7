@@ -29,7 +29,17 @@
       </view>
 
       <view class="legal-section">
-        <rich-text :nodes="content" class="legal-rich-text"></rich-text>
+        <view v-if="loading" class="state-wrap">
+          <text class="state-text">加载中…</text>
+        </view>
+        <view v-else-if="errorText" class="state-wrap">
+          <text class="state-text">{{ errorText }}</text>
+        </view>
+        <rich-text
+          v-else
+          :nodes="content || '<p></p>'"
+          class="legal-rich-text"
+        ></rich-text>
       </view>
 
       <view class="safe-bottom safe-area-bottom"></view>
@@ -40,8 +50,9 @@
 <script>
 import Cr7NavBar from "@/components/cr7-nav-bar/cr7-nav-bar.vue";
 import { getNavBarInsetPx } from "@/utils/navBar.js";
-import { fetchLegalContent } from "@/services/legal.js";
-
+import { fetchArticleById } from "@/services/article.js";
+const TERMS_KEY = "2acc6397-887e-4a4d-823d-10d692c10ed7"; //服务协议
+const PRIVACY_KEY = "c5062640-e595-48c2-8d5f-40f6e4150e3e"; //隐私政策
 export default {
   components: {
     Cr7NavBar,
@@ -52,6 +63,12 @@ export default {
       navInsetPx: 0,
       activeType: "privacy",
       content: "",
+      loading: false,
+      errorText: "",
+      contentCache: {
+        privacy: "",
+        terms: "",
+      },
     };
   },
 
@@ -72,13 +89,38 @@ export default {
     },
 
     async loadContent() {
-      try {
-        this.content = await fetchLegalContent(this.activeType);
-      } catch (e) {
-        // mock 服务失败兜底：避免页面空白且不报错影响用户
+      if (this.contentCache[this.activeType]) {
+        this.content = this.contentCache[this.activeType];
+        this.errorText = "";
+        this.loading = false;
+        return;
+      }
+      const articleId =
+        this.activeType === "terms" ? TERMS_KEY : PRIVACY_KEY;
+      if (!articleId) {
         this.content = "";
+        this.errorText = "缺少文章 ID";
+        return;
+      }
+      this.loading = true;
+      this.errorText = "";
+      try {
+        const article = await fetchArticleById(articleId);
+        const html = article?.content || "";
+        this.content = html;
+        this.contentCache[this.activeType] = html;
+      } catch (e) {
+        this.content = "";
+        const msg =
+          e?.data?.message ||
+          e?.errMsg ||
+          (typeof e?.message === "string" ? e.message : "") ||
+          "内容加载失败";
+        this.errorText = msg;
         uni.showToast({ title: "内容加载失败", icon: "none" });
         console.error("loadLegalContent", e);
+      } finally {
+        this.loading = false;
       }
     },
   },
@@ -132,6 +174,17 @@ export default {
   font-size: $font-sm;
   color: $text-light;
   line-height: 1.8;
+}
+
+.state-wrap {
+  padding: 80rpx 0;
+  display: flex;
+  justify-content: center;
+}
+
+.state-text {
+  font-size: $font-sm;
+  color: $text-light;
 }
 
 .safe-bottom {

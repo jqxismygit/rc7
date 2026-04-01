@@ -400,6 +400,22 @@ export default function CategoryDetailPage() {
         render: (_, __, index) => articleTablePageStart + index + 1,
       },
       {
+        title: "id",
+        dataIndex: "id",
+        width: 100,
+        ellipsis: true,
+        render: (text: string) => (
+          <Typography.Text
+            type="secondary"
+            copyable
+            ellipsis={{ tooltip: text }}
+            style={{ maxWidth: 84 }}
+          >
+            {text}
+          </Typography.Text>
+        ),
+      },
+      {
         title: "封面",
         dataIndex: "cover_url",
         width: 88,
