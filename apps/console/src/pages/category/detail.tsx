@@ -70,6 +70,7 @@ import {
   isArticleHtmlEmpty,
   sanitizeArticleHtml,
 } from "@/utils/article-html";
+import { imageConfig } from "@/config";
 import "./category.less";
 
 type ArticleRow = TopicTypes.Article;
@@ -279,6 +280,12 @@ export default function CategoryDetailPage() {
     if (localArticles.length !== serverArticleIds.length) return false;
     return localArticles.some((a, i) => a.id !== serverArticleIds[i]);
   }, [localArticles, serverArticleIds]);
+
+  const matchedCoverConfig = useMemo(() => {
+    const categoryName = topic?.title?.trim();
+    if (!categoryName) return null;
+    return imageConfig.find((item) => item.name === categoryName) ?? null;
+  }, [topic?.title]);
 
   useEffect(() => {
     if (topic?.articles) {
@@ -880,12 +887,15 @@ export default function CategoryDetailPage() {
           placeholder="上传后自动填入，或直接粘贴图片地址"
         />
         <div style={{ marginBottom: token.marginMD }}>
-          <Typography.Text
-            type="secondary"
-            style={{ display: "block", marginBottom: 8 }}
-          >
-            上传封面（限 1 张）
-          </Typography.Text>
+          <Space size={8} style={{ marginBottom: 8 }}>
+            <Typography.Text type="secondary">上传封面（限 1 张）</Typography.Text>
+            {matchedCoverConfig ? (
+              <Typography.Text type="warning">
+                最佳尺寸：{matchedCoverConfig.coverSize.width} x{" "}
+                {matchedCoverConfig.coverSize.height}
+              </Typography.Text>
+            ) : null}
+          </Space>
           <Upload {...createUploadProps}>
             {createArticleCoverFiles.length === 0 ? (
               <button type="button" style={{ border: 0, background: "none" }}>
@@ -968,12 +978,15 @@ export default function CategoryDetailPage() {
           placeholder="上传后自动填入，或直接粘贴图片地址"
         />
         <div style={{ marginBottom: token.marginMD }}>
-          <Typography.Text
-            type="secondary"
-            style={{ display: "block", marginBottom: 8 }}
-          >
-            上传封面（限 1 张）
-          </Typography.Text>
+          <Space size={8} style={{ marginBottom: 8 }}>
+            <Typography.Text type="secondary">上传封面（限 1 张）</Typography.Text>
+            {matchedCoverConfig ? (
+              <Typography.Text type="warning">
+                最佳尺寸：{matchedCoverConfig.coverSize.width} x{" "}
+                {matchedCoverConfig.coverSize.height}
+              </Typography.Text>
+            ) : null}
+          </Space>
           <Upload {...editUploadProps}>
             {editArticleCoverFiles.length === 0 ? (
               <button type="button" style={{ border: 0, background: "none" }}>

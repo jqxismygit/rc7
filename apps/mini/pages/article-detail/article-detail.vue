@@ -148,6 +148,23 @@ export default {
   font-size: $font-sm;
   color: $text-light;
   line-height: 1.8;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.article-rich-text :deep(view),
+.article-rich-text :deep(text),
+.article-rich-text :deep(p),
+.article-rich-text :deep(div),
+.article-rich-text :deep(span),
+.article-rich-text :deep(a),
+.article-rich-text :deep(img) {
+  max-width: 100%;
+  box-sizing: border-box;
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere;
 }
 
 .safe-bottom {
