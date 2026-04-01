@@ -1,10 +1,5 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { pipeline } from 'node:stream/promises';
-import { randomUUID } from 'node:crypto';
 import Moleculer from 'moleculer';
 import { Context, ServiceSchema } from 'moleculer';
-import sharp from 'sharp';
 import type { Topic } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
 import {
@@ -30,25 +25,6 @@ function normalizeNullableText(value?: string | null): string | null | undefined
   return text.length === 0 ? null : text;
 }
 
-async function saveUploadAsWebp(
-  fileStream: NodeJS.ReadableStream,
-  dataDir: string,
-  baseUrl: string
-): Promise<{ url: string }> {
-  const name = `${randomUUID()}.webp`;
-  const target = path.join(dataDir, name);
-
-  try {
-    await pipeline(fileStream, sharp().webp(), fs.createWriteStream(target));
-  } catch {
-    throw new MoleculerClientError('文件格式不支持', 400, 'IMAGE_INVALID_TYPE');
-  }
-
-  return {
-    url: new URL(name, `${baseUrl.replace(/\/?$/, '/')}`).toString(),
-  };
-}
-
 function validateArticleIds(articleIds: string[]) {
   if (articleIds.length === 0) {
     throw new MoleculerClientError('文章顺序参数不合法', 400, 'TOPIC_ARTICLE_ORDER_INVALID');
@@ -61,20 +37,6 @@ function validateArticleIds(articleIds: string[]) {
 }
 
 export class TopicService extends RC7BaseService {
-  constructor(broker) {
-    super(broker);
-  }
-
-  async ensureAssetsDir() {
-    const assetsConfig = await this.getAssetsConfig();
-    await fs.promises.mkdir(assetsConfig.path, { recursive: true });
-  }
-
-  async getAssetsConfig() {
-    const { default: config } = await import('config');
-    return config.assets;
-  }
-
   actions_topics: ServiceSchema['actions'] = {
     'topics.create': {
       rest: 'POST /',
@@ -191,16 +153,6 @@ export class TopicService extends RC7BaseService {
       },
       handler: this.getTopic,
     },
-
-    'topics.uploadImage': {
-      rest: 'POST /assets/images',
-      roles: ['admin'],
-      handler: this.uploadImage,
-    },
-  };
-
-  methods = {
-    getAssetsConfig: this.getAssetsConfig,
   };
 
   async createTopic(ctx: Context<Topic.TopicDraft>) {
@@ -331,17 +283,5 @@ export class TopicService extends RC7BaseService {
     const { tid } = ctx.params;
     const schema = await this.getSchema();
     return getTopicWithArticles(this.pool, schema, tid).catch(handleTopicError);
-  }
-
-  async uploadImage(
-    ctx: Context<
-      NodeJS.ReadableStream & { headers?: Record<string, string | string[] | undefined> },
-      { $statusCode?: number }
-    >
-  ) {
-    const { path: dataDir, base_url } = await this.getAssetsConfig();
-    const result = await saveUploadAsWebp(ctx.params, dataDir, base_url);
-    ctx.meta.$statusCode = 201;
-    return result;
   }
 }

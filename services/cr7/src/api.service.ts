@@ -66,7 +66,7 @@ function routeConfig(
       onAfterCall,
     },
     overrides,
-    { path, whitelist: [].concat(actions) }
+    { path, whitelist: ([] as string[]).concat(actions) }
   ) satisfies ApiRouteSchema;
 }
 
@@ -206,12 +206,12 @@ const routes = [
   ),
   routeConfig(
     '/assets',
-    ['cr7.topics.uploadImage'],
+    ['cr7.assets.uploadImage'],
     {
       aliases: {
         'POST /images': {
           type: 'stream',
-          action: 'cr7.topics.uploadImage',
+          action: 'cr7.assets.uploadImage',
         },
       }
     }
