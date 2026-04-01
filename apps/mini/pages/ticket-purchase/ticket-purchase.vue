@@ -94,7 +94,7 @@
                 ]"
               >
                 <view
-                  v-if="activeDateKey === 'all'"
+                  v-if="showCloseForChip(chip)"
                   class="date-chip-close"
                   @click.stop="clearDateSelection"
                 >
@@ -134,11 +134,7 @@
               @click="onChipClick(chip)"
             >
               <view
-                v-if="
-                  activeDateKey === chip.key &&
-                  chip.key !== defaultDateChipKey &&
-                  !chip.disabled
-                "
+                v-if="showCloseForChip(chip)"
                 class="date-chip-close"
                 @click.stop="clearDateSelection"
               >
@@ -456,6 +452,11 @@ export default {
   },
 
   methods: {
+    showCloseForChip(chip) {
+      if (!chip || chip.disabled) return false;
+      return this.activeDateKey === chip.key;
+    },
+
     applyDefaultEventAndTickets(options) {
       this.eventId = options.eventId || options.id;
       this.loadEventInfo();
