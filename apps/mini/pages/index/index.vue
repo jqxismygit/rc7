@@ -12,7 +12,7 @@
               :height="42"
               color="#FFFFFF"
             />
-            <view v-if="unreadCount > 0" class="notification-dot"></view>
+            <!-- <view v-if="unreadCount > 0" class="notification-dot"></view> -->
           </view>
         </view>
         <view class="navbar-logo">
@@ -35,18 +35,18 @@
         :style="{ height: statusBarHeight + navBarContentHeight + 'px' }"
       ></view>
 
-      <!-- Hero 轮播 -->
-      <view class="hero-section">
+      <!-- Hero 轮播：指定话题下的文章，点击进详情 -->
+      <view v-if="heroBanners.length" class="hero-section">
         <swiper
           class="hero-swiper"
-          circular
-          autoplay
+          :circular="heroBanners.length > 1"
+          :autoplay="heroBanners.length > 1"
           :interval="4000"
           :duration="500"
           @change="onSwiperChange"
         >
-          <swiper-item v-for="(item, index) in heroBanners" :key="index">
-            <view class="hero-slide">
+          <swiper-item v-for="item in heroBanners" :key="item.id">
+            <view class="hero-slide" @click="openHeroArticle(item)">
               <image
                 :src="item.cover || '/static/images/event-card.jpg'"
                 class="hero-image"
@@ -55,10 +55,10 @@
             </view>
           </swiper-item>
         </swiper>
-        <view class="hero-dots">
+        <view v-if="heroBanners.length > 1" class="hero-dots">
           <view
             v-for="(item, index) in heroBanners"
-            :key="index"
+            :key="item.id"
             :class="['hero-dot', { active: index === currentBannerIndex }]"
           ></view>
         </view>
@@ -128,14 +128,17 @@
         </view>
       </view>
 
-      <!-- CR7 News -->
-      <view class="section">
+      <!-- CR7 News（首页最多 3 条；超过则显示查看全部） -->
+      <view v-if="cr7News.length" class="section">
         <view class="section-header">
           <text class="section-title">CR7 News</text>
+          <text v-if="showNewsViewAll" class="section-link" @click="openNewsAll"
+            >查看全部</text
+          >
         </view>
         <view class="news-list">
           <view
-            v-for="item in cr7News"
+            v-for="item in cr7NewsPreview"
             :key="item.id"
             class="news-card"
             @click="openNewsItem(item)"
@@ -160,15 +163,20 @@
         </view>
       </view>
 
-      <!-- 合作伙伴 -->
-      <view class="section">
+      <!-- 合作伙伴（话题文章；首页 2×2 预览，超过则查看全部） -->
+      <view v-if="brands.length" class="section">
         <view class="section-header">
           <text class="section-title">合作伙伴</text>
-          <text class="section-link" @click="openBrandAll">查看全部</text>
+          <text
+            v-if="showBrandsViewAll"
+            class="section-link"
+            @click="openBrandAll"
+            >查看全部</text
+          >
         </view>
         <view class="brand-grid">
           <view
-            v-for="brand in brands"
+            v-for="brand in brandsPreview"
             :key="brand.id"
             class="brand-card"
             @click="openBrand(brand)"
@@ -201,15 +209,18 @@
 <script>
 import { useUserStore } from "@/stores/user";
 import { fetchUnreadCount } from "@/services/messages.js";
-import {
-  fetchHeroBanners,
-  fetchCr7News,
-  fetchBrands,
-  loadHomeTicketSection,
-} from "@/services/home.js";
+import { HOME_TOPIC_IDS } from "@/config/home-topic-ids.js";
+import { loadHomeTicketSection } from "@/services/home.js";
+import { fetchTopicWithArticles } from "@/services/topic.js";
+import { mapArticlesToPartnerBrands } from "@/utils/partner-articles.js";
 import createTabBarMixin from "@/mixins/tabBar.js";
 import { HOME_TICKET_SECTION_EVENT } from "@/utils/eventBus.js";
 import { formatTicketEventCardMetaLine } from "@/utils/ticketEventDisplay.js";
+
+/** 首页 CR7 News 预览条数 */
+const NEWS_HOME_PREVIEW_LIMIT = 3;
+/** 首页合作伙伴网格预览（2×2） */
+const BRANDS_HOME_PREVIEW_LIMIT = 4;
 
 export default {
   mixins: [createTabBarMixin(0)],
@@ -219,6 +230,18 @@ export default {
         this.ticketSection.ticketEvent,
       );
       return line || "-";
+    },
+    cr7NewsPreview() {
+      return this.cr7News.slice(0, NEWS_HOME_PREVIEW_LIMIT);
+    },
+    showNewsViewAll() {
+      return this.cr7News.length > NEWS_HOME_PREVIEW_LIMIT;
+    },
+    brandsPreview() {
+      return this.brands.slice(0, BRANDS_HOME_PREVIEW_LIMIT);
+    },
+    showBrandsViewAll() {
+      return this.brands.length > BRANDS_HOME_PREVIEW_LIMIT;
     },
   },
   data() {
@@ -300,18 +323,63 @@ export default {
 
     async loadHomeData() {
       try {
-        const [hero, news, brandList, ticketSection] = await Promise.all([
-          fetchHeroBanners(),
-          fetchCr7News(),
-          fetchBrands(),
+        const heroTid = String(HOME_TOPIC_IDS.hero || "").trim();
+        const newsTid = String(HOME_TOPIC_IDS.news || "").trim();
+        const brandsTid = String(HOME_TOPIC_IDS.brands || "").trim();
+        const topicHeroPromise = heroTid
+          ? fetchTopicWithArticles(heroTid).catch((err) => {
+              console.error("首页 Hero 话题加载失败", err);
+              return { articles: [] };
+            })
+          : Promise.resolve({ articles: [] });
+        const topicNewsPromise = newsTid
+          ? fetchTopicWithArticles(newsTid).catch((err) => {
+              console.error("首页 CR7 News 话题加载失败", err);
+              return { articles: [] };
+            })
+          : Promise.resolve({ articles: [] });
+        const topicBrandsPromise = brandsTid
+          ? fetchTopicWithArticles(brandsTid).catch((err) => {
+              console.error("首页合作伙伴话题加载失败", err);
+              return { articles: [] };
+            })
+          : Promise.resolve({ articles: [] });
+        const [
+          topicHeroDetail,
+          topicNewsDetail,
+          topicBrandsDetail,
+          ticketSection,
+        ] = await Promise.all([
+          topicHeroPromise,
+          topicNewsPromise,
+          topicBrandsPromise,
           loadHomeTicketSection(),
         ]);
-        this.heroBanners = hero.length ? hero : [{ cover: "" }, { cover: "" }];
-        this.cr7News = news;
-        this.brands = brandList.map((b) => ({
-          ...b,
-          tagline: b.description || "官方合作品牌",
+        const heroArticles = Array.isArray(topicHeroDetail?.articles)
+          ? topicHeroDetail.articles
+          : [];
+        this.heroBanners = heroArticles.map((a) => ({
+          id: a.id,
+          cover: a.cover_url || "",
+          title: a.title || "",
         }));
+        this.currentBannerIndex = 0;
+        const newsArticles = Array.isArray(topicNewsDetail?.articles)
+          ? topicNewsDetail.articles
+          : [];
+        this.cr7News = newsArticles.map((a) => {
+          const title = a.title || "";
+          return {
+            id: a.id,
+            cover: a.cover_url || "",
+            title,
+            desc: a.subtitle || "",
+          };
+        });
+        const brandArticles = Array.isArray(topicBrandsDetail?.articles)
+          ? topicBrandsDetail.articles
+          : [];
+        this.brands = mapArticlesToPartnerBrands(brandArticles);
         const ev = ticketSection?.ticketEvent;
         this.ticketSection.ticketEvent = {
           ...this.ticketSection.ticketEvent,
@@ -334,6 +402,13 @@ export default {
 
     onSwiperChange(e) {
       this.currentBannerIndex = e.detail.current;
+    },
+
+    openHeroArticle(item) {
+      if (!item?.id) return;
+      uni.navigateTo({
+        url: `/pages/article-detail/article-detail?aid=${encodeURIComponent(item.id)}`,
+      });
     },
 
     goToMessages() {
@@ -364,15 +439,14 @@ export default {
     },
 
     openNewsItem(item) {
-      if (item.route) {
-        uni.navigateTo({ url: item.route });
-      } else if (item.type === "video") {
-        uni.navigateTo({ url: "/pages/schedule/schedule" });
-      } else if (item.type === "career") {
-        uni.navigateTo({ url: "/pages/schedule/schedule" });
-      } else {
-        uni.showToast({ title: "详情页即将上线", icon: "none" });
-      }
+      if (!item?.id) return;
+      uni.navigateTo({
+        url: `/pages/article-detail/article-detail?aid=${encodeURIComponent(item.id)}`,
+      });
+    },
+
+    openNewsAll() {
+      uni.navigateTo({ url: "/pages/news-all/news-all" });
     },
 
     openBrandAll() {
@@ -380,7 +454,10 @@ export default {
     },
 
     openBrand(brand) {
-      uni.navigateTo({ url: "/pages/brands/brands" });
+      if (!brand?.id) return;
+      uni.navigateTo({
+        url: `/pages/article-detail/article-detail?aid=${encodeURIComponent(brand.id)}`,
+      });
     },
 
     goToScanTicket() {

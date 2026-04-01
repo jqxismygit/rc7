@@ -1,11 +1,12 @@
 <template>
-  <view class="brands-page">
-    <cr7-nav-bar title="合作伙伴" />
+  <view class="news-all-page">
+    <cr7-nav-bar title="全部新闻" />
 
     <scroll-view
-      class="brands-scroll"
+      class="news-all-scroll"
       scroll-y
       :style="{ paddingTop: navInsetPx + 'px' }"
+      :scroll-with-animation="true"
     >
       <view v-if="loading" class="state-wrap">
         <text class="state-text">加载中…</text>
@@ -13,26 +14,33 @@
       <view v-else-if="errorText" class="state-wrap">
         <text class="state-text">{{ errorText }}</text>
       </view>
-      <view v-else class="brands-inner">
-        <view v-if="!brands.length" class="state-wrap">
-          <text class="state-text">暂无合作伙伴内容</text>
+      <view v-else class="news-all-inner">
+        <view v-if="!list.length" class="state-wrap">
+          <text class="state-text">暂无新闻</text>
         </view>
-        <view v-else class="brand-grid">
+        <view v-else class="news-list">
           <view
-            v-for="brand in brands"
-            :key="brand.id"
-            class="brand-card"
-            @click="openPartnerArticle(brand)"
+            v-for="item in list"
+            :key="item.id"
+            class="news-card"
+            @click="openArticle(item)"
           >
-            <view class="brand-cover-area">
+            <view class="news-thumb">
               <image
-                :src="brand.logo || '/static/images/event-card.jpg'"
-                class="brand-cover-img"
+                :src="item.cover || '/static/images/event-card.jpg'"
+                class="news-thumb-img"
                 mode="aspectFill"
               />
             </view>
-            <text class="brand-name">{{ brand.name }}</text>
-            <text class="brand-desc">{{ brand.description }}</text>
+            <view class="news-content">
+              <text class="news-title">{{ item.title }}</text>
+              <text class="news-desc">{{ item.desc }}</text>
+            </view>
+            <image
+              src="/static/icons/arrow-right.svg"
+              class="news-arrow"
+              mode="aspectFit"
+            />
           </view>
         </view>
       </view>
@@ -46,7 +54,6 @@ import Cr7NavBar from "@/components/cr7-nav-bar/cr7-nav-bar.vue";
 import { getNavBarInsetPx } from "@/utils/navBar.js";
 import { HOME_TOPIC_IDS } from "@/config/home-topic-ids.js";
 import { fetchTopicWithArticles } from "@/services/topic.js";
-import { mapArticlesToPartnerBrands } from "@/utils/partner-articles.js";
 
 export default {
   components: { Cr7NavBar },
@@ -55,7 +62,7 @@ export default {
       navInsetPx: 0,
       loading: true,
       errorText: "",
-      brands: [],
+      list: [],
     };
   },
   onLoad() {
@@ -64,10 +71,10 @@ export default {
   },
   methods: {
     async loadList() {
-      const tid = String(HOME_TOPIC_IDS.brands || "").trim();
+      const tid = String(HOME_TOPIC_IDS.news || "").trim();
       if (!tid) {
         this.loading = false;
-        this.errorText = "未配置合作伙伴话题";
+        this.errorText = "未配置新闻话题";
         return;
       }
       this.loading = true;
@@ -75,7 +82,15 @@ export default {
       try {
         const topic = await fetchTopicWithArticles(tid);
         const articles = Array.isArray(topic?.articles) ? topic.articles : [];
-        this.brands = mapArticlesToPartnerBrands(articles);
+        this.list = articles.map((a) => {
+          const title = a.title || "";
+          return {
+            id: a.id,
+            cover: a.cover_url || "",
+            title,
+            desc: title,
+          };
+        });
       } catch (e) {
         const msg =
           e?.data?.message ||
@@ -83,15 +98,15 @@ export default {
           (typeof e?.message === "string" ? e.message : "") ||
           "加载失败";
         this.errorText = msg;
-        this.brands = [];
+        this.list = [];
       } finally {
         this.loading = false;
       }
     },
-    openPartnerArticle(brand) {
-      if (!brand?.id) return;
+    openArticle(item) {
+      if (!item?.id) return;
       uni.navigateTo({
-        url: `/pages/article-detail/article-detail?aid=${encodeURIComponent(brand.id)}`,
+        url: `/pages/article-detail/article-detail?aid=${encodeURIComponent(item.id)}`,
       });
     },
   },
@@ -101,12 +116,12 @@ export default {
 <style lang="scss" scoped>
 @import "@/uni.scss";
 
-.brands-page {
+.news-all-page {
   min-height: 100vh;
   background: $cr7-black;
 }
 
-.brands-scroll {
+.news-all-scroll {
   box-sizing: border-box;
   height: 100vh;
 }
@@ -122,69 +137,73 @@ export default {
   color: $text-disabled;
 }
 
-.brands-inner {
-  padding: 24rpx 36rpx 0;
+.news-all-inner {
+  padding: 35rpx 35rpx 0;
   box-sizing: border-box;
 }
 
-.brand-grid {
+.news-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 24rpx;
 }
 
-.brand-card {
-  width: calc((100% - 24rpx) / 2);
-  max-width: 328rpx;
-  height: 300rpx;
+.news-card {
+  display: flex;
+  align-items: center;
+  height: 170rpx;
   background: $cr7-dark;
   border-radius: 28rpx;
   padding: 14rpx;
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 }
 
-.brand-cover-area {
-  width: 100%;
-  height: 163rpx;
-  background: $cr7-card;
+.news-thumb {
+  width: 189rpx;
+  height: 142rpx;
   border-radius: 17rpx;
   overflow: hidden;
   flex-shrink: 0;
-  margin-bottom: 21rpx;
+  margin-right: 21rpx;
+  border: 1rpx solid $cr7-border;
 }
 
-.brand-cover-img {
+.news-thumb-img {
   width: 100%;
   height: 100%;
 }
 
-.brand-name {
-  display: block;
-  font-size: 30rpx;
+.news-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7rpx;
+}
+
+.news-title {
+  font-size: 29rpx;
   font-weight: 500;
   color: $text-white;
-  text-align: center;
   line-height: 42rpx;
-  margin-bottom: 2rpx;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  width: 100%;
 }
 
-.brand-desc {
-  display: block;
+.news-desc {
   font-size: 24rpx;
-  color: $text-light;
-  text-align: center;
+  color: $text-disabled;
   line-height: 38rpx;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  width: 100%;
+}
+
+.news-arrow {
+  width: 42rpx;
+  height: 42rpx;
+  flex-shrink: 0;
 }
 
 .safe-bottom {

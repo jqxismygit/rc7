@@ -111,7 +111,10 @@
     {
       "path": "pages/brands/brands",
       "style": {
-        "navigationBarTitleText": "合作伙伴"
+        "navigationBarTitleText": "合作伙伴",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#090a07",
+        "backgroundColor": "#090a07"
       }
     },
     {
@@ -147,6 +150,24 @@
       "path": "pages/third-ticket-sync/third-ticket-sync",
       "style": {
         "navigationBarTitleText": "三方票同步",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#090a07",
+        "backgroundColor": "#090a07"
+      }
+    },
+    {
+      "path": "pages/article-detail/article-detail",
+      "style": {
+        "navigationBarTitleText": "文章",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#090a07",
+        "backgroundColor": "#090a07"
+      }
+    },
+    {
+      "path": "pages/news-all/news-all",
+      "style": {
+        "navigationBarTitleText": "全部新闻",
         "navigationStyle": "custom",
         "navigationBarBackgroundColor": "#090a07",
         "backgroundColor": "#090a07"

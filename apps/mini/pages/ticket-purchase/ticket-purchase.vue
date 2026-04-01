@@ -944,7 +944,7 @@ export default {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  padding: 0 12rpx;
+  padding: 0 14rpx;
   overflow: visible;
 }
 
@@ -970,6 +970,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 9rpx;
 }
 
 .chip-icon {
@@ -984,12 +985,12 @@ export default {
   line-height: 24rpx;
   color: $text-white;
   font-weight: 400;
-  margin-left: 9rpx;
 }
 
 .chip-sub {
-  margin-left: 4rpx;
+  margin-left: 9rpx;
   font-size: 24rpx;
+  line-height: 24rpx;
   color: $text-white;
   font-weight: 400;
 }

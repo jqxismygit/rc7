@@ -33,17 +33,13 @@ function normalizeNullableText(value?: string | null): string | null | undefined
 async function saveUploadAsWebp(
   fileStream: NodeJS.ReadableStream,
   dataDir: string,
-  baseUrl: string,
+  baseUrl: string
 ): Promise<{ url: string }> {
   const name = `${randomUUID()}.webp`;
   const target = path.join(dataDir, name);
 
   try {
-    await pipeline(
-      fileStream,
-      sharp().webp(),
-      fs.createWriteStream(target),
-    );
+    await pipeline(fileStream, sharp().webp(), fs.createWriteStream(target));
   } catch {
     throw new MoleculerClientError('文件格式不支持', 400, 'IMAGE_INVALID_TYPE');
   }
