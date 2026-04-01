@@ -1,4 +1,4 @@
-import { Context, ServiceSchema } from "moleculer";
+import { Context, Errors, ServiceSchema } from "moleculer";
 import type { Exhibition } from "@cr7/types";
 import {
   createExhibition,
@@ -17,6 +17,18 @@ import {
 } from "../data/exhibition.js";
 import { handleExhibitionError } from './errors.js';
 import { RC7BaseService } from "./cr7.base.js";
+
+const { MoleculerClientError } = Errors;
+
+const EXHIBITION_UPDATE_FIELDS = [
+  'name',
+  'description',
+  'opening_time',
+  'closing_time',
+  'last_entry_time',
+  'location',
+  'cover_url',
+] as const;
 
 interface UserMeta {
   uid: string;
@@ -267,6 +279,16 @@ export class ExhibitionService extends RC7BaseService {
     ctx: Context<{ eid: string } & Exhibition.ExhibitionPatch, { user: UserMeta }>
   ) {
     const { eid, ...patch } = ctx.params;
+
+    if ('start_date' in patch || 'end_date' in patch) {
+      throw new MoleculerClientError('参数不合法', 400, 'INVALID_ARGUMENT');
+    }
+
+
+    if (EXHIBITION_UPDATE_FIELDS.every(field => Object.hasOwn(patch, field) === false)) {
+      throw new MoleculerClientError('参数不合法', 400, 'INVALID_ARGUMENT');
+    }
+
     const client = this.pool;
     const schema = await this.getSchema();
 

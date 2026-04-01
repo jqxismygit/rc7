@@ -27,7 +27,7 @@ import {
   assertTicketCategory,
 } from './fixtures/exhibition.js';
 import { registerUser, prepareAdminToken } from './fixtures/user.js';
-import { APIError } from './lib/api.js';
+import { APIError, assertAPIError, patchJSON } from './lib/api.js';
 
 const schema = 'test_exhibition';
 const services = ['api', 'cr7', 'user'];
@@ -83,6 +83,8 @@ type NonAdminCreateScenarioContext = PermissionErrorContext & DraftExhibitionCon
 type NonAdminAddTicketScenarioContext = PermissionErrorContext & ExhibitionContext & DraftTicketContext & {
   regularUserToken?: string;
 };
+
+type UpdateExhibitionValidationScenarioContext = ExhibitionContext & PermissionErrorContext;
 
 interface ScenarioContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
@@ -716,4 +718,81 @@ describeFeature(feature, ({
           });
         }
       );
+
+    Scenario(
+      '更新展览时必须至少提供一个参数',
+      (s: StepTest<UpdateExhibitionValidationScenarioContext>) => {
+        const { Given, When, Then, context } = s;
+
+        Given('已创建展览', async () => {
+          const { apiServer } = scenarioContext.fixtures.values;
+          const [exhibition] = await createExhibitions(apiServer, scenarioContext.adminToken, 1);
+          Object.assign(context, { exhibition });
+        });
+
+        When('不提供任何参数更新展览', async () => {
+          const { apiServer } = scenarioContext.fixtures.values;
+
+          try {
+            await updateExhibition(
+              apiServer,
+              scenarioContext.adminToken,
+              requireExhibition(context).id,
+              {},
+            );
+          } catch (error) {
+            rememberError(context, error);
+          }
+        });
+
+        Then('返回参数不合法错误', () => {
+          assertAPIError(context.lastError, {
+            status: 400,
+            method: 'PATCH',
+            messageIncludes: '参数不合法',
+          });
+        });
+      }
+    );
+
+    Scenario(
+      '更新展览时不能修改开始和结束日期',
+      (s: StepTest<UpdateExhibitionValidationScenarioContext>) => {
+        const { Given, When, Then, context } = s;
+
+        Given('已创建展览', async () => {
+          const { apiServer } = scenarioContext.fixtures.values;
+          const [exhibition] = await createExhibitions(apiServer, scenarioContext.adminToken, 1);
+          Object.assign(context, { exhibition });
+        });
+
+        When('尝试更新展览开始和结束日期', async () => {
+          const { apiServer } = scenarioContext.fixtures.values;
+
+          try {
+            await patchJSON<Exhibition.Exhibition>(
+              apiServer,
+              `/exhibition/${requireExhibition(context).id}`,
+              {
+                token: scenarioContext.adminToken,
+                body: {
+                  start_date: toDateLabel('5天后'),
+                  end_date: toDateLabel('66天后'),
+                },
+              },
+            );
+          } catch (error) {
+            rememberError(context, error);
+          }
+        });
+
+        Then('返回参数不合法错误', () => {
+          assertAPIError(context.lastError, {
+            status: 400,
+            method: 'PATCH',
+            messageIncludes: '参数不合法',
+          });
+        });
+      }
+    );
   });

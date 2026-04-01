@@ -94,6 +94,16 @@ Feature: manage exhibition
      When 更新展览信息
      Then 展览描述更新成功
 
+  Scenario: 更新展览时必须至少提供一个参数
+    Given 已创建展览
+     When 不提供任何参数更新展览
+     Then 返回参数不合法错误
+
+  Scenario: 更新展览时不能修改开始和结束日期
+    Given 已创建展览
+     When 尝试更新展览开始和结束日期
+     Then 返回参数不合法错误
+
 # todo
 # - 更新 exhibition 基本信息
 # - 更新 ticket category
