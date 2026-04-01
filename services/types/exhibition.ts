@@ -8,9 +8,27 @@ export interface Exhibition {
   closing_time: string;
   last_entry_time: string;
   location: string;
+  cover_url?: string | null;
   created_at: Date;
   updated_at: Date;
 }
+
+export type ExhibitionDraft = Partial<Pick<Exhibition,
+  'name' |
+  'description' |
+  'start_date' |
+  'end_date' |
+  'opening_time' |
+  'closing_time' |
+  'last_entry_time' |
+  'location' |
+  'cover_url'
+>>;
+
+export type ExhibitionPatch = Partial<Omit<ExhibitionDraft,
+  'start_date' |
+  'end_date'
+>>;
 
 export interface TicketCategory {
   id: string;
