@@ -68,7 +68,3 @@ export interface TopicListResult {
 export interface ArticleWithTopic extends Article {
   topic: Pick<Topic, "id" | "title">;
 }
-
-export interface UploadedImage {
-  url: string;
-}

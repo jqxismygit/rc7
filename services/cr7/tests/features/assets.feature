@@ -12,8 +12,7 @@ Feature: Assets
      And 图片 URL 的后缀是 ".webp"
 
   Scenario: 管理员可以上传视频
-    When 管理员上传视频
-     And 视频文件名为 "test_video.mp4"
-    Then 视频上传成功
-     And 视频 URL 的前缀是配置中的 assets.base_url
-     And 视频 URL 的后缀是 ".mp4"
+    Given 已准备视频文件 "test_video.mp4"
+     When 视频上传成功
+     Then 视频 URL 的前缀是配置中的 assets.base_url
+      And 视频 URL 的后缀是 ".mp4"

@@ -10,8 +10,7 @@ import {
 import config from 'config';
 import sharp from 'sharp';
 import { expect, vi } from 'vitest';
-import type { Topic } from '@cr7/types';
-import { uploadImage } from './fixtures/assets.js';
+import { uploadImage, uploadVideo } from './fixtures/assets.js';
 import { services_fixtures } from './fixtures/services.js';
 import { prepareAdminToken } from './fixtures/user.js';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
@@ -21,10 +20,8 @@ const schema = 'test_assets';
 const services = ['api', 'cr7', 'user'];
 const feature = await loadFeature('tests/features/assets.feature');
 
-type AssetsScenarioContext = {
-  uploadedImage?: Topic.UploadedImage;
-  uploadFileName?: string;
-};
+
+
 
 interface FeatureContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
@@ -58,7 +55,11 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('管理员可以上传图片', (s: StepTest<AssetsScenarioContext>) => {
+  type ImageScenarioContext = {
+    uploadedImage: { url: string };
+    uploadFileName: string;
+  };
+  Scenario('管理员可以上传图片', (s: StepTest<ImageScenarioContext>) => {
     const { When, And, Then, context } = s;
 
     When('管理员上传图片', async () => {
@@ -92,6 +93,38 @@ describeFeature(feature, ({
       expect(context.uploadedImage?.url?.endsWith(suffix)).toBe(true);
 
       const uploadedUrl = new URL(context.uploadedImage!.url);
+      const filePath = path.resolve(config.assets.path, path.basename(uploadedUrl.pathname));
+      await fs.unlink(filePath).catch(() => undefined);
+    });
+  });
+
+  type VideoScenarioContext = {
+    filePath: string;
+    uploadedVideo: { url: string };
+    uploadVideoFileName: string;
+  };
+  Scenario('管理员可以上传视频', (s: StepTest<VideoScenarioContext>) => {
+    const { Given, When, And, Then, context } = s;
+
+    Given('已准备视频文件 {string}', async (_ctx, fileName: string) => {
+      context.filePath = path.resolve(__dirname, './fixtures/assets', fileName);
+    });
+
+    When('视频上传成功', async () => {
+      const { fixtures, adminToken } = featureContext;
+      const { apiServer } = fixtures.values;
+      const { filePath } = context;
+      context.uploadedVideo = await uploadVideo(apiServer, adminToken, filePath);
+    });
+
+    Then('视频 URL 的前缀是配置中的 assets.base_url', () => {
+      expect(context.uploadedVideo?.url?.startsWith(`${config.assets.base_url}/`)).toBe(true);
+    });
+
+    And('视频 URL 的后缀是 {string}', async (_ctx, suffix: string) => {
+      expect(context.uploadedVideo?.url?.endsWith(suffix)).toBe(true);
+
+      const uploadedUrl = new URL(context.uploadedVideo!.url);
       const filePath = path.resolve(config.assets.path, path.basename(uploadedUrl.pathname));
       await fs.unlink(filePath).catch(() => undefined);
     });

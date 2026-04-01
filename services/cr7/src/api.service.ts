@@ -206,12 +206,16 @@ const routes = [
   ),
   routeConfig(
     '/assets',
-    ['cr7.assets.uploadImage'],
+    ['cr7.assets.uploadImage', 'cr7.assets.uploadVideo'],
     {
       aliases: {
         'POST /images': {
           type: 'stream',
           action: 'cr7.assets.uploadImage',
+        },
+        'POST /videos': {
+          type: 'stream',
+          action: 'cr7.assets.uploadVideo',
         },
       }
     }
