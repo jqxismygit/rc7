@@ -15,7 +15,7 @@ import { toDateLabel } from './lib/relative-date.js';
 import { services_fixtures } from './fixtures/services.js';
 import { getSessions, prepareExhibition, prepareTicketCategory } from './fixtures/exhibition.js';
 import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
-import { getOrder, listOrdersAdmin } from './fixtures/order.js';
+import { getOrder, getOrderAdmin } from './fixtures/order.js';
 import {
   assertCtripFailureResponse,
   assertCtripSuccessResponse,
@@ -474,7 +474,7 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario.skip('携程重复发送同一个订单', (s: StepTest<
+  Scenario('携程重复发送同一个订单', (s: StepTest<
     DraftOrderContext
     & CallbackContext
     & OrderResultContext
@@ -520,20 +520,21 @@ describeFeature(feature, ({
         const { fixtures, adminToken } = featureContext;
         const apiServer = fixtures.values.apiServer;
         const orderId = context.decryptedResponseBody?.supplierOrderId;
-        expect(orderId).toEqual(featureContext.order.id);
-        const order = await getOrder(apiServer, orderId!, adminToken);
-        expect(order.status).toEqual(featureContext.order.status);
+        expect(orderId).toEqual(featureContext.order?.id);
+        const order = await getOrderAdmin(apiServer, orderId!, adminToken);
+        expect(order.status).toEqual(featureContext.order?.status);
         context.order = order;
     });
 
     And('订单的用户账号不变', async () => {
-      expect(context.order.user_id).toEqual(featureContext.order.user_id);
+      expect(context.order.user_id).toEqual(featureContext.order?.user_id);
     });
 
     Then('cr7 系统再次按照携程的要求返回订单创建成功的响应', () => {
-      assertCtripSuccessResponse(context.callbackResponse!);
-      expect(context.decryptedResponseBody?.otaOrderId).toEqual(context.draftOrder.otaOrderId);
-      expect(context.decryptedResponseBody?.supplierOrderId).toEqual(context.order?.id);
+      const { callbackResponse, decryptedResponseBody } = context;
+      assertCtripSuccessResponse(callbackResponse!);
+      expect(decryptedResponseBody?.otaOrderId).toEqual(context.draftOrder.otaOrderId);
+      expect(decryptedResponseBody?.supplierOrderId).toEqual(context.order?.id);
     });
   });
 
