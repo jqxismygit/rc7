@@ -92,8 +92,6 @@ export interface CtripOrderNotificationOptions {
   aesIv: string;
   serviceName?: Xiecheng.XcOrderServiceName;
   body: Xiecheng.XcCreatePreOrderBody | Xiecheng.XcQueryOrderBody;
-  /** Optionally tamper with body to test failure scenarios */
-  tamperBody?: boolean;
 }
 
 export function buildCtripOrderNotification(
@@ -102,12 +100,7 @@ export function buildCtripOrderNotification(
   const serviceName = options.serviceName ?? 'CreatePreOrder';
   const plainBody = JSON.stringify(options.body);
 
-  let encryptedBody: string;
-  if (options.tamperBody) {
-    encryptedBody = 'tampered_body_string_that_cannot_be_decrypted';
-  } else {
-    encryptedBody = encryptXieChengBody(plainBody, options.aesKey, options.aesIv);
-  }
+  const encryptedBody = encryptXieChengBody(plainBody, options.aesKey, options.aesIv);
 
   const { sign, requestTime, version } = buildXieChengSign(encryptedBody, {
     accountId: options.accountId,

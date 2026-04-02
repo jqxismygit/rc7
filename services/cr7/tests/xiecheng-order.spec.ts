@@ -1,3 +1,4 @@
+import _ from 'lodash';
 import config from 'config';
 import {
   describeFeature,
@@ -41,6 +42,12 @@ interface AdminUserContext {
   adminToken: string;
 }
 
+interface DraftOrderContext {
+  notification?: Xiecheng.XcEncryptedOrderNotification;
+  serviceName?: Xiecheng.XcOrderServiceName;
+  draftOrder?: Xiecheng.XcCreatePreOrderBody;
+}
+
 interface CallbackContext {
   callbackResponse?: Xiecheng.XcEncryptedOrderResponse;
   decryptedResponseBody?: Xiecheng.XcCreatePreOrderSuccessBody | null;
@@ -60,18 +67,12 @@ type OrderResultContext = {
 interface FeatureContext extends
   AdminUserContext,
   ExhibitionContext,
+  DraftOrderContext,
   CallbackContext,
   OrderResultContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer' | 'broker'>;
-  draftOrder?: DraftOrderContext;
   externalIdSuffix?: string;
 }
-
-type DraftOrderContext = {
-  serviceName: Xiecheng.XcOrderServiceName;
-  body: Xiecheng.XcCreatePreOrderBody;
-};
-
 
 type UserSessionContext = {
   userProfile?: User.Profile;
@@ -114,7 +115,6 @@ function toScenarioScopedId(featureContext: FeatureContext, rawValue: string): s
 async function submitCtripOrder(
   featureContext: FeatureContext,
   scenarioContext: CallbackContext & ErrorContext,
-  options: { tamperBody?: boolean } = {},
 ) {
   expect(featureContext.draftOrder).toBeTruthy();
 
@@ -123,9 +123,8 @@ async function submitCtripOrder(
     signKey: config.xiecheng.secret,
     aesKey: config.xiecheng.aes_key,
     aesIv: config.xiecheng.aes_iv,
-    serviceName: featureContext.draftOrder!.serviceName,
-    body: featureContext.draftOrder!.body,
-    tamperBody: options.tamperBody,
+    serviceName: 'CreatePreOrder',
+    body: featureContext.draftOrder!
   });
 
   try {
@@ -311,25 +310,22 @@ describeFeature(feature, ({
     Given('用户在携程上创建了一个订单', () => {
       featureContext.externalIdSuffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       featureContext.draftOrder = {
-        serviceName: 'CreatePreOrder',
-        body: {
-          sequenceId: `xc_seq_${Date.now()}`,
-          otaOrderId: `xc_order_${Date.now()}`,
-          contacts: [{}],
-          items: [{
-            PLU: '',
-            useStartDate: toDateLabel('今天'),
-            useEndDate: toDateLabel('今天'),
-            quantity: 1,
-            price: 0,
-          }],
-        },
+        sequenceId: `xc_seq_${Date.now()}`,
+        otaOrderId: `xc_order_${Date.now()}`,
+        contacts: [{}],
+        items: [{
+          PLU: '',
+          useStartDate: toDateLabel('今天'),
+          useEndDate: toDateLabel('今天'),
+          quantity: 1,
+          price: 0,
+        }]
       };
     });
 
     And('携程订单的包含 {string} {int} 张，场次时间为 {string}', (_ctx, ticketName: string, quantity: number, dateLabel: string) => {
       const ticket = getTicketByName(featureContext, ticketName);
-      featureContext.draftOrder!.body.items = [{
+      featureContext.draftOrder!.items = [{
         PLU: ticket.id,
         useStartDate: toDateLabel(dateLabel),
         useEndDate: toDateLabel(dateLabel),
@@ -340,68 +336,71 @@ describeFeature(feature, ({
 
     And('携程订单的总价为 {string} 的价格', (_ctx, ticketName: string) => {
       const ticket = getTicketByName(featureContext, ticketName);
-      featureContext.draftOrder!.body.items[0].price = ticket.price;
+      featureContext.draftOrder!.items[0].price = ticket.price;
     });
 
     And('携程订单的购买人姓名是 {string}', (_ctx, name: string) => {
-      featureContext.draftOrder!.body.contacts = [{
-        ...featureContext.draftOrder!.body.contacts[0],
+      featureContext.draftOrder!.contacts = [{
+        ...featureContext.draftOrder!.contacts[0],
         name,
       }];
     });
 
     And('携程订单的购买人手机号是 {string}，国别码为 {string}', (_ctx, phone: string, countryCode: string) => {
-      featureContext.draftOrder!.body.contacts = [{
-        ...featureContext.draftOrder!.body.contacts[0],
+      featureContext.draftOrder!.contacts = [{
+        ...featureContext.draftOrder!.contacts[0],
         mobile: phone,
         intlCode: countryCode,
       }];
     });
 
     And('携程订单信息中的 service name 是 {string}', (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
-      featureContext.draftOrder!.serviceName = serviceName;
+      featureContext.serviceName = serviceName;
     });
 
     And('携程订单中的 PLU id 是 cr7 系统中 {string} 的 ID', (_ctx, ticketName: string) => {
       const ticket = getTicketByName(featureContext, ticketName);
-      featureContext.draftOrder!.body.items[0].PLU = ticket.id;
+      featureContext.draftOrder!.items[0].PLU = ticket.id;
     });
 
     And('携程订单号是 {string}', (_ctx, otaOrderId: string) => {
-      featureContext.draftOrder!.body.otaOrderId = toScenarioScopedId(featureContext, otaOrderId);
+      featureContext.draftOrder!.otaOrderId = toScenarioScopedId(featureContext, otaOrderId);
     });
 
     And('携程 sequence id 是 {string}', (_ctx, sequenceId: string) => {
-      featureContext.draftOrder!.body.sequenceId = toScenarioScopedId(featureContext, sequenceId);
+      featureContext.draftOrder!.sequenceId = toScenarioScopedId(featureContext, sequenceId);
     });
   });
 
   defineSteps(({ When, Then, And }) => {
-    When('用户提交订单', async () => {
-      const apiServer = featureContext.fixtures.values.apiServer;
-      const notification = buildCtripOrderNotification({
+    When('用户提交订单', () => {
+      const { draftOrder, serviceName } = featureContext;
+      featureContext.notification = buildCtripOrderNotification({
         accountId: config.xiecheng.account_id,
         signKey: config.xiecheng.secret,
         aesKey: config.xiecheng.aes_key,
         aesIv: config.xiecheng.aes_iv,
-        serviceName: featureContext.draftOrder!.serviceName,
-        body: featureContext.draftOrder!.body,
+        serviceName,
+        body: draftOrder!,
       });
-      featureContext.callbackResponse = await sendCtripOrderCallback(
-        apiServer,
-        notification,
-      );
     });
 
     Then('cr7 系统收到订单创建通知', async () => {
-      expect(featureContext.callbackResponse).toBeTruthy();
+      const { notification, fixtures } = featureContext;
+      const apiServer = fixtures.values.apiServer;
+
+      featureContext.callbackResponse = await sendCtripOrderCallback(
+        apiServer,
+        notification!
+      );
     });
 
     And('订单信息可以正常解密', async () => {
+      const { callbackResponse } = featureContext;
       featureContext.decryptedResponseBody = decryptCtripResponseBody<
         Xiecheng.XcCreatePreOrderSuccessBody
       >(
-        featureContext.callbackResponse,
+        callbackResponse!,
         config.xiecheng.aes_key,
         config.xiecheng.aes_iv,
       );
@@ -416,12 +415,12 @@ describeFeature(feature, ({
 
       const apiServer = fixtures.values.apiServer;
       const orderId = decryptedResponseBody?.supplierOrderId;
-      const records = await getCtripOrderSyncRecords(apiServer, adminToken, orderId);
+      const records = await getCtripOrderSyncRecords(apiServer, adminToken, orderId!);
       expect(records.length).toBeGreaterThan(0);
       const userId = records[0].user_id;
       const userToken = await suUserToken(apiServer, adminToken, userId!);
       featureContext.orderUserToken = userToken;
-      featureContext.order = await getOrder(apiServer, orderId, userToken);
+      featureContext.order = await getOrder(apiServer, orderId!, userToken);
     });
 
     Then(
@@ -434,127 +433,118 @@ describeFeature(feature, ({
         expect(userProfile.name).toBe(userName);
         expect(userProfile.phone).toBe(`${countryCode} ${phone}`);
     });
+
+    Then('cr7 系统按照携程的要求返回订单创建成功的响应', () => {
+      const { callbackResponse, decryptedResponseBody, draftOrder, order } = featureContext;
+      assertCtripSuccessResponse(callbackResponse!);
+      expect(decryptedResponseBody?.otaOrderId).toBe(draftOrder?.otaOrderId);
+      expect(decryptedResponseBody?.supplierOrderId).toBe(order?.id);
+    });
   });
 
   Scenario('用户从携程下单购买门票', (s: StepTest<
     CallbackContext & SyncRecordContext & UserSessionContext & OrderResultContext
   >) => {
-    const { Then, And } = s;
+    const { And } = s;
 
     And('订单应包含 {string} {int} 张，场次时间为 {string}',
       (_ctx, ticketName: string, quantity: number, dateLabel: string) => {
-      const ticket = getTicketByName(featureContext, ticketName);
-      const session = getSessionByDate(featureContext.sessions, dateLabel);
-      expect(featureContext.order.items).toHaveLength(1);
-      expect(featureContext.order.items[0].ticket_category_id).toBe(ticket.id);
-      expect(featureContext.order.items[0].quantity).toBe(quantity);
-      expect(featureContext.order.session_id).toBe(session.id);
+        const { order } = featureContext;
+        const ticket = getTicketByName(featureContext, ticketName);
+        const session = getSessionByDate(featureContext.sessions, dateLabel);
+        expect(order?.items).toHaveLength(1);
+        expect(order?.items[0].ticket_category_id).toBe(ticket.id);
+        expect(order?.items[0].quantity).toBe(quantity);
+        expect(order?.session_id).toBe(session.id);
     });
 
     And('订单总价应为 {string} 的价格', (_ctx, ticketName: string) => {
-      expect(featureContext.order.total_amount).toBe(getTicketByName(featureContext, ticketName).price);
+      const { order } = featureContext;
+      const ticket = getTicketByName(featureContext, ticketName);
+      expect(order?.total_amount).toBe(ticket.price);
     });
 
     And('订单状态为 {string}', (_ctx, statusLabel: string) => {
       expect(statusLabel).toBe('待支付');
-      expect(featureContext.order.status).toBe('PENDING_PAYMENT');
+      const { order } = featureContext;
+      expect(order?.status).toBe('PENDING_PAYMENT');
     });
 
-    And('订单的来源是 {string}', (_ctx, sourceLabel: string) => {
-      expect(sourceLabel).toBe('携程');
-      expect(featureContext.order.source).toBe('CTRIP');
+    And('订单的来源是携程', () => {
+      const { order } = featureContext;
+      expect(order?.source).toBe('CTRIP');
     });
 
     And('订单的购买人姓名是 {string}', (_ctx, userName: string) => {
       expect(featureContext.orderUserProfile?.name).toBe(userName);
     });
-
-    Then('cr7 系统按照携程的要求返回订单创建成功的响应', () => {
-      assertCtripSuccessResponse(featureContext.callbackResponse!);
-      expect(featureContext.decryptedResponseBody?.otaOrderId).toBe(featureContext.draftOrder?.body.otaOrderId);
-      expect(featureContext.decryptedResponseBody?.supplierOrderId).toBe(featureContext.order?.id);
-    });
   });
 
   Scenario.skip('携程重复发送同一个订单', (s: StepTest<
-    SyncRecordContext & UserSessionContext & OrderResultContext & OrderListContext
+    DraftOrderContext
+    & CallbackContext
+    & OrderResultContext
+    & OrderListContext
   >) => {
     const { When, Then, And, context } = s;
 
-    Then('cr7 创建了一个订单', async () => {
-      await fetchOrderSyncRecordsByOtaOrderId(featureContext, context, featureContext.draftOrder!.body.otaOrderId);
-      await fetchOrderByRecord(featureContext, context);
-      expect(context.order).toBeTruthy();
-      context.firstRecord = context.latestRecord;
+    When('携程重复发送同样的订单创建请求', async () => {
+      context.draftOrder = _.cloneDeep(featureContext.draftOrder);
     });
 
-    Then(
-      'cr7 新整增加了用户 {string} 的账号, 手机号是 {string}，国别码为 {string}',
-      async (_ctx, userName: string, phone: string, countryCode: string) => {
-      await fetchUserProfileByRecord(featureContext, context);
-      expect(context.userProfile?.name).toBe(userName);
-      expect(context.userProfile?.phone).toBe(`${countryCode} ${phone}`);
+    And('携程订单号是 {string}', (_ctx, otaOrderId: string) => {
+      context.draftOrder!.otaOrderId = toScenarioScopedId(featureContext, otaOrderId);
     });
 
+    And('携程 sequence id 是 {string}', async (_ctx, sequenceId: string) => {
+      context.draftOrder!.sequenceId = toScenarioScopedId(featureContext, sequenceId);
+    });
 
     Then('cr7 系统再次收到订单创建通知', async () => {
-      expect(featureContext.callbackResponse).toBeTruthy();
-      await fetchOrderSyncRecordsByOtaOrderId(featureContext, context, featureContext.draftOrder!.body.otaOrderId);
+      const { fixtures } = featureContext;
+      const apiServer = fixtures.values.apiServer;
+      const notification = buildCtripOrderNotification({
+        accountId: config.xiecheng.account_id,
+        signKey: config.xiecheng.secret,
+        aesKey: config.xiecheng.aes_key,
+        aesIv: config.xiecheng.aes_iv,
+        serviceName: featureContext.serviceName,
+        body: featureContext.draftOrder,
+      });
+      context.callbackResponse = await sendCtripOrderCallback(
+        apiServer,
+        notification
+      );
     });
 
-    And('再次收到的订单信息可以正常解密', () => {
-      expect(featureContext.decryptedResponseBody).toBeTruthy();
-      expect(context.latestRecord?.request_body).toEqual(featureContext.draftOrder?.body);
+    And('再次收到的订单信息可以正常解密', async () => {
+      context.decryptedResponseBody = decryptCtripResponseBody<
+        Xiecheng.XcCreatePreOrderSuccessBody
+      >(
+        context.callbackResponse,
+        config.xiecheng.aes_key,
+        config.xiecheng.aes_iv,
+      );
     });
 
-    Then('cr7 系统按照携程的要求返回订单创建成功的响应', () => {
-      assertCtripSuccessResponse(featureContext.callbackResponse!);
-      expect(featureContext.decryptedResponseBody?.otaOrderId).toBe(featureContext.draftOrder?.body.otaOrderId);
-      expect(featureContext.decryptedResponseBody?.supplierOrderId).toBe(context.latestRecord?.order_id);
+    Then('cr7 系统只有一个订单, cr7 订单号不变, 订单状态不变', async () => {
+        const { fixtures, adminToken } = featureContext;
+        const apiServer = fixtures.values.apiServer;
+        const orderId = context.decryptedResponseBody?.supplierOrderId;
+        expect(orderId).toEqual(featureContext.order.id);
+        const order = await getOrder(apiServer, orderId!, adminToken);
+        expect(order.status).toEqual(featureContext.order.status);
+        context.order = order;
+    });
+
+    And('订单的用户账号不变', async () => {
+      expect(context.order.user_id).toEqual(featureContext.order.user_id);
     });
 
     Then('cr7 系统再次按照携程的要求返回订单创建成功的响应', () => {
       assertCtripSuccessResponse(context.callbackResponse!);
-    });
-
-    When('携程重复发送同样的订单创建请求', async () => {
-      context.latestRecord = undefined;
-      context.callbackResponse = undefined;
-      context.decryptedResponseBody = undefined;
-    });
-
-    And('携程订单号是 {string}', (_ctx, otaOrderId: string) => {
-      featureContext.draftOrder!.body.otaOrderId = toScenarioScopedId(featureContext, otaOrderId);
-    });
-
-    And('携程 sequence id 是 {string}', async (_ctx, sequenceId: string) => {
-      featureContext.draftOrder!.body.sequenceId = toScenarioScopedId(featureContext, sequenceId);
-      await submitCtripOrder(featureContext, context);
-    });
-
-    Then('用户 {string} 只有一个账号', async (_ctx, userName: string) => {
-      await fetchOrderSyncRecordsByOtaOrderId(featureContext, context, featureContext.draftOrder!.body.otaOrderId);
-      expect(context.firstRecord?.user_id).toBe(context.latestRecord?.user_id);
-      await fetchUserProfileByRecord(featureContext, context);
-      expect(context.userProfile?.name).toBe(userName);
-    });
-
-    Then('cr7 系统只有一个订单，订单号是 {string}，订单状态为 {string}', async (_ctx, otaOrderId: string, statusLabel: string) => {
-      context.ordersAdmin = await listOrdersAdmin(
-        featureContext.fixtures.values.apiServer,
-        featureContext.adminToken,
-      );
-
-      const matchingOrders = context.ordersAdmin.orders.filter(
-        order => order.id === context.latestRecord?.order_id,
-      );
-
-      expect(matchingOrders).toHaveLength(1);
-      expect(statusLabel).toBe('待支付');
-      expect(matchingOrders[0].status).toBe('PENDING_PAYMENT');
-      expect(context.latestRecord?.ota_order_id).toBe(toScenarioScopedId(featureContext, otaOrderId));
-      expect(matchingOrders[0].id).toBe(context.firstRecord?.order_id);
-      expect(matchingOrders[0].id).toBe(context.latestRecord?.order_id);
+      expect(context.decryptedResponseBody?.otaOrderId).toEqual(context.draftOrder.otaOrderId);
+      expect(context.decryptedResponseBody?.supplierOrderId).toEqual(context.order?.id);
     });
   });
 
