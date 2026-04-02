@@ -149,15 +149,17 @@
   ```ts
   { Authorization: `Bearer ${token}` }
   ```
-- Request Query:
+- Query Parameters:
   ```ts
   {
-    phone?: string;
+    phone?: string;  // 可选，按手机号精确过滤
+    page?: number;   // 可选，页码，默认 1
+    limit?: number;  // 可选，每页数量，默认 20
   }
   ```
 - Response Body:
   ```ts
-  User.Profile[]
+  User.UserListResult
   ```
 - Response Status:
   - `200 OK`：查询成功
@@ -165,6 +167,7 @@
   - `403 Forbidden`：无权限（仅管理员可执行）
 
 - 说明：
-  - 不传 `phone` 时返回全部用户列表
+  - 不传 `phone` 时返回全部用户列表（分页）
   - 传 `phone` 时按手机号精确过滤，例如 `12345678901`
+  - `page` 和 `limit` 均可选，默认返回第 1 页，每页 20 条
   - 列表中的 `phone` 保持完整格式（如 `+86 12345678901`）

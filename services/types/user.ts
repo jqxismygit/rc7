@@ -24,3 +24,10 @@ export interface PhoneBinding {
   created_at: string;
   updated_at: string;
 }
+
+export interface UserListResult {
+  users: Profile[];
+  total: number;
+  page: number;
+  limit: number;
+}

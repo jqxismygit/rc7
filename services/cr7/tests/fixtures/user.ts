@@ -23,11 +23,15 @@ export function getUserProfile(server: Server, token: string) {
 export function getUserList(
   server: Server,
   token: string,
-  phone?: string,
+  query: {
+    phone?: string;
+    page?: number;
+    limit?: number;
+  } = {},
 ) {
-  return getJSON<User.Profile[]>(server, '/users', {
+  return getJSON<User.UserListResult>(server, '/users', {
     token,
-    query: phone ? { phone } : undefined,
+    query,
   });
 }
 

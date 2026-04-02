@@ -92,8 +92,9 @@ type GrantRoleResultContext = {
 };
 
 type UserListContext = {
-    userListResponse?: User.Profile[];
-    searchedUserListResponse?: User.Profile[];
+    userListResponse?: User.UserListResult;
+    searchedUserListResponse?: User.UserListResult;
+    pagedUserListResponse?: User.UserListResult;
 };
 
 function rememberError(context: ErrorContext, error: unknown) {
@@ -186,6 +187,13 @@ describeFeature(feature, ({
         return context.searchedUserListResponse!;
     }
 
+    function requirePagedUserListResponse(
+        context: Pick<UserListContext, 'pagedUserListResponse'>,
+    ) {
+        expect(context.pagedUserListResponse).toBeTruthy();
+        return context.pagedUserListResponse!;
+    }
+
     async function loginAdmin(
         context: AdminIdentityContext & AdminLoginContext,
         password: string,
@@ -258,7 +266,8 @@ describeFeature(feature, ({
             const { loginResponse } = context;
             const { values: { apiServer } } = scenarioContext.fixtures;
             assertLoginResponse(loginResponse);
-            const { token } = loginResponse;
+            expect(loginResponse).toBeTruthy();
+            const { token } = loginResponse!;
             const profile = await getUserProfile(apiServer, token);
             assertUserProfile(profile);
 
@@ -295,7 +304,8 @@ describeFeature(feature, ({
             const { values: { apiServer } } = scenarioContext.fixtures;
 
             assertLoginResponse(loginResponse);
-            const { token } = loginResponse;
+            expect(loginResponse).toBeTruthy();
+            const { token } = loginResponse!;
             const profile = await getUserProfile(apiServer, token);
             assertUserProfile(profile);
 
@@ -499,18 +509,33 @@ describeFeature(feature, ({
                 const userListResponse = await getUserList(
                     apiServer,
                     requireAdminLoginResponse(context).token,
+                    { page: 1, limit: 20 },
                 );
                 Object.assign(context, { userListResponse });
             });
 
+            Then('用户列表分页信息为 page {int}、limit {int}', (_ctx, page: number, limit: number) => {
+                const response = requireUserListResponse(context);
+                expect(response.page).toBe(page);
+                expect(response.limit).toBe(limit);
+                expect(response.total).toBeGreaterThan(0);
+            });
+
+            Then('分页查询返回 page {int}、limit {int}', (_ctx, page: number, limit: number) => {
+                const response = requirePagedUserListResponse(context);
+                expect(response.page).toBe(page);
+                expect(response.limit).toBe(limit);
+                expect(response.total).toBeGreaterThan(0);
+            });
+
             Then('获取成功，用户列表包含用户 {string}', (_ctx, userName: string) => {
-                const userList = requireUserListResponse(context);
+                const userList = requireUserListResponse(context).users;
                 expect(userList.length).toBeGreaterThan(0);
                 expect(userList.some(user => user.name === userName)).toBe(true);
             });
 
             And('{string} 的手机号为 {string} {string}', (_ctx, userName: string, countryCode: string, phone: string) => {
-                const userList = requireUserListResponse(context);
+                const userList = requireUserListResponse(context).users;
                 expect(
                     userList.some(
                         item => item.name === userName && item.phone === `${countryCode} ${phone}`,
@@ -523,22 +548,37 @@ describeFeature(feature, ({
                 const searchedUserListResponse = await getUserList(
                     apiServer,
                     requireAdminLoginResponse(context).token,
-                    phone,
+                    { phone },
                 );
                 Object.assign(context, { searchedUserListResponse });
             });
 
             Then('搜索成功，用户列表包含用户 {string}', (_ctx, userName: string) => {
-                const userList = requireSearchedUserListResponse(context);
+                const userList = requireSearchedUserListResponse(context).users;
                 expect(userList.length).toBeGreaterThan(0);
                 expect(userList.some(user => user.name === userName)).toBe(true);
             });
 
             And('搜索结果中 {string} 的手机号为 {string} {string}', (_ctx, userName: string, countryCode: string, phone: string) => {
-                const userList = requireSearchedUserListResponse(context);
+                const userList = requireSearchedUserListResponse(context).users;
                 const user = userList.find(item => item.name === userName);
                 expect(user).toBeTruthy();
                 expect(user?.phone).toBe(`${countryCode} ${phone}`);
+            });
+
+            When('管理员按 page {int}、limit {int} 获取用户列表', async (_ctx, page: number, limit: number) => {
+                const { apiServer } = scenarioContext.fixtures.values;
+                const pagedUserListResponse = await getUserList(
+                    apiServer,
+                    requireAdminLoginResponse(context).token,
+                    { page, limit },
+                );
+                Object.assign(context, { pagedUserListResponse, userListResponse: pagedUserListResponse });
+            });
+
+            And('分页结果数量不超过 {int}', (_ctx, maxSize: number) => {
+                const userList = requirePagedUserListResponse(context).users;
+                expect(userList.length).toBeLessThanOrEqual(maxSize);
             });
         }
     );

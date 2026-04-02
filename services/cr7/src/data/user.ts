@@ -91,9 +91,25 @@ export async function getUserProfile(
 export async function listUserProfiles(
   client: DBClient,
   schema: string,
-  phone?: string,
+  options: {
+    phone?: string;
+    page: number;
+    limit: number;
+  },
 ) {
-  const { rows } = await client.query(
+  const { phone, page, limit } = options;
+  const offset = (page - 1) * limit;
+
+  const { rows: countRows } = await client.query<{ total: string }>(
+    `SELECT COUNT(*)::text AS total
+    FROM ${schema}.users u
+    LEFT JOIN ${schema}.user_phone up ON u.id = up.uid
+    WHERE ($1::text IS NULL OR up.phone = $1)`,
+    [phone ?? null],
+  );
+  const total = parseInt(countRows[0].total, 10);
+
+  const { rows: users } = await client.query(
     `SELECT
       u.id,
       u.name,
@@ -118,11 +134,17 @@ export async function listUserProfiles(
     LEFT JOIN ${schema}.user_phone up ON u.id = up.uid
     LEFT JOIN ${schema}.user_password upw ON u.id = upw.uid
     WHERE ($1::text IS NULL OR up.phone = $1)
-    ORDER BY u.created_at DESC`,
-    [phone ?? null],
+      ORDER BY u.created_at DESC
+      LIMIT $2 OFFSET $3`,
+    [phone ?? null, limit, offset],
   );
 
-  return rows;
+  return {
+    users,
+    total,
+    page,
+    limit,
+  };
 }
 
 export async function getUserIdByPhone(

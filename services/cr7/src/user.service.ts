@@ -1,4 +1,4 @@
-import { Context, Errors, Service } from 'moleculer';
+import { Context, Errors, Service, ServiceBroker } from 'moleculer';
 import { Pool } from 'pg';
 import { jscode2session } from './libs/wechat.js';
 import {
@@ -23,7 +23,7 @@ const { MoleculerClientError } = Errors;
 export default class UserService extends Service {
   pool!: Pool;
 
-  constructor(broker) {
+  constructor(broker: ServiceBroker) {
     super(broker);
 
     this.parseServiceSchema({
@@ -89,6 +89,22 @@ export default class UserService extends Service {
             phone: {
               type: 'string',
               optional: true,
+            },
+            page: {
+              type: 'number',
+              integer: true,
+              positive: true,
+              optional: true,
+              default: 1,
+              convert: true,
+            },
+            limit: {
+              type: 'number',
+              integer: true,
+              positive: true,
+              optional: true,
+              default: 20,
+              convert: true,
             },
           },
           handler: this.list,
@@ -230,11 +246,11 @@ export default class UserService extends Service {
     return { role_names: roles.map(role => role.name) };
   }
 
-  async list(ctx: Context<{ phone?: string }>) {
+  async list(ctx: Context<{ phone?: string; page?: number; limit?: number }>) {
     const schema = await this.getSchema();
-    const { phone } = ctx.params;
+    const { phone, page = 1, limit = 20 } = ctx.params;
 
-    const users = await listUserProfiles(this.pool, schema, phone);
+    const users = await listUserProfiles(this.pool, schema, { phone, page, limit });
     return users;
   }
 
