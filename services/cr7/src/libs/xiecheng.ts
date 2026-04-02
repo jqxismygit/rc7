@@ -159,7 +159,8 @@ export function decryptXieChengBody(cipherTextBody: string, key: string, iv: str
 export function buildXieChengSign(body: string, options: XieChengSignOptions) {
 	const requestTime = options.requestTime ?? formatRequestTime();
 	const version = options.version ?? '1.0';
-	const message = `${options.accountId}${options.serviceName}${requestTime}${body}${version}${options.signKey}`;
+	const { accountId, serviceName, signKey } = options;
+	const message = `${accountId}${serviceName}${requestTime}${body}${version}${signKey}`;
 	const sign = createHash('md5').update(message, 'utf-8').digest('hex').toLowerCase();
 
 	return {

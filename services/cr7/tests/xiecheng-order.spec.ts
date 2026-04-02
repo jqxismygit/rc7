@@ -43,14 +43,14 @@ interface AdminUserContext {
 }
 
 interface DraftOrderContext {
-  notification?: Xiecheng.XcEncryptedOrderNotification;
-  serviceName?: Xiecheng.XcOrderServiceName;
-  draftOrder?: Xiecheng.XcCreatePreOrderBody;
+  notification: Xiecheng.XcEncryptedOrderNotification;
+  serviceName: Xiecheng.XcOrderServiceName;
+  draftOrder: Xiecheng.XcCreatePreOrderBody;
 }
 
 interface CallbackContext {
-  callbackResponse?: Xiecheng.XcEncryptedOrderResponse;
-  decryptedResponseBody?: Xiecheng.XcCreatePreOrderSuccessBody | null;
+  callbackResponse: Xiecheng.XcEncryptedOrderResponse;
+  decryptedResponseBody: Xiecheng.XcCreatePreOrderSuccessBody | null;
 }
 
 type SyncRecordContext = {
@@ -60,16 +60,16 @@ type SyncRecordContext = {
 };
 
 type OrderResultContext = {
-  order?: Order.OrderWithItems;
-  orderUserToken?: string;
-  orderUserProfile?: User.Profile;
+  order: Order.OrderWithItems;
+  orderUserToken: string;
+  orderUserProfile: User.Profile;
 };
 interface FeatureContext extends
   AdminUserContext,
   ExhibitionContext,
-  DraftOrderContext,
-  CallbackContext,
-  OrderResultContext {
+  Partial<DraftOrderContext>,
+  Partial<CallbackContext>,
+  Partial<OrderResultContext> {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer' | 'broker'>;
   externalIdSuffix?: string;
 }
@@ -116,20 +116,16 @@ async function submitCtripOrder(
   featureContext: FeatureContext,
   scenarioContext: CallbackContext & ErrorContext,
 ) {
-  expect(featureContext.draftOrder).toBeTruthy();
+  const { draftOrder, fixtures } = featureContext;
+  const apiServer = fixtures.values.apiServer;
 
-  const notification = buildCtripOrderNotification({
-    accountId: config.xiecheng.account_id,
-    signKey: config.xiecheng.secret,
-    aesKey: config.xiecheng.aes_key,
-    aesIv: config.xiecheng.aes_iv,
-    serviceName: 'CreatePreOrder',
-    body: featureContext.draftOrder!
-  });
+  const notification = buildCtripOrderNotification(
+    config.xiecheng, 'CreatePreOrder', draftOrder!
+  );
 
   try {
     scenarioContext.callbackResponse = await sendCtripOrderCallback(
-      featureContext.fixtures.values.apiServer,
+      apiServer,
       notification,
     );
     scenarioContext.decryptedResponseBody = decryptCtripResponseBody<
@@ -151,8 +147,9 @@ async function fetchOrderSyncRecordsByOtaOrderId(
   scenarioContext: SyncRecordContext,
   otaOrderId: string,
 ) {
+  const apiServer = featureContext.fixtures.values.apiServer;
   scenarioContext.records = await getCtripOrderSyncRecords(
-    featureContext.fixtures.values.apiServer,
+    apiServer,
     featureContext.adminToken,
     otaOrderId,
   );
@@ -167,15 +164,16 @@ async function fetchUserProfileByRecord(
   scenarioContext: SyncRecordContext & UserSessionContext,
 ) {
   expect(scenarioContext.latestRecord?.user_id).toBeTruthy();
+  const apiServer = featureContext.fixtures.values.apiServer;
 
   scenarioContext.userToken = await suUserToken(
-    featureContext.fixtures.values.apiServer,
+    apiServer,
     featureContext.adminToken,
     scenarioContext.latestRecord!.user_id!,
   );
 
   scenarioContext.userProfile = await getUserProfile(
-    featureContext.fixtures.values.apiServer,
+    apiServer,
     scenarioContext.userToken,
   );
 
@@ -375,14 +373,9 @@ describeFeature(feature, ({
   defineSteps(({ When, Then, And }) => {
     When('用户提交订单', () => {
       const { draftOrder, serviceName } = featureContext;
-      featureContext.notification = buildCtripOrderNotification({
-        accountId: config.xiecheng.account_id,
-        signKey: config.xiecheng.secret,
-        aesKey: config.xiecheng.aes_key,
-        aesIv: config.xiecheng.aes_iv,
-        serviceName,
-        body: draftOrder!,
-      });
+      featureContext.notification = buildCtripOrderNotification(
+        config.xiecheng, serviceName!, draftOrder!
+      );
     });
 
     Then('cr7 系统收到订单创建通知', async () => {
@@ -397,13 +390,15 @@ describeFeature(feature, ({
 
     And('订单信息可以正常解密', async () => {
       const { callbackResponse } = featureContext;
-      featureContext.decryptedResponseBody = decryptCtripResponseBody<
+      console.log({ callbackResponse });
+      const decryptedResponseBody = decryptCtripResponseBody<
         Xiecheng.XcCreatePreOrderSuccessBody
       >(
         callbackResponse!,
         config.xiecheng.aes_key,
         config.xiecheng.aes_iv,
       );
+      featureContext.decryptedResponseBody = decryptedResponseBody;
     });
 
     Then('cr7 创建了一个订单', async () => {
@@ -489,7 +484,7 @@ describeFeature(feature, ({
     const { When, Then, And, context } = s;
 
     When('携程重复发送同样的订单创建请求', async () => {
-      context.draftOrder = _.cloneDeep(featureContext.draftOrder);
+      context.draftOrder = _.cloneDeep(featureContext.draftOrder!);
     });
 
     And('携程订单号是 {string}', (_ctx, otaOrderId: string) => {
@@ -501,27 +496,22 @@ describeFeature(feature, ({
     });
 
     Then('cr7 系统再次收到订单创建通知', async () => {
-      const { fixtures } = featureContext;
+      const { fixtures, serviceName } = featureContext;
       const apiServer = fixtures.values.apiServer;
-      const notification = buildCtripOrderNotification({
-        accountId: config.xiecheng.account_id,
-        signKey: config.xiecheng.secret,
-        aesKey: config.xiecheng.aes_key,
-        aesIv: config.xiecheng.aes_iv,
-        serviceName: featureContext.serviceName,
-        body: featureContext.draftOrder,
-      });
-      context.callbackResponse = await sendCtripOrderCallback(
-        apiServer,
-        notification
+      const { draftOrder } = context;
+      const notification = buildCtripOrderNotification(
+        config.xiecheng, serviceName!, draftOrder!
       );
+
+      context.callbackResponse = await sendCtripOrderCallback(apiServer, notification);
     });
 
     And('再次收到的订单信息可以正常解密', async () => {
+      const { callbackResponse } = context;
       context.decryptedResponseBody = decryptCtripResponseBody<
         Xiecheng.XcCreatePreOrderSuccessBody
       >(
-        context.callbackResponse,
+        callbackResponse,
         config.xiecheng.aes_key,
         config.xiecheng.aes_iv,
       );
@@ -692,14 +682,9 @@ describeFeature(feature, ({
     And('携程订单中的 supplier order id 是 cr7 订单 id', async () => {
       context.draftQueryOrderBody!.supplierOrderId = context.cr7OrderId!;
 
-      const notification = buildCtripOrderNotification({
-        accountId: config.xiecheng.account_id,
-        signKey: config.xiecheng.secret,
-        aesKey: config.xiecheng.aes_key,
-        aesIv: config.xiecheng.aes_iv,
-        serviceName: 'QueryOrder',
-        body: context.draftQueryOrderBody!,
-      });
+      const notification = buildCtripOrderNotification(
+        config.xiecheng, 'QueryOrder', context.draftQueryOrderBody!
+      );
 
       context.queryOrderResponse = await sendCtripOrderCallback(
         featureContext.fixtures.values.apiServer,

@@ -1,5 +1,5 @@
 declare module 'config' {
-  interface IConfig {
+  export interface IConfig {
     api: {
       port: number;
     },

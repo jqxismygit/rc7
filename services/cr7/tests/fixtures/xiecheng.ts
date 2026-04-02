@@ -7,6 +7,7 @@ import {
   encryptXieChengBody,
   decryptXieChengBody,
 } from '@/libs/xiecheng.js';
+import type { IConfig } from 'config';
 
 export async function bindTicketXiechengOptionId(
   server: Server,
@@ -85,37 +86,22 @@ export async function listTicketXiechengSyncLogs(
   );
 }
 
-export interface CtripOrderNotificationOptions {
-  accountId: string;
-  signKey: string;
-  aesKey: string;
-  aesIv: string;
-  serviceName?: Xiecheng.XcOrderServiceName;
-  body: Xiecheng.XcCreatePreOrderBody | Xiecheng.XcQueryOrderBody;
-}
-
 export function buildCtripOrderNotification(
-  options: CtripOrderNotificationOptions,
+  config: IConfig['xiecheng'],
+  serviceName: Xiecheng.XcOrderServiceName,
+  body: Xiecheng.XcCreatePreOrderBody | Xiecheng.XcQueryOrderBody,
 ): Xiecheng.XcEncryptedOrderNotification {
-  const serviceName = options.serviceName ?? 'CreatePreOrder';
-  const plainBody = JSON.stringify(options.body);
+  const { account_id: accountId, secret: signKey, aes_key, aes_iv } = config;
+  const plainBody = JSON.stringify(body);
 
-  const encryptedBody = encryptXieChengBody(plainBody, options.aesKey, options.aesIv);
+  const encryptedBody = encryptXieChengBody(plainBody, aes_key, aes_iv);
 
-  const { sign, requestTime, version } = buildXieChengSign(encryptedBody, {
-    accountId: options.accountId,
-    serviceName,
-    signKey: options.signKey,
-  });
+  const { sign, requestTime, version } = buildXieChengSign(
+    encryptedBody, { accountId, serviceName, signKey }
+  );
 
   return {
-    header: {
-      accountId: options.accountId,
-      serviceName,
-      requestTime,
-      version,
-      sign,
-    },
+    header: { accountId, serviceName, requestTime, version, sign },
     body: encryptedBody,
   };
 }
@@ -148,8 +134,7 @@ export function decryptCtripResponseBody<Body>(
   aesKey: string,
   aesIv: string,
 ): Body | null {
-  if (!response.body) return null;
-  const plain = decryptXieChengBody(response.body, aesKey, aesIv);
+  const plain = decryptXieChengBody(response.body!, aesKey, aesIv);
   return JSON.parse(plain) as Body;
 }
 
