@@ -13,6 +13,7 @@ import {
     assertLoginResponse,
     assertUserProfile,
     changePassword,
+    getUserList,
     grantRoleToUser,
     getUserProfile,
     passwordLogin,
@@ -90,6 +91,11 @@ type GrantRoleResultContext = {
     grantRoleResponse?: { role_names: string[] };
 };
 
+type UserListContext = {
+    userListResponse?: User.Profile[];
+    searchedUserListResponse?: User.Profile[];
+};
+
 function rememberError(context: ErrorContext, error: unknown) {
     Object.assign(context, { lastError: error });
 }
@@ -164,6 +170,20 @@ describeFeature(feature, ({
     function requireGrantRoleResponse(context: GrantRoleResultContext) {
         expect(context.grantRoleResponse).toBeTruthy();
         return context.grantRoleResponse!;
+    }
+
+    function requireUserListResponse(
+        context: Pick<UserListContext, 'userListResponse'>,
+    ) {
+        expect(context.userListResponse).toBeTruthy();
+        return context.userListResponse!;
+    }
+
+    function requireSearchedUserListResponse(
+        context: Pick<UserListContext, 'searchedUserListResponse'>,
+    ) {
+        expect(context.searchedUserListResponse).toBeTruthy();
+        return context.searchedUserListResponse!;
     }
 
     async function loginAdmin(
@@ -450,4 +470,76 @@ describeFeature(feature, ({
             expect(requireGrantRoleResponse(context).role_names).toContain('OPERATOR');
         });
     });
+
+    Scenario(
+        '管理员可以查看用户列表',
+        (s: StepTest<
+            AdminIdentityContext
+            & AdminPasswordContext
+            & AdminLoginContext
+            & UserListContext
+        >) => {
+            const { Given, When, Then, And, context } = s;
+
+            Given('管理员账号 {string} 已登录，手机号为 {string}，密码为 {string}', async (ctx, name: string, phone: string, password: string) => {
+                Object.assign(context, {
+                    adminCountryCode: '+86',
+                    adminName: name,
+                    adminPhone: phone,
+                    adminInitialPassword: password,
+                });
+
+                await initAdminHandler({ schema, phone, password });
+                await loginAdmin(context, password);
+            });
+
+            When('管理员账号 {string} 获取用户列表', async (ctx, name: string) => {
+                expect(context.adminName).toBe(name);
+                const { apiServer } = scenarioContext.fixtures.values;
+                const userListResponse = await getUserList(
+                    apiServer,
+                    requireAdminLoginResponse(context).token,
+                );
+                Object.assign(context, { userListResponse });
+            });
+
+            Then('获取成功，用户列表包含用户 {string}', (_ctx, userName: string) => {
+                const userList = requireUserListResponse(context);
+                expect(userList.length).toBeGreaterThan(0);
+                expect(userList.some(user => user.name === userName)).toBe(true);
+            });
+
+            And('{string} 的手机号为 {string} {string}', (_ctx, userName: string, countryCode: string, phone: string) => {
+                const userList = requireUserListResponse(context);
+                expect(
+                    userList.some(
+                        item => item.name === userName && item.phone === `${countryCode} ${phone}`,
+                    ),
+                ).toBe(true);
+            });
+
+            When('管理员用手机号 {string} 搜索用户列表', async (ctx, phone: string) => {
+                const { apiServer } = scenarioContext.fixtures.values;
+                const searchedUserListResponse = await getUserList(
+                    apiServer,
+                    requireAdminLoginResponse(context).token,
+                    phone,
+                );
+                Object.assign(context, { searchedUserListResponse });
+            });
+
+            Then('搜索成功，用户列表包含用户 {string}', (_ctx, userName: string) => {
+                const userList = requireSearchedUserListResponse(context);
+                expect(userList.length).toBeGreaterThan(0);
+                expect(userList.some(user => user.name === userName)).toBe(true);
+            });
+
+            And('搜索结果中 {string} 的手机号为 {string} {string}', (_ctx, userName: string, countryCode: string, phone: string) => {
+                const userList = requireSearchedUserListResponse(context);
+                const user = userList.find(item => item.name === userName);
+                expect(user).toBeTruthy();
+                expect(user?.phone).toBe(`${countryCode} ${phone}`);
+            });
+        }
+    );
 });

@@ -103,9 +103,10 @@ const routes = [
   ),
   routeConfig(
     '/users',
-    ['user.grant_role'],
+    ['user.grant_role', 'user.list'],
     {
       aliases: {
+        'GET /': 'user.list',
         'POST /:uid/roles': 'user.grant_role'
       }
     }

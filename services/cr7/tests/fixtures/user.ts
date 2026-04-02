@@ -20,6 +20,17 @@ export function getUserProfile(server: Server, token: string) {
   return getJSON<User.Profile>(server, '/user/profile', { token });
 }
 
+export function getUserList(
+  server: Server,
+  token: string,
+  phone?: string,
+) {
+  return getJSON<User.Profile[]>(server, '/users', {
+    token,
+    query: phone ? { phone } : undefined,
+  });
+}
+
 export async function suUserToken(
   server: Server,
   adminToken: string,

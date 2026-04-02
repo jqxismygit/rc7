@@ -4,6 +4,7 @@ import { jscode2session } from './libs/wechat.js';
 import {
   createOrUpdateUser,
   getUserProfile,
+  listUserProfiles,
   getUserRoles,
   loginByPhonePassword,
   updatePassword,
@@ -79,6 +80,18 @@ export default class UserService extends Service {
             role_name: 'string',
           },
           handler: this.grant_role,
+        },
+
+        list: {
+          rest: 'GET /',
+          roles: ['admin'],
+          params: {
+            phone: {
+              type: 'string',
+              optional: true,
+            },
+          },
+          handler: this.list,
         },
 
         su: {
@@ -215,6 +228,14 @@ export default class UserService extends Service {
 
     const roles = await getUserRoles(this.pool, schema, uid);
     return { role_names: roles.map(role => role.name) };
+  }
+
+  async list(ctx: Context<{ phone?: string }>) {
+    const schema = await this.getSchema();
+    const { phone } = ctx.params;
+
+    const users = await listUserProfiles(this.pool, schema, phone);
+    return users;
   }
 
   async findOrCreateByPhone(

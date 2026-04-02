@@ -37,5 +37,5 @@ Feature: user registration and login
     Then 获取成功，用户列表包含用户 "system admin"
      And "system admin" 的手机号为 "+86" "12345678901"
     When 管理员用手机号 "12345678901" 搜索用户列表
-    Then 获取成功，用户列表包含用户 "system admin"
-     And "system admin" 的手机号为 "+86" "12345678901"
+    Then 搜索成功，用户列表包含用户 "system admin"
+     And 搜索结果中 "system admin" 的手机号为 "+86" "12345678901"

@@ -88,6 +88,43 @@ export async function getUserProfile(
   return rows[0];
 }
 
+export async function listUserProfiles(
+  client: DBClient,
+  schema: string,
+  phone?: string,
+) {
+  const { rows } = await client.query(
+    `SELECT
+      u.id,
+      u.name,
+      uw.openid,
+      CASE
+        WHEN up.uid IS NULL THEN NULL
+        ELSE up.country_code || ' ' || up.phone
+      END AS phone,
+      ARRAY_REMOVE(ARRAY[
+        CASE WHEN uw.uid IS NOT NULL THEN 'WECHAT_MINI' END,
+        CASE WHEN upw.uid IS NOT NULL THEN 'PASSWORD' END
+      ], NULL)::text[] AS auth_methods,
+      u.created_at,
+      GREATEST(
+        u.updated_at,
+        COALESCE(uw.updated_at, u.updated_at),
+        COALESCE(up.updated_at, u.updated_at),
+        COALESCE(upw.updated_at, u.updated_at)
+      ) AS updated_at
+    FROM ${schema}.users u
+    LEFT JOIN ${schema}.user_wechat uw ON u.id = uw.uid
+    LEFT JOIN ${schema}.user_phone up ON u.id = up.uid
+    LEFT JOIN ${schema}.user_password upw ON u.id = upw.uid
+    WHERE ($1::text IS NULL OR up.phone = $1)
+    ORDER BY u.created_at DESC`,
+    [phone ?? null],
+  );
+
+  return rows;
+}
+
 export async function getUserIdByPhone(
   client: DBClient,
   schema: string,
