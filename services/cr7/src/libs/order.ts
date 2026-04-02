@@ -1,10 +1,11 @@
-import { Context, Errors, ServiceSchema } from 'moleculer';
+import { Context, Errors, ServiceBroker, ServiceSchema } from 'moleculer';
 import type { Order } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
 import {
   cancelOrder,
   createOrder,
   getOrderById,
+  OrderDataError,
   getOrders,
   getOrdersAdmin,
   hideOrder,
@@ -19,7 +20,7 @@ interface UserMeta {
 }
 
 export class OrderService extends RC7BaseService {
-  constructor(broker) {
+  constructor(broker: ServiceBroker) {
     super(broker);
   }
 
@@ -151,6 +152,15 @@ export class OrderService extends RC7BaseService {
       handler: this.listOrdersAdmin,
     },
 
+    'order.getAdmin': {
+      rest: 'GET /:oid',
+      roles: ['admin'],
+      params: {
+        oid: 'string',
+      },
+      handler: this.getOrderAdmin,
+    },
+
     'order.expire': {
       params: {
         batchSize: {
@@ -251,7 +261,14 @@ export class OrderService extends RC7BaseService {
     const { uid } = ctx.meta.user;
     const schema = await this.getSchema();
 
-    return getOrderById(this.pool, schema, oid, uid)
+    return getOrderById(this.pool, schema, oid)
+      .then((order) => {
+        if (order.user_id !== uid) {
+          throw new OrderDataError('Order not found', 'ORDER_NOT_FOUND');
+        }
+
+        return order;
+      })
       .catch(handleOrderError);
   }
 
@@ -318,6 +335,16 @@ export class OrderService extends RC7BaseService {
       page,
       limit,
     }).catch(handleOrderError);
+  }
+
+  async getOrderAdmin(
+    ctx: Context<{ oid: string }, { user: UserMeta }>
+  ) {
+    const { oid } = ctx.params;
+    const schema = await this.getSchema();
+
+    return getOrderById(this.pool, schema, oid)
+      .catch(handleOrderError);
   }
 
   async expireOrders(

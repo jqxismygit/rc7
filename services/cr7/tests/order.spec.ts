@@ -27,6 +27,7 @@ import {
   createOrder as createOrderByApi,
   expireOrder,
   getOrder as getOrderByApi,
+  getOrderAdmin as getOrderAdminByApi,
   hideOrder as hideOrderByApi,
   listOrders as listOrdersByApi,
   listOrdersAdmin as listOrdersAdminByApi,
@@ -710,6 +711,47 @@ describeFeature(feature, ({
       expect(context.orders).toBeTruthy();
       const found = context.orders.orders.find(o => o.id === context.order.id);
       expect(found).toBeTruthy();
+    });
+  });
+
+  Scenario('管理员可以查看单条订单详情', (s: StepTest<OrderResultContext & { orderDetail: Order.OrderWithItems }>) => {
+    const { Given, When, Then, And, context } = s;
+
+    Given('用户已成功预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
+      context.order = await createOrderWithItems(featureContext, sessionDate, [{ ticketName, quantity }]);
+    });
+
+    When('管理员查看该订单详情', async () => {
+      const { apiServer } = featureContext.fixtures.values;
+      expect(context.order).toBeTruthy();
+      context.orderDetail = await getOrderAdminByApi(apiServer, context.order.id, featureContext.adminToken);
+    });
+
+    Then('返回订单详情成功', () => {
+      expect(context.order).toBeTruthy();
+      expect(context.orderDetail).toBeTruthy();
+      expect(context.orderDetail.id).toBe(context.order.id);
+    });
+
+    And('订单包含用户信息', () => {
+      expect(context.order).toBeTruthy();
+      expect(context.orderDetail).toBeTruthy();
+      expect(context.orderDetail.user_id).toBe(context.order.user_id);
+    });
+
+    And('订单包含 1 条订单项', () => {
+      expect(context.orderDetail).toBeTruthy();
+      expect(context.orderDetail.items).toHaveLength(1);
+    });
+
+    And('订单项为该展会的 {string} 场次的 {string}', (_ctx, sessionDate: string, ticketName: string) => {
+      expect(context.orderDetail).toBeTruthy();
+      const orderDetail = context.orderDetail;
+      const { exhibition, sessions, ticketByName } = featureContext;
+      const session = getSessionByDate(sessions, sessionDate);
+      expect(orderDetail.exhibit_id).toBe(exhibition.id);
+      expect(orderDetail.session_id).toBe(session.id);
+      expect(orderDetail.items[0].ticket_category_id).toBe(ticketByName[ticketName].id);
     });
   });
 

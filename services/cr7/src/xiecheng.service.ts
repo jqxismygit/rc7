@@ -14,7 +14,7 @@ import {
   listXcOrderSyncRecordsByOtaOrderId,
   XcOrderDataError,
 } from './data/xiecheng.js';
-import { getOrderByIdAdmin } from './data/order.js';
+import { getOrderById } from './data/order.js';
 import { handleXiechengError } from './libs/errors.js';
 import { RC7BaseService } from './libs/cr7.base.js';
 import {
@@ -630,7 +630,7 @@ export default class XiechengService extends RC7BaseService {
       return this.buildXcErrorResponse('1001', '订单不存在');
     }
 
-    const order = await getOrderByIdAdmin(this.pool, schema, record.order_id);
+    const order = await getOrderById(this.pool, schema, record.order_id);
     const xcOrderStatus = toXcOrderStatus(order.status);
     const isCancelled = ['CANCELLED', 'EXPIRED', 'REFUNDED'].includes(order.status);
 

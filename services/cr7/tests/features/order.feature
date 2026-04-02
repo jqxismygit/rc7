@@ -108,6 +108,14 @@ Feature: Order ticket
     Then 返回订单列表成功
      And 订单列表包含用户 "Alice" 的订单
 
+  Scenario: 管理员可以查看单条订单详情
+    Given 用户已成功预订 1 张该展会的 "3天后" 场次的 "成人票"
+    When 管理员查看该订单详情
+    Then 返回订单详情成功
+     And 订单包含用户信息
+     And 订单包含 1 条订单项
+     And 订单项为该展会的 "3天后" 场次的 "成人票"
+
   Scenario Outline: 除了未付款且没有过期的订单，其他状态的订单都可以隐藏
     Given 用户有一笔 <订单状态> 的订单
     When 用户隐藏该订单

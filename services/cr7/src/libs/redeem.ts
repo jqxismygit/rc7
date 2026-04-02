@@ -8,7 +8,7 @@ import {
   redeemCode,
   RedeemDataError,
 } from '../data/redeem.js';
-import { getOrderById, getOrderByIdAdmin } from '../data/order.js';
+import { getOrderById, OrderDataError } from '../data/order.js';
 import { getSessionById, getTicketCategoriesByExhibitionId } from '../data/exhibition.js';
 import { handleOrderError, handleRedeemError } from './errors.js';
 
@@ -83,7 +83,7 @@ export class RedemptionService extends RC7BaseService {
     const schema = await this.getSchema();
     const dbClient = this.pool;
 
-    const order = await getOrderByIdAdmin(dbClient, schema, oid)
+    const order = await getOrderById(dbClient, schema, oid)
       .catch(handleOrderError);
     if (order.status !== 'PAID') {
       throw new RedeemDataError('Order has no redemption code', 'ORDER_NOT_REDEEMABLE');
@@ -111,7 +111,14 @@ export class RedemptionService extends RC7BaseService {
     const { uid } = ctx.meta.user;
     const schema = await this.getSchema();
 
-    const order = await getOrderById(this.pool, schema, oid, uid)
+    const order = await getOrderById(this.pool, schema, oid)
+      .then((result) => {
+        if (result.user_id !== uid) {
+          throw new OrderDataError('Order not found', 'ORDER_NOT_FOUND');
+        }
+
+        return result;
+      })
       .catch(handleOrderError);
 
     if (order.status !== 'PAID') {
@@ -151,7 +158,7 @@ export class RedemptionService extends RC7BaseService {
 
       const codeRow = await getRedemptionRowByCode(dbClient, schema, eid, code);
 
-      const order = await getOrderByIdAdmin(dbClient, schema, codeRow.order_id)
+      const order = await getOrderById(dbClient, schema, codeRow.order_id)
         .catch(handleOrderError);
       const categories = await getTicketCategoriesByExhibitionId(dbClient, schema, order.exhibit_id);
       const items = buildItems(order.items, categories);

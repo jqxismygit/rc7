@@ -154,7 +154,7 @@ const routes = [
   ),
   routeConfig(
     '/admin/orders',
-    ['cr7.order.listAdmin', 'cr7.order.refundsAdmin'],
+    ['cr7.order.listAdmin', 'cr7.order.getAdmin', 'cr7.order.refundsAdmin'],
     {
       autoAliases: true,
     }

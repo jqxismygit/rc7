@@ -249,53 +249,6 @@ export async function getOrderById(
   client: DBClient,
   schema: string,
   orderId: string,
-  userId: string
-): Promise<Order.OrderWithItems> {
-  const { rows } = await client.query<Omit<Order.OrderWithItems, 'items'>>(
-    `SELECT
-      o.id,
-      o.user_id,
-      o.exhibit_id,
-      o.session_id,
-      o.current_refund_out_refund_no,
-      ${getOrderStatusCase({
-        refundedAtExpr: 'o.refunded_at',
-        refundStatusExpr: 'current_refund.status',
-        paidAtExpr: 'o.paid_at',
-        cancelledAtExpr: 'o.cancelled_at',
-        expiresAtExpr: 'o.expires_at',
-      })} AS status,
-      o.total_amount,
-      o.expires_at,
-      o.paid_at,
-      o.cancelled_at,
-      o.released_at,
-      o.hidden_at,
-      o.source,
-      o.created_at,
-      o.updated_at
-    FROM ${schema}.exhibit_orders o
-    LEFT JOIN ${schema}.order_refunds current_refund
-      ON current_refund.out_refund_no = o.current_refund_out_refund_no
-    WHERE o.id = $1
-      AND o.user_id = $2`,
-    [orderId, userId]
-  );
-
-  if (rows.length === 0) {
-    throw new OrderDataError('Order not found', 'ORDER_NOT_FOUND');
-  }
-
-  const [order] = rows;
-  const items = await getOrderItemsByOrderId(client, schema, orderId);
-
-  return { ...order, items };
-}
-
-export async function getOrderByIdAdmin(
-  client: DBClient,
-  schema: string,
-  orderId: string,
 ): Promise<Order.OrderWithItems> {
   const { rows } = await client.query<Omit<Order.OrderWithItems, 'items'>>(
     `SELECT
@@ -324,7 +277,7 @@ export async function getOrderByIdAdmin(
     LEFT JOIN ${schema}.order_refunds current_refund
       ON current_refund.out_refund_no = o.current_refund_out_refund_no
     WHERE o.id = $1`,
-    [orderId],
+    [orderId]
   );
 
   if (rows.length === 0) {
@@ -671,7 +624,7 @@ export async function createOrder(
     );
   }
 
-  return getOrderById(client, schema, createdOrder.id, input.user_id);
+  return getOrderById(client, schema, createdOrder.id);
 }
 
 async function lockOrderForCancel(

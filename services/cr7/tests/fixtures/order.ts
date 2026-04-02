@@ -47,6 +47,18 @@ export async function getOrder(
   );
 }
 
+export async function getOrderAdmin(
+  server: Server,
+  orderId: string,
+  token: string,
+) {
+  return getJSON<Order.OrderWithItems>(
+    server,
+    `/admin/orders/${orderId}`,
+    { token }
+  );
+}
+
 export async function listOrders(
   server: Server,
   token: string,
