@@ -140,3 +140,31 @@
   - 仅管理员（ADMIN 角色）可执行此操作
   - 返回用户授予后的全部角色名称
   - 同一用户同一角色重复授予时幂等
+
+## 管理员查看用户列表
+
+- URL: `/users`
+- Method: `GET`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Query:
+  ```ts
+  {
+    phone?: string;
+  }
+  ```
+- Response Body:
+  ```ts
+  User.Profile[]
+  ```
+- Response Status:
+  - `200 OK`：查询成功
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：无权限（仅管理员可执行）
+
+- 说明：
+  - 不传 `phone` 时返回全部用户列表
+  - 传 `phone` 时按手机号精确过滤，例如 `12345678901`
+  - 列表中的 `phone` 保持完整格式（如 `+86 12345678901`）

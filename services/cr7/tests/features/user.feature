@@ -30,3 +30,12 @@ Feature: user registration and login
     Given 用户 "Alice" 已注册并登录
     When 管理员账号 "system admin" 将用户 "Alice" 设置成运营人员
     Then 用户 "Alice" 的角色包含 "operator"
+
+  Scenario: 管理员可以查看用户列表
+    Given 管理员账号 "system admin" 已登录，手机号为 "12345678901"，密码为 "pass_test"
+    When 管理员账号 "system admin" 获取用户列表
+    Then 获取成功，用户列表包含用户 "system admin"
+     And "system admin" 的手机号为 "+86" "12345678901"
+    When 管理员用手机号 "12345678901" 搜索用户列表
+    Then 获取成功，用户列表包含用户 "system admin"
+     And "system admin" 的手机号为 "+86" "12345678901"
