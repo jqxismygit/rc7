@@ -390,7 +390,6 @@ describeFeature(feature, ({
 
     And('订单信息可以正常解密', async () => {
       const { callbackResponse } = featureContext;
-      console.log({ callbackResponse });
       const decryptedResponseBody = decryptCtripResponseBody<
         Xiecheng.XcCreatePreOrderSuccessBody
       >(
