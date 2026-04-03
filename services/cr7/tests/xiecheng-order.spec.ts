@@ -109,11 +109,6 @@ function getTicketByName(featureContext: FeatureContext, ticketName: string): Ex
   return ticket;
 }
 
-function toScenarioScopedId(featureContext: FeatureContext, rawValue: string): string {
-  expect(featureContext.externalIdSuffix).toBeTruthy();
-  return `${rawValue}__${featureContext.externalIdSuffix}`;
-}
-
 async function submitCtripOrder(
   featureContext: FeatureContext,
   scenarioContext: CallbackContext & ErrorContext,
@@ -192,20 +187,23 @@ async function fetchOrderByRecord(
 
 describeFeature(feature, ({
   AfterEachScenario,
+  AfterAllScenarios,
   BeforeAllScenarios,
   Background,
   Scenario,
   context: featureContext,
   defineSteps,
 }: FeatureDescriibeCallbackParams<FeatureContext>) => {
-    BeforeAllScenarios(async () => {
+  BeforeAllScenarios(async () => {
     vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
     await bootstrap();
-    featureContext.broker = await prepareServices(services);
+    const broker = await prepareServices(services);
+    await broker.start();
+    featureContext.broker = broker;
+    featureContext.apiServer = await prepareAPIServer(broker);
   });
 
-  AfterEachScenario(async () => {
-    await dropSchema({ schema });
+  AfterAllScenarios(async () => {
     const { broker } = featureContext;
     if (broker) {
       await broker.stop();
@@ -213,12 +211,13 @@ describeFeature(feature, ({
     vi.restoreAllMocks();
   });
 
+  AfterEachScenario(async () => {
+    await dropSchema({ schema });
+  });
+
   Background(({ Given, And }) => {
     Given('cr7 服务已启动', async () => {
       await migrate({ schema });
-      const { broker } = featureContext;
-      await broker.start();
-      featureContext.apiServer = await prepareAPIServer(broker);
     });
 
     Given('系统管理员已经创建并登录', async () => {
@@ -306,7 +305,6 @@ describeFeature(feature, ({
     });
 
     Given('用户在携程上创建了一个订单', () => {
-      featureContext.externalIdSuffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       featureContext.draftOrder = {
         sequenceId: `xc_seq_${Date.now()}`,
         otaOrderId: `xc_order_${Date.now()}`,
@@ -362,11 +360,11 @@ describeFeature(feature, ({
     });
 
     And('携程订单号是 {string}', (_ctx, otaOrderId: string) => {
-      featureContext.draftOrder!.otaOrderId = toScenarioScopedId(featureContext, otaOrderId);
+      featureContext.draftOrder!.otaOrderId = otaOrderId;
     });
 
     And('携程 sequence id 是 {string}', (_ctx, sequenceId: string) => {
-      featureContext.draftOrder!.sequenceId = toScenarioScopedId(featureContext, sequenceId);
+      featureContext.draftOrder!.sequenceId = sequenceId;
     });
   });
 
@@ -484,11 +482,11 @@ describeFeature(feature, ({
     });
 
     And('携程订单号是 {string}', (_ctx, otaOrderId: string) => {
-      context.draftOrder!.otaOrderId = toScenarioScopedId(featureContext, otaOrderId);
+      context.draftOrder!.otaOrderId = otaOrderId;
     });
 
     And('携程 sequence id 是 {string}', async (_ctx, sequenceId: string) => {
-      context.draftOrder!.sequenceId = toScenarioScopedId(featureContext, sequenceId);
+      context.draftOrder!.sequenceId = sequenceId;
     });
 
     Then('cr7 系统再次收到订单创建通知', async () => {
@@ -533,7 +531,7 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario.skip('管理员可以查看单条携程订单同步记录', (s: StepTest<SyncRecordContext>) => {
+  Scenario('管理员可以查看单条携程订单同步记录', (s: StepTest<SyncRecordContext>) => {
     const { When, Then, And, context } = s;
 
     Then(
@@ -542,29 +540,26 @@ describeFeature(feature, ({
       const { adminToken, apiServer, order } = featureContext;
       const orderId = order?.id;
       const records = await getCtripOrderSyncRecords(apiServer, adminToken, orderId!);
-      expect(records.length).toBeGreaterThan(1);
-      const otaRecords = await getCtripOrderSyncRecords(
-        apiServer, adminToken, toScenarioScopedId(featureContext, otaOrderId)
-      );
-      console.log(records[0], otaRecords[0]);
-      expect(records[0].ota_order_id).toBe(toScenarioScopedId(featureContext, otaOrderId));
+      expect(records.length).toEqual(1);
+      expect(records[0].ota_order_id).toBe(otaOrderId);
+      context.records = records;
     });
 
     And(
       '同步记录内容包含订单号 {string}，序列号 {string}, 同步状态是成功',
       (_ctx, otaOrderId: string, sequenceId: string) => {
         const { records: [latestRecord] } = context;
-      expect(latestRecord?.ota_order_id).toBe(toScenarioScopedId(featureContext, otaOrderId));
-      expect(latestRecord?.sequence_id).toBe(toScenarioScopedId(featureContext, sequenceId));
-      expect(latestRecord?.sync_status).toBe('SUCCESS');
+      expect(latestRecord.ota_order_id).toBe(otaOrderId);
+      expect(latestRecord.sequence_id).toBe(sequenceId);
+      expect(latestRecord.sync_status).toBe('SUCCESS');
     });
 
     And(
       '同步记录中包含手机号 {string}，国别码 {string}',
       (_ctx, phone: string, countryCode: string) => {
       const { records: [latestRecord] } = context;
-      expect(latestRecord?.phone).toBe(phone);
-      expect(latestRecord?.country_code).toBe(countryCode);
+      expect(latestRecord.phone).toBe(phone);
+      expect(latestRecord.country_code).toBe(countryCode);
     });
 
     And(
@@ -590,8 +585,8 @@ describeFeature(feature, ({
       async (_ctx, otaOrderId: string, sequenceId: string) => {
       const { apiServer } = featureContext;
       const draftOrder = _.cloneDeep(featureContext.draftOrder!);
-      draftOrder.otaOrderId = toScenarioScopedId(featureContext, otaOrderId);
-      draftOrder.sequenceId = toScenarioScopedId(featureContext, sequenceId);
+      draftOrder.otaOrderId = otaOrderId;
+      draftOrder.sequenceId = sequenceId;
       const notification = buildCtripOrderNotification(
         config.xiecheng, 'CreatePreOrder', draftOrder
       );
@@ -599,25 +594,28 @@ describeFeature(feature, ({
     });
 
     Then('管理员在系统后台可以获取订单号 {string} 的携程最新同步记录', async (_ctx, otaOrderId: string) => {
-
-      await fetchOrderSyncRecordsByOtaOrderId(
-        featureContext,
-        context,
-        toScenarioScopedId(featureContext, otaOrderId),
-      );
+      const { order, apiServer, adminToken } = featureContext;
+      const orderId = order?.id;
+      const records = await getCtripOrderSyncRecords(apiServer, adminToken, orderId!);
+      expect(records.length).toEqual(2);
+      const latestRecord = records[1];
+      expect(latestRecord.ota_order_id).toEqual(otaOrderId);
+      context.records = records;
     });
 
     And(
-      '同步记录内容包含订单号 {string},序列号 {string}, 同步状态为 {string}',
-      (_ctx, otaOrderId: string, sequenceId: string, statusLabel: string) => {
-      expect(context.latestRecord?.ota_order_id).toBe(toScenarioScopedId(featureContext, otaOrderId));
-      expect(context.latestRecord?.sequence_id).toBe(toScenarioScopedId(featureContext, sequenceId));
-      expect(statusLabel).toBe('重复订单');
-      expect(context.latestRecord?.sync_status).toBe('DUPLICATE_ORDER');
+      '同步记录内容包含订单号 {string},序列号 {string}, 同步状态为重复订单',
+      (_ctx, otaOrderId: string, sequenceId: string) => {
+        expect(context.records.length).toEqual(2);
+        const { records: [latestRecord] } = context;
+        expect(latestRecord.ota_order_id).toEqual(otaOrderId);
+        expect(latestRecord.sequence_id).toEqual(sequenceId);
+        expect(latestRecord.sync_status).toBe('DUPLICATE_ORDER');
     });
 
     And('最新的同步记录中的 order id 和第一次同步记录中的 order id 保持一致', () => {
-      expect(context.latestRecord?.order_id).toBe(context.firstRecord?.order_id);
+      const { records: [latestRecord, firstRecord] } = context;
+      expect(latestRecord.order_id).toBe(firstRecord.order_id);
     });
   });
 
