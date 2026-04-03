@@ -132,3 +132,9 @@ Feature: 对接携程 OTA 订单系统
      And 同步记录内容包含订单号 "xc_order_12345"，序列号 "xc_pay_order_seq_12345", 同步状态是成功
      And 同步记录中的 supplier order id 是用户创建的订单 id
      And 同步记录中包含订单状态变更为已支付值为 13
+   Given 携程 service name 是 "QueryOrder" 的订单查询请求
+     And 携程订单查询请求中的 ota order id 是 "xc_order_12345"
+     And 携程订单查询请求中的 supplier order id 是 cr7 订单 id
+    When 携程发送订单查询请求
+    Then cr7 系统按照携程的要求返回订单查询响应
+     And 订单查询响应中包含 1 个 的订单项，其数量为 1

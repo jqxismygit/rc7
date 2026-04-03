@@ -385,6 +385,21 @@ describeFeature(feature, ({
       const { queryOrderResponse } = featureContext;
       assertCtripSuccessResponse(queryOrderResponse!);
     });
+
+    And('订单查询响应中包含 supplier order id', () => {
+      const { order } = featureContext;
+      expect(featureContext.decryptedQueryResponse?.supplierOrderId).toBe(order?.id);
+    });
+
+    And('订单查询响应中包含 ota order id {string}', (_ctx, otaOrderId: string) => {
+      expect(featureContext.decryptedQueryResponse?.otaOrderId).toBe(otaOrderId);
+    });
+
+    And('订单查询响应中包含 1 个 的订单项，其数量为 {int}', (_ctx, quantity: number) => {
+      expect(featureContext.decryptedQueryResponse?.items).toHaveLength(1);
+      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', 0);
+      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('quantity', quantity);
+    });
   });
 
   Scenario('用户从携程下单购买门票', (s: StepTest<OrderResultContext>) => {
@@ -620,21 +635,6 @@ describeFeature(feature, ({
 
   Scenario('用户在携程下单后，可以查询订单详情', (s: StepTest<void>) => {
     const { And } = s;
-
-    And('订单查询响应中包含 supplier order id', () => {
-      const { order } = featureContext;
-      expect(featureContext.decryptedQueryResponse?.supplierOrderId).toBe(order?.id);
-    });
-
-    And('订单查询响应中包含 ota order id {string}', (_ctx, otaOrderId: string) => {
-      expect(featureContext.decryptedQueryResponse?.otaOrderId).toBe(otaOrderId);
-    });
-
-    And('订单查询响应中包含 1 个 的订单项，其数量为 {int}', (_ctx, quantity: number) => {
-      expect(featureContext.decryptedQueryResponse?.items).toHaveLength(1);
-      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', 0);
-      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('quantity', quantity);
-    });
 
     And('订单查询响应中订单项的 item id 因为订单还没有支付，所以为 {int}', (_ctx, itemId: number) => {
       expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', itemId);
