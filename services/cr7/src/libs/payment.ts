@@ -17,7 +17,6 @@ import {
   listRefundRecordsByOrderId,
   getOutTradeNoByOrderId,
   getOrderPaymentInfo,
-  markOrderPaidByOutTradeNo,
   markWechatPayCallbackProcessed,
   markWechatRefundCallbackProcessed,
   upsertWechatPayTransaction,
@@ -366,7 +365,6 @@ export class PaymentService extends RC7BaseService {
   ) {
     const notification = ctx.params;
     const schema = await this.getSchema();
-    let paidOrderId: string | null = null;
 
     await createWechatPayCallback(this.pool, schema, {
       wechat_notification_id: notification.id,
@@ -380,47 +378,21 @@ export class PaymentService extends RC7BaseService {
     const { api_v3_secret } = await this.getWechatPayConfig();
     const transactionResult = decryptWechatCallbackResource(notification.resource, api_v3_secret);
 
-    await updateWechatPayCallbackFields(this.pool, schema, notification.id, {
+    const orderId = await updateWechatPayCallbackFields(this.pool, schema, notification.id, {
       out_trade_no: transactionResult.out_trade_no,
       transaction_id: transactionResult.transaction_id,
       trade_state: transactionResult.trade_state,
     });
 
-    const dbClient = await this.pool.connect();
-    try {
-      await dbClient.query('BEGIN');
-
-      if (
-        notification.event_type === 'TRANSACTION.SUCCESS'
-        && transactionResult.trade_state === 'SUCCESS'
-      ) {
-        paidOrderId = await markOrderPaidByOutTradeNo(
-          dbClient,
-          schema,
-          transactionResult.out_trade_no,
-        );
-      }
-
-      await markWechatPayCallbackProcessed(dbClient, schema, notification.id);
-      await dbClient.query('COMMIT');
-    } catch (error) {
-      await dbClient.query('ROLLBACK');
-      throw error;
-    } finally {
-      dbClient.release();
+    if (
+      notification.event_type === 'TRANSACTION.SUCCESS'
+      && transactionResult.trade_state === 'SUCCESS'
+      && orderId !== null
+    ) {
+      await ctx.call('cr7.order.markPaid', { oid: orderId });
     }
 
-    if (paidOrderId !== null) {
-      try {
-        await ctx.call('cr7.redemption.generateByOrder', { oid: paidOrderId });
-      } catch (error) {
-        this.logger.error('Failed to generate redemption code after payment', {
-          orderId: paidOrderId,
-          outTradeNo: transactionResult.out_trade_no,
-          error,
-        });
-      }
-    }
+    await markWechatPayCallbackProcessed(this.pool, schema, notification.id);
 
     ctx.meta.$statusCode = 204;
     return null;

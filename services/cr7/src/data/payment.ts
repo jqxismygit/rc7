@@ -243,14 +243,22 @@ export async function updateWechatPayCallbackFields(
   schema: string,
   wechatNotificationId: string,
   input: UpdateWechatPayCallbackFieldsInput,
-): Promise<void> {
-  await client.query(
-    `UPDATE ${schema}.wechat_pay_callbacks
-    SET
-      out_trade_no = $2,
-      transaction_id = $3,
-      trade_state = $4
-    WHERE wechat_notification_id = $1`,
+): Promise<string | null> {
+  const { rows } = await client.query<{ order_id: string | null }>(
+    `WITH updated_callback AS (
+      UPDATE ${schema}.wechat_pay_callbacks
+      SET
+        out_trade_no = $2,
+        transaction_id = $3,
+        trade_state = $4
+      WHERE wechat_notification_id = $1
+      RETURNING out_trade_no
+    )
+    SELECT t.order_id
+    FROM updated_callback c
+    LEFT JOIN ${schema}.wechat_pay_transactions t ON t.out_trade_no = c.out_trade_no
+    ORDER BY t.created_at DESC
+    LIMIT 1`,
     [
       wechatNotificationId,
       input.out_trade_no,
@@ -258,6 +266,8 @@ export async function updateWechatPayCallbackFields(
       input.trade_state,
     ],
   );
+
+  return rows[0]?.order_id ?? null;
 }
 
 export async function createWechatRefundCallback(
@@ -319,30 +329,6 @@ export async function markWechatRefundCallbackProcessed(
     WHERE notification_id = $1`,
     [notificationId],
   );
-}
-
-/**
- * 根据 out_trade_no 将订单置为已支付。重复回调不会重复修改 paid_at（幂等）。
- */
-export async function markOrderPaidByOutTradeNo(
-  client: DBClient,
-  schema: string,
-  outTradeNo: string,
-): Promise<string | null> {
-  const { rows } = await client.query<{ order_id: string }>(
-    `UPDATE ${schema}.exhibit_orders o
-    SET
-      paid_at = COALESCE(o.paid_at, NOW()),
-      updated_at = NOW()
-    FROM ${schema}.wechat_pay_transactions t
-    WHERE t.out_trade_no = $1
-      AND o.id = t.order_id
-      AND o.cancelled_at IS NULL
-    RETURNING o.id AS order_id`,
-    [outTradeNo],
-  );
-
-  return rows[0]?.order_id ?? null;
 }
 
 export async function getOutTradeNoByOrderId(
