@@ -37,6 +37,17 @@ export async function createExhibitionApi(
   return raw as unknown as ExhibitionTypes.Exhibition;
 }
 
+export async function updateExhibitionApi(
+  eid: string,
+  data: ExhibitionTypes.ExhibitionPatch,
+): Promise<ExhibitionTypes.Exhibition> {
+  const raw = await request.patch(
+    `/exhibition/${encodeURIComponent(eid)}`,
+    data,
+  );
+  return raw as unknown as ExhibitionTypes.Exhibition;
+}
+
 export async function getExhibitionSessionsApi(
   eid: string,
 ): Promise<ExhibitionTypes.Session[]> {

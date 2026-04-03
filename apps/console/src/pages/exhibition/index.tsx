@@ -1,12 +1,24 @@
-import { useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { Link, useNavigate } from "react-router";
+import type { FormInstance } from "antd/es/form";
+import type { UploadFile, UploadProps } from "antd";
 import {
   Alert,
   Breadcrumb,
   Button,
   Card,
+  Form,
   Space,
   Typography,
+  Upload,
   message,
   theme,
 } from "antd";
@@ -16,6 +28,7 @@ import {
   EyeOutlined,
   HomeOutlined,
   PlusOutlined,
+  UploadOutlined,
 } from "@ant-design/icons";
 import type { ActionType, ProColumns } from "@ant-design/pro-components";
 import {
@@ -30,11 +43,17 @@ import type { Exhibition as ExhibitionTypes } from "@cr7/types";
 import {
   createExhibitionApi,
   listExhibitionsApi,
+  updateExhibitionApi,
   type CreateExhibitionInput,
 } from "@/apis/exhibition";
+import { uploadTopicImageApi } from "@/apis/topic";
 import { useTableQuery } from "@/hooks/use-table-query";
 import { formatDateTime, formatSessionDateTime } from "@/utils/format-datetime";
+import dayjs, { type Dayjs } from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
 import "./exhibition.less";
+
+dayjs.extend(customParseFormat);
 
 type DayjsLike = {
   format: (fmt: string) => string;
@@ -54,24 +73,257 @@ type ExhibitionCreateFormValues = Omit<
 > & {
   date_range?: [unknown, unknown] | null;
   session_time_range?: [unknown, unknown] | null;
+  cover_url?: string;
 };
 
 const initialCreateValues: Partial<ExhibitionCreateFormValues> = {
   location: "",
   name: "",
   description: "",
+  cover_url: "",
 };
+
+type ExhibitionEditFormValues = {
+  name: string;
+  description: string;
+  opening_time: Dayjs;
+  closing_time: Dayjs;
+  last_entry_time: Dayjs;
+  location: string;
+  cover_url?: string;
+};
+
+function parseExhibitionTime(v: string | null | undefined): Dayjs {
+  if (!v?.trim()) return dayjs("00:00:00", "HH:mm:ss");
+  const s = v.trim();
+  const strict = dayjs(s, "HH:mm:ss", true);
+  if (strict.isValid()) return strict;
+  const loose = dayjs(s, "HH:mm", true);
+  if (loose.isValid()) return loose;
+  const d = dayjs(s);
+  return d.isValid() ? d : dayjs("00:00:00", "HH:mm:ss");
+}
+
+/** ProFormTimePicker 提交值可能是 Dayjs / string，统一为 HH:mm:ss */
+function formatEditTimeField(v: unknown): string {
+  if (v == null) return "";
+  if (dayjs.isDayjs(v)) return v.format("HH:mm:ss");
+  if (typeof v === "string") return parseExhibitionTime(v).format("HH:mm:ss");
+  if (v instanceof Date) return dayjs(v).format("HH:mm:ss");
+  return dayjs(v as string | number | Date).format("HH:mm:ss");
+}
+
+function buildExhibitionEditCoverUploadProps(
+  form: FormInstance<ExhibitionEditFormValues>,
+  fileList: UploadFile[],
+  setFileList: Dispatch<SetStateAction<UploadFile[]>>,
+  uploading: boolean,
+  setUploading: Dispatch<SetStateAction<boolean>>,
+): UploadProps {
+  return {
+    accept: "image/jpeg,image/jpg,image/png,image/webp",
+    multiple: false,
+    maxCount: 1,
+    fileList,
+    listType: "picture-card",
+    showUploadList: {
+      showPreviewIcon: true,
+      showRemoveIcon: true,
+    },
+    disabled: uploading,
+    beforeUpload: (file) => {
+      const ok =
+        file.type.startsWith("image/") ||
+        /\.(jpe?g|png|webp)$/i.test(file.name);
+      if (!ok) {
+        message.error("仅支持 jpg / png / webp 图片");
+        return Upload.LIST_IGNORE;
+      }
+      return true;
+    },
+    onChange: ({ fileList: fl }) => {
+      setFileList(fl.length > 1 ? [fl[fl.length - 1]!] : fl);
+    },
+    onRemove: () => {
+      form.setFieldValue("cover_url", "");
+      setFileList([]);
+      return true;
+    },
+    customRequest: async (options) => {
+      const { file, onError, onSuccess } = options;
+      try {
+        setUploading(true);
+        const rcFile = file as File & { uid?: string };
+        const res = await uploadTopicImageApi(rcFile);
+        form.setFieldValue("cover_url", res.url);
+        message.success("上传成功");
+        setFileList([
+          {
+            uid: String(rcFile.uid ?? `${Date.now()}`),
+            name: rcFile.name || "cover",
+            status: "done",
+            url: res.url,
+          },
+        ]);
+        onSuccess?.(res, new XMLHttpRequest());
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        message.error(msg || "上传失败");
+        onError?.(err as Error);
+      } finally {
+        setUploading(false);
+      }
+    },
+  };
+}
+
+function buildExhibitionCoverUploadProps(
+  form: FormInstance<ExhibitionCreateFormValues>,
+  fileList: UploadFile[],
+  setFileList: Dispatch<SetStateAction<UploadFile[]>>,
+  uploading: boolean,
+  setUploading: Dispatch<SetStateAction<boolean>>,
+): UploadProps {
+  return {
+    accept: "image/jpeg,image/jpg,image/png,image/webp",
+    multiple: false,
+    maxCount: 1,
+    fileList,
+    listType: "picture-card",
+    showUploadList: {
+      showPreviewIcon: true,
+      showRemoveIcon: true,
+    },
+    disabled: uploading,
+    beforeUpload: (file) => {
+      const ok =
+        file.type.startsWith("image/") ||
+        /\.(jpe?g|png|webp)$/i.test(file.name);
+      if (!ok) {
+        message.error("仅支持 jpg / png / webp 图片");
+        return Upload.LIST_IGNORE;
+      }
+      return true;
+    },
+    onChange: ({ fileList: fl }) => {
+      setFileList(fl.length > 1 ? [fl[fl.length - 1]!] : fl);
+    },
+    onRemove: () => {
+      form.setFieldValue("cover_url", "");
+      setFileList([]);
+      return true;
+    },
+    customRequest: async (options) => {
+      const { file, onError, onSuccess } = options;
+      try {
+        setUploading(true);
+        const rcFile = file as File & { uid?: string };
+        const res = await uploadTopicImageApi(rcFile);
+        form.setFieldValue("cover_url", res.url);
+        message.success("上传成功");
+        setFileList([
+          {
+            uid: String(rcFile.uid ?? `${Date.now()}`),
+            name: rcFile.name || "cover",
+            status: "done",
+            url: res.url,
+          },
+        ]);
+        onSuccess?.(res, new XMLHttpRequest());
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        message.error(msg || "上传失败");
+        onError?.(err as Error);
+      } finally {
+        setUploading(false);
+      }
+    },
+  };
+}
 
 const ExhibitionPage = () => {
   const { token } = theme.useToken();
   const navigate = useNavigate();
   const actionRef = useRef<ActionType>(null);
+  const [createForm] = Form.useForm<ExhibitionCreateFormValues>();
+  const [editForm] = Form.useForm<ExhibitionEditFormValues>();
   const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [createCoverFiles, setCreateCoverFiles] = useState<UploadFile[]>([]);
+  const [coverUploading, setCoverUploading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingRow, setEditingRow] =
+    useState<ExhibitionTypes.Exhibition | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editCoverFiles, setEditCoverFiles] = useState<UploadFile[]>([]);
+  const [editCoverUploading, setEditCoverUploading] = useState(false);
+  const editingExhibitIdRef = useRef<string | null>(null);
   const { proTablePagination, rowIndexBase, getListParams } = useTableQuery({
     defaultPageSize: 10,
     maxPageSize: 100,
   });
+
+  const createCoverUploadProps = useMemo(
+    () =>
+      buildExhibitionCoverUploadProps(
+        createForm,
+        createCoverFiles,
+        setCreateCoverFiles,
+        coverUploading,
+        setCoverUploading,
+      ),
+    [createForm, createCoverFiles, coverUploading],
+  );
+
+  const editCoverUploadProps = useMemo(
+    () =>
+      buildExhibitionEditCoverUploadProps(
+        editForm,
+        editCoverFiles,
+        setEditCoverFiles,
+        editCoverUploading,
+        setEditCoverUploading,
+      ),
+    [editForm, editCoverFiles, editCoverUploading],
+  );
+
+  const openEditForRow = useCallback((row: ExhibitionTypes.Exhibition) => {
+    editingExhibitIdRef.current = row.id;
+    setEditingRow(row);
+    setEditOpen(true);
+  }, []);
+
+  /** 弹窗挂载后再写入表单，避免 setFieldsValue 早于 Form 渲染导致校验失败、保存无反应 */
+  useEffect(() => {
+    if (!editOpen || !editingRow) return;
+    editForm.setFieldsValue({
+      name: editingRow.name,
+      description: editingRow.description,
+      opening_time: parseExhibitionTime(
+        editingRow.opening_time as string | null | undefined,
+      ),
+      closing_time: parseExhibitionTime(
+        editingRow.closing_time as string | null | undefined,
+      ),
+      last_entry_time: parseExhibitionTime(
+        editingRow.last_entry_time as string | null | undefined,
+      ),
+      location: editingRow.location,
+      cover_url: editingRow.cover_url ?? "",
+    });
+    setEditCoverFiles(
+      editingRow.cover_url
+        ? [
+            {
+              uid: "-cover",
+              name: "cover",
+              status: "done",
+              url: editingRow.cover_url,
+            },
+          ]
+        : [],
+    );
+  }, [editOpen, editingRow, editForm]);
 
   const columns = useMemo<ProColumns<ExhibitionTypes.Exhibition>[]>(
     () => [
@@ -168,14 +420,14 @@ const ExhibitionPage = () => {
               style={{ padding: 0, height: "auto" }}
               onClick={() => navigate(`/exhibition/${row.id}`)}
             >
-              查看
+              详情
             </Button>
             <Button
               type="link"
               size="small"
               icon={<EditOutlined />}
               style={{ padding: 0, height: "auto" }}
-              disabled
+              onClick={() => openEditForRow(row)}
             >
               编辑
             </Button>
@@ -193,7 +445,7 @@ const ExhibitionPage = () => {
         ),
       },
     ],
-    [rowIndexBase, navigate],
+    [rowIndexBase, navigate, openEditForRow],
   );
 
   async function handleCreateModalFinish(values: ExhibitionCreateFormValues) {
@@ -214,8 +466,12 @@ const ExhibitionPage = () => {
     const closing_time = String(
       formatDayjsLike(session_time_range[1], "HH:mm:ss"),
     );
+    const cover_url = rest.cover_url?.trim()
+      ? rest.cover_url.trim()
+      : undefined;
     return handleCreate({
       ...rest,
+      cover_url,
       start_date,
       end_date,
       opening_time,
@@ -252,6 +508,37 @@ const ExhibitionPage = () => {
     }
   }
 
+  async function handleEditModalFinish(values: ExhibitionEditFormValues) {
+    const eid = editingExhibitIdRef.current ?? editingRow?.id;
+    if (!eid) {
+      message.error("缺少展会 ID，请关闭后重试");
+      return false;
+    }
+    try {
+      setEditSubmitting(true);
+      await updateExhibitionApi(eid, {
+        name: values.name.trim(),
+        description: values.description.trim(),
+        opening_time: formatEditTimeField(values.opening_time),
+        closing_time: formatEditTimeField(values.closing_time),
+        last_entry_time: formatEditTimeField(values.last_entry_time),
+        location: values.location.trim(),
+        cover_url: values.cover_url?.trim() ? values.cover_url.trim() : null,
+      });
+      message.success("展会信息已更新");
+      setEditOpen(false);
+      setEditingRow(null);
+      actionRef.current?.reload();
+      return true;
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      message.error(errMsg ? `更新失败：${errMsg}` : "更新失败");
+      return false;
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
   return (
     <div className="exhibition-admin-page">
       <Breadcrumb
@@ -279,13 +566,16 @@ const ExhibitionPage = () => {
               展览列表数据来自接口分页查询（limit / offset），每页最多 100 条。
             </li>
             <li>
-              点击「新建展会」在弹窗中填写名称、描述、展期、开闭场时间及地点后提交创建。
+              点击「新建展会」在弹窗中填写名称、描述、可选封面、展期、开闭场时间及地点后提交创建。
+            </li>
+            <li>
+              展会基本信息（含封面）可在列表行「编辑」弹窗中修改；展期仅在创建时设定。
             </li>
             <li>
               日期与时间字段需与后端约定格式一致（日期 YYYY-MM-DD，时间
               HH:mm:ss）。
             </li>
-            <li>编辑、删除等操作需对接相应接口后开放；当前为占位交互。</li>
+            <li>删除等操作需对接相应接口后开放；当前为占位交互。</li>
           </ol>
         }
         style={{
@@ -354,8 +644,14 @@ const ExhibitionPage = () => {
 
       <ModalForm<ExhibitionCreateFormValues>
         title="新建展会"
+        form={createForm}
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (open) {
+            setCreateCoverFiles([]);
+          }
+        }}
         initialValues={initialCreateValues}
         modalProps={{
           destroyOnClose: true,
@@ -383,6 +679,27 @@ const ExhibitionPage = () => {
           placeholder="请输入展会描述"
           rules={[{ required: true, message: "请输入展会描述" }]}
         />
+        <ProFormText
+          name="cover_url"
+          label="封面 URL"
+          placeholder="上传后自动填入，或直接粘贴图片地址"
+        />
+        <div style={{ marginBottom: token.marginMD }}>
+          <Typography.Text
+            type="secondary"
+            style={{ display: "block", marginBottom: 8 }}
+          >
+            上传封面（可选，限 1 张）
+          </Typography.Text>
+          <Upload {...createCoverUploadProps}>
+            {createCoverFiles.length === 0 ? (
+              <button type="button" style={{ border: 0, background: "none" }}>
+                <UploadOutlined />
+                <div style={{ marginTop: 8 }}>选择图片</div>
+              </button>
+            ) : null}
+          </Upload>
+        </div>
         <ProFormDateRangePicker
           name="date_range"
           label="展期"
@@ -417,6 +734,98 @@ const ExhibitionPage = () => {
           placeholder="请输入地点"
           rules={[{ required: true, message: "请输入地点" }]}
         />
+      </ModalForm>
+
+      <ModalForm<ExhibitionEditFormValues>
+        key={editingRow?.id ?? "edit-closed"}
+        title="编辑展会信息"
+        form={editForm}
+        open={editOpen}
+        onOpenChange={(open) => {
+          setEditOpen(open);
+          if (!open) {
+            editingExhibitIdRef.current = null;
+            setEditingRow(null);
+            setEditCoverFiles([]);
+            editForm.resetFields();
+          }
+        }}
+        modalProps={{
+          destroyOnClose: true,
+          maskClosable: false,
+        }}
+        submitter={{
+          searchConfig: {
+            submitText: editSubmitting ? "保存中…" : "保存",
+          },
+          resetButtonProps: { children: "取消" },
+        }}
+        onFinish={handleEditModalFinish}
+        onFinishFailed={({ errorFields }) => {
+          const first = errorFields?.[0]?.errors?.[0];
+          message.error(first ?? "请检查表单填写是否完整");
+        }}
+        width={640}
+        layout="vertical"
+        scrollToFirstError
+      >
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
+          展期（开始 / 结束日期）仅在创建展会时设定，此处不可修改。
+        </Typography.Paragraph>
+        <ProFormText
+          name="name"
+          label="展会名称"
+          rules={[{ required: true, message: "请输入展会名称" }]}
+        />
+        <ProFormTextArea
+          name="description"
+          label="展会描述"
+          rules={[{ required: true, message: "请输入展会描述" }]}
+        />
+        <ProFormTimePicker
+          name="opening_time"
+          label="开场时间"
+          fieldProps={{ format: "HH:mm:ss", style: { width: "100%" } }}
+          rules={[{ required: true, message: "请选择开场时间" }]}
+        />
+        <ProFormTimePicker
+          name="closing_time"
+          label="闭场时间"
+          fieldProps={{ format: "HH:mm:ss", style: { width: "100%" } }}
+          rules={[{ required: true, message: "请选择闭场时间" }]}
+        />
+        <ProFormTimePicker
+          name="last_entry_time"
+          label="最晚入场时间"
+          fieldProps={{ format: "HH:mm:ss", style: { width: "100%" } }}
+          rules={[{ required: true, message: "请选择最晚入场时间" }]}
+        />
+        <ProFormText
+          name="location"
+          label="地点"
+          rules={[{ required: true, message: "请输入地点" }]}
+        />
+        <ProFormText
+          name="cover_url"
+          label="封面 URL"
+          placeholder="上传后自动填入，或直接粘贴图片地址"
+        />
+        <div style={{ marginBottom: token.marginMD }}>
+          <Typography.Text
+            type="secondary"
+            style={{ display: "block", marginBottom: 8 }}
+          >
+            上传封面（限 1 张，删除可清空）
+          </Typography.Text>
+          <Upload {...editCoverUploadProps}>
+            {editCoverFiles.length === 0 ? (
+              <button type="button" style={{ border: 0, background: "none" }}>
+                <UploadOutlined />
+                <div style={{ marginTop: 8 }}>选择图片</div>
+              </button>
+            ) : null}
+          </Upload>
+        </div>
       </ModalForm>
     </div>
   );

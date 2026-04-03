@@ -73,21 +73,37 @@
 
         <!-- 电子票二维码 -->
         <view v-if="showQrBlock" class="qr-section">
-          <view class="qr-card">
-            <text class="qr-title">电子票二维码</text>
+          <view
+            class="qr-card"
+            :style="{ backgroundColor: qrcodeStyle.bgColor }"
+          >
+            <text
+              class="qr-card-title"
+              :style="{ color: qrcodeStyle.textColor }"
+              >{{ qrcodeStyle.name }}</text
+            >
+            <text class="qr-title" :style="{ color: qrcodeStyle.textColor }"
+              >电子票二维码</text
+            >
             <view class="qr-code-wrap">
               <l-qrcode
                 v-if="ticketQrPayload"
                 class="qr-code-img"
                 :value="ticketQrPayload"
-                size="370rpx"
+                size="310rpx"
                 bgColor="#ffffff"
                 :marginSize="1"
               />
               <view v-else class="qr-code-placeholder" />
             </view>
-            <text class="qr-id">ID: {{ formatTicketId(ticket.id) }}</text>
-            <text class="qr-hint">使用时请向工作人员出示此码</text>
+            <text class="qr-id" :style="{ color: qrcodeStyle.bottomTextColor }"
+              >ID: {{ formatTicketId(ticket.id) }}</text
+            >
+            <text
+              class="qr-hint"
+              :style="{ color: qrcodeStyle.bottomTextColor }"
+              >使用时请向工作人员出示此码</text
+            >
           </view>
         </view>
         <view v-else class="qr-section">
@@ -182,6 +198,33 @@ import { buildTicketDetailFromOrder } from "@/utils/orderDisplay.js";
 import Cr7NavBar from "@/components/cr7-nav-bar/cr7-nav-bar.vue";
 import { getNavBarInsetPx } from "@/utils/navBar.js";
 
+const ticketColorConfig = [
+  {
+    name: "早鸟票",
+    bgColor: "#8A38F5",
+    textColor: "#FFFFFF",
+    bottomTextColor: "rgba(255, 255, 255, 0.6)",
+  },
+  {
+    name: "单人票",
+    bgColor: "#D8FC0F",
+    textColor: "#090A07",
+    bottomTextColor: "#787878",
+  },
+  {
+    name: "双人票",
+    bgColor: "#EAB308",
+    textColor: "#090A07",
+    bottomTextColor: "#787878",
+  },
+  {
+    name: "家庭票",
+    bgColor: "#04B155",
+    textColor: "#FFFFFF",
+    bottomTextColor: "rgba(255, 255, 255, 0.6)",
+  },
+];
+
 const NOTICE_LIST = [
   "1. 入场时请向工作人员出示此二维码，核销后即可入场；",
   "2. 每张票券仅可核销一次，截图或复制无效；",
@@ -204,6 +247,7 @@ export default {
       pageLoading: true,
       pageError: "",
       navInsetPx: 0,
+      qrcodeStyle: null,
     };
   },
 
@@ -302,6 +346,12 @@ export default {
       if (!order || order.status !== "PAID") return;
       try {
         this.redemption = await getOrderRedemption(order.id);
+        const categoryName = this.redemption?.items[0]?.category_name;
+        if (categoryName) {
+          this.qrcodeStyle =
+            ticketColorConfig.find((item) => item.name === categoryName) ??
+            ticketColorConfig[0];
+        }
       } catch (e) {
         if (e?.statusCode === 410) {
           this.redemptionError = "该订单暂未生成核销码，请稍后刷新";
@@ -571,19 +621,31 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 62rpx;
+  // padding: 62rpx;
+  width: 686rpx;
+  height: 686rpx;
+}
+
+.qr-card-title {
+  font-size: 60rpx;
+  color: $text-white;
+  font-weight: 500;
+  line-height: 60rpx;
 }
 
 .qr-title {
-  font-size: 36rpx;
+  font-size: 24rpx;
   color: $text-white;
   font-weight: 500;
-  margin-bottom: 30rpx;
+  line-height: 53.85rpx;
+  margin-bottom: 20rpx;
 }
 
 .qr-code-wrap {
   background: #ffffff;
   border-radius: 30rpx;
+  width: 370rpx;
+  height: 370rpx;
   padding: 30rpx;
   box-shadow: inset 0 4rpx 8rpx rgba(0, 0, 0, 0.05);
 }
@@ -601,13 +663,14 @@ export default {
 
 .qr-id {
   font-size: 24rpx;
-  color: $text-light;
-  margin-top: 16rpx;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 24rpx;
 }
 
 .qr-hint {
   font-size: 20rpx;
-  color: $text-light;
+  color: rgba(255, 255, 255, 0.6);
   margin-top: 8rpx;
 }
 

@@ -7,6 +7,7 @@ import {
   Card,
   Descriptions,
   Empty,
+  Image,
   Modal,
   Spin,
   Table,
@@ -14,11 +15,7 @@ import {
   message,
   theme,
 } from "antd";
-import {
-  ArrowLeftOutlined,
-  HomeOutlined,
-  PlusOutlined,
-} from "@ant-design/icons";
+import { HomeOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   ModalForm,
   ProFormDigit,
@@ -476,6 +473,28 @@ export default function ExhibitionDetailPage() {
               </Descriptions.Item>
               <Descriptions.Item label="描述" span={2}>
                 {data.description}
+              </Descriptions.Item>
+              <Descriptions.Item label="封面" span={2}>
+                {data.cover_url ? (
+                  <div style={{ maxWidth: 360 }}>
+                    <Image
+                      src={data.cover_url}
+                      alt=""
+                      preview={{ mask: "预览" }}
+                      style={{
+                        width: "100%",
+                        height: "auto",
+                        maxHeight: 320,
+                        objectFit: "contain",
+                        verticalAlign: "top",
+                        borderRadius: 8,
+                        display: "block",
+                      }}
+                    />
+                  </div>
+                ) : (
+                  "—"
+                )}
               </Descriptions.Item>
               <Descriptions.Item label="展期">
                 {formatDateOnlyText(data.start_date)} ~{" "}
