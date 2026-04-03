@@ -751,6 +751,42 @@ export async function markOrderRefunded(
   return rows[0] ?? null;
 }
 
+export async function markOrderPaid(
+  client: DBClient,
+  schema: string,
+  orderId: string,
+): Promise<void> {
+  const { rows } = await client.query<
+   { paid_at: Date | null; cancelled_at: Date | null; expires_at: Date | null }
+  >(
+    `SELECT paid_at, cancelled_at, expires_at
+     FROM ${schema}.exhibit_orders
+     WHERE id = $1
+     FOR UPDATE`,
+    [orderId],
+  );
+
+  if (rows.length === 0) {
+    throw new OrderDataError('Order not found', 'ORDER_NOT_FOUND');
+  }
+
+  const order = rows[0];
+  if (order.paid_at !== null) {
+    return;
+  }
+
+  if (order.cancelled_at !== null || (order.expires_at !== null && order.expires_at <= new Date())) {
+    throw new OrderDataError('Order status invalid', 'ORDER_STATUS_INVALID');
+  }
+
+  await client.query(
+    `UPDATE ${schema}.exhibit_orders
+     SET paid_at = COALESCE(paid_at, NOW()), updated_at = NOW()
+     WHERE id = $1`,
+    [orderId],
+  );
+}
+
 export async function cancelOrder(
   client: DBClient,
   schema: string,

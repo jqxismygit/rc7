@@ -1,6 +1,6 @@
 export type XcServiceName = 'DatePriceModify' | 'DateInventoryModify';
 
-export type XcOrderServiceName = 'CreatePreOrder' | 'QueryOrder' | 'CancelPreOrder';
+export type XcOrderServiceName = 'CreatePreOrder' | 'QueryOrder' | 'CancelPreOrder' | 'PayPreOrder';
 
 export type XcSyncStatus = 'SUCCESS' | 'FAILURE';
 
@@ -62,6 +62,20 @@ export interface XcCancelPreOrderBody {
   otaOrderId: string;
 }
 
+export interface XcPayPreOrderItem {
+  itemId: string;
+  PLU: string;
+}
+
+export interface XcPayPreOrderBody {
+  orderLastConfirmTime: string;
+  supplierOrderId: string;
+  otaOrderId: string;
+  sequenceId: string;
+  confirmType: number;
+  items: XcPayPreOrderItem[];
+}
+
 export interface XcEncryptedOrderNotification {
   header: XcRequestHeader;
   body: string;
@@ -95,6 +109,15 @@ export interface XcCancelPreOrderSuccessBody {
   }>;
 }
 
+export interface XcPayPreOrderSuccessBody {
+  otaOrderId: string;
+  supplierOrderId: string;
+  items: Array<{
+    itemId: string;
+    orderStatus: number;
+  }>;
+}
+
 export interface XcEncryptedOrderResponse extends Record<string, unknown> {
   header: XcResponseHeader;
   body?: string;
@@ -114,7 +137,7 @@ export interface XcOrderSyncRecord {
   order_id: string | null;
   total_amount: number;
   request_header: XcRequestHeader;
-  request_body: XcCreatePreOrderBody | XcQueryOrderBody | XcCancelPreOrderBody;
+  request_body: XcCreatePreOrderBody | XcQueryOrderBody | XcCancelPreOrderBody | XcPayPreOrderBody;
   response_body?: unknown;
   created_at: string;
 };

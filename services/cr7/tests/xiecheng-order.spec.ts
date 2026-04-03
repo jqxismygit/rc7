@@ -731,9 +731,134 @@ describeFeature(feature, ({
       expect(latestRecord.service_name).toBe('CancelPreOrder');
     });
 
+    And('同步记录中的 supplier order id 是用户创建的订单 id', () => {
+      const latestRecord = context.records[0];
+      expect(latestRecord.order_id).toBe(featureContext.order?.id);
+    });
+
     And('同步记录中包含订单状态变更为已取消值为 {int}', (_ctx, statusValue: number) => {
       const latestRecord = context.records[0];
       const responseBody = latestRecord.response_body as Xiecheng.XcCancelPreOrderSuccessBody;
+      expect(responseBody.items).toHaveLength(1);
+      expect(responseBody.items[0]).toHaveProperty('orderStatus', statusValue);
+    });
+  });
+
+  Scenario('用户支付在携程下单的门票订单', (s: StepTest<{
+    serviceName: Xiecheng.XcOrderServiceName;
+    draftPayOrderBody: Xiecheng.XcPayPreOrderBody;
+    payOrderResponse: Xiecheng.XcEncryptedOrderResponse;
+    decryptedPayResponse: Xiecheng.XcPayPreOrderSuccessBody | null;
+    paidOrder: Order.OrderWithItems;
+    records: Xiecheng.XcOrderSyncRecord[];
+  }>) => {
+    const { Given, And, When, Then, context } = s;
+
+    Given(
+      '携程 service name 是 {string} 的订单支付请求',
+      (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
+        const { order, draftOrder } = featureContext;
+        context.serviceName = serviceName;
+        context.draftPayOrderBody = {
+          orderLastConfirmTime: toDateLabel('今天'),
+          supplierOrderId: order!.id,
+          otaOrderId: draftOrder!.otaOrderId,
+          sequenceId: `xc_pay_seq_${Date.now()}`,
+          confirmType: 2,
+          items: [{
+            itemId: '0',
+            PLU: draftOrder!.items[0].PLU,
+          }],
+        };
+    });
+
+    And('携程订单支付请求中的 supplier order id 是用户创建的订单 id', () => {
+      context.draftPayOrderBody.supplierOrderId = featureContext.order!.id;
+    });
+
+    And('携程订单支付请求中的 ota order id 是 {string}', (_ctx, otaOrderId: string) => {
+      context.draftPayOrderBody.otaOrderId = otaOrderId;
+    });
+
+    And('携程订单支付请求中的 sequence id 是 {string}', (_ctx, sequenceId: string) => {
+      context.draftPayOrderBody.sequenceId = sequenceId;
+    });
+
+    And('携程订单支付请求中的 items.0.PLU 是 {string} 的 id', (_ctx, ticketName: string) => {
+      const ticket = getTicketByName(featureContext, ticketName);
+      context.draftPayOrderBody.items[0].PLU = ticket.id;
+    });
+
+    When('携程发送订单支付请求', async () => {
+      const notification = buildCtripOrderNotification(
+        config.xiecheng,
+        context.serviceName,
+        context.draftPayOrderBody,
+      );
+
+      context.payOrderResponse = await sendCtripOrderCallback(
+        featureContext.apiServer,
+        notification,
+      );
+    });
+
+    Then('cr7 系统按照携程的要求返回订单支付响应', async () => {
+      const { adminToken, apiServer, order } = featureContext;
+      const { payOrderResponse } = context;
+      assertCtripSuccessResponse(payOrderResponse);
+      context.decryptedPayResponse = decryptCtripResponseBody<
+        Xiecheng.XcPayPreOrderSuccessBody
+      >(
+        payOrderResponse,
+        config.xiecheng.aes_key,
+        config.xiecheng.aes_iv,
+      );
+
+      context.paidOrder = await getOrderAdmin(
+        apiServer,
+        order!.id,
+        adminToken,
+      );
+    });
+
+    And('订单支付响应中包含 supplier order id', () => {
+      const { order } = featureContext;
+      expect(context.decryptedPayResponse?.supplierOrderId).toBe(order?.id);
+    });
+
+    And('订单支付响应中包含 ota order id {string}', (_ctx, otaOrderId: string) => {
+      expect(context.decryptedPayResponse?.otaOrderId).toBe(otaOrderId);
+    });
+
+    And('订单状态变更为已支付值为 {int}', (_ctx, statusValue: number) => {
+      expect(context.paidOrder.status).toBe('PAID');
+      expect(context.decryptedPayResponse?.items[0]).toHaveProperty('orderStatus', statusValue);
+    });
+
+    When('管理员在系统后台查询订单号 {string} 的携程同步记录', async (_ctx, otaOrderId: string) => {
+      const { adminToken, apiServer, order } = featureContext;
+      const records = await getCtripOrderSyncRecords(apiServer, adminToken, order!.id);
+      expect(records.length).toBeGreaterThanOrEqual(2);
+      expect(records[0].ota_order_id).toBe(otaOrderId);
+      context.records = records;
+    });
+
+    And('同步记录内容包含订单号 {string}，序列号 {string}, 同步状态是成功', (_ctx, otaOrderId: string, sequenceId: string) => {
+      const latestRecord = context.records[0];
+      expect(latestRecord.ota_order_id).toBe(otaOrderId);
+      expect(latestRecord.sequence_id).toBe(sequenceId);
+      expect(latestRecord.sync_status).toBe('SUCCESS');
+      expect(latestRecord.service_name).toBe('PayPreOrder');
+    });
+
+    And('同步记录中的 supplier order id 是用户创建的订单 id', () => {
+      const latestRecord = context.records[0];
+      expect(latestRecord.order_id).toBe(featureContext.order?.id);
+    });
+
+    And('同步记录中包含订单状态变更为已支付值为 {int}', (_ctx, statusValue: number) => {
+      const latestRecord = context.records[0];
+      const responseBody = latestRecord.response_body as Xiecheng.XcPayPreOrderSuccessBody;
       expect(responseBody.items).toHaveLength(1);
       expect(responseBody.items[0]).toHaveProperty('orderStatus', statusValue);
     });

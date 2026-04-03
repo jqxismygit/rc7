@@ -100,4 +100,25 @@ Feature: 对接携程 OTA 订单系统
      And 订单状态变更为已取消值为 14
     When 管理员在系统后台查询订单号 "xc_order_12345" 的携程同步记录
      And 同步记录内容包含订单号 "xc_order_12345"，序列号 "xc_cancel_order_seq_12345", 同步状态是成功
+     And 同步记录中的 supplier order id 是用户创建的订单 id
      And 同步记录中包含订单状态变更为已取消值为 14
+
+  Scenario: 用户支付在携程下单的门票订单
+    When 用户提交订单
+    Then cr7 系统收到订单创建通知
+     And 订单信息可以正常解密
+    Then cr7 创建了一个订单
+  Given 携程 service name 是 "PayPreOrder" 的订单支付请求
+     And 携程订单支付请求中的 supplier order id 是用户创建的订单 id
+     And 携程订单支付请求中的 ota order id 是 "xc_order_12345"
+     And 携程订单支付请求中的 sequence id 是 "xc_pay_order_seq_12345"
+     And 携程订单支付请求中的 items.0.PLU 是 "早鸟票" 的 id
+    When 携程发送订单支付请求
+    Then cr7 系统按照携程的要求返回订单支付响应
+     And 订单支付响应中包含 supplier order id
+     And 订单支付响应中包含 ota order id "xc_order_12345"
+     And 订单状态变更为已支付值为 13
+    When 管理员在系统后台查询订单号 "xc_order_12345" 的携程同步记录
+     And 同步记录内容包含订单号 "xc_order_12345"，序列号 "xc_pay_order_seq_12345", 同步状态是成功
+     And 同步记录中的 supplier order id 是用户创建的订单 id
+     And 同步记录中包含订单状态变更为已支付值为 13
