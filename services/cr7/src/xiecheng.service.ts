@@ -517,12 +517,6 @@ export default class XiechengService extends RC7BaseService {
     return null;
   }
 
-  sanitizeOrderSyncRecord(
-    record: Xiecheng.XcOrderSyncRecord & { response_body?: unknown },
-  ): Xiecheng.XcOrderSyncRecord {
-    const { response_body: _ignored, ...sanitized } = record;
-    return sanitized;
-  }
 
   async persistRecord(params: {
     schema: string;
@@ -976,10 +970,7 @@ export default class XiechengService extends RC7BaseService {
     const { rid } = ctx.params;
     const schema = await this.getSchema();
 
-    const records = await listXcOrderSyncRecordsByOrderId(this.pool, schema, rid);
-    return records.map(record => this.sanitizeOrderSyncRecord(
-      record as Xiecheng.XcOrderSyncRecord & { response_body?: unknown },
-    ));
+    return await listXcOrderSyncRecordsByOrderId(this.pool, schema, rid);
   }
 
   async listCtripOrderRecords(
@@ -999,9 +990,7 @@ export default class XiechengService extends RC7BaseService {
     });
 
     return {
-      data: records.map(record => this.sanitizeOrderSyncRecord(
-        record as Xiecheng.XcOrderSyncRecord & { response_body?: unknown },
-      )),
+      data: records,
       total,
       limit,
       offset,

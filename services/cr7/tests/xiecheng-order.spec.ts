@@ -649,6 +649,7 @@ describeFeature(feature, ({
     cancelOrderResponse: Xiecheng.XcEncryptedOrderResponse;
     decryptedCancelResponse: Xiecheng.XcCancelPreOrderSuccessBody | null;
     cancelledOrder: Order.OrderWithItems;
+    records: Xiecheng.XcOrderSyncRecord[];
   }>) => {
     const { Given, And, When, Then, context } = s;
 
@@ -712,6 +713,29 @@ describeFeature(feature, ({
     And('订单状态变更为已取消值为 {int}', (_ctx, statusValue: number) => {
       expect(context.cancelledOrder.status).toBe('CANCELLED');
       expect(context.decryptedCancelResponse?.items[0]).toHaveProperty('orderStatus', statusValue);
+    });
+
+    When('管理员在系统后台查询订单号 {string} 的携程同步记录', async (_ctx, otaOrderId: string) => {
+      const { adminToken, apiServer, order } = featureContext;
+      const records = await getCtripOrderSyncRecords(apiServer, adminToken, order!.id);
+      expect(records.length).toBeGreaterThanOrEqual(2);
+      expect(records[0].ota_order_id).toBe(otaOrderId);
+      context.records = records;
+    });
+
+    And('同步记录内容包含订单号 {string}，序列号 {string}, 同步状态是成功', (_ctx, otaOrderId: string, sequenceId: string) => {
+      const latestRecord = context.records[0];
+      expect(latestRecord.ota_order_id).toBe(otaOrderId);
+      expect(latestRecord.sequence_id).toBe(sequenceId);
+      expect(latestRecord.sync_status).toBe('SUCCESS');
+      expect(latestRecord.service_name).toBe('CancelPreOrder');
+    });
+
+    And('同步记录中包含订单状态变更为已取消值为 {int}', (_ctx, statusValue: number) => {
+      const latestRecord = context.records[0];
+      const responseBody = latestRecord.response_body as Xiecheng.XcCancelPreOrderSuccessBody;
+      expect(responseBody.items).toHaveLength(1);
+      expect(responseBody.items[0]).toHaveProperty('orderStatus', statusValue);
     });
   });
 });

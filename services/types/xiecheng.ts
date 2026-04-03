@@ -115,6 +115,7 @@ export interface XcOrderSyncRecord {
   total_amount: number;
   request_header: XcRequestHeader;
   request_body: XcCreatePreOrderBody | XcQueryOrderBody | XcCancelPreOrderBody;
+  response_body?: unknown;
   created_at: string;
 };
 
