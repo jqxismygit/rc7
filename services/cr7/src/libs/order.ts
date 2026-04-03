@@ -363,9 +363,10 @@ export class OrderService extends RC7BaseService {
     const schema = await this.getSchema();
     const dbClient = await this.pool.connect();
 
+    let res: { paid_at: Date } | null = null;
     try {
       await dbClient.query('BEGIN');
-      await markOrderPaidData(dbClient, schema, oid);
+      res = await markOrderPaidData(dbClient, schema, oid);
       await dbClient.query('COMMIT');
     } catch (error) {
       await dbClient.query('ROLLBACK');
@@ -374,14 +375,15 @@ export class OrderService extends RC7BaseService {
       dbClient.release();
     }
 
-    try {
-      await ctx.call('cr7.redemption.generateByOrder', { oid });
-    } catch (error) {
+    await ctx.call('cr7.redemption.generateByOrder', { oid })
+    .catch(error => {
       this.logger.error('Failed to generate redemption code after order paid', {
         orderId: oid,
         error,
       });
-    }
+    });
+
+    return res!;
   }
 
   async expireOrders(

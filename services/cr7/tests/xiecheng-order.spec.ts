@@ -834,6 +834,12 @@ describeFeature(feature, ({
       expect(context.decryptedPayResponse?.supplierConfirmType).toBe(confirmType);
     });
 
+    And('订单支付响应中包含 order last confirm time 是订单支付时间', () => {
+      const lastConfirmTime = context.decryptedPayResponse?.orderLastConfirmTime;
+      const paidOrder = context.paidOrder;
+      expect(lastConfirmTime).toEqual(paidOrder?.paid_at);
+    });
+
     And('订单状态变更为已支付值为 {int}', (_ctx, statusValue: number) => {
       expect(context.paidOrder.status).toBe('PAID');
       expect(context.decryptedPayResponse?.items[0]).toHaveProperty('orderStatus', statusValue);

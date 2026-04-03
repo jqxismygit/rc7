@@ -755,9 +755,9 @@ export async function markOrderPaid(
   client: DBClient,
   schema: string,
   orderId: string,
-): Promise<void> {
+): Promise<{ paid_at: Date }> {
   const { rows } = await client.query<
-   { paid_at: Date | null; cancelled_at: Date | null; expires_at: Date | null }
+   { paid_at: Date | null; cancelled_at: Date | null; expires_at: Date }
   >(
     `SELECT paid_at, cancelled_at, expires_at
      FROM ${schema}.exhibit_orders
@@ -772,19 +772,22 @@ export async function markOrderPaid(
 
   const order = rows[0];
   if (order.paid_at !== null) {
-    return;
+    return { paid_at: order.paid_at };
   }
 
-  if (order.cancelled_at !== null || (order.expires_at !== null && order.expires_at <= new Date())) {
+  if (order.cancelled_at !== null || (order.expires_at <= new Date())) {
     throw new OrderDataError('Order status invalid', 'ORDER_STATUS_INVALID');
   }
 
-  await client.query(
+  const { rows: [res] } = await client.query(
     `UPDATE ${schema}.exhibit_orders
      SET paid_at = COALESCE(paid_at, NOW()), updated_at = NOW()
-     WHERE id = $1`,
+     WHERE id = $1
+     RETURNING paid_at`,
     [orderId],
   );
+
+  return res;
 }
 
 export async function cancelOrder(

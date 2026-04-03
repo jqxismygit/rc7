@@ -1057,8 +1057,9 @@ export default class XiechengService extends RC7BaseService {
       });
     }
 
+    let paidRes: { paid_at: Date } | null = null;
     try {
-      await ctx.call('cr7.order.markPaid', { oid: supplierOrderId });
+      paidRes = await ctx.call('cr7.order.markPaid', { oid: supplierOrderId });
     } catch (error) {
       return this.failAndPersist({
         schema,
@@ -1082,6 +1083,7 @@ export default class XiechengService extends RC7BaseService {
       otaOrderId,
       supplierOrderId,
       supplierConfirmType: 1,
+      orderLastConfirmTime: paidRes!.paid_at.toJSON(),
       items: payBody.items.map(item => ({
         itemId: item.itemId,
         orderStatus: 13,

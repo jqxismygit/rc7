@@ -113,6 +113,7 @@ export interface XcPayPreOrderSuccessBody {
   otaOrderId: string;
   supplierOrderId: string;
   supplierConfirmType: number;
+  orderLastConfirmTime: string;
   items: Array<{
     itemId: string;
     orderStatus: number;
