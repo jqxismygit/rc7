@@ -1066,10 +1066,15 @@ describeFeature(feature, ({
     });
 
     And('订单查询响应中订单项的 item id 因为订单已经支付过，所以为 {string}', (_ctx, itemId: string) => {
-      const latestRecord = context.records[0];
-      const responseBody = latestRecord.response_body as Xiecheng.XcCancelOrderSuccessBody;
-      expect(responseBody.items).toHaveLength(1);
-      expect(responseBody.items[0]).toHaveProperty('itemId', itemId);
+      const { decryptedQueryResponse } = featureContext;
+      expect(decryptedQueryResponse!.items).toHaveLength(1);
+      expect(decryptedQueryResponse!.items[0]).toHaveProperty('itemId', itemId);
+    });
+
+    And('订单查询响应中订单状态为全部取消，值为 {int}', (_ctx, statusValue: number) => {
+      const { decryptedQueryResponse } = featureContext;
+      expect(decryptedQueryResponse!.items).toHaveLength(1);
+      expect(decryptedQueryResponse!.items[0]).toHaveProperty('orderStatus', statusValue);
     });
   });
 });

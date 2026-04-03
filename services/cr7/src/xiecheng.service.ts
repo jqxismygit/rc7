@@ -86,7 +86,7 @@ function toXcOrderStatus(status: Order.OrderStatus): number {
     case 'PAID': return 2;
     case 'CANCELLED': return 14;
     case 'EXPIRED':
-    case 'REFUNDED': return 3;
+    case 'REFUNDED': return 5;
     default: return 11;
   }
 }
