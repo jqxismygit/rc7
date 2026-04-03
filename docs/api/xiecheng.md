@@ -169,7 +169,7 @@
   - 当 `otaOrderId` 已在 CR7 创建成功时，必须按携程幂等要求直接返回成功，并复用首次创建得到的 `supplierOrderId`。
   - 成功时 CR7 会通过领域服务创建或复用用户、创建或复用订单。
 
-## 查看携程订单同步记录列表
+## 查看单个 CR7 订单的携程同步记录
 
 - URL: `/ota/ctrip/orders/:rid`
 - Method: `GET`
@@ -186,12 +186,40 @@
   Xiecheng.XcOrderSyncRecord[]
   ```
 - 说明：
+  - 列表按 `created_at DESC` 排序，第一条即最新同步记录。
+  - 若记录不存在，返回 `404`。
+
+## 查看携程订单同步记录列表
+
+- URL: `/ota/ctrip/orders`
+- Method: `GET`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Query:
+  ```ts
+  {
+    limit?: number;      // 默认 10，范围 1-100
+    offset?: number;     // 默认 0
+    ota_order_id?: string;
+  }
+  ```
+- Response Body:
+  ```ts
+  {
+    data: Xiecheng.XcOrderSyncRecord[];
+    total: number;
+    limit: number;
+    offset: number;
+  }
+  ```
+- 说明：
   - 同步记录只保留可成功解密的请求；解密失败请求不会生成可查询记录。
-  - 该接口是订单场景测试和后台排障的校验入口，不允许用数据库直查替代。
-  - `rid` 支持两种取值：同步记录 `id`，或携程 `otaOrderId`。两种方式都返回同一个携程订单的同步记录列表。
+  - `ota_order_id` 可用于筛选某个携程订单号的所有同步记录。
   - 列表按 `created_at DESC` 排序，第一条即最新同步记录。
   - 当携程对同一 `otaOrderId` 重复通知时，最新同步记录中的 `order_id` 必须与首条成功记录保持一致，不能生成新的 CR7 订单。
-  - 同步记录在数据库中会保存请求快照与响应快照；当前管理端接口返回 `Xiecheng.XcOrderSyncRecord[]`，用于排障所需的请求头、解密后的请求体、订单关联信息与总价快照，不返回 `response_body`。
+  - 同步记录在数据库中会保存请求快照与响应快照；管理端查询返回的记录项为 `Xiecheng.XcOrderSyncRecord`，用于排障所需的请求头、解密后的请求体、订单关联信息与总价快照，不返回 `response_body`。
 
 ## 携程返回码约定
 

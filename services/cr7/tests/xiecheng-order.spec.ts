@@ -25,6 +25,7 @@ import {
   buildCtripOrderNotification,
   decryptCtripResponseBody,
   getCtripOrderSyncRecords,
+  listCtripOrderSyncRecords,
   sendCtripOrderCallback,
 } from './fixtures/xiecheng.js';
 import { getUserProfile, prepareAdminToken, suUserToken } from './fixtures/user.js';
@@ -465,6 +466,15 @@ describeFeature(feature, ({
       const records = await getCtripOrderSyncRecords(apiServer, adminToken, orderId!);
       expect(records.length).toEqual(1);
       expect(records[0].ota_order_id).toBe(otaOrderId);
+
+      const listResult = await listCtripOrderSyncRecords(apiServer, adminToken, {
+        limit: 10,
+        offset: 0,
+        ota_order_id: otaOrderId,
+      });
+      expect(listResult.total).toBe(1);
+      expect(listResult.data).toHaveLength(1);
+      expect(listResult.data[0].order_id).toBe(orderId);
       context.records = records;
     });
 
@@ -563,10 +573,13 @@ describeFeature(feature, ({
       const { apiServer, adminToken, draftOrder } = featureContext;
       const otaOrderId = draftOrder!.otaOrderId;
 
-      // 更新为 record list 接口加筛选条件后，接口不再返回订单不存在的错误，而是返回空列表，因此这里改为验证没有同步记录被创建
-      await expect(
-        getCtripOrderSyncRecords(apiServer, adminToken, otaOrderId)
-      ).rejects.toHaveProperty('status', 404);
+      const listResult = await listCtripOrderSyncRecords(apiServer, adminToken, {
+        limit: 10,
+        offset: 0,
+        ota_order_id: otaOrderId,
+      });
+      expect(listResult.total).toBe(0);
+      expect(listResult.data).toEqual([]);
     });
 
     And('cr7 系统按照携程的要求返回订单创建失败的响应', () => {

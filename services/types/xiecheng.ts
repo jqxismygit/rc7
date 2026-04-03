@@ -104,6 +104,13 @@ export interface XcOrderSyncRecord {
   created_at: string;
 };
 
+export interface XcOrderSyncRecordListResult {
+  data: XcOrderSyncRecord[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface XcQueryOrderBody {
   sequenceId: string;
   otaOrderId: string;

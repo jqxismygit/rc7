@@ -260,10 +260,10 @@ export async function getFirstSuccessfulXcOrderSyncRecordByOtaOrderId(
   return rows[0] ?? null;
 }
 
-export async function listXcOrderSyncRecordsByOtaOrderId(
+export async function listXcOrderSyncRecordsByOrderId(
   client: DBClient,
   schema: string,
-  otaOrderId: string,
+  orderId: string,
 ): Promise<Xiecheng.XcOrderSyncRecord[]> {
   const { rows } = await client.query<Xiecheng.XcOrderSyncRecord>(
     `SELECT
@@ -282,14 +282,67 @@ export async function listXcOrderSyncRecordsByOtaOrderId(
       order_id,
       created_at
     FROM ${schema}.xc_order_sync_records
-    WHERE ota_order_id = $1
+    WHERE order_id = $1
     ORDER BY created_at DESC`,
-    [otaOrderId],
+    [orderId],
   );
 
-  if (rows.length === 0) {
-    throw new XcOrderDataError('XcOrderSyncRecord not found', 'XC_ORDER_SYNC_RECORD_NOT_FOUND');
+  return rows;
+}
+
+export async function listXcOrderSyncRecords(
+  client: DBClient,
+  schema: string,
+  params: {
+    limit: number;
+    offset: number;
+    otaOrderId?: string;
+  },
+): Promise<{ records: Xiecheng.XcOrderSyncRecord[]; total: number }> {
+  const filters: string[] = [];
+  const values: unknown[] = [];
+
+  if (params.otaOrderId) {
+    values.push(params.otaOrderId);
+    filters.push(`ota_order_id = $${values.length}`);
   }
 
-  return rows;
+  const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
+
+  const totalResult = await client.query<{ total: string }>(
+    `SELECT COUNT(*)::text AS total
+    FROM ${schema}.xc_order_sync_records
+    ${whereClause}`,
+    values,
+  );
+
+  values.push(params.limit, params.offset);
+  const { rows } = await client.query<Xiecheng.XcOrderSyncRecord>(
+    `SELECT
+      id,
+      service_name,
+      ota_order_id,
+      sequence_id,
+      request_header,
+      request_body,
+      response_body,
+      phone,
+      country_code,
+      total_amount,
+      sync_status,
+      user_id,
+      order_id,
+      created_at
+    FROM ${schema}.xc_order_sync_records
+    ${whereClause}
+    ORDER BY created_at DESC
+    LIMIT $${values.length - 1}
+    OFFSET $${values.length}`,
+    values,
+  );
+
+  return {
+    records: rows,
+    total: Number(totalResult.rows[0]?.total ?? 0),
+  };
 }

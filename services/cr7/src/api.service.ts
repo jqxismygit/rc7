@@ -192,9 +192,10 @@ const routes = [
   ),
   routeConfig(
     '/ota/ctrip',
-    ['xiecheng.getCtripOrderRecord'],
+    ['xiecheng.getCtripOrderRecord', 'xiecheng.listCtripOrderRecords'],
     {
       aliases: {
+        'GET /orders': 'xiecheng.listCtripOrderRecords',
         'GET /orders/:rid': 'xiecheng.getCtripOrderRecord',
       }
     }

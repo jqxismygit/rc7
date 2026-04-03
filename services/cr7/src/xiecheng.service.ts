@@ -2,17 +2,15 @@ import { randomUUID } from 'node:crypto';
 import { addDays, format, isAfter, isBefore, parseISO, startOfDay } from 'date-fns';
 import config from 'config';
 import { Context, Errors, ServiceBroker } from 'moleculer';
-import MoleculerWeb from 'moleculer-web';
 import type { Exhibition, Order, Xiecheng } from '@cr7/types';
 import {
   createXcSyncLog,
   listXcSyncLogs,
   XiechengDataError,
   createXcOrderSyncRecord,
-  getXcOrderSyncRecordById,
   getFirstSuccessfulXcOrderSyncRecordByOtaOrderId,
-  listXcOrderSyncRecordsByOtaOrderId,
-  XcOrderDataError,
+  listXcOrderSyncRecords,
+  listXcOrderSyncRecordsByOrderId,
 } from './data/xiecheng.js';
 import { getOrderById } from './data/order.js';
 import { handleXiechengError } from './libs/errors.js';
@@ -27,7 +25,6 @@ import {
 } from './libs/xiecheng.js';
 
 const { MoleculerClientError } = Errors;
-const { NotFoundError } = MoleculerWeb.Errors;
 
 interface UserMeta {
   uid: string;
@@ -81,10 +78,6 @@ function assertSyncDateRange(
 
 function toYuan(cents: number): number {
   return Number((cents / 100).toFixed(2));
-}
-
-function isUuidLike(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function toXcOrderStatus(status: Order.OrderStatus): number {
@@ -199,9 +192,20 @@ export default class XiechengService extends RC7BaseService {
           rest: 'GET /orders/:rid',
           roles: ['admin'],
           params: {
-            rid: 'string',
+            rid: 'uuid',
           },
           handler: this.getCtripOrderRecord,
+        },
+
+        listCtripOrderRecords: {
+          rest: 'GET /orders',
+          roles: ['admin'],
+          params: {
+            limit: { type: 'number', optional: true, default: 10, min: 1, max: 100, convert: true },
+            offset: { type: 'number', optional: true, default: 0, min: 0, convert: true },
+            ota_order_id: { type: 'string', optional: true, min: 1 },
+          },
+          handler: this.listCtripOrderRecords,
         },
       },
 
@@ -897,42 +901,35 @@ export default class XiechengService extends RC7BaseService {
     const { rid } = ctx.params;
     const schema = await this.getSchema();
 
-    const listAndSanitizeByOtaOrderId = async (otaOrderId: string) => {
-      const records = await listXcOrderSyncRecordsByOtaOrderId(this.pool, schema, otaOrderId);
-      return records.map(record => this.sanitizeOrderSyncRecord(
+    const records = await listXcOrderSyncRecordsByOrderId(this.pool, schema, rid);
+    return records.map(record => this.sanitizeOrderSyncRecord(
+      record as Xiecheng.XcOrderSyncRecord & { response_body?: unknown },
+    ));
+  }
+
+  async listCtripOrderRecords(
+    ctx: Context<{ limit?: number; offset?: number; ota_order_id?: string }, UserMeta>,
+  ): Promise<{ data: Xiecheng.XcOrderSyncRecord[]; total: number; limit: number; offset: number }> {
+    const {
+      limit = 10,
+      offset = 0,
+      ota_order_id: otaOrderId,
+    } = ctx.params;
+    const schema = await this.getSchema();
+
+    const { records, total } = await listXcOrderSyncRecords(this.pool, schema, {
+      limit,
+      offset,
+      otaOrderId,
+    });
+
+    return {
+      data: records.map(record => this.sanitizeOrderSyncRecord(
         record as Xiecheng.XcOrderSyncRecord & { response_body?: unknown },
-      ));
+      )),
+      total,
+      limit,
+      offset,
     };
-
-    try {
-      if (isUuidLike(rid)) {
-        const record = await getXcOrderSyncRecordById(this.pool, schema, rid);
-        if (record.ota_order_id) {
-          return await listAndSanitizeByOtaOrderId(record.ota_order_id);
-        }
-        return [this.sanitizeOrderSyncRecord(record as Xiecheng.XcOrderSyncRecord & { response_body?: unknown })];
-      }
-    } catch (error) {
-      if (error instanceof XcOrderDataError && error.code === 'XC_ORDER_SYNC_RECORD_NOT_FOUND') {
-        try {
-          return await listAndSanitizeByOtaOrderId(rid);
-        } catch (lookupError) {
-          if (lookupError instanceof XcOrderDataError && lookupError.code === 'XC_ORDER_SYNC_RECORD_NOT_FOUND') {
-            throw new NotFoundError('携程订单同步记录不存在', 'XC_ORDER_SYNC_RECORD_NOT_FOUND');
-          }
-          throw lookupError;
-        }
-      }
-      throw error;
-    }
-
-    try {
-      return await listAndSanitizeByOtaOrderId(rid);
-    } catch (error) {
-      if (error instanceof XcOrderDataError && error.code === 'XC_ORDER_SYNC_RECORD_NOT_FOUND') {
-        throw new NotFoundError('携程订单同步记录不存在', 'XC_ORDER_SYNC_RECORD_NOT_FOUND');
-      }
-      throw error;
-    }
   }
 }

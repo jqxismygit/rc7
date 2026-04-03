@@ -120,12 +120,31 @@ export async function sendCtripOrderCallback(
 export async function getCtripOrderSyncRecords(
   server: Server,
   token: string,
-  rid: string,
+  cr7OrderId: string,
 ): Promise<Xiecheng.XcOrderSyncRecord[]> {
   return getJSON<Xiecheng.XcOrderSyncRecord[]>(
     server,
-    `/ota/ctrip/orders/${rid}`,
+    `/ota/ctrip/orders/${cr7OrderId}`,
     { token },
+  );
+}
+
+export async function listCtripOrderSyncRecords(
+  server: Server,
+  token: string,
+  query?: {
+    limit?: number;
+    offset?: number;
+    ota_order_id?: string;
+  },
+): Promise<Xiecheng.XcOrderSyncRecordListResult> {
+  return getJSON<Xiecheng.XcOrderSyncRecordListResult>(
+    server,
+    '/ota/ctrip/orders',
+    {
+      token,
+      query,
+    },
   );
 }
 
