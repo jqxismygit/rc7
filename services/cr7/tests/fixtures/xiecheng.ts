@@ -156,12 +156,14 @@ export function decryptCtripResponseBody<Body>(
   response: Xiecheng.XcEncryptedOrderResponse,
   aesKey: string,
   aesIv: string,
-): Body | null {
+): Body {
   const plain = decryptXieChengBody(response.body!, aesKey, aesIv);
   return JSON.parse(plain) as Body;
 }
 
-export function assertCtripSuccessResponse(response: Xiecheng.XcEncryptedOrderResponse) {
+export function assertCtripSuccessResponse(
+  response: { header: Xiecheng.XcResponseHeader}
+) {
   expect(response).toHaveProperty('header');
   expect(response.header).toHaveProperty('resultCode', '0000');
 }

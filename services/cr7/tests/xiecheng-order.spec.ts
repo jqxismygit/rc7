@@ -58,22 +58,30 @@ interface CallbackContext {
   decryptedResponseBody: Xiecheng.XcCreatePreOrderSuccessBody | null;
 }
 
-type SyncRecordContext = {
+interface SyncRecordContext {
   records: Xiecheng.XcOrderSyncRecord[];
 };
 
-type OrderResultContext = {
+interface OrderResultContext {
   order: Order.OrderWithItems;
   orderUserToken: string;
   orderUserProfile: User.Profile;
 };
+
+interface OrderQueryContext {
+  serviceName: Xiecheng.XcOrderServiceName
+  draftQueryOrderBody: Xiecheng.XcQueryOrderBody;
+  queryOrderResponse: Xiecheng.XcEncryptedOrderResponse;
+  decryptedQueryResponse: Xiecheng.XcQueryOrderSuccessBody;
+}
 
 interface FeatureContext extends
   AdminUserContext,
   ExhibitionContext,
   Partial<DraftOrderContext>,
   Partial<CallbackContext>,
-  Partial<OrderResultContext> {
+  Partial<OrderResultContext>,
+  Partial<OrderQueryContext> {
     broker: ServiceBroker;
     apiServer: Server;
 }
@@ -275,7 +283,7 @@ describeFeature(feature, ({
     });
   });
 
-  defineSteps(({ When, Then, And }) => {
+  defineSteps(({ Given, When, Then, And }) => {
     When('用户提交订单', () => {
       const { draftOrder, serviceName } = featureContext;
       featureContext.notification = buildCtripOrderNotification(
@@ -335,6 +343,47 @@ describeFeature(feature, ({
       assertCtripSuccessResponse(callbackResponse!);
       expect(decryptedResponseBody?.otaOrderId).toBe(draftOrder?.otaOrderId);
       expect(decryptedResponseBody?.supplierOrderId).toBe(order?.id);
+    });
+
+    Given(
+      '携程 service name 是 {string} 的订单查询请求',
+      (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
+      featureContext.draftQueryOrderBody = {
+        sequenceId: `xc_query_seq_${Date.now()}`,
+        otaOrderId: featureContext.draftOrder!.otaOrderId,
+      };
+      featureContext.serviceName = serviceName;
+    });
+
+    And('携程订单查询请求中的 ota order id 是 {string}', (_ctx, otaOrderId: string) => {
+      featureContext.draftQueryOrderBody!.otaOrderId = otaOrderId;
+    });
+
+    And('携程订单查询请求中的 supplier order id 是 cr7 订单 id', async () => {
+      const { order } = featureContext;
+      featureContext.draftQueryOrderBody!.supplierOrderId = order?.id;
+    });
+
+    When('携程发送订单查询请求', async () => {
+      const { serviceName, draftQueryOrderBody } = featureContext;
+      const notification = buildCtripOrderNotification(
+        config.xiecheng, serviceName!, draftQueryOrderBody!
+      );
+
+      featureContext.queryOrderResponse = await sendCtripOrderCallback(
+        featureContext.apiServer,
+        notification,
+      );
+      featureContext.decryptedQueryResponse = decryptCtripResponseBody<Xiecheng.XcQueryOrderSuccessBody>(
+        featureContext.queryOrderResponse,
+        config.xiecheng.aes_key,
+        config.xiecheng.aes_iv,
+      );
+    });
+
+    Then('cr7 系统按照携程的要求返回订单查询响应', () => {
+      const { queryOrderResponse } = featureContext;
+      assertCtripSuccessResponse(queryOrderResponse!);
     });
   });
 
@@ -569,82 +618,36 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('用户在携程下单后，可以查询订单详情', (s: StepTest<{
-      serviceName: Xiecheng.XcOrderServiceName
-      draftQueryOrderBody: Xiecheng.XcQueryOrderBody;
-      queryOrderResponse: Xiecheng.XcEncryptedOrderResponse;
-      decryptedQueryResponse: Xiecheng.XcQueryOrderSuccessBody | null;
-    }
-  >) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given(
-      '携程 service name 是 {string} 的订单查询请求',
-      (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
-      context.draftQueryOrderBody = {
-        sequenceId: `xc_query_seq_${Date.now()}`,
-        otaOrderId: featureContext.draftOrder!.otaOrderId,
-      };
-      context.serviceName = serviceName;
-    });
-
-    And('携程订单查询请求中的 ota order id 是 {string}', (_ctx, otaOrderId: string) => {
-      context.draftQueryOrderBody!.otaOrderId = otaOrderId;
-    });
-
-    And('携程订单查询请求中的 supplier order id 是 cr7 订单 id', async () => {
-      const { order } = featureContext;
-      context.draftQueryOrderBody!.supplierOrderId = order?.id;
-    });
-
-    When('携程发送订单查询请求', async () => {
-      const { serviceName } = context;
-      const notification = buildCtripOrderNotification(
-        config.xiecheng, serviceName!, context.draftQueryOrderBody!
-      );
-
-      context.queryOrderResponse = await sendCtripOrderCallback(
-        featureContext.apiServer,
-        notification,
-      );
-      context.decryptedQueryResponse = decryptCtripResponseBody<Xiecheng.XcQueryOrderSuccessBody>(
-        context.queryOrderResponse,
-        config.xiecheng.aes_key,
-        config.xiecheng.aes_iv,
-      );
-    });
-
-    Then('cr7 系统按照携程的要求返回订单查询响应', () => {
-      assertCtripSuccessResponse(context.queryOrderResponse!);
-    });
+  Scenario('用户在携程下单后，可以查询订单详情', (s: StepTest<void>) => {
+    const { And } = s;
 
     And('订单查询响应中包含 supplier order id', () => {
       const { order } = featureContext;
-      expect(context.decryptedQueryResponse?.supplierOrderId).toBe(order?.id);
+      expect(featureContext.decryptedQueryResponse?.supplierOrderId).toBe(order?.id);
     });
 
     And('订单查询响应中包含 ota order id {string}', (_ctx, otaOrderId: string) => {
-      expect(context.decryptedQueryResponse?.otaOrderId).toBe(otaOrderId);
+      expect(featureContext.decryptedQueryResponse?.otaOrderId).toBe(otaOrderId);
     });
 
     And('订单查询响应中包含 1 个 的订单项，其数量为 {int}', (_ctx, quantity: number) => {
-      expect(context.decryptedQueryResponse?.items).toHaveLength(1);
-      expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', 0);
-      expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('quantity', quantity);
+      expect(featureContext.decryptedQueryResponse?.items).toHaveLength(1);
+      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', 0);
+      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('quantity', quantity);
     });
 
     And('订单查询响应中订单项的 item id 因为订单还没有支付，所以为 {int}', (_ctx, itemId: number) => {
-      expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', itemId);
+      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', itemId);
     });
 
     And('订单查询响应中包含 use start date 和 use end date 分别为 {string} 的开始和结束时间', (_ctx, dateLabel: string) => {
       const expectedDate = toDateLabel(dateLabel);
-      expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('useStartDate', expectedDate);
-      expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('useEndDate', expectedDate);
+      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('useStartDate', expectedDate);
+      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('useEndDate', expectedDate);
     });
 
     And('订单查询响应中包含订单状态 "待付款" 值为 {int}', (_ctx, statusValue: number) => {
-      expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('orderStatus', statusValue);
+      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('orderStatus', statusValue);
     });
   });
 
