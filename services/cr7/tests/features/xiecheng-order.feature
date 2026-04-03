@@ -32,6 +32,7 @@ Feature: 对接携程 OTA 订单系统
      And 订单的来源是携程
      And 订单的购买人姓名是 "Alice_xc"
     Then cr7 系统按照携程的要求返回订单创建成功的响应
+    Then 管理员查看场次 "今天" 的 "早鸟票" 库存应该是 1
 
   Scenario: 携程重复发送同一个订单
     When 用户提交订单
@@ -147,6 +148,7 @@ Feature: 对接携程 OTA 订单系统
     Then cr7 系统收到订单创建通知
      And 订单信息可以正常解密
     Then cr7 创建了一个订单
+    Then 管理员查看场次 "今天" 的 "早鸟票" 库存应该是 1
    Given 携程 service name 是 "PayPreOrder" 的订单支付请求
     When 携程发送订单支付请求
     Then cr7 系统按照携程的要求返回订单支付响应
@@ -161,4 +163,5 @@ Feature: 对接携程 OTA 订单系统
      And 同步记录内容包含订单号 "xc_order_12345"，序列号 "xc_cancel_order_seq_54321", 同步状态是成功
      And 同步记录中的 supplier order id 是用户创建的订单 id
      And 同步记录中包含订单状态变更为已退款值为 5
+    Then 管理员查看场次 "今天" 的 "早鸟票" 库存应该是 2
 

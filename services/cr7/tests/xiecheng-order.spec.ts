@@ -18,7 +18,7 @@ import {
 } from './fixtures/services.js';
 import { getOrderRedemption } from './fixtures/redeem.js';
 import { getSessions, prepareExhibition, prepareTicketCategory } from './fixtures/exhibition.js';
-import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
+import { getSessionTickets, updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 import { getOrder, getOrderAdmin } from './fixtures/order.js';
 import {
   assertCtripFailureResponse,
@@ -291,6 +291,7 @@ describeFeature(feature, ({
     And('携程 sequence id 是 {string}', (_ctx, sequenceId: string) => {
       featureContext.draftOrder!.sequenceId = sequenceId;
     });
+
   });
 
   defineSteps(({ Given, When, Then, And }) => {
@@ -416,6 +417,16 @@ describeFeature(feature, ({
 
     And('订单查询响应中订单项的 item id 因为订单已经支付，所以为 {string}', (_ctx, itemId: string) => {
       expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', itemId);
+    });
+
+    Then('管理员查看场次 {string} 的 {string} 库存应该是 {int}', async (_ctx, dateLabel: string, ticketName: string, quantity: number) => {
+      const { apiServer, sessions, adminToken, exhibition } = featureContext;
+      const session = getSessionByDate(sessions, dateLabel);
+      const ticket = getTicketByName(featureContext, ticketName);
+      const inventories = await getSessionTickets(apiServer, adminToken, exhibition.id, session.id);
+      const inventory = inventories.find(item => item.id === ticket.id);
+      expect(inventory, `Inventory for ticket ${ticketName} in session ${dateLabel} not found`).toBeTruthy();
+      expect(inventory!.quantity).toBe(quantity);
     });
 
     And('订单查询响应中订单项的实际使用份数是 {int}', (_ctx, useQuantity: number) => {
