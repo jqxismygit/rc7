@@ -698,7 +698,7 @@ export default class XiechengService extends RC7BaseService {
 
     const items: Xiecheng.XcQueryOrderResponseItem[] = createOrderBody.items
     .map((item: Xiecheng.XcCreatePreOrderItem, idx: number) => ({
-      itemId: paidItems[idx]?.itemId ?? idx,
+      itemId: order.status === 'PAID' ? (paidItems[idx]?.itemId ?? '0') : 0,
       useStartDate: item.useStartDate,
       useEndDate: item.useEndDate,
       orderStatus: xcOrderStatus,

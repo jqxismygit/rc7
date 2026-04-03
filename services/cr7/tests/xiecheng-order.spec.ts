@@ -419,6 +419,10 @@ describeFeature(feature, ({
       expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', itemId);
     });
 
+    And('订单查询响应中订单项的 item id 因为订单已经退款，所以为 {int}', (_ctx, itemId: number) => {
+      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', itemId);
+    });
+
     Then('管理员查看场次 {string} 的 {string} 库存应该是 {int}', async (_ctx, dateLabel: string, ticketName: string, quantity: number) => {
       const { apiServer, sessions, adminToken, exhibition } = featureContext;
       const session = getSessionByDate(sessions, dateLabel);
