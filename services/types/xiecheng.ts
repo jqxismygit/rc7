@@ -76,10 +76,24 @@ export interface XcPayPreOrderBody {
   items: XcPayPreOrderItem[];
 }
 
+export interface XcCancelOrderBodyItem {
+  itemId: string;
+  PLU: string;
+  lastConfirmTime: string;
+  cancelType: number;
+  quantity: number;
+  passengers: Array<{
+    passengerId: string;
+  }>;
+  amount: number;
+  amountCurrency: string;
+}
+
 export interface XcCancelOrderBody {
   supplierOrderId: string;
   otaOrderId: string;
   sequenceId: string;
+  items: XcCancelOrderBodyItem[];
 }
 
 export interface XcEncryptedOrderNotification {
@@ -135,11 +149,12 @@ export interface XcPayPreOrderSuccessBody {
 }
 
 export interface XcCancelOrderSuccessBody {
-  otaOrderId: string;
-  supplierOrderId: string;
+  supplierConfirmType: number;
   items: Array<{
-    itemId: number;
-    orderStatus: number;
+    itemId: string;
+    vouchers: Array<{
+      voucherId: string;
+    }>;
   }>;
 }
 

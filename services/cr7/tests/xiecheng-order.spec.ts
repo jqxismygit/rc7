@@ -958,12 +958,29 @@ describeFeature(feature, ({
     const { Given, And, Then, When, context } = s;
 
     Given('携程 service name 是 {string} 的订单退款请求', (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
+      const { order, draftOrder, draftPayOrderBody } = featureContext;
       context.serviceName = serviceName;
       context.draftRefundOrderBody = {
-        supplierOrderId: featureContext.order!.id,
-        otaOrderId: featureContext.draftOrder!.otaOrderId,
+        supplierOrderId: order!.id,
+        otaOrderId: draftOrder!.otaOrderId,
         sequenceId: 'xc_cancel_order_seq_54321',
+        items: [
+          {
+            itemId: draftPayOrderBody!.items[0].itemId,
+            PLU: featureContext.order!.items[0].ticket_category_id,
+            lastConfirmTime: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
+            cancelType: 0,
+            quantity: 1,
+            passengers: [],
+            amount: 100,
+            amountCurrency: 'CNY'
+          }
+        ],
       };
+    });
+
+    And('订单退款请求里的订单项 id 是 {string}', (_ctx, itemId: string) => {
+      context.draftRefundOrderBody.items[0].itemId = itemId;
     });
 
     And('订单退款请求里的 supplier order id 是用户创建的订单 id', () => {
@@ -974,7 +991,7 @@ describeFeature(feature, ({
       context.draftRefundOrderBody.otaOrderId = otaOrderId;
     });
 
-    Then('携程发送订单退款请求', async () => {
+    When('携程发送订单退款请求', async () => {
       const notification = buildCtripOrderNotification(
         config.xiecheng,
         context.serviceName,
@@ -1004,10 +1021,23 @@ describeFeature(feature, ({
       );
     });
 
-    And('订单退款响应中订单状态为已退款，值为 {int}', (_ctx, statusValue: number) => {
-      expect(context.refundedOrder.status).toBe('REFUNDED');
+    And('订单退款响应中 supplier confirm type 为 取消已确认，值为 {int}', (_ctx, confirmType: number) => {
+      expect(context.decryptedRefundResponse.supplierConfirmType).toBe(confirmType);
+    });
+
+    And('订单退款响应中订单项 id 是 {string}', (_ctx, itemId: string) => {
       expect(context.decryptedRefundResponse.items).toHaveLength(1);
-      expect(context.decryptedRefundResponse.items[0]).toHaveProperty('orderStatus', statusValue);
+      expect(context.decryptedRefundResponse.items[0]).toHaveProperty('itemId', itemId);
+    });
+
+    And('订单退款响应中的凭证 id 为订单核销码 id', () => {
+      const { redemption } = featureContext;
+      expect(context.decryptedRefundResponse.items[0].vouchers).toHaveLength(1);
+      expect(context.decryptedRefundResponse.items[0].vouchers[0]).toHaveProperty('voucherId', redemption?.order_id);
+    });
+
+    Then('订单状态变为已退款', () => {
+      expect(context.refundedOrder.status).toBe('REFUNDED');
     });
 
     When('管理员在系统后台查询订单号 {string} 的携程同步记录', async (_ctx, otaOrderId: string) => {
@@ -1031,11 +1061,5 @@ describeFeature(feature, ({
       expect(latestRecord.order_id).toBe(featureContext.order?.id);
     });
 
-    And('同步记录中包含订单状态变更为已退款值为 {int}', (_ctx, statusValue: number) => {
-      const latestRecord = context.records[0];
-      const responseBody = latestRecord.response_body as Xiecheng.XcCancelOrderSuccessBody;
-      expect(responseBody.items).toHaveLength(1);
-      expect(responseBody.items[0]).toHaveProperty('orderStatus', statusValue);
-    });
   });
 });

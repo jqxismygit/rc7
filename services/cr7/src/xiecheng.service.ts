@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { addDays, format, isAfter, isBefore, parseISO, startOfDay } from 'date-fns';
 import config from 'config';
 import { Context, Errors, ServiceBroker } from 'moleculer';
-import type { Exhibition, Order, Xiecheng } from '@cr7/types';
+import { Exhibition, Order, Xiecheng } from '@cr7/types';
 import {
   createXcSyncLog,
   listXcSyncLogs,
@@ -1050,6 +1050,17 @@ export default class XiechengService extends RC7BaseService {
       return this.failAndPersist(header, refundBody, '1001', '订单不存在', firstSuccessRecord);
     }
 
+    const paidRecord = await getLatestSuccessfulXcOrderSyncRecordByOtaOrderIdAndServiceName(
+      this.pool,
+      schema,
+      otaOrderId,
+      'PayPreOrder',
+    );
+
+    if (paidRecord === null) {
+      return this.failAndPersist(header, refundBody, '2007', '该订单尚未支付', firstSuccessRecord);
+    }
+
     try {
       await ctx.call('cr7.order.markRefunded', { oid: supplierOrderId });
     } catch (error) {
@@ -1063,20 +1074,16 @@ export default class XiechengService extends RC7BaseService {
     }
     ctx.meta.$statusCode = 200;
 
-    const refundedOrder = await ctx.call(
-      'cr7.order.get',
-      { oid: firstSuccessRecord.order_id },
-      { meta: { user: { uid: firstSuccessRecord.user_id } } },
-    ) as Order.OrderWithItems;
-
-    const createOrderBody = firstSuccessRecord.request_body as Xiecheng.XcCreatePreOrderBody;
     const responseBody: Xiecheng.XcCancelOrderSuccessBody = {
-      otaOrderId,
-      supplierOrderId,
-      items: createOrderBody.items.map((_item: Xiecheng.XcCreatePreOrderItem, index: number) => ({
-        itemId: index,
-        orderStatus: refundedOrder.status === 'REFUNDED' ? 5 : 3,
-      })),
+      supplierConfirmType: 1,
+      items: refundBody.items.map(item => ({
+        itemId: item.itemId,
+        vouchers: [
+          {
+            voucherId: paidRecord.order_id!
+          }
+        ]
+      }))
     };
 
     await this.persistRecord({
