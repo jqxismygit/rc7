@@ -711,7 +711,7 @@ describeFeature(feature, ({
       expect(context.decryptedCancelResponse?.otaOrderId).toBe(otaOrderId);
     });
 
-    And('订单状态变更为已取消值为 {int}', (_ctx, statusValue: number) => {
+    And('订单取消响应中订单状态为已取消，值为 {int}', (_ctx, statusValue: number) => {
       expect(context.cancelledOrder.status).toBe('CANCELLED');
       expect(context.decryptedCancelResponse?.items[0]).toHaveProperty('orderStatus', statusValue);
     });
@@ -861,7 +861,7 @@ describeFeature(feature, ({
       expect(context.decryptedPayResponse?.vouchers[0]?.voucherData).toBe(context.redemption.code);
     });
 
-    And('订单状态变更为已支付，值为 {int}', (_ctx, statusValue: number) => {
+    And('订单支付响应中订单状态为已支付，值为 {int}', (_ctx, statusValue: number) => {
       expect(context.paidOrder.status).toBe('PAID');
       expect(context.decryptedPayResponse?.items[0]).toHaveProperty('orderStatus', statusValue);
     });
