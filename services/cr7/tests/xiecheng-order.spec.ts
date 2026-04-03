@@ -859,7 +859,7 @@ describeFeature(feature, ({
       expect(latestRecord.order_id).toBe(featureContext.order?.id);
     });
 
-    And('同步记录中包含订单状态变更为已取消值为 {int}', (_ctx, statusValue: number) => {
+    And('同步记录中包含订单状态变更为已取消，值为 {int}', (_ctx, statusValue: number) => {
       const latestRecord = context.records[0];
       const responseBody = latestRecord.response_body as Xiecheng.XcCancelPreOrderSuccessBody;
       expect(responseBody.items).toHaveLength(1);
@@ -943,7 +943,7 @@ describeFeature(feature, ({
       expect(latestRecord.order_id).toBe(featureContext.order?.id);
     });
 
-    And('同步记录中包含订单状态变更为已支付值为 {int}', (_ctx, statusValue: number) => {
+    And('同步记录中包含订单状态变更为已支付，值为 {int}', (_ctx, statusValue: number) => {
       const latestRecord = context.records[0];
       const responseBody = latestRecord.response_body as Xiecheng.XcPayPreOrderSuccessBody;
       expect(responseBody.items).toHaveLength(1);
@@ -1065,5 +1065,11 @@ describeFeature(feature, ({
       expect(latestRecord.order_id).toBe(featureContext.order?.id);
     });
 
+    And('订单查询响应中订单项的 item id 因为订单已经支付过，所以为 {string}', (_ctx, itemId: string) => {
+      const latestRecord = context.records[0];
+      const responseBody = latestRecord.response_body as Xiecheng.XcCancelOrderSuccessBody;
+      expect(responseBody.items).toHaveLength(1);
+      expect(responseBody.items[0]).toHaveProperty('itemId', itemId);
+    });
   });
 });

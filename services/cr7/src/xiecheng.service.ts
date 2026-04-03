@@ -682,7 +682,7 @@ export default class XiechengService extends RC7BaseService {
       { meta: { user: { uid: record.user_id } } }
     ) as Order.OrderWithItems;
 
-    const payRecord = order.status === 'PAID'
+    const payRecord = order.paid_at !== null
       ? await getLatestSuccessfulXcOrderSyncRecordByOtaOrderIdAndServiceName(
         this.pool,
         schema,
@@ -690,6 +690,7 @@ export default class XiechengService extends RC7BaseService {
         'PayPreOrder',
       )
       : null;
+
     const paidItems = (payRecord?.request_body as Xiecheng.XcPayPreOrderBody)?.items ?? [];
 
     const xcOrderStatus = toXcOrderStatus(order.status);
@@ -698,7 +699,7 @@ export default class XiechengService extends RC7BaseService {
 
     const items: Xiecheng.XcQueryOrderResponseItem[] = createOrderBody.items
     .map((item: Xiecheng.XcCreatePreOrderItem, idx: number) => ({
-      itemId: order.status === 'PAID' ? (paidItems[idx]?.itemId ?? '0') : 0,
+      itemId: paidItems[idx]?.itemId ?? 0,
       useStartDate: item.useStartDate,
       useEndDate: item.useEndDate,
       orderStatus: xcOrderStatus,
