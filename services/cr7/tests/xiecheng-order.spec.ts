@@ -407,6 +407,10 @@ describeFeature(feature, ({
     And('订单查询响应中订单项的 item id 因为订单已经支付，所以为 {string}', (_ctx, itemId: string) => {
       expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', itemId);
     });
+
+    And('订单查询响应中订单项的实际使用份数是 {int}', (_ctx, useQuantity: number) => {
+      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('useQuantity', useQuantity);
+    });
   });
 
   Scenario('用户从携程下单购买门票', (s: StepTest<OrderResultContext>) => {

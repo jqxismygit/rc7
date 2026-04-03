@@ -691,7 +691,7 @@ export default class XiechengService extends RC7BaseService {
       useEndDate: item.useEndDate,
       orderStatus: xcOrderStatus,
       quantity: item.quantity,
-      useQuantity: order.status === 'PAID' ? item.quantity : 0,
+      useQuantity: 0,
       cancelQuantity: isCancelled ? item.quantity : 0,
       passengers: [],
       vouchers: [],
