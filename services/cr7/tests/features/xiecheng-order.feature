@@ -196,7 +196,7 @@ Feature: 对接携程 OTA 订单系统
      And 核销通知中包含订单项 id "xc_item_12345"
      And 核销通知中订单项的数量是购票数量
      And 核销通知中订单项的使用数量是购票数量
-     And 核销通知中订单项的 use start date 和 use end date 分别为 "今天" 的开始和结束时间
+     And 核销通知中订单项的 use start date 和 use end date 都为 "今天"
    Given 携程 service name 是 "QueryOrder" 的订单查询请求
      And 携程订单查询请求中的 ota order id 是 "xc_order_12345"
      And 携程订单查询请求中的 supplier order id 是 cr7 订单 id

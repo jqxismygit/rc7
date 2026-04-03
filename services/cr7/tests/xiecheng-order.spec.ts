@@ -1142,7 +1142,7 @@ describeFeature(feature, ({
       );
     });
 
-    And('核销通知中订单项的 use start date 和 use end date 分别为 {string} 的开始和结束时间', (_ctx, dateLabel: string) => {
+    And('核销通知中订单项的 use start date 和 use end date 都为 {string}', (_ctx, dateLabel: string) => {
       const expectedDate = toDateLabel(dateLabel);
       expect(context.receivedConsumedNoticeBody.items).toHaveLength(1);
       expect(context.receivedConsumedNoticeBody.items[0]).toHaveProperty('useStartDate', expectedDate);
