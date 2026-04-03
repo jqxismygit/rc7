@@ -498,6 +498,12 @@ describeFeature(feature, ({
         orderUserToken!,
       );
     });
+
+    And('订单支付响应中订单状态为已支付，值为 {int}', (_ctx, statusValue: number) => {
+      const { decryptedPayResponse, paidOrder } = featureContext;
+      expect(paidOrder!.status).toBe('PAID');
+      expect(decryptedPayResponse!.items[0]).toHaveProperty('orderStatus', statusValue);
+    });
   });
 
   Scenario('用户从携程下单购买门票', (s: StepTest<OrderResultContext>) => {
@@ -901,12 +907,6 @@ describeFeature(feature, ({
       expect(decryptedPayResponse!.items[0]).toHaveProperty('isCredentialVouchers', 0);
     });
 
-    And('订单支付响应中订单状态为已支付，值为 {int}', (_ctx, statusValue: number) => {
-      const { decryptedPayResponse, paidOrder } = featureContext;
-      expect(paidOrder!.status).toBe('PAID');
-      expect(decryptedPayResponse!.items[0]).toHaveProperty('orderStatus', statusValue);
-    });
-
     When('管理员在系统后台查询订单号 {string} 的携程同步记录', async (_ctx, otaOrderId: string) => {
       const { adminToken, apiServer, order } = featureContext;
       const records = await getCtripOrderSyncRecords(apiServer, adminToken, order!.id);
@@ -934,5 +934,9 @@ describeFeature(feature, ({
       expect(responseBody.items).toHaveLength(1);
       expect(responseBody.items[0]).toHaveProperty('orderStatus', statusValue);
     });
+  });
+
+  Scenario('用户在携程下单后，完成支付后又取消了订单', (s: StepTest<void>) => {
+
   });
 });
