@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { addDays, format, isAfter, isBefore, parseISO, startOfDay } from 'date-fns';
 import config from 'config';
-import { Context, Errors } from 'moleculer';
+import { Context, Errors, ServiceBroker } from 'moleculer';
 import MoleculerWeb from 'moleculer-web';
 import type { Exhibition, Order, Xiecheng } from '@cr7/types';
 import {
@@ -98,7 +98,7 @@ function toXcOrderStatus(status: Order.OrderStatus): number {
 }
 
 export default class XiechengService extends RC7BaseService {
-  constructor(broker) {
+  constructor(broker: ServiceBroker) {
     super(broker);
 
     this.parseServiceSchema({

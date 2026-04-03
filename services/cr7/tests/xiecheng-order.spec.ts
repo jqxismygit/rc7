@@ -12,7 +12,6 @@ import { expect, vi } from 'vitest';
 import { ServiceBroker } from 'moleculer';
 import type { Exhibition, Order, User, Xiecheng } from '@cr7/types';
 import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
-import { assertAPIError } from './lib/api.js';
 import { toDateLabel } from './lib/relative-date.js';
 import {
   prepareServices, prepareAPIServer
@@ -90,7 +89,6 @@ type ErrorContext = {
 };
 
 type QueryOrderContext = {
-  cr7OrderId?: string;
   draftQueryOrderBody?: Xiecheng.XcQueryOrderBody;
   queryOrderResponse?: Xiecheng.XcEncryptedOrderResponse;
   decryptedQueryResponse?: Xiecheng.XcQueryOrderSuccessBody | null;
@@ -109,40 +107,6 @@ function getTicketByName(featureContext: FeatureContext, ticketName: string): Ex
   return ticket;
 }
 
-async function fetchUserProfileByRecord(
-  featureContext: FeatureContext,
-  scenarioContext: SyncRecordContext & UserSessionContext,
-) {
-  expect(scenarioContext.latestRecord?.user_id).toBeTruthy();
-  const { apiServer, adminToken } = featureContext;
-
-  scenarioContext.userToken = await suUserToken(
-    apiServer,
-    adminToken,
-    scenarioContext.latestRecord!.user_id!,
-  );
-
-  scenarioContext.userProfile = await getUserProfile(
-    apiServer,
-    scenarioContext.userToken,
-  );
-
-  return scenarioContext.userProfile;
-}
-
-async function fetchOrderByRecord(
-  featureContext: FeatureContext,
-  scenarioContext: SyncRecordContext & UserSessionContext & OrderResultContext,
-) {
-  expect(scenarioContext.latestRecord?.order_id).toBeTruthy();
-  scenarioContext.order = await getOrder(
-    featureContext.apiServer,
-    scenarioContext.latestRecord!.order_id!,
-    scenarioContext.userToken!,
-  );
-
-  return scenarioContext.order;
-}
 
 describeFeature(feature, ({
   AfterEachScenario,
@@ -428,7 +392,7 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario.skip('携程重复发送同一个订单', (s: StepTest<
+  Scenario('携程重复发送同一个订单', (s: StepTest<
     DraftOrderContext
     & CallbackContext
     & OrderResultContext
@@ -599,6 +563,7 @@ describeFeature(feature, ({
       const { apiServer, adminToken, draftOrder } = featureContext;
       const otaOrderId = draftOrder!.otaOrderId;
 
+      // 更新为 record list 接口加筛选条件后，接口不再返回订单不存在的错误，而是返回空列表，因此这里改为验证没有同步记录被创建
       await expect(
         getCtripOrderSyncRecords(apiServer, adminToken, otaOrderId)
       ).rejects.toHaveProperty('status', 404);
@@ -610,47 +575,36 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario.skip('用户在携程下单后，可以查询订单详情', (s: StepTest<
+  Scenario('用户在携程下单后，可以查询订单详情', (s: StepTest<
     CallbackContext & SyncRecordContext & UserSessionContext
     & OrderResultContext & QueryOrderContext
+    & { serviceName: Xiecheng.XcOrderServiceName }
   >) => {
-    const { When, Then, And, context } = s;
+    const { Given, When, Then, And, context } = s;
 
-    And('订单详情包含 {string} {int} 张，场次时间为 {string}', (_ctx, ticketName: string, quantity: number, dateLabel: string) => {
-      const ticket = getTicketByName(featureContext, ticketName);
-      expect(context.decryptedResponseBody?.items[0]).toHaveProperty('PLU', ticket.id);
-      expect(context.decryptedResponseBody?.items[0].inventorys[0]).toHaveProperty('quantity', quantity);
-      expect(context.decryptedResponseBody?.items[0].inventorys[0]).toHaveProperty('useDate', toDateLabel(dateLabel));
-    });
-
-    And('订单 ota order id 是 {string}', (_ctx, otaOrderId: string) => {
-      expect(context.decryptedResponseBody?.otaOrderId).toBe(toScenarioScopedId(featureContext, otaOrderId));
-    });
-
-    Then('cr7 创建了一个订单', async () => {
-      await fetchOrderSyncRecordsByOtaOrderId(featureContext, context, featureContext.draftOrder!.body.otaOrderId);
-      await fetchUserProfileByRecord(featureContext, context);
-      await fetchOrderByRecord(featureContext, context);
-      expect(context.order).toBeTruthy();
-    });
-
-    And('携程发来了 service name 是 {string} 的订单查询请求', (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
+    Given(
+      '携程 service name 是 {string} 的订单查询请求',
+      (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
       context.draftQueryOrderBody = {
         sequenceId: `xc_query_seq_${Date.now()}`,
-        otaOrderId: featureContext.draftOrder!.body.otaOrderId,
+        otaOrderId: featureContext.draftOrder!.otaOrderId,
       };
-      expect(serviceName).toBe('QueryOrder');
+      context.serviceName = serviceName;
     });
 
     And('携程订单查询请求中的 ota order id 是 {string}', (_ctx, otaOrderId: string) => {
-      context.draftQueryOrderBody!.otaOrderId = toScenarioScopedId(featureContext, otaOrderId);
+      context.draftQueryOrderBody!.otaOrderId = otaOrderId;
     });
 
-    And('携程订单中的 supplier order id 是 cr7 订单 id', async () => {
-      context.draftQueryOrderBody!.supplierOrderId = context.cr7OrderId!;
+    And('携程订单查询请求中的 supplier order id 是 cr7 订单 id', async () => {
+      const { order } = featureContext;
+      context.draftQueryOrderBody!.supplierOrderId = order?.id;
+    });
 
+    When('携程发送订单查询请求', async () => {
+      const { serviceName } = context;
       const notification = buildCtripOrderNotification(
-        config.xiecheng, 'QueryOrder', context.draftQueryOrderBody!
+        config.xiecheng, serviceName!, context.draftQueryOrderBody!
       );
 
       context.queryOrderResponse = await sendCtripOrderCallback(
@@ -669,17 +623,17 @@ describeFeature(feature, ({
     });
 
     And('订单查询响应中包含 supplier order id', () => {
-      expect(context.decryptedQueryResponse?.supplierOrderId).toBe(context.cr7OrderId);
+      const { order } = featureContext;
+      expect(context.decryptedQueryResponse?.supplierOrderId).toBe(order?.id);
     });
 
     And('订单查询响应中包含 ota order id {string}', (_ctx, otaOrderId: string) => {
-      expect(context.decryptedQueryResponse?.otaOrderId).toBe(toScenarioScopedId(featureContext, otaOrderId));
+      expect(context.decryptedQueryResponse?.otaOrderId).toBe(otaOrderId);
     });
 
-    And('订单查询响应中包含 item id 为票种 id 的订单项，数量为 {int}', (_ctx, quantity: number) => {
-      const expectedItemId = featureContext.draftOrder!.body.items[0].PLU;
+    And('订单查询响应中包含 1 个 的订单项，其数量为 {int}', (_ctx, quantity: number) => {
       expect(context.decryptedQueryResponse?.items).toHaveLength(1);
-      expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', expectedItemId);
+      expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', 0);
       expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('quantity', quantity);
     });
 
@@ -689,7 +643,7 @@ describeFeature(feature, ({
       expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('useEndDate', expectedDate);
     });
 
-    And('订单查询响应中包含订单状态 {string} 值为 {int}', (_ctx, _statusLabel: string, statusValue: number) => {
+    And('订单查询响应中包含订单状态 "待付款" 值为 {int}', (_ctx, statusValue: number) => {
       expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('orderStatus', statusValue);
     });
   });

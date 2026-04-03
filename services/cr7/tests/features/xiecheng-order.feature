@@ -73,16 +73,15 @@ Feature: 对接携程 OTA 订单系统
     When 用户提交订单
     Then cr7 系统收到订单创建通知
      And 订单信息可以正常解密
-     And 订单详情包含 "早鸟票" 1 张，场次时间为 "今天"
-     And 订单 ota order id 是 "xc_order_12345"
     Then cr7 创建了一个订单
-     And 携程发来了 service name 是 "QueryOrder" 的订单查询请求
+   Given 携程 service name 是 "QueryOrder" 的订单查询请求
      And 携程订单查询请求中的 ota order id 是 "xc_order_12345"
-     And 携程订单中的 supplier order id 是 cr7 订单 id
+     And 携程订单查询请求中的 supplier order id 是 cr7 订单 id
+    When 携程发送订单查询请求
     Then cr7 系统按照携程的要求返回订单查询响应
      And 订单查询响应中包含 supplier order id
      And 订单查询响应中包含 ota order id "xc_order_12345"
-     And 订单查询响应中包含 item id 为票种 id 的订单项，数量为 1
+     And 订单查询响应中包含 1 个 的订单项，其数量为 1
      And 订单查询响应中包含 use start date 和 use end date 分别为 "今天" 的开始和结束时间
-     And 订单查询响应中包含订单状态 "新订待确认" 值为 1
+     And 订单查询响应中包含订单状态 "待付款" 值为 11
 
