@@ -18,6 +18,7 @@ import { RC7BaseService } from './libs/cr7.base.js';
 import {
   xieChengSyncInventory,
   xieChengSyncPrice,
+  xieChengSendConsumedNotice,
   XieChengBusinessError,
   decryptXieChengBody,
   buildXieChengSign,
@@ -207,6 +208,14 @@ export default class XiechengService extends RC7BaseService {
             ota_order_id: { type: 'string', optional: true, min: 1 },
           },
           handler: this.listCtripOrderRecords,
+        },
+
+        notifyOrderConsumed: {
+          roles: [],
+          params: {
+            oid: 'string'
+          },
+          handler: this.notifyOrderConsumed,
         },
       },
 
@@ -1139,5 +1148,49 @@ export default class XiechengService extends RC7BaseService {
       limit,
       offset,
     };
+  }
+
+  async notifyOrderConsumed(
+    ctx: Context<{ oid: string; }>,
+  ): Promise<void> {
+    const { oid } = ctx.params;
+    const schema = await this.getSchema();
+
+    const records = await listXcOrderSyncRecordsByOrderId(this.pool, schema, oid);
+    const createRecord = records.find(
+      r => r.service_name === 'CreatePreOrder' && r.sync_status === 'SUCCESS',
+    );
+    if (!createRecord) {
+      this.logger.warn(`No Ctrip CreatePreOrder record found for order ${oid}, skipping consumed notice`);
+      return;
+    }
+
+    const payRecord = records.find(
+      r => r.service_name === 'PayPreOrder' && r.sync_status === 'SUCCESS',
+    );
+    const payBody = payRecord?.request_body as Xiecheng.XcPayPreOrderBody | undefined;
+    const items: Xiecheng.XcOrderConsumedNoticeItem[] = (payBody?.items ?? []).map(item => ({
+      itemId: item.itemId,
+      useQuantity: 1,
+    }));
+
+    const noticeBody: Xiecheng.XcOrderConsumedNoticeBody = {
+      sequenceId: oid,
+      otaOrderId: createRecord.ota_order_id,
+      supplierOrderId: oid,
+      items,
+    };
+
+    const xcConfig = config.xiecheng;
+    await xieChengSendConsumedNotice(
+      `${xcConfig.base_url}/apiplatform/order.jsp`,
+      {
+        accountId: xcConfig.account_id,
+        signKey: xcConfig.secret,
+        aesKey: xcConfig.aes_key,
+        aesIv: xcConfig.aes_iv,
+        body: noticeBody,
+      },
+    );
   }
 }

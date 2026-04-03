@@ -177,3 +177,20 @@ Feature: 对接携程 OTA 订单系统
      And 订单查询响应中订单项的 item id 因为订单已经支付过，所以为 "xc_item_12345"
      And 订单查询响应中订单状态为全部取消，值为 5
 
+  Scenario: 核销用户在携程上购买的门票
+    When 用户提交订单
+    Then cr7 系统收到订单创建通知
+     And 订单信息可以正常解密
+    Then cr7 创建了一个订单
+   Given 携程 service name 是 "PayPreOrder" 的订单支付请求
+     And 携程订单支付请求中的订单项 id 是 "xc_item_12345"
+    When 携程发送订单支付请求
+    Then cr7 系统按照携程的要求返回订单支付响应
+     And 订单支付响应中订单状态为已支付，值为 13
+   Given 携程服务已经准备好接受核销通知
+    When "管理员" 核销了订单
+    Then 携程服务收到了订单核销通知
+     And 核销通知中的 sequence id 是 cr7 核销记录的 id
+     And 核销通知中的 ota order id 是 "xc_order_12345"
+     And 核销通知中的 supplier order id 是用户创建的订单 id
+     And 核销通知中包含订单项 id "xc_item_12345"

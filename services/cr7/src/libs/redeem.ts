@@ -165,6 +165,10 @@ export class RedemptionService extends RC7BaseService {
 
       const redemption = await redeemCode(dbClient, schema, eid, code, uid, order, items);
 
+      if (order.source === 'CTRIP') {
+        await ctx.call('xiecheng.notifyOrderConsumed', { oid: order.id });
+      }
+
       await dbClient.query('COMMIT');
       return redemption;
     } catch (error) {

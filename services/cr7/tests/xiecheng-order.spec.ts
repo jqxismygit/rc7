@@ -16,7 +16,8 @@ import { toDateLabel } from './lib/relative-date.js';
 import {
   prepareServices, prepareAPIServer
 } from './fixtures/services.js';
-import { getOrderRedemption } from './fixtures/redeem.js';
+import { MockServer, mockJSONServer } from './lib/server.js';
+import { getOrderRedemption, redeemCode } from './fixtures/redeem.js';
 import { getSessions, prepareExhibition, prepareTicketCategory } from './fixtures/exhibition.js';
 import { getSessionTickets, updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 import { getOrder, getOrderAdmin } from './fixtures/order.js';
@@ -1075,6 +1076,60 @@ describeFeature(feature, ({
       const { decryptedQueryResponse } = featureContext;
       expect(decryptedQueryResponse!.items).toHaveLength(1);
       expect(decryptedQueryResponse!.items[0]).toHaveProperty('orderStatus', statusValue);
+    });
+  });
+
+  Scenario('核销用户在携程上购买的门票', (s: StepTest<{
+    ctripConsumedMockServer: MockServer;
+    ctripConsumedMockHandler: ReturnType<typeof vi.fn>;
+    receivedConsumedNoticeBody: Xiecheng.XcOrderConsumedNoticeBody;
+  }>) => {
+    const { Given, When, Then, And, context } = s;
+
+    Given('携程服务已经准备好接受核销通知', async () => {
+      const handler = vi.fn().mockResolvedValue({
+        header: { resultCode: '0000', resultMessage: '操作成功' },
+      });
+      const server = await mockJSONServer(handler);
+      vi.spyOn(config.xiecheng, 'base_url', 'get').mockReturnValue(server.address);
+      context.ctripConsumedMockHandler = handler;
+      context.ctripConsumedMockServer = server;
+    });
+
+    When('"管理员" 核销了订单', async () => {
+      const { apiServer, adminToken, exhibition, redemption } = featureContext;
+      await redeemCode(apiServer, exhibition.id, redemption!.code, adminToken);
+    });
+
+    Then('携程服务收到了订单核销通知', async () => {
+      const { ctripConsumedMockHandler, ctripConsumedMockServer } = context;
+      await ctripConsumedMockServer.close();
+      expect(ctripConsumedMockHandler).toHaveBeenCalledOnce();
+      const callArg = ctripConsumedMockHandler.mock.calls[0][0] as {
+        body: Xiecheng.XcEncryptedOrderNotification;
+      };
+      context.receivedConsumedNoticeBody = decryptCtripResponseBody<Xiecheng.XcOrderConsumedNoticeBody>(
+        callArg.body as unknown as Xiecheng.XcEncryptedOrderResponse,
+        config.xiecheng.aes_key,
+        config.xiecheng.aes_iv,
+      );
+    });
+
+    And('核销通知中的 sequence id 是 cr7 核销记录的 id', () => {
+      expect(context.receivedConsumedNoticeBody.sequenceId).toBe(featureContext.redemption!.order_id);
+    });
+
+    And('核销通知中的 ota order id 是 {string}', (_ctx, otaOrderId: string) => {
+      expect(context.receivedConsumedNoticeBody.otaOrderId).toBe(otaOrderId);
+    });
+
+    And('核销通知中的 supplier order id 是用户创建的订单 id', () => {
+      expect(context.receivedConsumedNoticeBody.supplierOrderId).toBe(featureContext.order!.id);
+    });
+
+    And('核销通知中包含订单项 id {string}', (_ctx, itemId: string) => {
+      expect(context.receivedConsumedNoticeBody.items).toHaveLength(1);
+      expect(context.receivedConsumedNoticeBody.items[0]).toHaveProperty('itemId', itemId);
     });
   });
 });

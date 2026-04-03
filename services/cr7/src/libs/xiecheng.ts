@@ -295,3 +295,16 @@ export async function xieChengSyncInventory(
 	assertXieChengPriceInventoryResult(response);
 	return response;
 }
+
+export async function xieChengSendConsumedNotice(
+	url: string,
+	options: Omit<XieChengPostJSONOptions, 'serviceName'>,
+) {
+	const response = await xieChengPostJSON<XieChengPriceInventoryResponse>(url, {
+		...options,
+		serviceName: 'OrderConsumedNotice',
+	});
+
+	assertXieChengPriceInventoryResult(response);
+	return response;
+}
