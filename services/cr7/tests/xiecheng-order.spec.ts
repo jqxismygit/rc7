@@ -786,6 +786,10 @@ describeFeature(feature, ({
       context.draftPayOrderBody.sequenceId = sequenceId;
     });
 
+    And('携程订单支付请求中的订单项 id 是 {string}', (_ctx, itemId: string) => {
+      context.draftPayOrderBody.items[0].itemId = itemId;
+    });
+
     And('携程订单支付请求中的 items.0.PLU 是 {string} 的 id', (_ctx, ticketName: string) => {
       const ticket = getTicketByName(featureContext, ticketName);
       context.draftPayOrderBody.items[0].PLU = ticket.id;
@@ -859,6 +863,14 @@ describeFeature(feature, ({
 
     And('订单支付响应中的凭证数据是订单核销码', () => {
       expect(context.decryptedPayResponse?.vouchers[0]?.voucherData).toBe(context.redemption.code);
+    });
+
+    And('订单支付响应中的订单项 id 是 {string}', (_ctx, itemId: string) => {
+      expect(context.decryptedPayResponse?.items[0]).toHaveProperty('itemId', itemId);
+    });
+
+    And('订单支付响应中的票据信息和出行凭证无关', () => {
+      expect(context.decryptedPayResponse?.items[0]).toHaveProperty('isCredentialVouchers', 0);
     });
 
     And('订单支付响应中订单状态为已支付，值为 {int}', (_ctx, statusValue: number) => {

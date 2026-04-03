@@ -112,17 +112,20 @@ Feature: 对接携程 OTA 订单系统
      And 携程订单支付请求中的 supplier order id 是用户创建的订单 id
      And 携程订单支付请求中的 ota order id 是 "xc_order_12345"
      And 携程订单支付请求中的 sequence id 是 "xc_pay_order_seq_12345"
+     And 携程订单支付请求中的订单项 id 是 "xc_item_12345"
      And 携程订单支付请求中的 items.0.PLU 是 "早鸟票" 的 id
     When 携程发送订单支付请求
     Then cr7 系统按照携程的要求返回订单支付响应
      And 订单支付响应中包含 supplier order id
      And 订单支付响应中包含 ota order id "xc_order_12345"
      And 订单支付响应中包含 supplier confirm type 是 1
-    And 订单支付响应中的凭证发送方是携程，值为 1
-    And 订单支付响应中的凭证类型是二维码图片，值为 3
+     And 订单支付响应中的凭证发送方是携程，值为 1
+     And 订单支付响应中的凭证类型是二维码图片，值为 3
      And 订单支付响应中的凭证 id 是订单核销码 id
      And 订单支付响应中的凭证 code 是订单核销码
      And 订单支付响应中的凭证数据是订单核销码
+     And 订单支付响应中的订单项 id 是 "xc_item_12345"
+     And 订单支付响应中的票据信息和出行凭证无关
      And 订单支付响应中订单状态为已支付，值为 13
     When 管理员在系统后台查询订单号 "xc_order_12345" 的携程同步记录
      And 同步记录内容包含订单号 "xc_order_12345"，序列号 "xc_pay_order_seq_12345", 同步状态是成功
