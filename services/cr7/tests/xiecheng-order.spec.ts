@@ -109,47 +109,6 @@ function getTicketByName(featureContext: FeatureContext, ticketName: string): Ex
   return ticket;
 }
 
-async function submitCtripOrder(
-  featureContext: FeatureContext,
-  scenarioContext: CallbackContext & ErrorContext,
-) {
-  const { draftOrder, apiServer } = featureContext;
-
-  const notification = buildCtripOrderNotification(
-    config.xiecheng, 'CreatePreOrder', draftOrder!
-  );
-
-  try {
-    scenarioContext.callbackResponse = await sendCtripOrderCallback(
-      apiServer,
-      notification,
-    );
-    scenarioContext.decryptedResponseBody = decryptCtripResponseBody<
-      Xiecheng.XcCreatePreOrderSuccessBody
-    >(
-      scenarioContext.callbackResponse,
-      config.xiecheng.aes_key,
-      config.xiecheng.aes_iv,
-    );
-    scenarioContext.lastError = undefined;
-  } catch (error) {
-    scenarioContext.lastError = error;
-    throw error;
-  }
-}
-
-async function fetchOrderSyncRecordsByOtaOrderId(
-  featureContext: FeatureContext,
-  otaOrderId: string,
-) {
-  const { adminToken, apiServer } = featureContext;
-  return await getCtripOrderSyncRecords(
-    apiServer,
-    adminToken,
-    otaOrderId,
-  );
-}
-
 async function fetchUserProfileByRecord(
   featureContext: FeatureContext,
   scenarioContext: SyncRecordContext & UserSessionContext,
@@ -619,33 +578,34 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario.skip('用户从携程下单购买门票，订单信息被篡改', (s: StepTest<
-    CallbackContext & ErrorContext & SyncRecordContext
-  >) => {
+  Scenario('用户从携程下单购买门票，订单信息被篡改', (
+    s: StepTest<CallbackContext & ErrorContext & SyncRecordContext>) => {
     const { When, Then, And, context } = s;
 
     When('cr7 系统收到订单创建通知', async () => {
-      await submitCtripOrder(featureContext, context, { tamperBody: true });
+      const { draftOrder, serviceName, apiServer } = featureContext;
+      const notification = buildCtripOrderNotification(
+        config.xiecheng, serviceName!, draftOrder!
+      );
+      notification.body = 'invalid body';
+      context.callbackResponse = await sendCtripOrderCallback(
+        apiServer,
+        notification
+      );
     });
 
     Then('cr7 系统无法解密订单信息', async () => {
-      assertCtripFailureResponse(context.callbackResponse!, '0001');
-      const otaOrderId = featureContext.draftOrder!.body.otaOrderId;
+      assertCtripFailureResponse(context.callbackResponse!, '0002');
+      const { apiServer, adminToken, draftOrder } = featureContext;
+      const otaOrderId = draftOrder!.otaOrderId;
 
-      try {
-        await getCtripOrderSyncRecords(
-          featureContext.apiServer,
-          featureContext.adminToken,
-          otaOrderId,
-        );
-        throw new Error('Expected order sync record lookup to fail');
-      } catch (error) {
-        assertAPIError(error, { status: 404, method: 'GET' });
-      }
+      await expect(
+        getCtripOrderSyncRecords(apiServer, adminToken, otaOrderId)
+      ).rejects.toHaveProperty('status', 404);
     });
 
     And('cr7 系统按照携程的要求返回订单创建失败的响应', () => {
-      assertCtripFailureResponse(context.callbackResponse!, '0001');
+      assertCtripFailureResponse(context.callbackResponse!, '0002');
       expect(context.callbackResponse?.body).toBeUndefined();
     });
   });
