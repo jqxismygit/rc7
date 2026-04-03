@@ -66,6 +66,7 @@ type OrderResultContext = {
   orderUserToken: string;
   orderUserProfile: User.Profile;
 };
+
 interface FeatureContext extends
   AdminUserContext,
   ExhibitionContext,
@@ -75,25 +76,6 @@ interface FeatureContext extends
     broker: ServiceBroker;
     apiServer: Server;
 }
-
-type UserSessionContext = {
-  userProfile?: User.Profile;
-  userToken?: string;
-};
-
-type OrderListContext = {
-  ordersAdmin?: Order.OrderListResult;
-};
-
-type ErrorContext = {
-  lastError?: unknown;
-};
-
-type QueryOrderContext = {
-  draftQueryOrderBody?: Xiecheng.XcQueryOrderBody;
-  queryOrderResponse?: Xiecheng.XcEncryptedOrderResponse;
-  decryptedQueryResponse?: Xiecheng.XcQueryOrderSuccessBody | null;
-};
 
 function getSessionByDate(sessions: Exhibition.Session[], dateLabel: string): Exhibition.Session {
   const sessionDate = toDateLabel(dateLabel);
@@ -355,9 +337,7 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('用户从携程下单购买门票', (s: StepTest<
-    CallbackContext & SyncRecordContext & UserSessionContext & OrderResultContext
-  >) => {
+  Scenario('用户从携程下单购买门票', (s: StepTest<OrderResultContext>) => {
     const { And } = s;
 
     And('订单应包含 {string} {int} 张，场次时间为 {string}',
@@ -397,7 +377,6 @@ describeFeature(feature, ({
     DraftOrderContext
     & CallbackContext
     & OrderResultContext
-    & OrderListContext
   >) => {
     const { When, Then, And, context } = s;
 
@@ -553,7 +532,7 @@ describeFeature(feature, ({
   });
 
   Scenario('用户从携程下单购买门票，订单信息被篡改', (
-    s: StepTest<CallbackContext & ErrorContext & SyncRecordContext>) => {
+    s: StepTest<CallbackContext & SyncRecordContext>) => {
     const { When, Then, And, context } = s;
 
     When('cr7 系统收到订单创建通知', async () => {
@@ -588,10 +567,12 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('用户在携程下单后，可以查询订单详情', (s: StepTest<
-    CallbackContext & SyncRecordContext & UserSessionContext
-    & OrderResultContext & QueryOrderContext
-    & { serviceName: Xiecheng.XcOrderServiceName }
+  Scenario('用户在携程下单后，可以查询订单详情', (s: StepTest<{
+      serviceName: Xiecheng.XcOrderServiceName
+      draftQueryOrderBody: Xiecheng.XcQueryOrderBody;
+      queryOrderResponse: Xiecheng.XcEncryptedOrderResponse;
+      decryptedQueryResponse: Xiecheng.XcQueryOrderSuccessBody | null;
+    }
   >) => {
     const { Given, When, Then, And, context } = s;
 
