@@ -22,6 +22,7 @@ import {
   buildXieChengSign,
   encryptXieChengBody,
 } from './libs/xiecheng.js';
+import { XcRequestHeader } from '@cr7/types/xiecheng.js';
 
 const { MoleculerClientError } = Errors;
 
@@ -557,41 +558,42 @@ export default class XiechengService extends RC7BaseService {
     });
   }
 
-  async failAndPersist(params: {
-    schema: string;
-    otaOrderId: string;
-    sequenceId: string;
-    header: Xiecheng.XcRequestHeader;
+  async failAndPersist(
+    header: XcRequestHeader,
     orderBody:
       | Xiecheng.XcCreatePreOrderBody
       | Xiecheng.XcQueryOrderBody
       | Xiecheng.XcCancelPreOrderBody
-      | Xiecheng.XcPayPreOrderBody;
-    phone: string | null;
-    countryCode: string | null;
-    resultCode: string;
-    resultMessage: string;
-    extra?: { userId?: string | null; orderId?: string | null; totalAmount?: number | null };
-  }): Promise<Xiecheng.XcEncryptedOrderResponse> {
-    const responseBody = this.buildXcErrorResponse(
-      params.resultCode, params.resultMessage
-    );
+      | Xiecheng.XcPayPreOrderBody,
+    resultCode: string,
+    resultMessage: string,
+    record?: {
+      phone?: string | null;
+      country_code?: string | null;
+      user_id?: string | null;
+      order_id?: string | null;
+      total_amount?: number | null;
+    } | null
+  ): Promise<Xiecheng.XcEncryptedOrderResponse> {
+    const schema = await this.getSchema();
+    const { otaOrderId, sequenceId } = orderBody;
+    const responseBody = this.buildXcErrorResponse(resultCode, resultMessage);
 
     await this.persistRecord({
-      schema: params.schema,
-      serviceName: params.header.serviceName,
-      otaOrderId: params.otaOrderId,
-      sequenceId: params.sequenceId,
-      header: params.header,
-      orderBody: params.orderBody,
-      phone: params.phone,
-      countryCode: params.countryCode,
+      schema,
+      serviceName: header.serviceName,
+      otaOrderId,
+      sequenceId,
+      header,
+      orderBody,
+      phone: record?.phone ?? null,
+      countryCode: record?.country_code ?? null,
       recordParams: {
         responseBody,
-        totalAmount: params.extra?.totalAmount ?? null,
+        totalAmount: record?.total_amount ?? null,
         syncStatus: 'FAILED',
-        userId: params.extra?.userId ?? null,
-        orderId: params.extra?.orderId ?? null,
+        userId: record?.user_id ?? null,
+        orderId: record?.order_id ?? null,
       },
     });
     return responseBody;
@@ -740,17 +742,7 @@ export default class XiechengService extends RC7BaseService {
     }
 
     if (!items || items.length === 0) {
-      return this.failAndPersist({
-        schema,
-        otaOrderId,
-        sequenceId,
-        header,
-        orderBody,
-        phone,
-        countryCode,
-        resultCode: '1001',
-        resultMessage: '产品 PLU 不存在',
-      });
+      return this.failAndPersist(header, orderBody, '1002', '订单中没有任何商品', firstSuccessRecord);
     }
 
     const item = items[0];
@@ -759,32 +751,12 @@ export default class XiechengService extends RC7BaseService {
     >('cr7.exhibition.getTicketByIdGlobal', { tid: item.PLU })
     .catch(() => null);
     if (!ticketCategory) {
-      return this.failAndPersist({
-        schema,
-        otaOrderId,
-        sequenceId,
-        header,
-        orderBody,
-        phone,
-        countryCode,
-        resultCode: '1001',
-        resultMessage: '产品 PLU 不存在',
-      });
+      return this.failAndPersist(header, orderBody, '1001', '产品 PLU 不存在', firstSuccessRecord);
     }
 
     const exhibitId = ticketCategory.exhibit_id;
     if (!item.useStartDate || !item.useEndDate || item.useStartDate !== item.useEndDate) {
-      return this.failAndPersist({
-        schema,
-        otaOrderId,
-        sequenceId,
-        header,
-        orderBody,
-        phone,
-        countryCode,
-        resultCode: '1009',
-        resultMessage: '日期错误',
-      });
+      return this.failAndPersist(header, orderBody, '1009', '日期错误', firstSuccessRecord);
     }
 
     const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
@@ -793,17 +765,7 @@ export default class XiechengService extends RC7BaseService {
     const matchSession = sessions
     .find(s => format(new Date(s.session_date), 'yyyy-MM-dd') === item.useStartDate) ?? null;
     if (!matchSession) {
-      return this.failAndPersist({
-        schema,
-        otaOrderId,
-        sequenceId,
-        header,
-        orderBody,
-        phone,
-        countryCode,
-        resultCode: '1009',
-        resultMessage: '日期错误',
-      });
+      return this.failAndPersist(header, orderBody, '1009', '日期错误', firstSuccessRecord);
     }
 
     const userId = await ctx.call(
@@ -871,61 +833,21 @@ export default class XiechengService extends RC7BaseService {
       return this.buildXcSuccessResponse(responseBody);
     } catch (error) {
       const errCode = (error as { code?: string })?.code;
+      const record = {
+        user_id: userId, phone, country_code: countryCode,
+        order_id: createdOrderId, total_amount: totalAmount
+      };
       if (errCode === 'INVENTORY_NOT_ENOUGH') {
-        return this.failAndPersist({
-          schema,
-          otaOrderId,
-          sequenceId,
-          header,
-          orderBody,
-          phone,
-          countryCode,
-          resultCode: '1003',
-          resultMessage: '库存不足',
-          extra: { userId, orderId: createdOrderId, totalAmount },
-        });
+        return this.failAndPersist(header, orderBody, '1003', '库存不足', record);
       }
       if (errCode === 'SESSION_EXPIRED' || errCode === 'SESSION_NOT_FOUND') {
-        return this.failAndPersist({
-          schema,
-          otaOrderId,
-          sequenceId,
-          header,
-          orderBody,
-          phone,
-          countryCode,
-          resultCode: '1009',
-          resultMessage: '日期错误',
-          extra: { userId, orderId: createdOrderId, totalAmount },
-        });
+        return this.failAndPersist(header, orderBody, '1009', '日期错误', record);
       }
       if (errCode === 'TICKET_CATEGORY_NOT_FOUND') {
-        return this.failAndPersist({
-          schema,
-          otaOrderId,
-          sequenceId,
-          header,
-          orderBody,
-          phone,
-          countryCode,
-          resultCode: '1001',
-          resultMessage: '产品 PLU 不存在',
-          extra: { userId, orderId: createdOrderId, totalAmount },
-        });
+        return this.failAndPersist(header, orderBody, '1001', '产品 PLU 不存在', record);
       }
 
-      return this.failAndPersist({
-        schema,
-        otaOrderId,
-        sequenceId,
-        header,
-        orderBody,
-        phone,
-        countryCode,
-        resultCode: '1100',
-        resultMessage: `创建订单失败: ${(error as Error).message}`,
-        extra: { userId, orderId: createdOrderId, totalAmount },
-      });
+      return this.failAndPersist(header, orderBody, '1100', `创建订单失败: ${(error as Error).message}`, record);
     }
   }
 
@@ -953,23 +875,11 @@ export default class XiechengService extends RC7BaseService {
         { meta: { user: { uid: firstSuccessRecord.user_id } } },
       )
     } catch (error) {
-      const { phone, country_code, user_id, order_id, total_amount } = firstSuccessRecord;
-      return this.failAndPersist({
-        schema,
-        otaOrderId,
-        sequenceId,
-        header,
-        orderBody: cancelBody,
-        phone,
-        countryCode: country_code,
-        resultCode: '1100',
-        resultMessage: `取消订单失败: ${(error as Error).message}`,
-        extra: {
-          userId: user_id,
-          orderId: order_id,
-          totalAmount: total_amount
-        },
-      });
+      return this.failAndPersist(
+        header, cancelBody,
+        '1100', `取消订单失败: ${(error as Error).message}`,
+        firstSuccessRecord
+      );
     }
     ctx.meta.$statusCode = 200;
 
@@ -1025,57 +935,20 @@ export default class XiechengService extends RC7BaseService {
     );
 
     if (!firstSuccessRecord || !firstSuccessRecord.order_id) {
-      return this.failAndPersist({
-        schema,
-        otaOrderId,
-        sequenceId,
-        header,
-        orderBody: payBody,
-        phone: null,
-        countryCode: null,
-        resultCode: '1001',
-        resultMessage: '订单不存在',
-      });
+      return this.failAndPersist(header, payBody, '1001', '订单不存在');
     }
 
     if (firstSuccessRecord.order_id !== supplierOrderId) {
-      return this.failAndPersist({
-        schema,
-        otaOrderId,
-        sequenceId,
-        header,
-        orderBody: payBody,
-        phone: firstSuccessRecord.phone,
-        countryCode: firstSuccessRecord.country_code,
-        resultCode: '1001',
-        resultMessage: '订单不存在',
-        extra: {
-          userId: firstSuccessRecord.user_id,
-          orderId: firstSuccessRecord.order_id,
-          totalAmount: firstSuccessRecord.total_amount,
-        },
-      });
+      return this.failAndPersist(header, payBody, '1001', '订单不存在', firstSuccessRecord);
     }
 
     try {
       await ctx.call('cr7.order.markPaid', { oid: supplierOrderId });
     } catch (error) {
-      return this.failAndPersist({
-        schema,
-        otaOrderId,
-        sequenceId,
-        header,
-        orderBody: payBody,
-        phone: firstSuccessRecord.phone,
-        countryCode: firstSuccessRecord.country_code,
-        resultCode: '1100',
-        resultMessage: `支付订单失败: ${(error as Error).message}`,
-        extra: {
-          userId: firstSuccessRecord.user_id,
-          orderId: firstSuccessRecord.order_id,
-          totalAmount: firstSuccessRecord.total_amount,
-        },
-      });
+      return this.failAndPersist(
+        header, payBody,
+        '1100', `支付订单失败: ${(error as Error).message}`, firstSuccessRecord
+      );
     }
 
     let redemption: { order_id: string; code: string };
@@ -1086,22 +959,10 @@ export default class XiechengService extends RC7BaseService {
         { meta: { user: { uid: firstSuccessRecord.user_id } } },
       );
     } catch (error) {
-      return this.failAndPersist({
-        schema,
-        otaOrderId,
-        sequenceId,
-        header,
-        orderBody: payBody,
-        phone: firstSuccessRecord.phone,
-        countryCode: firstSuccessRecord.country_code,
-        resultCode: '1100',
-        resultMessage: `获取订单核销码失败: ${(error as Error).message}`,
-        extra: {
-          userId: firstSuccessRecord.user_id,
-          orderId: firstSuccessRecord.order_id,
-          totalAmount: firstSuccessRecord.total_amount,
-        },
-      });
+      return this.failAndPersist(
+        header, payBody,
+        '1100', `获取订单核销码失败: ${(error as Error).message}`, firstSuccessRecord
+      );
     }
 
     const responseBody: Xiecheng.XcPayPreOrderSuccessBody = {
