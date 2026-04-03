@@ -151,3 +151,14 @@ Feature: 对接携程 OTA 订单系统
     When 携程发送订单支付请求
     Then cr7 系统按照携程的要求返回订单支付响应
      And 订单支付响应中订单状态为已支付，值为 13
+   Given 携程 service name 是 "CancelOrder" 的订单退款请求
+     And 订单退款请求里的 supplier order id 是用户创建的订单 id
+     And 订单退款请求里的 ota order id 是 "xc_order_12345"
+    Then 携程发送订单退款请求
+    Then cr7 系统按照携程的要求返回订单退款响应
+     And 订单退款响应中订单状态为已退款，值为 5
+    When 管理员在系统后台查询订单号 "xc_order_12345" 的携程同步记录
+     And 同步记录内容包含订单号 "xc_order_12345"，序列号 "xc_cancel_order_seq_54321", 同步状态是成功
+     And 同步记录中的 supplier order id 是用户创建的订单 id
+     And 同步记录中包含订单状态变更为已退款值为 5
+

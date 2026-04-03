@@ -790,6 +790,61 @@ export async function markOrderPaid(
   return res;
 }
 
+export async function markOrderRefundedDirect(
+  client: DBClient,
+  schema: string,
+  orderId: string,
+): Promise<{ refunded_at: Date }> {
+  const { rows } = await client.query<{
+    paid_at: Date | null;
+    cancelled_at: Date | null;
+    refunded_at: Date | null;
+    released_at: Date | null;
+    session_id: string;
+  }>(
+    `SELECT
+      paid_at,
+      cancelled_at,
+      refunded_at,
+      released_at,
+      session_id
+    FROM ${schema}.exhibit_orders
+    WHERE id = $1
+    FOR UPDATE`,
+    [orderId],
+  );
+
+  if (rows.length === 0) {
+    throw new OrderDataError('Order not found', 'ORDER_NOT_FOUND');
+  }
+
+  const order = rows[0];
+  if (order.refunded_at !== null) {
+    return { refunded_at: order.refunded_at };
+  }
+
+  if (order.paid_at === null || order.cancelled_at !== null) {
+    throw new OrderDataError('Order status invalid', 'ORDER_STATUS_INVALID');
+  }
+
+  if (order.released_at === null) {
+    await releaseOrderInventory(client, schema, orderId, order.session_id);
+  }
+
+  const { rows: [res] } = await client.query<{ refunded_at: Date }>(
+    `UPDATE ${schema}.exhibit_orders
+    SET
+      refunded_at = COALESCE(refunded_at, NOW()),
+      released_at = COALESCE(released_at, NOW()),
+      updated_at = NOW()
+    WHERE id = $1
+    RETURNING refunded_at`,
+    [orderId],
+  );
+
+  return res;
+}
+
 export async function cancelOrder(
   client: DBClient,
   schema: string,

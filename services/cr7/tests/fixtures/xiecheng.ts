@@ -93,7 +93,8 @@ export function buildCtripOrderNotification(
    | Xiecheng.XcCreatePreOrderBody
    | Xiecheng.XcQueryOrderBody
    | Xiecheng.XcCancelPreOrderBody
-   | Xiecheng.XcPayPreOrderBody,
+    | Xiecheng.XcPayPreOrderBody
+    | Xiecheng.XcCancelOrderBody,
 ): Xiecheng.XcEncryptedOrderNotification {
   const { account_id: accountId, secret: signKey, aes_key, aes_iv } = config;
   const plainBody = JSON.stringify(body);

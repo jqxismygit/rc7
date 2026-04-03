@@ -482,7 +482,8 @@ export default class XiechengService extends RC7BaseService {
       | Xiecheng.XcCreatePreOrderSuccessBody
       | Xiecheng.XcQueryOrderSuccessBody
       | Xiecheng.XcCancelPreOrderSuccessBody
-      | Xiecheng.XcPayPreOrderSuccessBody,
+      | Xiecheng.XcPayPreOrderSuccessBody
+      | Xiecheng.XcCancelOrderSuccessBody,
   ): Xiecheng.XcEncryptedOrderResponse {
     const xcConfig = config.xiecheng;
     const plainBody = JSON.stringify(successBody);
@@ -530,7 +531,8 @@ export default class XiechengService extends RC7BaseService {
       | Xiecheng.XcCreatePreOrderBody
       | Xiecheng.XcQueryOrderBody
       | Xiecheng.XcCancelPreOrderBody
-      | Xiecheng.XcPayPreOrderBody;
+      | Xiecheng.XcPayPreOrderBody
+      | Xiecheng.XcCancelOrderBody;
     phone: string | null;
     countryCode: string | null;
     recordParams: {
@@ -565,7 +567,8 @@ export default class XiechengService extends RC7BaseService {
       | Xiecheng.XcCreatePreOrderBody
       | Xiecheng.XcQueryOrderBody
       | Xiecheng.XcCancelPreOrderBody
-      | Xiecheng.XcPayPreOrderBody,
+      | Xiecheng.XcPayPreOrderBody
+      | Xiecheng.XcCancelOrderBody,
     resultCode: string,
     resultMessage: string,
     record?: {
@@ -641,6 +644,15 @@ export default class XiechengService extends RC7BaseService {
         schema,
         header,
         decryptBody as Xiecheng.XcPayPreOrderBody,
+      );
+    }
+
+    if (header.serviceName === 'CancelOrder') {
+      return this.handleRefundOrder(
+        ctx,
+        schema,
+        header,
+        decryptBody as Xiecheng.XcCancelOrderBody,
       );
     }
 
@@ -1003,6 +1015,77 @@ export default class XiechengService extends RC7BaseService {
       sequenceId,
       header,
       orderBody: payBody,
+      phone: firstSuccessRecord.phone,
+      countryCode: firstSuccessRecord.country_code,
+      recordParams: {
+        responseBody,
+        totalAmount: firstSuccessRecord.total_amount,
+        syncStatus: 'SUCCESS',
+        userId: firstSuccessRecord.user_id,
+        orderId: firstSuccessRecord.order_id,
+      },
+    });
+
+    return this.buildXcSuccessResponse(responseBody);
+  }
+
+  async handleRefundOrder(
+    ctx: Context<Xiecheng.XcEncryptedOrderNotification, Record<string, unknown>>,
+    schema: string,
+    header: Xiecheng.XcRequestHeader,
+    refundBody: Xiecheng.XcCancelOrderBody,
+  ): Promise<Xiecheng.XcEncryptedOrderResponse> {
+    const { otaOrderId, sequenceId, supplierOrderId } = refundBody;
+    const firstSuccessRecord = await getFirstSuccessfulXcOrderSyncRecordByOtaOrderId(
+      this.pool,
+      schema,
+      otaOrderId,
+    );
+
+    if (!firstSuccessRecord || !firstSuccessRecord.order_id) {
+      return this.failAndPersist(header, refundBody, '1001', '订单不存在');
+    }
+
+    if (firstSuccessRecord.order_id !== supplierOrderId) {
+      return this.failAndPersist(header, refundBody, '1001', '订单不存在', firstSuccessRecord);
+    }
+
+    try {
+      await ctx.call('cr7.order.markRefunded', { oid: supplierOrderId });
+    } catch (error) {
+      return this.failAndPersist(
+        header,
+        refundBody,
+        '1100',
+        `退款订单失败: ${(error as Error).message}`,
+        firstSuccessRecord,
+      );
+    }
+    ctx.meta.$statusCode = 200;
+
+    const refundedOrder = await ctx.call(
+      'cr7.order.get',
+      { oid: firstSuccessRecord.order_id },
+      { meta: { user: { uid: firstSuccessRecord.user_id } } },
+    ) as Order.OrderWithItems;
+
+    const createOrderBody = firstSuccessRecord.request_body as Xiecheng.XcCreatePreOrderBody;
+    const responseBody: Xiecheng.XcCancelOrderSuccessBody = {
+      otaOrderId,
+      supplierOrderId,
+      items: createOrderBody.items.map((_item: Xiecheng.XcCreatePreOrderItem, index: number) => ({
+        itemId: index,
+        orderStatus: refundedOrder.status === 'REFUNDED' ? 5 : 3,
+      })),
+    };
+
+    await this.persistRecord({
+      schema,
+      serviceName: 'CancelOrder',
+      otaOrderId,
+      sequenceId,
+      header,
+      orderBody: refundBody,
       phone: firstSuccessRecord.phone,
       countryCode: firstSuccessRecord.country_code,
       recordParams: {

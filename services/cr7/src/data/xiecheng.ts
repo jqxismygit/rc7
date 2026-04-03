@@ -137,7 +137,8 @@ export async function createXcOrderSyncRecord(
       | Xiecheng.XcCreatePreOrderBody
       | Xiecheng.XcQueryOrderBody
       | Xiecheng.XcCancelPreOrderBody
-      | Xiecheng.XcPayPreOrderBody;
+      | Xiecheng.XcPayPreOrderBody
+      | Xiecheng.XcCancelOrderBody;
     responseBody: unknown;
     phone: string | null;
     countryCode: string | null;

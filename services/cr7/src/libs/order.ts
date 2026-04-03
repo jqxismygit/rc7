@@ -10,6 +10,7 @@ import {
   getOrdersAdmin,
   hideOrder,
   markOrderPaid as markOrderPaidData,
+  markOrderRefundedDirect as markOrderRefundedDirectData,
   releaseExpiredOrders,
 } from '../data/order.js';
 import { handleOrderError } from './errors.js';
@@ -179,6 +180,13 @@ export class OrderService extends RC7BaseService {
         oid: 'string',
       },
       handler: this.markOrderPaid,
+    },
+
+    'order.markRefunded': {
+      params: {
+        oid: 'string',
+      },
+      handler: this.markOrderRefunded,
     },
 
   };
@@ -384,6 +392,26 @@ export class OrderService extends RC7BaseService {
     });
 
     return res!;
+  }
+
+  async markOrderRefunded(
+    ctx: Context<{ oid: string }>
+  ) {
+    const { oid } = ctx.params;
+    const schema = await this.getSchema();
+    const dbClient = await this.pool.connect();
+
+    try {
+      await dbClient.query('BEGIN');
+      const res = await markOrderRefundedDirectData(dbClient, schema, oid);
+      await dbClient.query('COMMIT');
+      return res;
+    } catch (error) {
+      await dbClient.query('ROLLBACK');
+      return handleOrderError(error);
+    } finally {
+      dbClient.release();
+    }
   }
 
   async expireOrders(
