@@ -166,7 +166,7 @@ export interface XcQueryOrderBody {
 }
 
 export interface XcQueryOrderResponseItem {
-  itemId: number;
+  itemId: number | string;
   useStartDate: string;
   useEndDate: string;
   orderStatus: number;

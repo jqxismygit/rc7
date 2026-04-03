@@ -264,6 +264,40 @@ export async function getFirstSuccessfulXcOrderSyncRecordByOtaOrderId(
   return rows[0] ?? null;
 }
 
+export async function getLatestSuccessfulXcOrderSyncRecordByOtaOrderIdAndServiceName(
+  client: DBClient,
+  schema: string,
+  otaOrderId: string,
+  serviceName: Xiecheng.XcOrderServiceName,
+): Promise<Xiecheng.XcOrderSyncRecord | null> {
+  const { rows } = await client.query<Xiecheng.XcOrderSyncRecord>(
+    `SELECT
+      id,
+      service_name,
+      ota_order_id,
+      sequence_id,
+      request_header,
+      request_body,
+      response_body,
+      phone,
+      country_code,
+      total_amount,
+      sync_status,
+      user_id,
+      order_id,
+      created_at
+    FROM ${schema}.xc_order_sync_records
+    WHERE ota_order_id = $1
+      AND service_name = $2
+      AND sync_status = 'SUCCESS'
+    ORDER BY created_at DESC
+    LIMIT 1`,
+    [otaOrderId, serviceName],
+  );
+
+  return rows[0] ?? null;
+}
+
 export async function listXcOrderSyncRecordsByOrderId(
   client: DBClient,
   schema: string,

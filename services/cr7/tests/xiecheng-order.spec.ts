@@ -397,8 +397,15 @@ describeFeature(feature, ({
 
     And('订单查询响应中包含 1 个 的订单项，其数量为 {int}', (_ctx, quantity: number) => {
       expect(featureContext.decryptedQueryResponse?.items).toHaveLength(1);
-      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', 0);
       expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('quantity', quantity);
+    });
+
+    And('订单查询响应中订单项的 item id 因为订单还没有支付，所以为 {int}', (_ctx, itemId: number) => {
+      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', itemId);
+    });
+
+    And('订单查询响应中订单项的 item id 因为订单已经支付，所以为 {string}', (_ctx, itemId: string) => {
+      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', itemId);
     });
   });
 
@@ -635,10 +642,6 @@ describeFeature(feature, ({
 
   Scenario('用户在携程下单后，可以查询订单详情', (s: StepTest<void>) => {
     const { And } = s;
-
-    And('订单查询响应中订单项的 item id 因为订单还没有支付，所以为 {int}', (_ctx, itemId: number) => {
-      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', itemId);
-    });
 
     And('订单查询响应中包含 use start date 和 use end date 分别为 {string} 的开始和结束时间', (_ctx, dateLabel: string) => {
       const expectedDate = toDateLabel(dateLabel);

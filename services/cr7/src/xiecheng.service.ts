@@ -9,6 +9,7 @@ import {
   XiechengDataError,
   createXcOrderSyncRecord,
   getFirstSuccessfulXcOrderSyncRecordByOtaOrderId,
+  getLatestSuccessfulXcOrderSyncRecordByOtaOrderIdAndServiceName,
   listXcOrderSyncRecords,
   listXcOrderSyncRecordsByOrderId,
 } from './data/xiecheng.js';
@@ -668,13 +669,24 @@ export default class XiechengService extends RC7BaseService {
       { oid: record.order_id },
       { meta: { user: { uid: record.user_id } } }
     ) as Order.OrderWithItems;
+
+    const payRecord = order.status === 'PAID'
+      ? await getLatestSuccessfulXcOrderSyncRecordByOtaOrderIdAndServiceName(
+        this.pool,
+        schema,
+        otaOrderId,
+        'PayPreOrder',
+      )
+      : null;
+    const paidItems = (payRecord?.request_body as Xiecheng.XcPayPreOrderBody)?.items ?? [];
+
     const xcOrderStatus = toXcOrderStatus(order.status);
     const isCancelled = ['CANCELLED', 'EXPIRED', 'REFUNDED'].includes(order.status);
     const createOrderBody = record.request_body as Xiecheng.XcCreatePreOrderBody;
 
     const items: Xiecheng.XcQueryOrderResponseItem[] = createOrderBody.items
     .map((item: Xiecheng.XcCreatePreOrderItem, idx: number) => ({
-      itemId: idx,
+      itemId: paidItems[idx]?.itemId ?? idx,
       useStartDate: item.useStartDate,
       useEndDate: item.useEndDate,
       orderStatus: xcOrderStatus,
