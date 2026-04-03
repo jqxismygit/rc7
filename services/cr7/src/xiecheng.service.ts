@@ -707,8 +707,8 @@ export default class XiechengService extends RC7BaseService {
       { oid: record.order_id },
       { meta: { user: { uid: record.user_id } } }
     ).then(res => res, () => null) as Redeem.RedemptionCodeWithOrder;
-
-    const xcOrderStatus = redeem?.status === 'REDEEMED' ? 8 : toXcOrderStatus(order.status);
+    const isRedeemed = redeem?.status === 'REDEEMED';
+    const xcOrderStatus = isRedeemed ? 8 : toXcOrderStatus(order.status);
     const isCancelled = ['CANCELLED', 'EXPIRED', 'REFUNDED'].includes(order.status);
     const createOrderBody = record.request_body as Xiecheng.XcCreatePreOrderBody;
 
@@ -719,7 +719,7 @@ export default class XiechengService extends RC7BaseService {
       useEndDate: item.useEndDate,
       orderStatus: xcOrderStatus,
       quantity: item.quantity,
-      useQuantity: 0,
+      useQuantity: isRedeemed ? item.quantity : 0,
       cancelQuantity: isCancelled ? item.quantity : 0,
       passengers: [],
       vouchers: [],

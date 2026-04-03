@@ -1149,6 +1149,21 @@ describeFeature(feature, ({
       expect(context.receivedConsumedNoticeBody.items[0]).toHaveProperty('useEndDate', expectedDate);
     });
 
+    And('订单查询响应中的订单项的实际使用份数是购票数量', () => {
+      const { decryptedQueryResponse, order } = featureContext;
+      expect(decryptedQueryResponse?.items[0]).toHaveProperty(
+        'useQuantity',
+        order!.items[0].quantity,
+      );
+    });
+
+    And('订单查询响应中订单项的 use start date 和 use end date 都为 {string}', (_ctx, dateLabel: string) => {
+      const { decryptedQueryResponse } = featureContext;
+      const expectedDate = toDateLabel(dateLabel);
+      expect(decryptedQueryResponse?.items[0]).toHaveProperty('useStartDate', expectedDate);
+      expect(decryptedQueryResponse?.items[0]).toHaveProperty('useEndDate', expectedDate);
+    });
+
     And('订单查询响应中订单的状态是全部使用，值为 {int}', (_ctx, statusValue: number) => {
       const { decryptedQueryResponse } = featureContext;
       expect(decryptedQueryResponse!.items).toHaveLength(1);
