@@ -558,7 +558,7 @@ export default class XiechengService extends RC7BaseService {
     otaOrderId: string;
     sequenceId: string;
     header: Xiecheng.XcRequestHeader;
-    orderBody: Xiecheng.XcCreatePreOrderBody;
+    orderBody: Xiecheng.XcCreatePreOrderBody | Xiecheng.XcQueryOrderBody | Xiecheng.XcCancelPreOrderBody;
     phone: string | null;
     countryCode: string | null;
     resultCode: string;
@@ -628,6 +628,7 @@ export default class XiechengService extends RC7BaseService {
       return this.handleCreateOrder(ctx, schema, header, decryptBody as Xiecheng.XcCreatePreOrderBody);
     }
 
+    this.logger.warn(`Unsupported service name in xiecheng callback: ${header.serviceName}`);
     throw new MoleculerClientError('不支持的服务名称', 400, 'UNSUPPORTED_SERVICE_NAME');
   }
 
@@ -923,11 +924,31 @@ export default class XiechengService extends RC7BaseService {
       return this.buildXcErrorResponse('1001', '订单不存在');
     }
 
-    await ctx.call(
-      'cr7.order.cancel',
-      { oid: firstSuccessRecord.order_id },
-      { meta: { user: { uid: firstSuccessRecord.user_id } } },
-    );
+    try {
+      await ctx.call(
+        'cr7.order.cancel',
+        { oid: firstSuccessRecord.order_id },
+        { meta: { user: { uid: firstSuccessRecord.user_id } } },
+      )
+    } catch (error) {
+      const { phone, country_code, user_id, order_id, total_amount } = firstSuccessRecord;
+      return this.failAndPersist({
+        schema,
+        otaOrderId,
+        sequenceId,
+        header,
+        orderBody: cancelBody,
+        phone,
+        countryCode: country_code,
+        resultCode: '1100',
+        resultMessage: `取消订单失败: ${(error as Error).message}`,
+        extra: {
+          userId: user_id,
+          orderId: order_id,
+          totalAmount: total_amount
+        },
+      });
+    }
     ctx.meta.$statusCode = 200;
 
     const cancelledOrder = await getOrderById(this.pool, schema, firstSuccessRecord.order_id);
