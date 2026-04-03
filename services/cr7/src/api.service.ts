@@ -272,18 +272,13 @@ export default {
 
       let decoded = null;
       try {
-        decoded = jwt.verify(tokenString, config.jwt.secret, config.jwt.options);
+        const jwtOptions = config.jwt.options;
+        decoded = jwt.verify(tokenString, config.jwt.secret, jwtOptions as jwt.VerifyOptions);
       } catch (error) {
-        decoded = jwt.decode(tokenString, config.jwt.secret, config.jwt.options);
-        return Promise.reject(new UnAuthorizedError(ERR_INVALID_TOKEN, error.message));
+        return Promise.reject(new UnAuthorizedError(ERR_INVALID_TOKEN, (error as Error).message));
       }
 
-      const scope = decoded.scope ?? null;
-      // accessToken 必须有特定的 scope
-      if (accessToken !== null && scope === null) {
-        return Promise.reject(new UnAuthorizedError(ERR_INVALID_TOKEN, 'accessToken requires scope'));
-      }
-
+      decoded = decoded as { uid?: string; exp?: number; iat: number };
       const { uid = null, exp = null, iat } = decoded;
       if (!exp) {
         const signAt = DateFns.fromUnixTime(iat);
@@ -297,7 +292,7 @@ export default {
         return Promise.reject(new UnAuthorizedError(ERR_INVALID_TOKEN, 'Invalid token: missing uid'));
       }
 
-      const user = { ...decoded, uid, scope };
+      const user = { ...decoded, uid };
       return user;
     },
 
