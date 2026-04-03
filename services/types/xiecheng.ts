@@ -112,6 +112,7 @@ export interface XcCancelPreOrderSuccessBody {
 export interface XcPayPreOrderSuccessBody {
   otaOrderId: string;
   supplierOrderId: string;
+  supplierConfirmType: number;
   items: Array<{
     itemId: string;
     orderStatus: number;

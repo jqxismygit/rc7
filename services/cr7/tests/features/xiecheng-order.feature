@@ -103,7 +103,7 @@ Feature: 对接携程 OTA 订单系统
      And 同步记录中的 supplier order id 是用户创建的订单 id
      And 同步记录中包含订单状态变更为已取消值为 14
 
-  Scenario: 用户支付在携程下单的门票订单
+  Scenario: 用户完成支付携程下单的门票订单
     When 用户提交订单
     Then cr7 系统收到订单创建通知
      And 订单信息可以正常解密
@@ -117,6 +117,7 @@ Feature: 对接携程 OTA 订单系统
     Then cr7 系统按照携程的要求返回订单支付响应
      And 订单支付响应中包含 supplier order id
      And 订单支付响应中包含 ota order id "xc_order_12345"
+     And 订单支付响应中包含 supplier confirm type 是 1
      And 订单状态变更为已支付值为 13
     When 管理员在系统后台查询订单号 "xc_order_12345" 的携程同步记录
      And 同步记录内容包含订单号 "xc_order_12345"，序列号 "xc_pay_order_seq_12345", 同步状态是成功

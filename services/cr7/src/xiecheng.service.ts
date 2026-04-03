@@ -1081,6 +1081,7 @@ export default class XiechengService extends RC7BaseService {
     const responseBody: Xiecheng.XcPayPreOrderSuccessBody = {
       otaOrderId,
       supplierOrderId,
+      supplierConfirmType: 1,
       items: payBody.items.map(item => ({
         itemId: item.itemId,
         orderStatus: 13,

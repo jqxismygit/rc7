@@ -744,7 +744,7 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('用户支付在携程下单的门票订单', (s: StepTest<{
+  Scenario('用户完成支付携程下单的门票订单', (s: StepTest<{
     serviceName: Xiecheng.XcOrderServiceName;
     draftPayOrderBody: Xiecheng.XcPayPreOrderBody;
     payOrderResponse: Xiecheng.XcEncryptedOrderResponse;
@@ -828,6 +828,10 @@ describeFeature(feature, ({
 
     And('订单支付响应中包含 ota order id {string}', (_ctx, otaOrderId: string) => {
       expect(context.decryptedPayResponse?.otaOrderId).toBe(otaOrderId);
+    });
+
+    And('订单支付响应中包含 supplier confirm type 是 {int}', (_ctx, confirmType: number) => {
+      expect(context.decryptedPayResponse?.supplierConfirmType).toBe(confirmType);
     });
 
     And('订单状态变更为已支付值为 {int}', (_ctx, statusValue: number) => {
