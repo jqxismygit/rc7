@@ -113,8 +113,17 @@ export interface XcPayPreOrderSuccessBody {
   otaOrderId: string;
   supplierOrderId: string;
   supplierConfirmType: number;
+  voucherSender: number;
+  vouchers: Array<{
+    itemId: string;
+    voucherId: string;
+    voucherType: number;
+    voucherCode: string;
+    voucherData: string;
+  }>;
   items: Array<{
     itemId: string;
+    isCredentialVouchers?: number;
     orderStatus: number;
   }>;
 }

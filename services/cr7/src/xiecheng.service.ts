@@ -1078,12 +1078,47 @@ export default class XiechengService extends RC7BaseService {
       });
     }
 
+    let redemption: { order_id: string; code: string };
+    try {
+      redemption = await ctx.call(
+        'cr7.redemption.getByOrder',
+        { oid: supplierOrderId },
+        { meta: { user: { uid: firstSuccessRecord.user_id } } },
+      );
+    } catch (error) {
+      return this.failAndPersist({
+        schema,
+        otaOrderId,
+        sequenceId,
+        header,
+        orderBody: payBody,
+        phone: firstSuccessRecord.phone,
+        countryCode: firstSuccessRecord.country_code,
+        resultCode: '1100',
+        resultMessage: `获取订单核销码失败: ${(error as Error).message}`,
+        extra: {
+          userId: firstSuccessRecord.user_id,
+          orderId: firstSuccessRecord.order_id,
+          totalAmount: firstSuccessRecord.total_amount,
+        },
+      });
+    }
+
     const responseBody: Xiecheng.XcPayPreOrderSuccessBody = {
       otaOrderId,
       supplierOrderId,
       supplierConfirmType: 1,
+      voucherSender: 1,
+      vouchers: payBody.items.map(item => ({
+        itemId: item.itemId,
+        voucherId: redemption.order_id,
+        voucherType: 3,
+        voucherCode: redemption.code,
+        voucherData: redemption.code,
+      })),
       items: payBody.items.map(item => ({
         itemId: item.itemId,
+        isCredentialVouchers: 0,
         orderStatus: 13,
       })),
     };

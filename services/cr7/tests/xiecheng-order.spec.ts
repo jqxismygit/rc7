@@ -10,12 +10,13 @@ import {
 import { format } from 'date-fns';
 import { expect, vi } from 'vitest';
 import { ServiceBroker } from 'moleculer';
-import type { Exhibition, Order, User, Xiecheng } from '@cr7/types';
+import type { Exhibition, Order, Redeem, User, Xiecheng } from '@cr7/types';
 import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
 import { toDateLabel } from './lib/relative-date.js';
 import {
   prepareServices, prepareAPIServer
 } from './fixtures/services.js';
+import { getOrderRedemption } from './fixtures/redeem.js';
 import { getSessions, prepareExhibition, prepareTicketCategory } from './fixtures/exhibition.js';
 import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 import { getOrder, getOrderAdmin } from './fixtures/order.js';
@@ -749,6 +750,7 @@ describeFeature(feature, ({
     draftPayOrderBody: Xiecheng.XcPayPreOrderBody;
     payOrderResponse: Xiecheng.XcEncryptedOrderResponse;
     decryptedPayResponse: Xiecheng.XcPayPreOrderSuccessBody | null;
+    redemption: Redeem.RedemptionCodeWithOrder;
     paidOrder: Order.OrderWithItems;
     records: Xiecheng.XcOrderSyncRecord[];
   }>) => {
@@ -803,7 +805,7 @@ describeFeature(feature, ({
     });
 
     Then('cr7 系统按照携程的要求返回订单支付响应', async () => {
-      const { adminToken, apiServer, order } = featureContext;
+      const { adminToken, apiServer, order, orderUserToken } = featureContext;
       const { payOrderResponse } = context;
       assertCtripSuccessResponse(payOrderResponse);
       context.decryptedPayResponse = decryptCtripResponseBody<
@@ -818,6 +820,11 @@ describeFeature(feature, ({
         apiServer,
         order!.id,
         adminToken,
+      );
+      context.redemption = await getOrderRedemption(
+        apiServer,
+        order!.id,
+        orderUserToken!,
       );
     });
 
@@ -834,7 +841,27 @@ describeFeature(feature, ({
       expect(context.decryptedPayResponse?.supplierConfirmType).toBe(confirmType);
     });
 
-    And('订单状态变更为已支付值为 {int}', (_ctx, statusValue: number) => {
+    And('订单支付响应中的凭证发送方是携程，值为 {int}', (_ctx, sender: number) => {
+      expect(context.decryptedPayResponse?.voucherSender).toBe(sender);
+    });
+
+    And('订单支付响应中的凭证类型是二维码图片，值为 {int}', (_ctx, voucherType: number) => {
+      expect(context.decryptedPayResponse?.vouchers[0]?.voucherType).toBe(voucherType);
+    });
+
+    And('订单支付响应中的凭证 id 是订单核销码 id', () => {
+      expect(context.decryptedPayResponse?.vouchers[0]?.voucherId).toBe(context.redemption.order_id);
+    });
+
+    And('订单支付响应中的凭证 code 是订单核销码', () => {
+      expect(context.decryptedPayResponse?.vouchers[0]?.voucherCode).toBe(context.redemption.code);
+    });
+
+    And('订单支付响应中的凭证数据是订单核销码', () => {
+      expect(context.decryptedPayResponse?.vouchers[0]?.voucherData).toBe(context.redemption.code);
+    });
+
+    And('订单状态变更为已支付，值为 {int}', (_ctx, statusValue: number) => {
       expect(context.paidOrder.status).toBe('PAID');
       expect(context.decryptedPayResponse?.items[0]).toHaveProperty('orderStatus', statusValue);
     });

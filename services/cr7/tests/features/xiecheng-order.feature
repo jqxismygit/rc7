@@ -118,7 +118,12 @@ Feature: 对接携程 OTA 订单系统
      And 订单支付响应中包含 supplier order id
      And 订单支付响应中包含 ota order id "xc_order_12345"
      And 订单支付响应中包含 supplier confirm type 是 1
-     And 订单状态变更为已支付值为 13
+    And 订单支付响应中的凭证发送方是携程，值为 1
+    And 订单支付响应中的凭证类型是二维码图片，值为 3
+     And 订单支付响应中的凭证 id 是订单核销码 id
+     And 订单支付响应中的凭证 code 是订单核销码
+     And 订单支付响应中的凭证数据是订单核销码
+     And 订单状态变更为已支付，值为 13
     When 管理员在系统后台查询订单号 "xc_order_12345" 的携程同步记录
      And 同步记录内容包含订单号 "xc_order_12345"，序列号 "xc_pay_order_seq_12345", 同步状态是成功
      And 同步记录中的 supplier order id 是用户创建的订单 id

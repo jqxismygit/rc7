@@ -1,4 +1,4 @@
-import { Context, ServiceSchema } from 'moleculer';
+import { Context, ServiceBroker, ServiceSchema } from 'moleculer';
 import type { Exhibition, Order, Redeem } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
 import {
@@ -39,7 +39,7 @@ function computeValidDurationDays(
 }
 
 export class RedemptionService extends RC7BaseService {
-  constructor(broker) {
+  constructor(broker: ServiceBroker) {
     super(broker);
   }
 
