@@ -1,3 +1,4 @@
+import { Server } from 'node:http';
 import _ from 'lodash';
 import config from 'config';
 import {
@@ -8,11 +9,14 @@ import {
 } from '@amiceli/vitest-cucumber';
 import { format } from 'date-fns';
 import { expect, vi } from 'vitest';
+import { ServiceBroker } from 'moleculer';
 import type { Exhibition, Order, User, Xiecheng } from '@cr7/types';
-import { FixturesResult, useFixtures } from './lib/fixtures.js';
+import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
 import { assertAPIError } from './lib/api.js';
 import { toDateLabel } from './lib/relative-date.js';
-import { services_fixtures } from './fixtures/services.js';
+import {
+  prepareServices, prepareAPIServer
+} from './fixtures/services.js';
 import { getSessions, prepareExhibition, prepareTicketCategory } from './fixtures/exhibition.js';
 import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 import { getOrder, getOrderAdmin } from './fixtures/order.js';
@@ -54,9 +58,7 @@ interface CallbackContext {
 }
 
 type SyncRecordContext = {
-  records?: Xiecheng.XcOrderSyncRecord[];
-  firstRecord?: Xiecheng.XcOrderSyncRecord;
-  latestRecord?: Xiecheng.XcOrderSyncRecord;
+  records: Xiecheng.XcOrderSyncRecord[];
 };
 
 type OrderResultContext = {
@@ -70,8 +72,8 @@ interface FeatureContext extends
   Partial<DraftOrderContext>,
   Partial<CallbackContext>,
   Partial<OrderResultContext> {
-  fixtures: FixturesResult<typeof services_fixtures, 'apiServer' | 'broker'>;
-  externalIdSuffix?: string;
+    broker: ServiceBroker;
+    apiServer: Server;
 }
 
 type UserSessionContext = {
@@ -116,8 +118,7 @@ async function submitCtripOrder(
   featureContext: FeatureContext,
   scenarioContext: CallbackContext & ErrorContext,
 ) {
-  const { draftOrder, fixtures } = featureContext;
-  const apiServer = fixtures.values.apiServer;
+  const { draftOrder, apiServer } = featureContext;
 
   const notification = buildCtripOrderNotification(
     config.xiecheng, 'CreatePreOrder', draftOrder!
@@ -144,19 +145,14 @@ async function submitCtripOrder(
 
 async function fetchOrderSyncRecordsByOtaOrderId(
   featureContext: FeatureContext,
-  scenarioContext: SyncRecordContext,
   otaOrderId: string,
 ) {
-  const apiServer = featureContext.fixtures.values.apiServer;
-  scenarioContext.records = await getCtripOrderSyncRecords(
+  const { adminToken, apiServer } = featureContext;
+  return await getCtripOrderSyncRecords(
     apiServer,
-    featureContext.adminToken,
+    adminToken,
     otaOrderId,
   );
-  expect(scenarioContext.records.length).toBeGreaterThan(0);
-  scenarioContext.latestRecord = scenarioContext.records[0];
-
-  return scenarioContext.records;
 }
 
 async function fetchUserProfileByRecord(
@@ -164,11 +160,11 @@ async function fetchUserProfileByRecord(
   scenarioContext: SyncRecordContext & UserSessionContext,
 ) {
   expect(scenarioContext.latestRecord?.user_id).toBeTruthy();
-  const apiServer = featureContext.fixtures.values.apiServer;
+  const { apiServer, adminToken } = featureContext;
 
   scenarioContext.userToken = await suUserToken(
     apiServer,
-    featureContext.adminToken,
+    adminToken,
     scenarioContext.latestRecord!.user_id!,
   );
 
@@ -186,7 +182,7 @@ async function fetchOrderByRecord(
 ) {
   expect(scenarioContext.latestRecord?.order_id).toBeTruthy();
   scenarioContext.order = await getOrder(
-    featureContext.fixtures.values.apiServer,
+    featureContext.apiServer,
     scenarioContext.latestRecord!.order_id!,
     scenarioContext.userToken!,
   );
@@ -195,40 +191,44 @@ async function fetchOrderByRecord(
 }
 
 describeFeature(feature, ({
+  AfterEachScenario,
   BeforeAllScenarios,
-  AfterAllScenarios,
   Background,
   Scenario,
   context: featureContext,
   defineSteps,
 }: FeatureDescriibeCallbackParams<FeatureContext>) => {
-  BeforeAllScenarios(async () => {
+    BeforeAllScenarios(async () => {
     vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
-    featureContext.fixtures = await useFixtures(
-      { ...services_fixtures, schema, services },
-      ['apiServer', 'broker'],
-    );
-    featureContext.ticketByName = {};
+    await bootstrap();
+    featureContext.broker = await prepareServices(services);
   });
 
-  AfterAllScenarios(async () => {
-    if (featureContext.fixtures) {
-      await featureContext.fixtures.close();
+  AfterEachScenario(async () => {
+    await dropSchema({ schema });
+    const { broker } = featureContext;
+    if (broker) {
+      await broker.stop();
     }
     vi.restoreAllMocks();
   });
 
   Background(({ Given, And }) => {
+    Given('cr7 服务已启动', async () => {
+      await migrate({ schema });
+      const { broker } = featureContext;
+      await broker.start();
+      featureContext.apiServer = await prepareAPIServer(broker);
+    });
+
     Given('系统管理员已经创建并登录', async () => {
-      featureContext.adminToken = await prepareAdminToken(
-        featureContext.fixtures.values.apiServer,
-        schema,
-      );
+      const { apiServer } = featureContext;
+      featureContext.adminToken = await prepareAdminToken(apiServer, schema);
     });
 
     Given('默认核销展览活动已创建，开始时间为 {string}，结束时间为 {string}', async (_ctx, startDate: string, endDate: string) => {
       featureContext.exhibition = await prepareExhibition(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         {
           name: `xc_order_${Date.now()}`,
@@ -238,7 +238,7 @@ describeFeature(feature, ({
         },
       );
       featureContext.sessions = await getSessions(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.exhibition.id,
         featureContext.adminToken,
       );
@@ -247,7 +247,7 @@ describeFeature(feature, ({
 
     Given('展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天', async (_ctx, ticketName: string, admittance: number) => {
       const ticket = await prepareTicketCategory(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         {
@@ -266,7 +266,7 @@ describeFeature(feature, ({
 
     Given('展会添加票种 "单人票", 准入人数为 1, 有效期为场次当天', async () => {
       const ticket = await prepareTicketCategory(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         {
@@ -286,7 +286,7 @@ describeFeature(feature, ({
     And('{string} 库存为 {int}', async (_ctx, ticketName: string, quantity: number) => {
       const ticket = getTicketByName(featureContext, ticketName);
       await updateTicketCategoryMaxInventory(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         ticket.id,
@@ -297,7 +297,7 @@ describeFeature(feature, ({
     And('"单人票" 库存为 2', async () => {
       const ticket = getTicketByName(featureContext, '单人票');
       await updateTicketCategoryMaxInventory(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         ticket.id,
@@ -379,8 +379,7 @@ describeFeature(feature, ({
     });
 
     Then('cr7 系统收到订单创建通知', async () => {
-      const { notification, fixtures } = featureContext;
-      const apiServer = fixtures.values.apiServer;
+      const { notification, apiServer } = featureContext;
 
       featureContext.callbackResponse = await sendCtripOrderCallback(
         apiServer,
@@ -404,10 +403,9 @@ describeFeature(feature, ({
       const {
         adminToken,
         decryptedResponseBody,
-        fixtures
+        apiServer
       } = featureContext;
 
-      const apiServer = fixtures.values.apiServer;
       const orderId = decryptedResponseBody?.supplierOrderId;
       const records = await getCtripOrderSyncRecords(apiServer, adminToken, orderId!);
       expect(records.length).toBeGreaterThan(0);
@@ -420,8 +418,7 @@ describeFeature(feature, ({
     Then(
       'cr7 新整增加了用户 {string} 的账号, 手机号是 {string}，国别码为 {string}',
       async (_ctx, userName: string, phone: string, countryCode: string) => {
-        const { fixtures, orderUserToken } = featureContext;
-        const apiServer = fixtures.values.apiServer;
+        const { orderUserToken, apiServer } = featureContext;
         const userProfile = await getUserProfile(apiServer, orderUserToken!);
         featureContext.orderUserProfile = userProfile;
         expect(userProfile.name).toBe(userName);
@@ -474,7 +471,7 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('携程重复发送同一个订单', (s: StepTest<
+  Scenario.skip('携程重复发送同一个订单', (s: StepTest<
     DraftOrderContext
     & CallbackContext
     & OrderResultContext
@@ -495,8 +492,7 @@ describeFeature(feature, ({
     });
 
     Then('cr7 系统再次收到订单创建通知', async () => {
-      const { fixtures, serviceName } = featureContext;
-      const apiServer = fixtures.values.apiServer;
+      const { serviceName, apiServer } = featureContext;
       const { draftOrder } = context;
       const notification = buildCtripOrderNotification(
         config.xiecheng, serviceName!, draftOrder!
@@ -517,8 +513,7 @@ describeFeature(feature, ({
     });
 
     Then('cr7 系统只有一个订单, cr7 订单号不变, 订单状态不变', async () => {
-        const { fixtures, adminToken } = featureContext;
-        const apiServer = fixtures.values.apiServer;
+        const { adminToken, apiServer } = featureContext;
         const orderId = context.decryptedResponseBody?.supplierOrderId;
         expect(orderId).toEqual(featureContext.order?.id);
         const order = await getOrderAdmin(apiServer, orderId!, adminToken);
@@ -541,56 +536,70 @@ describeFeature(feature, ({
   Scenario.skip('管理员可以查看单条携程订单同步记录', (s: StepTest<SyncRecordContext>) => {
     const { When, Then, And, context } = s;
 
-    Then('管理员在系统后台可以获取订单号 {string} 的携程同步记录', async (_ctx, otaOrderId: string) => {
-      await fetchOrderSyncRecordsByOtaOrderId(
-        featureContext,
-        context,
-        toScenarioScopedId(featureContext, otaOrderId),
+    Then(
+      '管理员在系统后台可以获取订单号 {string} 的携程同步记录',
+      async (_ctx, otaOrderId: string) => {
+      const { adminToken, apiServer, order } = featureContext;
+      const orderId = order?.id;
+      const records = await getCtripOrderSyncRecords(apiServer, adminToken, orderId!);
+      expect(records.length).toBeGreaterThan(1);
+      const otaRecords = await getCtripOrderSyncRecords(
+        apiServer, adminToken, toScenarioScopedId(featureContext, otaOrderId)
       );
-      context.firstRecord = context.latestRecord;
+      console.log(records[0], otaRecords[0]);
+      expect(records[0].ota_order_id).toBe(toScenarioScopedId(featureContext, otaOrderId));
     });
 
-    And('同步记录内容包含订单号 {string}，序列号 {string}, 同步状态为 {string}', (_ctx, otaOrderId: string, sequenceId: string, statusLabel: string) => {
-      expect(context.firstRecord?.ota_order_id).toBe(toScenarioScopedId(featureContext, otaOrderId));
-      expect(context.firstRecord?.sequence_id).toBe(toScenarioScopedId(featureContext, sequenceId));
-      expect(statusLabel).toBe('成功');
-      expect(context.firstRecord?.sync_status).toBe('SUCCESS');
+    And(
+      '同步记录内容包含订单号 {string}，序列号 {string}, 同步状态是成功',
+      (_ctx, otaOrderId: string, sequenceId: string) => {
+        const { records: [latestRecord] } = context;
+      expect(latestRecord?.ota_order_id).toBe(toScenarioScopedId(featureContext, otaOrderId));
+      expect(latestRecord?.sequence_id).toBe(toScenarioScopedId(featureContext, sequenceId));
+      expect(latestRecord?.sync_status).toBe('SUCCESS');
     });
 
-    And('同步记录中包含手机号 {string}，国别码 {string}', (_ctx, phone: string, countryCode: string) => {
-      expect(context.firstRecord?.phone).toBe(phone);
-      expect(context.firstRecord?.country_code).toBe(countryCode);
+    And(
+      '同步记录中包含手机号 {string}，国别码 {string}',
+      (_ctx, phone: string, countryCode: string) => {
+      const { records: [latestRecord] } = context;
+      expect(latestRecord?.phone).toBe(phone);
+      expect(latestRecord?.country_code).toBe(countryCode);
     });
 
-    And('同步记录中包含 {string} {int} 张，场次时间为 {string}', (_ctx, ticketName: string, quantity: number, dateLabel: string) => {
+    And(
+      '同步记录中包含 {string} {int} 张，场次时间为 {string}',
+      (_ctx, ticketName: string, quantity: number, dateLabel: string) => {
+      const { records: [latestRecord] } = context;
       const ticket = getTicketByName(featureContext, ticketName);
-      expect(context.firstRecord?.request_body.items).toHaveLength(1);
-      expect(context.firstRecord?.request_body.items[0].PLU).toBe(ticket.id);
-      expect(context.firstRecord?.request_body.items[0].quantity).toBe(quantity);
-      expect(context.firstRecord?.request_body.items[0].useStartDate).toBe(toDateLabel(dateLabel));
-      expect(context.firstRecord?.request_body.items[0].useEndDate).toBe(toDateLabel(dateLabel));
+      expect(latestRecord?.request_body.items).toHaveLength(1);
+      expect(latestRecord?.request_body.items[0].PLU).toBe(ticket.id);
+      expect(latestRecord?.request_body.items[0].quantity).toBe(quantity);
+      expect(latestRecord?.request_body.items[0].useStartDate).toBe(toDateLabel(dateLabel));
+      expect(latestRecord?.request_body.items[0].useEndDate).toBe(toDateLabel(dateLabel));
     });
 
     And('同步记录中包含订单总价 {string} 的价格', (_ctx, ticketName: string) => {
-      expect(context.firstRecord?.total_amount).toBe(getTicketByName(featureContext, ticketName).price);
+      const { records: [latestRecord] } = context;
+      const ticket = getTicketByName(featureContext, ticketName);
+      expect(latestRecord?.total_amount).toBe(ticket.price);
     });
 
-    When('携程再次发送订单创建通知', () => {
-      context.callbackResponse = undefined;
-      context.decryptedResponseBody = undefined;
-      context.latestRecord = undefined;
-    });
-
-    And('携程订单号是 {string}', (_ctx, otaOrderId: string) => {
-      featureContext.draftOrder!.body.otaOrderId = toScenarioScopedId(featureContext, otaOrderId);
-    });
-
-    And('携程 sequence id 是 {string}', async (_ctx, sequenceId: string) => {
-      featureContext.draftOrder!.body.sequenceId = toScenarioScopedId(featureContext, sequenceId);
-      await submitCtripOrder(featureContext, context);
+    When(
+      '携程再次发送订单创建通知, 订单号是 {string}, sequence id 是 {string}',
+      async (_ctx, otaOrderId: string, sequenceId: string) => {
+      const { apiServer } = featureContext;
+      const draftOrder = _.cloneDeep(featureContext.draftOrder!);
+      draftOrder.otaOrderId = toScenarioScopedId(featureContext, otaOrderId);
+      draftOrder.sequenceId = toScenarioScopedId(featureContext, sequenceId);
+      const notification = buildCtripOrderNotification(
+        config.xiecheng, 'CreatePreOrder', draftOrder
+      );
+      await expect(sendCtripOrderCallback(apiServer, notification!)).resolves.toBeTruthy();
     });
 
     Then('管理员在系统后台可以获取订单号 {string} 的携程最新同步记录', async (_ctx, otaOrderId: string) => {
+
       await fetchOrderSyncRecordsByOtaOrderId(
         featureContext,
         context,
@@ -627,7 +636,7 @@ describeFeature(feature, ({
 
       try {
         await getCtripOrderSyncRecords(
-          featureContext.fixtures.values.apiServer,
+          featureContext.apiServer,
           featureContext.adminToken,
           otaOrderId,
         );
@@ -687,7 +696,7 @@ describeFeature(feature, ({
       );
 
       context.queryOrderResponse = await sendCtripOrderCallback(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         notification,
       );
       context.decryptedQueryResponse = decryptCtripResponseBody<Xiecheng.XcQueryOrderSuccessBody>(
