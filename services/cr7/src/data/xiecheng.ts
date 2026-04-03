@@ -133,8 +133,8 @@ export async function createXcOrderSyncRecord(
     otaOrderId: string | null;
     sequenceId: string;
     requestHeader: Xiecheng.XcRequestHeader;
-    requestBody: Xiecheng.XcCreatePreOrderBody;
-    responseBody: Record<string, unknown>;
+    requestBody: Xiecheng.XcCreatePreOrderBody | Xiecheng.XcQueryOrderBody | Xiecheng.XcCancelPreOrderBody;
+    responseBody: unknown;
     phone: string | null;
     countryCode: string | null;
     totalAmount: number | null;

@@ -89,7 +89,7 @@ export async function listTicketXiechengSyncLogs(
 export function buildCtripOrderNotification(
   config: IConfig['xiecheng'],
   serviceName: Xiecheng.XcOrderServiceName,
-  body: Xiecheng.XcCreatePreOrderBody | Xiecheng.XcQueryOrderBody,
+  body: Xiecheng.XcCreatePreOrderBody | Xiecheng.XcQueryOrderBody | Xiecheng.XcCancelPreOrderBody,
 ): Xiecheng.XcEncryptedOrderNotification {
   const { account_id: accountId, secret: signKey, aes_key, aes_iv } = config;
   const plainBody = JSON.stringify(body);

@@ -83,7 +83,7 @@ function toYuan(cents: number): number {
 function toXcOrderStatus(status: Order.OrderStatus): number {
   switch (status) {
     case 'PAID': return 2;
-    case 'CANCELLED':
+    case 'CANCELLED': return 14;
     case 'EXPIRED':
     case 'REFUNDED': return 3;
     default: return 11;
@@ -477,7 +477,10 @@ export default class XiechengService extends RC7BaseService {
   }
 
   buildXcSuccessResponse(
-    successBody: Xiecheng.XcCreatePreOrderSuccessBody | Xiecheng.XcQueryOrderSuccessBody,
+    successBody:
+      | Xiecheng.XcCreatePreOrderSuccessBody
+      | Xiecheng.XcQueryOrderSuccessBody
+      | Xiecheng.XcCancelPreOrderSuccessBody,
   ): Xiecheng.XcEncryptedOrderResponse {
     const xcConfig = config.xiecheng;
     const plainBody = JSON.stringify(successBody);
@@ -523,15 +526,16 @@ export default class XiechengService extends RC7BaseService {
 
   async persistRecord(params: {
     schema: string;
+    serviceName: Xiecheng.XcOrderServiceName;
     otaOrderId: string;
     sequenceId: string;
     header: Xiecheng.XcRequestHeader;
-    orderBody: Xiecheng.XcCreatePreOrderBody;
+    orderBody: Xiecheng.XcCreatePreOrderBody | Xiecheng.XcQueryOrderBody | Xiecheng.XcCancelPreOrderBody;
     phone: string | null;
     countryCode: string | null;
     recordParams: {
       id?: string;
-      responseBody: Record<string, unknown>;
+      responseBody: unknown;
       totalAmount: number | null;
       syncStatus: Xiecheng.XcOrderSyncStatus;
       userId: string | null;
@@ -540,7 +544,7 @@ export default class XiechengService extends RC7BaseService {
   }): Promise<Xiecheng.XcOrderSyncRecord> {
     return createXcOrderSyncRecord(this.pool, params.schema, {
       id: params.recordParams.id,
-      serviceName: 'CreatePreOrder',
+      serviceName: params.serviceName,
       otaOrderId: params.otaOrderId,
       sequenceId: params.sequenceId,
       requestHeader: params.header,
@@ -573,6 +577,7 @@ export default class XiechengService extends RC7BaseService {
 
     await this.persistRecord({
       schema: params.schema,
+      serviceName: params.header.serviceName,
       otaOrderId: params.otaOrderId,
       sequenceId: params.sequenceId,
       header: params.header,
@@ -602,7 +607,7 @@ export default class XiechengService extends RC7BaseService {
     }
 
     const xcConfig = config.xiecheng;
-    let decryptBody = null;
+    let decryptBody: unknown = null;
     try {
       const plain = decryptXieChengBody(encryptedBody, xcConfig.aes_key, xcConfig.aes_iv);
       decryptBody = JSON.parse(plain)
@@ -613,11 +618,20 @@ export default class XiechengService extends RC7BaseService {
     const schema = await this.getSchema();
 
     if (header.serviceName === 'QueryOrder') {
-      return this.handleQueryOrder(schema, decryptBody);
+      return this.handleQueryOrder(schema, decryptBody as Xiecheng.XcQueryOrderBody);
+    }
+
+    if (header.serviceName === 'CancelPreOrder') {
+      return this.handleCancelOrder(
+        ctx,
+        schema,
+        header,
+        decryptBody as Xiecheng.XcCancelPreOrderBody,
+      );
     }
 
     if (header.serviceName === 'CreatePreOrder') {
-      return this.handleCreateOrder(ctx, schema, header, decryptBody);
+      return this.handleCreateOrder(ctx, schema, header, decryptBody as Xiecheng.XcCreatePreOrderBody);
     }
 
     throw new MoleculerClientError('不支持的服务名称', 400, 'UNSUPPORTED_SERVICE_NAME');
@@ -637,9 +651,10 @@ export default class XiechengService extends RC7BaseService {
     const order = await getOrderById(this.pool, schema, record.order_id);
     const xcOrderStatus = toXcOrderStatus(order.status);
     const isCancelled = ['CANCELLED', 'EXPIRED', 'REFUNDED'].includes(order.status);
+    const createOrderBody = record.request_body as Xiecheng.XcCreatePreOrderBody;
 
-    const items: Xiecheng.XcQueryOrderResponseItem[] = record.request_body.items
-    .map((item, idx) => ({
+    const items: Xiecheng.XcQueryOrderResponseItem[] = createOrderBody.items
+    .map((item: Xiecheng.XcCreatePreOrderItem, idx: number) => ({
       itemId: idx,
       useStartDate: item.useStartDate,
       useEndDate: item.useEndDate,
@@ -688,6 +703,7 @@ export default class XiechengService extends RC7BaseService {
 
       await this.persistRecord({
         schema,
+        serviceName: 'CreatePreOrder',
         otaOrderId,
         sequenceId,
         header,
@@ -818,6 +834,7 @@ export default class XiechengService extends RC7BaseService {
       // The first successful sync record uses id = order_id for quick identity checks.
       await this.persistRecord({
         schema,
+        serviceName: 'CreatePreOrder',
         otaOrderId,
         sequenceId,
         header,
@@ -893,6 +910,64 @@ export default class XiechengService extends RC7BaseService {
         extra: { userId, orderId: createdOrderId, totalAmount },
       });
     }
+  }
+
+  async handleCancelOrder(
+    ctx: Context<Xiecheng.XcEncryptedOrderNotification, Record<string, unknown>>,
+    schema: string,
+    header: Xiecheng.XcRequestHeader,
+    cancelBody: Xiecheng.XcCancelPreOrderBody,
+  ): Promise<Xiecheng.XcEncryptedOrderResponse> {
+    const { otaOrderId, sequenceId } = cancelBody;
+    const firstSuccessRecord = await getFirstSuccessfulXcOrderSyncRecordByOtaOrderId(
+      this.pool,
+      schema,
+      otaOrderId,
+    );
+
+    if (!firstSuccessRecord || !firstSuccessRecord.order_id) {
+      return this.buildXcErrorResponse('1001', '订单不存在');
+    }
+
+    await ctx.call(
+      'cr7.order.cancel',
+      { oid: firstSuccessRecord.order_id },
+      { meta: { user: { uid: firstSuccessRecord.user_id } } },
+    );
+    ctx.meta.$statusCode = 200;
+
+    const cancelledOrder = await getOrderById(this.pool, schema, firstSuccessRecord.order_id);
+    const createOrderBody = firstSuccessRecord.request_body as Xiecheng.XcCreatePreOrderBody;
+    const items = createOrderBody.items
+    .map((_item: Xiecheng.XcCreatePreOrderItem, index: number) => ({
+      itemId: index,
+      orderStatus: toXcOrderStatus(cancelledOrder.status),
+    }));
+    const responseBody: Xiecheng.XcCancelPreOrderSuccessBody = {
+      otaOrderId,
+      supplierOrderId: firstSuccessRecord.order_id,
+      items,
+    };
+
+    await this.persistRecord({
+      schema,
+      serviceName: 'CancelPreOrder',
+      otaOrderId,
+      sequenceId,
+      header,
+      orderBody: cancelBody,
+      phone: firstSuccessRecord.phone,
+      countryCode: firstSuccessRecord.country_code,
+      recordParams: {
+        responseBody,
+        totalAmount: firstSuccessRecord.total_amount,
+        syncStatus: 'SUCCESS',
+        userId: firstSuccessRecord.user_id,
+        orderId: firstSuccessRecord.order_id,
+      },
+    });
+
+    return this.buildXcSuccessResponse(responseBody);
   }
 
   async getCtripOrderRecord(

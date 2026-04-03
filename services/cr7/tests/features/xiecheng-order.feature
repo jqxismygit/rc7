@@ -85,3 +85,16 @@ Feature: 对接携程 OTA 订单系统
      And 订单查询响应中包含 use start date 和 use end date 分别为 "今天" 的开始和结束时间
      And 订单查询响应中包含订单状态 "待付款" 值为 11
 
+  Scenario: 用户在携程下单后，取消了订单
+    When 用户提交订单
+    Then cr7 系统收到订单创建通知
+     And 订单信息可以正常解密
+    Then cr7 创建了一个订单
+   Given 携程 service name 是 "CancelPreOrder" 的订单取消请求
+     And 携程订单取消请求中的 ota order id 是 "xc_order_12345"
+     And 携程订单取消请求中的 sequence id 是 "xc_cancel_order_seq_12345"
+    When 携程发送订单取消请求
+    Then cr7 系统按照携程的要求返回订单取消响应
+     And 订单取消响应中包含 supplier order id
+     And 订单取消响应中包含 ota order id "xc_order_12345"
+     And 订单状态变更为已取消值为 14
