@@ -140,7 +140,7 @@ Feature: 对接携程 OTA 订单系统
     When 携程发送订单查询请求
     Then cr7 系统按照携程的要求返回订单查询响应
      And 订单查询响应中包含 1 个 的订单项，其数量为 1
-     And 订单查询响应中订单项的 item id 因为订单已经支付，所以为 "xc_item_12345"
+     And 订单查询响应中订单项的 item id 因为订单已经支付过，所以为 "xc_item_12345"
      And 订单查询响应中订单项的实际使用份数是 0
 
   Scenario: 用户在携程下单后，完成支付后又取消了订单
@@ -197,4 +197,11 @@ Feature: 对接携程 OTA 订单系统
      And 核销通知中订单项的数量是购票数量
      And 核销通知中订单项的使用数量是购票数量
      And 核销通知中订单项的 use start date 和 use end date 分别为 "今天" 的开始和结束时间
+   Given 携程 service name 是 "QueryOrder" 的订单查询请求
+     And 携程订单查询请求中的 ota order id 是 "xc_order_12345"
+     And 携程订单查询请求中的 supplier order id 是 cr7 订单 id
+    When 携程发送订单查询请求
+    Then cr7 系统按照携程的要求返回订单查询响应
+     And 订单查询响应中包含 1 个 的订单项，其数量为 1
+     And 订单查询响应中订单项的 item id 因为订单已经支付过，所以为 "xc_item_12345"
 

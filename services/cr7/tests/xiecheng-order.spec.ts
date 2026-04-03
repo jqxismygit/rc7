@@ -416,7 +416,7 @@ describeFeature(feature, ({
       expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', itemId);
     });
 
-    And('订单查询响应中订单项的 item id 因为订单已经支付，所以为 {string}', (_ctx, itemId: string) => {
+    And('订单查询响应中订单项的 item id 因为订单已经支付过，所以为 {string}', (_ctx, itemId: string) => {
       expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', itemId);
     });
 
@@ -1064,12 +1064,6 @@ describeFeature(feature, ({
     And('同步记录中的 supplier order id 是用户创建的订单 id', () => {
       const latestRecord = context.records[0];
       expect(latestRecord.order_id).toBe(featureContext.order?.id);
-    });
-
-    And('订单查询响应中订单项的 item id 因为订单已经支付过，所以为 {string}', (_ctx, itemId: string) => {
-      const { decryptedQueryResponse } = featureContext;
-      expect(decryptedQueryResponse!.items).toHaveLength(1);
-      expect(decryptedQueryResponse!.items[0]).toHaveProperty('itemId', itemId);
     });
 
     And('订单查询响应中订单状态为全部取消，值为 {int}', (_ctx, statusValue: number) => {
