@@ -1183,7 +1183,7 @@ export default class XiechengService extends RC7BaseService {
 
     const xcConfig = config.xiecheng;
     await xieChengSendConsumedNotice(
-      `${xcConfig.base_url}/apiplatform/order.jsp`,
+      `${xcConfig.base_url}/api/order/notice.do`,
       {
         accountId: xcConfig.account_id,
         signKey: xcConfig.secret,
