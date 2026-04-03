@@ -75,13 +75,23 @@ interface OrderQueryContext {
   decryptedQueryResponse: Xiecheng.XcQueryOrderSuccessBody;
 }
 
+interface OrderPayContext {
+  serviceName: Xiecheng.XcOrderServiceName;
+  draftPayOrderBody: Xiecheng.XcPayPreOrderBody;
+  payOrderResponse: Xiecheng.XcEncryptedOrderResponse;
+  decryptedPayResponse: Xiecheng.XcPayPreOrderSuccessBody | null;
+  redemption: Redeem.RedemptionCodeWithOrder;
+  paidOrder: Order.OrderWithItems;
+}
+
 interface FeatureContext extends
   AdminUserContext,
   ExhibitionContext,
   Partial<DraftOrderContext>,
   Partial<CallbackContext>,
   Partial<OrderResultContext>,
-  Partial<OrderQueryContext> {
+  Partial<OrderQueryContext>,
+  Partial<OrderPayContext> {
     broker: ServiceBroker;
     apiServer: Server;
 }
@@ -410,6 +420,83 @@ describeFeature(feature, ({
 
     And('订单查询响应中订单项的实际使用份数是 {int}', (_ctx, useQuantity: number) => {
       expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('useQuantity', useQuantity);
+    });
+
+    Given(
+      '携程 service name 是 {string} 的订单支付请求',
+      (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
+        const { order, draftOrder } = featureContext;
+        featureContext.serviceName = serviceName;
+        featureContext.draftPayOrderBody = {
+          orderLastConfirmTime: toDateLabel('今天'),
+          supplierOrderId: order!.id,
+          otaOrderId: draftOrder!.otaOrderId,
+          sequenceId: `xc_pay_seq_${Date.now()}`,
+          confirmType: 2,
+          items: [{
+            itemId: '0',
+            PLU: draftOrder!.items[0].PLU,
+          }],
+        };
+    });
+
+    And('携程订单支付请求中的 supplier order id 是用户创建的订单 id', () => {
+      featureContext.draftPayOrderBody!.supplierOrderId = featureContext.order!.id;
+    });
+
+    And('携程订单支付请求中的 ota order id 是 {string}', (_ctx, otaOrderId: string) => {
+      featureContext.draftPayOrderBody!.otaOrderId = otaOrderId;
+    });
+
+    And('携程订单支付请求中的 sequence id 是 {string}', (_ctx, sequenceId: string) => {
+      featureContext.draftPayOrderBody!.sequenceId = sequenceId;
+    });
+
+    And('携程订单支付请求中的订单项 id 是 {string}', (_ctx, itemId: string) => {
+      featureContext.draftPayOrderBody!.items[0].itemId = itemId;
+    });
+
+    And('携程订单支付请求中的 items.0.PLU 是 {string} 的 id', (_ctx, ticketName: string) => {
+      const ticket = getTicketByName(featureContext, ticketName);
+      featureContext.draftPayOrderBody!.items[0].PLU = ticket.id;
+    });
+
+    When('携程发送订单支付请求', async () => {
+      const { serviceName, draftPayOrderBody } = featureContext;
+      const notification = buildCtripOrderNotification(
+        config.xiecheng,
+        serviceName!,
+        draftPayOrderBody!
+      );
+
+      featureContext.payOrderResponse = await sendCtripOrderCallback(
+        featureContext.apiServer,
+        notification,
+      );
+    });
+
+    Then('cr7 系统按照携程的要求返回订单支付响应', async () => {
+      const { adminToken, apiServer, order, orderUserToken } = featureContext;
+      const { payOrderResponse } = featureContext;
+      assertCtripSuccessResponse(payOrderResponse!);
+      featureContext.decryptedPayResponse = decryptCtripResponseBody<
+        Xiecheng.XcPayPreOrderSuccessBody
+      >(
+        payOrderResponse!,
+        config.xiecheng.aes_key,
+        config.xiecheng.aes_iv,
+      );
+
+      featureContext.paidOrder = await getOrderAdmin(
+        apiServer,
+        order!.id,
+        adminToken,
+      );
+      featureContext.redemption = await getOrderRedemption(
+        apiServer,
+        order!.id,
+        orderUserToken!,
+      );
     });
   });
 
@@ -760,136 +847,64 @@ describeFeature(feature, ({
   });
 
   Scenario('用户完成支付携程下单的门票订单', (s: StepTest<{
-    serviceName: Xiecheng.XcOrderServiceName;
-    draftPayOrderBody: Xiecheng.XcPayPreOrderBody;
-    payOrderResponse: Xiecheng.XcEncryptedOrderResponse;
-    decryptedPayResponse: Xiecheng.XcPayPreOrderSuccessBody | null;
-    redemption: Redeem.RedemptionCodeWithOrder;
-    paidOrder: Order.OrderWithItems;
     records: Xiecheng.XcOrderSyncRecord[];
   }>) => {
-    const { Given, And, When, Then, context } = s;
-
-    Given(
-      '携程 service name 是 {string} 的订单支付请求',
-      (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
-        const { order, draftOrder } = featureContext;
-        context.serviceName = serviceName;
-        context.draftPayOrderBody = {
-          orderLastConfirmTime: toDateLabel('今天'),
-          supplierOrderId: order!.id,
-          otaOrderId: draftOrder!.otaOrderId,
-          sequenceId: `xc_pay_seq_${Date.now()}`,
-          confirmType: 2,
-          items: [{
-            itemId: '0',
-            PLU: draftOrder!.items[0].PLU,
-          }],
-        };
-    });
-
-    And('携程订单支付请求中的 supplier order id 是用户创建的订单 id', () => {
-      context.draftPayOrderBody.supplierOrderId = featureContext.order!.id;
-    });
-
-    And('携程订单支付请求中的 ota order id 是 {string}', (_ctx, otaOrderId: string) => {
-      context.draftPayOrderBody.otaOrderId = otaOrderId;
-    });
-
-    And('携程订单支付请求中的 sequence id 是 {string}', (_ctx, sequenceId: string) => {
-      context.draftPayOrderBody.sequenceId = sequenceId;
-    });
-
-    And('携程订单支付请求中的订单项 id 是 {string}', (_ctx, itemId: string) => {
-      context.draftPayOrderBody.items[0].itemId = itemId;
-    });
-
-    And('携程订单支付请求中的 items.0.PLU 是 {string} 的 id', (_ctx, ticketName: string) => {
-      const ticket = getTicketByName(featureContext, ticketName);
-      context.draftPayOrderBody.items[0].PLU = ticket.id;
-    });
-
-    When('携程发送订单支付请求', async () => {
-      const notification = buildCtripOrderNotification(
-        config.xiecheng,
-        context.serviceName,
-        context.draftPayOrderBody,
-      );
-
-      context.payOrderResponse = await sendCtripOrderCallback(
-        featureContext.apiServer,
-        notification,
-      );
-    });
-
-    Then('cr7 系统按照携程的要求返回订单支付响应', async () => {
-      const { adminToken, apiServer, order, orderUserToken } = featureContext;
-      const { payOrderResponse } = context;
-      assertCtripSuccessResponse(payOrderResponse);
-      context.decryptedPayResponse = decryptCtripResponseBody<
-        Xiecheng.XcPayPreOrderSuccessBody
-      >(
-        payOrderResponse,
-        config.xiecheng.aes_key,
-        config.xiecheng.aes_iv,
-      );
-
-      context.paidOrder = await getOrderAdmin(
-        apiServer,
-        order!.id,
-        adminToken,
-      );
-      context.redemption = await getOrderRedemption(
-        apiServer,
-        order!.id,
-        orderUserToken!,
-      );
-    });
+    const { And, When, context } = s;
 
     And('订单支付响应中包含 supplier order id', () => {
-      const { order } = featureContext;
-      expect(context.decryptedPayResponse?.supplierOrderId).toBe(order?.id);
+      const { order, decryptedPayResponse } = featureContext;
+      expect(decryptedPayResponse!.supplierOrderId).toBe(order?.id);
     });
 
     And('订单支付响应中包含 ota order id {string}', (_ctx, otaOrderId: string) => {
-      expect(context.decryptedPayResponse?.otaOrderId).toBe(otaOrderId);
+      const { decryptedPayResponse } = featureContext;
+      expect(decryptedPayResponse!.otaOrderId).toBe(otaOrderId);
     });
 
     And('订单支付响应中包含 supplier confirm type 是 {int}', (_ctx, confirmType: number) => {
-      expect(context.decryptedPayResponse?.supplierConfirmType).toBe(confirmType);
+      const { decryptedPayResponse } = featureContext;
+      expect(decryptedPayResponse!.supplierConfirmType).toBe(confirmType);
     });
 
     And('订单支付响应中的凭证发送方是携程，值为 {int}', (_ctx, sender: number) => {
-      expect(context.decryptedPayResponse?.voucherSender).toBe(sender);
+      const { decryptedPayResponse } = featureContext;
+      expect(decryptedPayResponse!.voucherSender).toBe(sender);
     });
 
     And('订单支付响应中的凭证类型是二维码图片，值为 {int}', (_ctx, voucherType: number) => {
-      expect(context.decryptedPayResponse?.vouchers[0]?.voucherType).toBe(voucherType);
+      const { decryptedPayResponse } = featureContext;
+      expect(decryptedPayResponse!.vouchers[0]?.voucherType).toBe(voucherType);
     });
 
     And('订单支付响应中的凭证 id 是订单核销码 id', () => {
-      expect(context.decryptedPayResponse?.vouchers[0]?.voucherId).toBe(context.redemption.order_id);
+      const { decryptedPayResponse, redemption } = featureContext;
+      expect(decryptedPayResponse!.vouchers[0]?.voucherId).toBe(redemption!.order_id);
     });
 
     And('订单支付响应中的凭证 code 是订单核销码', () => {
-      expect(context.decryptedPayResponse?.vouchers[0]?.voucherCode).toBe(context.redemption.code);
+      const { decryptedPayResponse, redemption } = featureContext;
+      expect(decryptedPayResponse!.vouchers[0]?.voucherCode).toBe(redemption!.code);
     });
 
     And('订单支付响应中的凭证数据是订单核销码', () => {
-      expect(context.decryptedPayResponse?.vouchers[0]?.voucherData).toBe(context.redemption.code);
+      const { decryptedPayResponse, redemption } = featureContext;
+      expect(decryptedPayResponse!.vouchers[0]?.voucherData).toBe(redemption!.code);
     });
 
     And('订单支付响应中的订单项 id 是 {string}', (_ctx, itemId: string) => {
-      expect(context.decryptedPayResponse?.items[0]).toHaveProperty('itemId', itemId);
+      const { decryptedPayResponse } = featureContext;
+      expect(decryptedPayResponse!.items[0]).toHaveProperty('itemId', itemId);
     });
 
     And('订单支付响应中的票据信息和出行凭证无关', () => {
-      expect(context.decryptedPayResponse?.items[0]).toHaveProperty('isCredentialVouchers', 0);
+      const { decryptedPayResponse } = featureContext;
+      expect(decryptedPayResponse!.items[0]).toHaveProperty('isCredentialVouchers', 0);
     });
 
     And('订单支付响应中订单状态为已支付，值为 {int}', (_ctx, statusValue: number) => {
-      expect(context.paidOrder.status).toBe('PAID');
-      expect(context.decryptedPayResponse?.items[0]).toHaveProperty('orderStatus', statusValue);
+      const { decryptedPayResponse, paidOrder } = featureContext;
+      expect(paidOrder!.status).toBe('PAID');
+      expect(decryptedPayResponse!.items[0]).toHaveProperty('orderStatus', statusValue);
     });
 
     When('管理员在系统后台查询订单号 {string} 的携程同步记录', async (_ctx, otaOrderId: string) => {
