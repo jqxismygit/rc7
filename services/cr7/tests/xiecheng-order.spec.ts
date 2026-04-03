@@ -633,6 +633,10 @@ describeFeature(feature, ({
       expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('quantity', quantity);
     });
 
+    And('订单查询响应中订单项的 item id 因为订单还没有支付，所以为 {int}', (_ctx, itemId: number) => {
+      expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('itemId', itemId);
+    });
+
     And('订单查询响应中包含 use start date 和 use end date 分别为 {string} 的开始和结束时间', (_ctx, dateLabel: string) => {
       const expectedDate = toDateLabel(dateLabel);
       expect(context.decryptedQueryResponse?.items[0]).toHaveProperty('useStartDate', expectedDate);
