@@ -225,6 +225,9 @@ export interface XcQueryOrderSuccessBody {
 
 export interface XcOrderConsumedNoticeItem {
   itemId: string;
+  useStartDate: string;
+  useEndDate: string;
+  quantity: number;
   useQuantity: number;
 }
 

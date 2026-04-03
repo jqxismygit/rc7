@@ -1131,5 +1131,28 @@ describeFeature(feature, ({
       expect(context.receivedConsumedNoticeBody.items).toHaveLength(1);
       expect(context.receivedConsumedNoticeBody.items[0]).toHaveProperty('itemId', itemId);
     });
+
+    And('核销通知中订单项的数量是购票数量', () => {
+      expect(context.receivedConsumedNoticeBody.items).toHaveLength(1);
+      expect(context.receivedConsumedNoticeBody.items[0]).toHaveProperty(
+        'quantity',
+        featureContext.order!.items[0].quantity,
+      );
+    });
+
+    And('核销通知中订单项的使用数量是购票数量', () => {
+      expect(context.receivedConsumedNoticeBody.items).toHaveLength(1);
+      expect(context.receivedConsumedNoticeBody.items[0]).toHaveProperty(
+        'useQuantity',
+        featureContext.order!.items[0].quantity,
+      );
+    });
+
+    And('核销通知中订单项的 use start date 和 use end date 分别为 {string} 的开始和结束时间', (_ctx, dateLabel: string) => {
+      const expectedDate = toDateLabel(dateLabel);
+      expect(context.receivedConsumedNoticeBody.items).toHaveLength(1);
+      expect(context.receivedConsumedNoticeBody.items[0]).toHaveProperty('useStartDate', expectedDate);
+      expect(context.receivedConsumedNoticeBody.items[0]).toHaveProperty('useEndDate', expectedDate);
+    });
   });
 });

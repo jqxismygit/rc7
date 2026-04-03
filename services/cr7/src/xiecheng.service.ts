@@ -1161,18 +1161,46 @@ export default class XiechengService extends RC7BaseService {
       r => r.service_name === 'CreatePreOrder' && r.sync_status === 'SUCCESS',
     );
     if (!createRecord) {
-      this.logger.warn(`No Ctrip CreatePreOrder record found for order ${oid}, skipping consumed notice`);
-      return;
+      throw new MoleculerClientError(`No successful CreatePreOrder record found for order ${oid}`, 404, 'RECORD_NOT_FOUND');
     }
 
     const payRecord = records.find(
       r => r.service_name === 'PayPreOrder' && r.sync_status === 'SUCCESS',
     );
+    if (!payRecord) {
+      throw new MoleculerClientError(`No successful PayPreOrder record found for order ${oid}`, 404, 'RECORD_NOT_FOUND');
+    }
+
+    const createBody = createRecord.request_body as Xiecheng.XcCreatePreOrderBody;
     const payBody = payRecord?.request_body as Xiecheng.XcPayPreOrderBody | undefined;
-    const items: Xiecheng.XcOrderConsumedNoticeItem[] = (payBody?.items ?? []).map(item => ({
-      itemId: item.itemId,
-      useQuantity: 1,
-    }));
+    const createItemByPlu = new Map(
+      createBody.items.map(item => [item.PLU, item] as const),
+    );
+
+    const items: Xiecheng.XcOrderConsumedNoticeItem[] = (payBody?.items ?? []).flatMap(item => {
+      const createItem = createItemByPlu.get(item.PLU);
+      if (!createItem) {
+        throw new MoleculerClientError(
+          `No matching CreatePreOrder item found for PayPreOrder item with PLU ${item.PLU} in order ${oid}`,
+          404, 'RECORD_NOT_FOUND'
+        );
+      }
+
+      return [{
+        itemId: item.itemId,
+        useStartDate: createItem.useStartDate,
+        useEndDate: createItem.useEndDate,
+        quantity: createItem.quantity,
+        useQuantity: createItem.quantity,
+      }];
+    });
+
+    if (items.length === 0) {
+      throw new MoleculerClientError(
+        `No valid items for Ctrip consumed notice found for order ${oid}`,
+        404, 'RECORD_NOT_FOUND'
+      );
+    }
 
     const noticeBody: Xiecheng.XcOrderConsumedNoticeBody = {
       sequenceId: oid,

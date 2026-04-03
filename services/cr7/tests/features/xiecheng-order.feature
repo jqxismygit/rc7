@@ -194,3 +194,7 @@ Feature: 对接携程 OTA 订单系统
      And 核销通知中的 ota order id 是 "xc_order_12345"
      And 核销通知中的 supplier order id 是用户创建的订单 id
      And 核销通知中包含订单项 id "xc_item_12345"
+     And 核销通知中订单项的数量是购票数量
+     And 核销通知中订单项的使用数量是购票数量
+     And 核销通知中订单项的 use start date 和 use end date 分别为 "今天" 的开始和结束时间
+
