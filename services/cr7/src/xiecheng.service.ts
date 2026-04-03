@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { addDays, format, isAfter, isBefore, parseISO, startOfDay } from 'date-fns';
 import config from 'config';
 import { Context, Errors, ServiceBroker } from 'moleculer';
-import { Exhibition, Order, Xiecheng } from '@cr7/types';
+import { Exhibition, Order, Redeem, Xiecheng } from '@cr7/types';
 import {
   createXcSyncLog,
   listXcSyncLogs,
@@ -702,7 +702,13 @@ export default class XiechengService extends RC7BaseService {
 
     const paidItems = (payRecord?.request_body as Xiecheng.XcPayPreOrderBody)?.items ?? [];
 
-    const xcOrderStatus = toXcOrderStatus(order.status);
+    const redeem = await ctx.call(
+      'cr7.redemption.getByOrder',
+      { oid: record.order_id },
+      { meta: { user: { uid: record.user_id } } }
+    ).then(res => res, () => null) as Redeem.RedemptionCodeWithOrder;
+
+    const xcOrderStatus = redeem?.status === 'REDEEMED' ? 8 : toXcOrderStatus(order.status);
     const isCancelled = ['CANCELLED', 'EXPIRED', 'REFUNDED'].includes(order.status);
     const createOrderBody = record.request_body as Xiecheng.XcCreatePreOrderBody;
 

@@ -1148,5 +1148,11 @@ describeFeature(feature, ({
       expect(context.receivedConsumedNoticeBody.items[0]).toHaveProperty('useStartDate', expectedDate);
       expect(context.receivedConsumedNoticeBody.items[0]).toHaveProperty('useEndDate', expectedDate);
     });
+
+    And('订单查询响应中订单的状态是全部使用，值为 {int}', (_ctx, statusValue: number) => {
+      const { decryptedQueryResponse } = featureContext;
+      expect(decryptedQueryResponse!.items).toHaveLength(1);
+      expect(decryptedQueryResponse!.items[0]).toHaveProperty('orderStatus', statusValue);
+    });
   });
 });
