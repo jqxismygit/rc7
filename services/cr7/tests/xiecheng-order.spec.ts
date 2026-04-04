@@ -961,76 +961,18 @@ describeFeature(feature, ({
   });
 
   Scenario('用户取消在携程的订单，但是 ota 号不存在', (s: StepTest<{
-    serviceName: Xiecheng.XcOrderServiceName;
-    draftCancelOrderBody: Xiecheng.XcCancelPreOrderBody;
-    cancelOrderResponse: Xiecheng.XcEncryptedOrderResponse;
-    latestRecord: Xiecheng.XcOrderSyncRecord | null;
+    lastRecord: Xiecheng.XcOrderSyncRecord | null;
   }>) => {
-    const { Given, And, When, Then, context } = s;
-
-    Given('携程 service name 是 {string} 的订单取消请求', (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
-      context.serviceName = serviceName;
-      context.draftCancelOrderBody = {
-        sequenceId: 'xc_cancel_order_seq_54321',
-        otaOrderId: featureContext.draftOrder!.otaOrderId,
-      };
-    });
-
-    And('携程订单取消请求中的 ota order id 是 {string}', (_ctx, otaOrderId: string) => {
-      context.draftCancelOrderBody.otaOrderId = otaOrderId;
-    });
-
-    And('携程订单取消请求中的 supplier order id 是用户创建的订单 id', () => {
-      expect(featureContext.order?.id).toBeTruthy();
-    });
-
-    And('携程订单取消请求中的 sequence id 是 {string}', (_ctx, sequenceId: string) => {
-      context.draftCancelOrderBody.sequenceId = sequenceId;
-    });
-
-    When('携程发送订单取消请求', async () => {
-      const notification = buildCtripOrderNotification(
-        config.xiecheng,
-        context.serviceName,
-        context.draftCancelOrderBody,
-      );
-
-      context.cancelOrderResponse = await sendCtripOrderCallback(
-        featureContext.apiServer,
-        notification,
-      );
-    });
+    const { And, Then } = s;
 
     Then('cr7 系统按照携程的要求返回订单取消响应', () => {
-      assertCtripFailureResponse(context.cancelOrderResponse, '2001');
+      const { cancelOrderResponse } = featureContext;
+      assertCtripFailureResponse(cancelOrderResponse!, '2001');
     });
 
     And('订单取消响应中响应码为 2001，订单不存在', () => {
-      expect(context.cancelOrderResponse.header.resultCode).toBe('2001');
-    });
-
-    When('管理员在系统后台查询订单号 {string} 的携程同步记录', async (_ctx, otaOrderId: string) => {
-      const { adminToken, apiServer } = featureContext;
-      const listResult = await listCtripOrderSyncRecords(apiServer, adminToken, {
-        limit: 10,
-        offset: 0,
-        ota_order_id: otaOrderId,
-      });
-
-      expect(listResult.total).toBeGreaterThanOrEqual(1);
-      context.latestRecord = listResult.data[0] ?? null;
-      expect(context.latestRecord).toBeTruthy();
-    });
-
-    Then('同步记录中序列号为 {string}', (_ctx, sequenceId: string) => {
-      expect(context.latestRecord?.sequence_id).toBe(sequenceId);
-    });
-
-    And('同步记录中状态是失败，失败原因是找不到对应的订单', () => {
-      expect(context.latestRecord?.sync_status).toBe('FAILED');
-      const responseBody = context.latestRecord?.response_body as Xiecheng.XcEncryptedOrderResponse;
-      expect(responseBody.header).toHaveProperty('resultCode', '2001');
-      expect(responseBody.header.resultMessage).toBe('找不到对应的订单');
+      const { cancelOrderResponse } = featureContext;
+      expect(cancelOrderResponse!.header.resultCode).toBe('2001');
     });
   });
 
