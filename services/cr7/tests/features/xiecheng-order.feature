@@ -207,4 +207,8 @@ Feature: 对接携程 OTA 订单系统
      And 订单查询响应中包含 1 个 的订单项，其数量为 1
      And 订单查询响应中订单项的 item id 因为订单已经支付过，所以为 "xc_item_12345"
      And 订单查询响应中订单的状态是全部使用，值为 8
-
+   Given 携程 service name 是 "CancelOrder" 的订单退款请求
+     And 订单退款请求里的 supplier order id 是用户创建的订单 id
+     And 订单退款请求里的 ota order id 是 "xc_order_12345"
+     And 订单退款请求里的订单项 id 是 "xc_item_12345"
+    When 携程发送订单退款请求
