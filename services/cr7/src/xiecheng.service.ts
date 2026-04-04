@@ -1077,6 +1077,16 @@ export default class XiechengService extends RC7BaseService {
       return this.failAndPersist(header, refundBody, '2007', '该订单尚未支付', firstSuccessRecord);
     }
 
+    const redemption = await ctx.call(
+      'cr7.redemption.getByOrder',
+      { oid: supplierOrderId },
+      { meta: { user: { uid: firstSuccessRecord.user_id } } },
+    ).then(res => res, () => null) as Redeem.RedemptionCodeWithOrder | null;
+
+    if (redemption?.status === 'REDEEMED') {
+      return this.failAndPersist(header, refundBody, '2002', '订单已经使用', firstSuccessRecord);
+    }
+
     try {
       await ctx.call('cr7.order.markRefunded', { oid: supplierOrderId });
     } catch (error) {

@@ -212,3 +212,4 @@ Feature: 对接携程 OTA 订单系统
      And 订单退款请求里的 ota order id 是 "xc_order_12345"
      And 订单退款请求里的订单项 id 是 "xc_item_12345"
     When 携程发送订单退款请求
+    Then 退款失败，订单已经使用，返回码 2002

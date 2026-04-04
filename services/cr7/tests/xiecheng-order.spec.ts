@@ -1186,5 +1186,11 @@ describeFeature(feature, ({
       expect(decryptedQueryResponse!.items).toHaveLength(1);
       expect(decryptedQueryResponse!.items[0]).toHaveProperty('orderStatus', statusValue);
     });
+
+    Then('退款失败，订单已经使用，返回码 {int}', (_ctx, code: number) => {
+      const { refundOrderResponse } = featureContext;
+      assertCtripFailureResponse(refundOrderResponse!, String(code));
+      expect(refundOrderResponse!.header.resultMessage).toMatch(/订单.*使用/);
+    });
   });
 });
