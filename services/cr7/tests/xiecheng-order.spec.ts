@@ -623,6 +623,10 @@ describeFeature(feature, ({
       featureContext.draftRefundOrderBody!.items[0].itemId = itemId;
     });
 
+    And('订单退款请求里的订单项数量是 {int}', (_ctx, quantity: number) => {
+      featureContext.draftRefundOrderBody!.items[0].quantity = quantity;
+    });
+
     And('订单退款请求里的 supplier order id 是用户创建的订单 id', () => {
       featureContext.draftRefundOrderBody!.supplierOrderId = featureContext.order!.id;
     });
@@ -1116,6 +1120,19 @@ describeFeature(feature, ({
     And('订单退款响应中响应码为 2001，订单不存在', () => {
       const { refundOrderResponse } = featureContext;
       assertCtripFailureResponse(refundOrderResponse!, '2001');
+    });
+  });
+
+  Scenario('用户在携程下单后，完成支付后又取消了订单，但是票的数量不正确', (s: StepTest<void>) => {
+    const { And, Then } = s;
+    Then('cr7 系统按照携程的要求返回订单退款响应', () => {
+      const { refundOrderResponse } = featureContext;
+      assertCtripFailureResponse(refundOrderResponse!);
+    });
+
+    And('订单退款响应中响应码为 {int}，取消数量不正确', (_ctx, responseCode: number) => {
+      const { refundOrderResponse } = featureContext;
+      assertCtripFailureResponse(refundOrderResponse!, responseCode.toString());
     });
   });
 

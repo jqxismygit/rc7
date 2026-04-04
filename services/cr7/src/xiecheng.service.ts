@@ -1066,25 +1066,28 @@ export default class XiechengService extends RC7BaseService {
       return this.failAndPersist(header, refundBody, '2001', '订单不存在', firstSuccessRecord);
     }
 
-    const paidRecord = await getLatestSuccessfulXcOrderSyncRecordByOtaOrderIdAndServiceName(
-      this.pool,
-      schema,
-      otaOrderId,
-      'PayPreOrder',
-    );
-
-    if (paidRecord === null) {
-      return this.failAndPersist(header, refundBody, '2007', '该订单尚未支付', firstSuccessRecord);
-    }
-
     const redemption = await ctx.call(
       'cr7.redemption.getByOrder',
       { oid: supplierOrderId },
       { meta: { user: { uid: firstSuccessRecord.user_id } } },
     ).then(res => res, () => null) as Redeem.RedemptionCodeWithOrder | null;
 
+    if (redemption === null) {
+      return this.failAndPersist(header, refundBody, '2007', '该订单尚未支付', firstSuccessRecord);
+    }
+
     if (redemption?.status === 'REDEEMED') {
       return this.failAndPersist(header, refundBody, '2002', '订单已经使用', firstSuccessRecord);
+    }
+
+    const ticketQuantityMap = new Map(
+      redemption.items.map(item => [item.ticket_category_id, item.quantity] as const)
+    );
+    const isQuantityExceed = refundBody.items.some(item => {
+      return ticketQuantityMap.get(item.PLU) !== item.quantity
+    });
+    if (isQuantityExceed) {
+      return this.failAndPersist(header, refundBody, '2004', '取消数量不正确', firstSuccessRecord);
     }
 
     try {
@@ -1106,7 +1109,7 @@ export default class XiechengService extends RC7BaseService {
         itemId: item.itemId,
         vouchers: [
           {
-            voucherId: paidRecord.order_id!
+            voucherId: redemption.order_id,
           }
         ]
       }))
