@@ -909,16 +909,35 @@ describeFeature(feature, ({
   });
 
   Scenario('用户在携程下单后，可以查询订单详情', (s: StepTest<void>) => {
-    const { And } = s;
+    const { And} = s;
 
     And('订单查询响应中包含 use start date 和 use end date 分别为 {string} 的开始和结束时间', (_ctx, dateLabel: string) => {
       const expectedDate = toDateLabel(dateLabel);
-      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('useStartDate', expectedDate);
-      expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('useEndDate', expectedDate);
+      const { decryptedQueryResponse } = featureContext;
+      expect(decryptedQueryResponse!.items[0]).toHaveProperty('useStartDate', expectedDate);
+      expect(decryptedQueryResponse!.items[0]).toHaveProperty('useEndDate', expectedDate);
     });
 
     And('订单查询响应中包含订单状态 "待付款" 值为 {int}', (_ctx, statusValue: number) => {
       expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('orderStatus', statusValue);
+    });
+  });
+
+  Scenario('用户在携程下单后，查询订单详情时订单号不存在', (s: StepTest<{
+    queryOrderResponse: Xiecheng.XcEncryptedOrderResponse
+  }>) => {
+    const { When, And, context } = s;
+    When('携程发送订单查询请求', async () => {
+      const { apiServer, serviceName, draftQueryOrderBody } = featureContext;
+      const notification = buildCtripOrderNotification(
+        config.xiecheng, serviceName!, draftQueryOrderBody!
+      );
+
+      context.queryOrderResponse = await sendCtripOrderCallback(apiServer, notification);
+    });
+    And('订单查询响应中响应码为 {string}，订单不存在', (_ctx, responseCode: string) => {
+      const { queryOrderResponse } = context;
+      expect(queryOrderResponse!.header.resultCode).toEqual(responseCode);
     });
   });
 
@@ -974,9 +993,9 @@ describeFeature(feature, ({
       assertCtripFailureResponse(cancelOrderResponse!, '2001');
     });
 
-    And('订单取消响应中响应码为 2001，订单不存在', () => {
+    And('订单取消响应中响应码为 {string}，订单不存在', (_ctx, responseCode: string) => {
       const { cancelOrderResponse } = featureContext;
-      expect(cancelOrderResponse!.header.resultCode).toBe('2001');
+      expect(cancelOrderResponse!.header.resultCode).toBe(responseCode);
     });
   });
 
@@ -1117,9 +1136,9 @@ describeFeature(feature, ({
       assertCtripFailureResponse(refundOrderResponse!);
     });
 
-    And('订单退款响应中响应码为 2001，订单不存在', () => {
+    And('订单退款响应中响应码为 {string}，订单不存在', (_ctx, responseCode: string) => {
       const { refundOrderResponse } = featureContext;
-      assertCtripFailureResponse(refundOrderResponse!, '2001');
+      assertCtripFailureResponse(refundOrderResponse!, responseCode);
     });
   });
 
@@ -1130,9 +1149,9 @@ describeFeature(feature, ({
       assertCtripFailureResponse(refundOrderResponse!);
     });
 
-    And('订单退款响应中响应码为 {int}，取消数量不正确', (_ctx, responseCode: number) => {
+    And('订单退款响应中响应码为 {string}，取消数量不正确', (_ctx, responseCode: string) => {
       const { refundOrderResponse } = featureContext;
-      assertCtripFailureResponse(refundOrderResponse!, responseCode.toString());
+      assertCtripFailureResponse(refundOrderResponse!, responseCode);
     });
   });
 
@@ -1233,9 +1252,9 @@ describeFeature(feature, ({
       expect(decryptedQueryResponse!.items[0]).toHaveProperty('orderStatus', statusValue);
     });
 
-    Then('退款失败，订单已经使用，返回码 {int}', (_ctx, code: number) => {
+    Then('退款失败，订单已经使用，返回码 {string}', (_ctx, code: string) => {
       const { refundOrderResponse } = featureContext;
-      assertCtripFailureResponse(refundOrderResponse!, String(code));
+      assertCtripFailureResponse(refundOrderResponse!, code);
       expect(refundOrderResponse!.header.resultMessage).toMatch(/订单.*使用/);
     });
   });

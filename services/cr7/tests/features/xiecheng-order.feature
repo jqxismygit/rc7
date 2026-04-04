@@ -88,6 +88,18 @@ Feature: 对接携程 OTA 订单系统
      And 订单查询响应中包含 use start date 和 use end date 分别为 "今天" 的开始和结束时间
      And 订单查询响应中包含订单状态 "待付款" 值为 11
 
+  Scenario: 用户在携程下单后，查询订单详情时订单号不存在
+    When 用户提交订单
+    Then cr7 系统收到订单创建通知
+     And 订单信息可以正常解密
+    Then cr7 创建了一个订单
+   Given 携程 service name 是 "QueryOrder" 的订单查询请求
+     And 携程订单查询请求中的 ota order id 是 "xc_order_54321_not_exist"
+     And 携程订单查询请求中的 supplier order id 是 cr7 订单 id
+    When 携程发送订单查询请求
+    Then cr7 系统按照携程的要求返回订单查询响应
+     And 订单查询响应中响应码为 "4001"，订单不存在
+
   Scenario: 用户在携程下单后，取消了订单
     When 用户提交订单
     Then cr7 系统收到订单创建通知
@@ -116,7 +128,7 @@ Feature: 对接携程 OTA 订单系统
      And 携程订单取消请求中的 sequence id 是 "xc_cancel_order_seq_54321"
     When 携程发送订单取消请求
     Then cr7 系统按照携程的要求返回订单取消响应
-     And 订单取消响应中响应码为 2001，订单不存在
+     And 订单取消响应中响应码为 "2001"，订单不存在
 
   Scenario: 用户完成支付携程下单的门票订单
     When 用户提交订单
@@ -205,7 +217,7 @@ Feature: 对接携程 OTA 订单系统
      And 订单退款请求里的订单项 id 是 "xc_item_12345"
     When 携程发送订单退款请求
     Then cr7 系统按照携程的要求返回订单退款响应
-     And 订单退款响应中响应码为 2001，订单不存在
+     And 订单退款响应中响应码为 "2001"，订单不存在
     Then 管理员查看场次 "今天" 的 "早鸟票" 库存应该是 1
 
   Scenario: 用户在携程下单后，完成支付后又取消了订单，但是票的数量不正确
@@ -225,7 +237,7 @@ Feature: 对接携程 OTA 订单系统
      And 订单退款请求里的订单项数量是 2
     When 携程发送订单退款请求
     Then cr7 系统按照携程的要求返回订单退款响应
-     And 订单退款响应中响应码为 2004，取消数量不正确
+     And 订单退款响应中响应码为 "2004"，取消数量不正确
     Then 管理员查看场次 "今天" 的 "早鸟票" 库存应该是 1
 
   Scenario: 核销用户在携程上购买的门票
@@ -263,4 +275,4 @@ Feature: 对接携程 OTA 订单系统
      And 订单退款请求里的 ota order id 是 "xc_order_12345"
      And 订单退款请求里的订单项 id 是 "xc_item_12345"
     When 携程发送订单退款请求
-    Then 退款失败，订单已经使用，返回码 2002
+    Then 退款失败，订单已经使用，返回码 "2002"

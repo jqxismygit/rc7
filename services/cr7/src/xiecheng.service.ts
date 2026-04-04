@@ -682,7 +682,7 @@ export default class XiechengService extends RC7BaseService {
     const { otaOrderId } = decryptBody!;
     const record = await getFirstSuccessfulXcOrderSyncRecordByOtaOrderId(this.pool, schema, otaOrderId);
     if (!record || !record.order_id) {
-      return this.buildXcErrorResponse('1001', '订单不存在');
+      return this.buildXcErrorResponse('4001', '订单不存在');
     }
 
     const order = await ctx.call(
@@ -975,11 +975,11 @@ export default class XiechengService extends RC7BaseService {
     );
 
     if (!firstSuccessRecord || !firstSuccessRecord.order_id) {
-      return this.failAndPersist(header, payBody, '1001', '订单不存在');
+      return this.failAndPersist(header, payBody, '4001', '订单不存在');
     }
 
     if (firstSuccessRecord.order_id !== supplierOrderId) {
-      return this.failAndPersist(header, payBody, '1001', '订单不存在', firstSuccessRecord);
+      return this.failAndPersist(header, payBody, '4001', '订单不存在', firstSuccessRecord);
     }
 
     try {
