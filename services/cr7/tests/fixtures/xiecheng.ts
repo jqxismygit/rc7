@@ -174,8 +174,8 @@ export function assertCtripFailureResponse(
   expectedCode?: string,
 ) {
   expect(response).toHaveProperty('header');
-  expect(response.header.resultCode).not.toBe('0000');
+  expect(response.header.resultCode).not.toEqual('0000');
   if (expectedCode) {
-    expect(response.header.resultCode).toBe(expectedCode);
+    expect(response.header.resultCode).toEqual(expectedCode);
   }
 }

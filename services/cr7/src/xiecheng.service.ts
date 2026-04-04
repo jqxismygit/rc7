@@ -897,8 +897,6 @@ export default class XiechengService extends RC7BaseService {
     header: Xiecheng.XcRequestHeader,
     cancelBody: Xiecheng.XcCancelPreOrderBody,
   ): Promise<Xiecheng.XcEncryptedOrderResponse> {
-    ctx.meta.$statusCode = 200;
-
     const { otaOrderId, sequenceId } = cancelBody;
     const firstSuccessRecord = await getFirstSuccessfulXcOrderSyncRecordByOtaOrderId(
       this.pool,
@@ -906,7 +904,7 @@ export default class XiechengService extends RC7BaseService {
       otaOrderId,
     );
 
-    if (!firstSuccessRecord || !firstSuccessRecord.order_id) {
+    if (!firstSuccessRecord || !firstSuccessRecord?.order_id) {
       return this.buildXcErrorResponse('2001', '该订单号不存在');
     }
 
@@ -923,6 +921,7 @@ export default class XiechengService extends RC7BaseService {
         firstSuccessRecord
       );
     }
+    ctx.meta.$statusCode = 200;
 
     const cancelledOrder = await ctx.call(
       'cr7.order.get',
@@ -1060,11 +1059,11 @@ export default class XiechengService extends RC7BaseService {
     );
 
     if (!firstSuccessRecord || !firstSuccessRecord.order_id) {
-      return this.failAndPersist(header, refundBody, '1001', '订单不存在');
+      return this.buildXcErrorResponse('2001', '订单不存在');
     }
 
     if (firstSuccessRecord.order_id !== supplierOrderId) {
-      return this.failAndPersist(header, refundBody, '1001', '订单不存在', firstSuccessRecord);
+      return this.failAndPersist(header, refundBody, '2001', '订单不存在', firstSuccessRecord);
     }
 
     const paidRecord = await getLatestSuccessfulXcOrderSyncRecordByOtaOrderIdAndServiceName(

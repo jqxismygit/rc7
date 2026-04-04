@@ -1105,6 +1105,20 @@ describeFeature(feature, ({
     });
   });
 
+  Scenario('用户在携程下单后，完成支付后又取消了订单，但是订单不存在', (s: StepTest<void>) => {
+    const { Then, And } = s;
+
+    Then('cr7 系统按照携程的要求返回订单退款响应', () => {
+      const { refundOrderResponse } = featureContext;
+      assertCtripFailureResponse(refundOrderResponse!);
+    });
+
+    And('订单退款响应中响应码为 2001，订单不存在', () => {
+      const { refundOrderResponse } = featureContext;
+      assertCtripFailureResponse(refundOrderResponse!, '2001');
+    });
+  });
+
   Scenario('核销用户在携程上购买的门票', (s: StepTest<{
     ctripConsumedMockServer: MockServer;
     ctripConsumedMockHandler: ReturnType<typeof vi.fn>;
