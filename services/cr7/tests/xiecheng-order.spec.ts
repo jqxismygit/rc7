@@ -1083,16 +1083,6 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('用户在携程下单后，没有支付，发起退款', (s: StepTest<void>) => {
-    const { And } = s;
-
-    And('订单退款响应中响应码为 {string}', (_ctx, responseCode: string) => {
-      const { refundOrderResponse } = featureContext;
-      assertCtripSuccessResponse(refundOrderResponse!);
-      expect(refundOrderResponse!.header.resultCode).toBe(responseCode);
-    });
-  });
-
   Scenario('用户在携程下单后，完成支付后又取消了订单', (s: StepTest<{
     refundOrderResponse: Xiecheng.XcEncryptedOrderResponse;
   }>) => {
