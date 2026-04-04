@@ -1,8 +1,9 @@
 import { promises as fsPromises } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { Context, ServiceSchema } from 'moleculer';
+import { Context, ServiceBroker, ServiceSchema } from 'moleculer';
 import { format } from 'date-fns';
 import { addMinutes } from 'date-fns';
+import { PoolClient } from 'pg';
 import type { Payment } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
 import {
@@ -95,24 +96,22 @@ interface WechatCallbackNotification {
 }
 
 type WechatRefundCallbackResource = {
-  out_trade_no?: string;
-  out_refund_no?: string;
-  refund_status?: string;
-  refund_id?: string;
-  channel?: string;
-  success_time?: string;
-  reason?: string;
-  amount?: {
-    refund?: number;
-    total?: number;
+  out_trade_no: string;
+  out_refund_no: string;
+  refund_status: string;
+  refund_id: string;
+  channel: string;
+  success_time: string;
+  reason: string;
+  amount: {
+    refund: number;
+    total: number;
   };
 };
 
 export class PaymentService extends RC7BaseService {
-  constructor(broker) {
+  constructor(broker: ServiceBroker) {
     super(broker);
-
-
   }
 
   actions_payment: ServiceSchema['actions'] = {
@@ -188,6 +187,7 @@ export class PaymentService extends RC7BaseService {
   methods = {
     getWechatPayClientPrimaryKey: this.getWechatPayClientPrimaryKey,
     getWechatPayConfig: this.getWechatPayConfig,
+    refundOrderAndReleaseInventory: this.refundOrderAndReleaseInventory,
   }
 
   async initiateWechatPay(
@@ -398,82 +398,101 @@ export class PaymentService extends RC7BaseService {
     return null;
   }
 
+  async refundOrderAndReleaseInventory(
+    dbClient: PoolClient, schema: string,
+    orderId: string, outRefundNo: string
+  ) {
+     const settlement = await markOrderRefunded(
+        dbClient,
+        schema,
+        orderId,
+        outRefundNo,
+     );
+
+     if (settlement === null) {
+       return;
+     }
+
+     if (settlement.released_at !== null) {
+       return;
+     }
+
+    await releaseOrderInventory(
+      dbClient,
+      schema,
+      orderId,
+      settlement.session_id,
+    );
+  }
+
   async handleWechatRefundCallback(
     ctx: Context<WechatCallbackNotification, { $statusCode?: number }>
   ) {
     const notification = ctx.params;
     const schema = await this.getSchema();
 
-    await createWechatRefundCallback(this.pool, schema, {
-      notification_id: notification.id,
-      event_type: notification.event_type,
-      out_trade_no: null,
-      out_refund_no: null,
-      refund_status: null,
-      raw_payload: notification,
-    });
+    await createWechatRefundCallback(
+      this.pool, schema,
+      {
+        notification_id: notification.id,
+        event_type: notification.event_type,
+        out_trade_no: null,
+        out_refund_no: null,
+        refund_status: null,
+        raw_payload: notification,
+      }
+    );
 
     const { api_v3_secret } = await this.getWechatPayConfig();
-    const payload = decryptWechatCallbackPayload(notification.resource, api_v3_secret) as WechatRefundCallbackResource;
+    const payload = decryptWechatCallbackPayload(
+      notification.resource, api_v3_secret
+    ) as WechatRefundCallbackResource;
 
-    await updateWechatRefundCallbackFields(this.pool, schema, notification.id, {
-      out_trade_no: payload.out_trade_no ?? null,
-      out_refund_no: payload.out_refund_no ?? null,
-      refund_status: payload.refund_status ?? null,
-    });
+    const {
+      out_trade_no, out_refund_no, refund_status,
+      refund_id, channel, amount, reason, success_time
+    } = payload;
 
-    if ((payload.out_refund_no ?? null) !== null && (payload.refund_status ?? null) !== null) {
-      const dbClient = await this.pool.connect();
-      try {
-        await dbClient.query('BEGIN');
+    await updateWechatRefundCallbackFields(
+      this.pool, schema, notification.id,
+      { out_trade_no, out_refund_no, refund_status }
+    );
 
-        const updated = await updateRefundRecordFromCallback(
-          dbClient,
-          schema,
-          payload.out_refund_no!,
-          {
-            refund_status: payload.refund_status!,
-            refund_id: payload.refund_id ?? null,
-            refund_channel: payload.channel ?? null,
-            callback_refund_amount: payload.amount?.refund ?? null,
-            error_message: payload.reason ?? null,
-            succeeded_at: payload.success_time ?? null,
-            failed_at: payload.refund_status === 'SUCCESS' ? null : new Date(),
-          },
-        ).catch(handlePaymentDataError);
+    const dbClient = await this.pool.connect();
+    try {
+      await dbClient.query('BEGIN');
 
-        if (updated?.status === 'SUCCEEDED') {
-          const settlement = await markOrderRefunded(
-            dbClient,
-            schema,
-            updated.order_id,
-            payload.out_refund_no!,
-          );
+      const updated = await updateRefundRecordFromCallback(
+        dbClient,
+        schema,
+        out_refund_no!,
+        {
+          refund_status: refund_status!,
+          refund_id,
+          refund_channel: channel,
+          callback_refund_amount: amount.refund,
+          error_message: reason,
+          succeeded_at: success_time,
+          failed_at: refund_status === 'SUCCESS' ? null : new Date(),
+        },
+      ).catch(handlePaymentDataError);
 
-          if (settlement !== null && settlement.released_at === null) {
-            await releaseOrderInventory(
-              dbClient,
-              schema,
-              updated.order_id,
-              settlement.session_id,
-            );
-          }
-        }
-
-        await markWechatRefundCallbackProcessed(dbClient, schema, notification.id);
-        await dbClient.query('COMMIT');
-      } catch (error) {
-        await dbClient.query('ROLLBACK');
-        throw error;
-      } finally {
-        dbClient.release();
+      if (updated?.status === 'SUCCEEDED') {
+        await this.refundOrderAndReleaseInventory(
+          dbClient, schema, updated.order_id, out_refund_no!
+        );
       }
-    } else {
-      await markWechatRefundCallbackProcessed(this.pool, schema, notification.id);
+
+      await markWechatRefundCallbackProcessed(dbClient, schema, notification.id);
+      await dbClient.query('COMMIT');
+    } catch (error) {
+      await dbClient.query('ROLLBACK');
+      throw error;
+    } finally {
+      dbClient.release();
     }
 
     ctx.meta.$statusCode = 204;
-    return null;
   }
 
   async closeWechatOrderByOrderId(
@@ -519,7 +538,7 @@ export class PaymentService extends RC7BaseService {
     return config.wechatpay;
   }
 
-  async getWechatPayClientPrimaryKey(client_key_path?: string): Promise<string> {
+  async getWechatPayClientPrimaryKey(client_key_path: string): Promise<string> {
     return fsPromises.readFile(client_key_path, 'utf-8');
   }
 }
