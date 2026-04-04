@@ -106,6 +106,22 @@ Feature: 对接携程 OTA 订单系统
      And 同步记录中的 supplier order id 是用户创建的订单 id
      And 同步记录中包含订单状态变更为已取消，值为 14
 
+  Scenario: 用户取消在携程的订单，但是 ota 号不存在
+    When 用户提交订单
+    Then cr7 系统收到订单创建通知
+     And 订单信息可以正常解密
+    Then cr7 创建了一个订单
+   Given 携程 service name 是 "CancelPreOrder" 的订单取消请求
+     And 携程订单取消请求中的 ota order id 是 "xc_order_54321_not_exist"
+     And 携程订单取消请求中的 supplier order id 是用户创建的订单 id
+     And 携程订单取消请求中的 sequence id 是 "xc_cancel_order_seq_54321"
+    When 携程发送订单取消请求
+    Then cr7 系统按照携程的要求返回订单取消响应
+     And 订单取消响应中响应码为 2001，订单不存在
+    When 管理员在系统后台查询订单号 "xc_order_54321_not_exist" 的携程同步记录
+    Then 同步记录中序列号为 "xc_cancel_order_seq_54321"
+     And 同步记录中状态是失败，失败原因是找不到对应的订单
+
   Scenario: 用户完成支付携程下单的门票订单
     When 用户提交订单
     Then cr7 系统收到订单创建通知
