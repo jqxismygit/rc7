@@ -915,6 +915,7 @@ export default class XiechengService extends RC7BaseService {
         { meta: { user: { uid: firstSuccessRecord.user_id } } },
       )
     } catch (error) {
+      ctx.meta.$statusCode = 200;
       return this.failAndPersist(
         header, cancelBody,
         '1100', `取消订单失败: ${(error as Error).message}`,
@@ -1073,7 +1074,48 @@ export default class XiechengService extends RC7BaseService {
     ).then(res => res, () => null) as Redeem.RedemptionCodeWithOrder | null;
 
     if (redemption === null) {
-      return this.failAndPersist(header, refundBody, '2007', '该订单尚未支付', firstSuccessRecord);
+      try {
+        await ctx.call(
+          'cr7.order.cancel',
+          { oid: firstSuccessRecord.order_id },
+          { meta: { user: { uid: firstSuccessRecord.user_id } } },
+        )
+      } catch (error) {
+        ctx.meta.$statusCode = 200;
+        return this.failAndPersist(
+          header, refundBody,
+          '1100', `取消订单失败: ${(error as Error).message}`,
+          firstSuccessRecord
+        );
+      }
+      ctx.meta.$statusCode = 200;
+
+      const responseBody: Xiecheng.XcCancelOrderSuccessBody = {
+        supplierConfirmType: 1,
+        items: refundBody.items.map(item => ({
+          itemId: item.itemId,
+          vouchers: []
+        }))
+      };
+
+      await this.persistRecord({
+        schema,
+        serviceName: 'CancelOrder',
+        otaOrderId,
+        sequenceId,
+        header,
+        orderBody: refundBody,
+        phone: firstSuccessRecord.phone,
+        countryCode: firstSuccessRecord.country_code,
+        recordParams: {
+          responseBody,
+          totalAmount: firstSuccessRecord.total_amount,
+          syncStatus: 'SUCCESS',
+          userId: firstSuccessRecord.user_id,
+          orderId: firstSuccessRecord.order_id,
+        },
+      });
+      return this.buildXcSuccessResponse(responseBody);
     }
 
     if (redemption?.status === 'REDEEMED') {
