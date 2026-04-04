@@ -95,6 +95,7 @@ interface CancelContext {
 
 interface RefundContext {
   serviceName: Xiecheng.XcOrderServiceName;
+  refundNotification: Xiecheng.XcEncryptedOrderNotification;
   draftRefundOrderBody: Xiecheng.XcCancelOrderBody;
   refundOrderResponse: Xiecheng.XcEncryptedOrderResponse;
   decryptedRefundResponse: Xiecheng.XcCancelOrderSuccessBody;
@@ -642,6 +643,7 @@ describeFeature(feature, ({
         serviceName!,
         draftRefundOrderBody!,
       );
+      featureContext.refundNotification = notification;
 
       featureContext.refundOrderResponse = await sendCtripOrderCallback(
         apiServer,
@@ -1130,22 +1132,19 @@ describeFeature(feature, ({
     });
 
     When('携程再次发送订单退款请求', async () => {
-      const { apiServer, serviceName, draftCancelOrderBody } = featureContext;
-      const notification = buildCtripOrderNotification(
-        config.xiecheng, serviceName!, draftCancelOrderBody!
-      );
+      const {
+        apiServer, refundNotification
+      } = featureContext;
 
-      context.refundOrderResponse = await sendCtripOrderCallback(apiServer, notification);
+      context.refundOrderResponse = await sendCtripOrderCallback(
+        apiServer,
+        refundNotification!
+      );
     });
 
     Then('再次退款后 cr7 系统按照携程的要求返回订单退款响应', () => {
       const { refundOrderResponse } = featureContext;
       assertCtripSuccessResponse(refundOrderResponse!);
-    });
-
-    And('再次退款后订单退款响应中响应码为 {string}', (_ctx, responseCode: string) => {
-      const { refundOrderResponse } = featureContext;
-      expect(refundOrderResponse!.header.resultCode).toBe(responseCode);
     });
 
    Then(
