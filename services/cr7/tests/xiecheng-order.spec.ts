@@ -1093,8 +1093,10 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('用户在携程下单后，完成支付后又取消了订单', (s: StepTest<void>) => {
-    const { And, Then } = s;
+  Scenario('用户在携程下单后，完成支付后又取消了订单', (s: StepTest<{
+    refundOrderResponse: Xiecheng.XcEncryptedOrderResponse;
+  }>) => {
+    const { And, Then, When, context } = s;
 
     And('订单退款响应中 supplier confirm type 为 取消已确认，值为 {int}', (_ctx, confirmType: number) => {
       const { decryptedRefundResponse } = featureContext;
@@ -1135,6 +1137,37 @@ describeFeature(feature, ({
       const { decryptedQueryResponse } = featureContext;
       expect(decryptedQueryResponse!.items).toHaveLength(1);
       expect(decryptedQueryResponse!.items[0]).toHaveProperty('orderStatus', statusValue);
+    });
+
+    When('携程再次发送订单退款请求', async () => {
+      const { apiServer, serviceName, draftCancelOrderBody } = featureContext;
+      const notification = buildCtripOrderNotification(
+        config.xiecheng, serviceName!, draftCancelOrderBody!
+      );
+
+      context.refundOrderResponse = await sendCtripOrderCallback(apiServer, notification);
+    });
+
+    Then('再次退款后 cr7 系统按照携程的要求返回订单退款响应', () => {
+      const { refundOrderResponse } = featureContext;
+      assertCtripSuccessResponse(refundOrderResponse!);
+    });
+
+    And('再次退款后订单退款响应中响应码为 {string}', (_ctx, responseCode: string) => {
+      const { refundOrderResponse } = featureContext;
+      expect(refundOrderResponse!.header.resultCode).toBe(responseCode);
+    });
+
+   Then(
+    '再次退款后管理员查看场次 {string} 的 {string} 库存应该是 {int}',
+    async (_ctx, dateLabel: string, ticketName: string, expectedStock: number) => {
+      const { apiServer, sessions, adminToken, exhibition } = featureContext;
+      const session = getSessionByDate(sessions, dateLabel);
+      const ticket = getTicketByName(featureContext, ticketName);
+      const inventories = await getSessionTickets(apiServer, adminToken, exhibition.id, session.id);
+      const inventory = inventories.find(item => item.id === ticket.id);
+      expect(inventory, `Inventory for ticket ${ticketName} in session ${dateLabel} not found`).toBeTruthy();
+      expect(inventory!.quantity).toBe(expectedStock);
     });
   });
 
