@@ -1143,7 +1143,7 @@ describeFeature(feature, ({
     });
 
     Then('再次退款后 cr7 系统按照携程的要求返回订单退款响应', () => {
-      const { refundOrderResponse } = featureContext;
+      const { refundOrderResponse } = context;
       assertCtripSuccessResponse(refundOrderResponse!);
     });
 

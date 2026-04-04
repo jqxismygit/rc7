@@ -1067,6 +1067,26 @@ export default class XiechengService extends RC7BaseService {
       return this.failAndPersist(header, refundBody, '2001', '订单不存在', firstSuccessRecord);
     }
 
+    const order = await ctx.call(
+      'cr7.order.get',
+      { oid: firstSuccessRecord.order_id },
+      { meta: { user: { uid: firstSuccessRecord.user_id } } }
+    ) as Order.OrderWithItems;
+    if (order.status === 'REFUNDED') {
+      const responseBody: Xiecheng.XcCancelOrderSuccessBody = {
+        supplierConfirmType: 1,
+        items: refundBody.items.map(item => ({
+          itemId: item.itemId,
+          vouchers: [
+            {
+              voucherId: firstSuccessRecord.order_id!,
+            }
+          ]
+        }))
+      };
+      return this.buildXcSuccessResponse(responseBody);
+    }
+
     const redemption = await ctx.call(
       'cr7.redemption.getByOrder',
       { oid: supplierOrderId },
