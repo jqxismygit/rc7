@@ -86,7 +86,11 @@ export class RedemptionService extends RC7BaseService {
     const order = await getOrderById(dbClient, schema, oid)
       .catch(handleOrderError);
     if (order.status !== 'PAID') {
-      throw new RedeemDataError('Order has no redemption code', 'ORDER_NOT_REDEEMABLE');
+      throw new RedeemDataError(
+        'Order has no redemption code',
+        'ORDER_NOT_REDEEMABLE',
+        { order_status: order.status }
+      );
     }
 
     const session = await getSessionById(dbClient, schema, order.session_id)

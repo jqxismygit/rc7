@@ -22,11 +22,16 @@ export type REDEEM_DATA_ERROR_CODES =
 
 export class RedeemDataError extends Error {
   code: REDEEM_DATA_ERROR_CODES;
+  data: Record<string, unknown> | null;
 
-  constructor(message: string, code: REDEEM_DATA_ERROR_CODES) {
+  constructor(
+    message: string, code: REDEEM_DATA_ERROR_CODES,
+    data: Record<string, unknown> | null = null
+  ) {
     super(message);
     this.name = 'RedeemDataError';
     this.code = code;
+    this.data = data;
   }
 }
 
