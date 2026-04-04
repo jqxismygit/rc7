@@ -85,6 +85,14 @@ interface OrderPayContext {
   paidOrder: Order.OrderWithItems;
 }
 
+interface CancelContext {
+  serviceName: Xiecheng.XcOrderServiceName;
+  draftCancelOrderBody: Xiecheng.XcCancelPreOrderBody;
+  cancelOrderResponse: Xiecheng.XcEncryptedOrderResponse;
+  decryptedCancelResponse: Xiecheng.XcCancelPreOrderSuccessBody | null;
+  cancelledOrder: Order.OrderWithItems;
+}
+
 interface RefundContext {
   serviceName: Xiecheng.XcOrderServiceName;
   draftRefundOrderBody: Xiecheng.XcCancelOrderBody;
@@ -106,7 +114,8 @@ interface FeatureContext extends
   Partial<OrderQueryContext>,
   Partial<OrderPayContext>,
   Partial<RefundContext>,
-  Partial<RecordsContext> {
+  Partial<RecordsContext>,
+  Partial<CancelContext> {
     broker: ServiceBroker;
     apiServer: Server;
 }
@@ -538,6 +547,55 @@ describeFeature(feature, ({
       expect(decryptedPayResponse!.items[0]).toHaveProperty('orderStatus', statusValue);
     });
 
+    // 取消订单
+    Given('携程 service name 是 {string} 的订单取消请求', (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
+      featureContext.serviceName = serviceName;
+      featureContext.draftCancelOrderBody = {
+        sequenceId: 'xc_cancel_order_seq_54321',
+        otaOrderId: featureContext.draftOrder!.otaOrderId,
+      };
+    });
+
+    And('携程订单取消请求中的 ota order id 是 {string}', (_ctx, otaOrderId: string) => {
+      featureContext.draftCancelOrderBody!.otaOrderId = otaOrderId;
+    });
+
+    And('携程订单取消请求中的 sequence id 是 {string}', (_ctx, sequenceId: string) => {
+      featureContext.draftCancelOrderBody!.sequenceId = sequenceId;
+    });
+
+    When('携程发送订单取消请求', async () => {
+      const { serviceName, draftCancelOrderBody, apiServer } = featureContext;
+      const notification = buildCtripOrderNotification(
+        config.xiecheng,
+        serviceName!,
+        draftCancelOrderBody!,
+      );
+
+      featureContext.cancelOrderResponse = await sendCtripOrderCallback(
+        apiServer,
+        notification,
+      );
+    });
+
+    Then('cr7 系统按照携程的要求返回订单取消响应', async () => {
+      const { adminToken, apiServer, order, cancelOrderResponse } = featureContext;
+      assertCtripSuccessResponse(cancelOrderResponse!);
+      featureContext.decryptedCancelResponse = decryptCtripResponseBody<
+        Xiecheng.XcCancelPreOrderSuccessBody
+      >(
+        cancelOrderResponse!,
+        config.xiecheng.aes_key,
+        config.xiecheng.aes_iv,
+      );
+
+      featureContext.cancelledOrder = await getOrderAdmin(
+        apiServer,
+        order!.id,
+        adminToken,
+      );
+    });
+
     // 退款
     Given('携程 service name 是 {string} 的订单退款请求', (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
       const { order, draftOrder, draftPayOrderBody } = featureContext;
@@ -860,101 +918,42 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('用户在携程下单后，取消了订单', (s: StepTest<{
-    serviceName: Xiecheng.XcOrderServiceName;
-    draftCancelOrderBody: Xiecheng.XcCancelPreOrderBody;
-    cancelOrderResponse: Xiecheng.XcEncryptedOrderResponse;
-    decryptedCancelResponse: Xiecheng.XcCancelPreOrderSuccessBody | null;
-    cancelledOrder: Order.OrderWithItems;
-    records: Xiecheng.XcOrderSyncRecord[];
-  }>) => {
-    const { Given, And, When, Then, context } = s;
-
-    Given('携程 service name 是 {string} 的订单取消请求', (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
-      context.serviceName = serviceName;
-      context.draftCancelOrderBody = {
-        sequenceId: 'xc_cancel_order_seq_54321',
-        otaOrderId: featureContext.draftOrder!.otaOrderId,
-      };
-    });
-
-    And('携程订单取消请求中的 ota order id 是 {string}', (_ctx, otaOrderId: string) => {
-      context.draftCancelOrderBody.otaOrderId = otaOrderId;
-    });
-
-    And('携程订单取消请求中的 sequence id 是 {string}', (_ctx, sequenceId: string) => {
-      context.draftCancelOrderBody.sequenceId = sequenceId;
-    });
-
-    When('携程发送订单取消请求', async () => {
-      const notification = buildCtripOrderNotification(
-        config.xiecheng,
-        context.serviceName,
-        context.draftCancelOrderBody,
-      );
-
-      context.cancelOrderResponse = await sendCtripOrderCallback(
-        featureContext.apiServer,
-        notification,
-      );
-    });
-
-    Then('cr7 系统按照携程的要求返回订单取消响应', async () => {
-      const { adminToken, apiServer, order } = featureContext;
-      const { cancelOrderResponse } = context;
-      assertCtripSuccessResponse(cancelOrderResponse);
-      context.decryptedCancelResponse = decryptCtripResponseBody<
-        Xiecheng.XcCancelPreOrderSuccessBody
-      >(
-        cancelOrderResponse,
-        config.xiecheng.aes_key,
-        config.xiecheng.aes_iv,
-      );
-
-      context.cancelledOrder = await getOrderAdmin(
-        apiServer,
-        order!.id,
-        adminToken,
-      );
-    });
+  Scenario('用户在携程下单后，取消了订单', (s: StepTest<void>) => {
+    const { And } = s;
 
     And('订单取消响应中包含 supplier order id', () => {
-      const { order } = featureContext;
-      expect(context.decryptedCancelResponse?.supplierOrderId).toBe(order?.id);
+      const { order, decryptedCancelResponse } = featureContext;
+      expect(decryptedCancelResponse!.supplierOrderId).toBe(order?.id);
     });
 
     And('订单取消响应中包含 ota order id {string}', (_ctx, otaOrderId: string) => {
-      expect(context.decryptedCancelResponse?.otaOrderId).toBe(otaOrderId);
+      const { decryptedCancelResponse } = featureContext;
+      expect(decryptedCancelResponse!.otaOrderId).toBe(otaOrderId);
     });
 
     And('订单取消响应中订单状态为已取消，值为 {int}', (_ctx, statusValue: number) => {
-      expect(context.cancelledOrder.status).toBe('CANCELLED');
-      expect(context.decryptedCancelResponse?.items[0]).toHaveProperty('orderStatus', statusValue);
+      const { cancelledOrder, decryptedCancelResponse } = featureContext;
+      expect(cancelledOrder!.status).toBe('CANCELLED');
+      expect(decryptedCancelResponse!.items[0]).toHaveProperty('orderStatus', statusValue);
     });
 
-    When('管理员在系统后台查询订单号 {string} 的携程同步记录', async (_ctx, otaOrderId: string) => {
-      const { adminToken, apiServer, order } = featureContext;
-      const records = await getCtripOrderSyncRecords(apiServer, adminToken, order!.id);
-      expect(records.length).toBeGreaterThanOrEqual(2);
-      expect(records[0].ota_order_id).toBe(otaOrderId);
-      context.records = records;
-    });
-
-    And('同步记录内容包含订单号 {string}，序列号 {string}, 同步状态是成功', (_ctx, otaOrderId: string, sequenceId: string) => {
-      const latestRecord = context.records[0];
-      expect(latestRecord.ota_order_id).toBe(otaOrderId);
-      expect(latestRecord.sequence_id).toBe(sequenceId);
-      expect(latestRecord.sync_status).toBe('SUCCESS');
-      expect(latestRecord.service_name).toBe('CancelPreOrder');
+    And(
+      '同步记录内容包含订单号 {string}，序列号 {string}, 同步状态是成功',
+      (_ctx, otaOrderId: string, sequenceId: string) => {
+        const { records: [latestRecord] = [] } = featureContext;
+        expect(latestRecord.ota_order_id).toBe(otaOrderId);
+        expect(latestRecord.sequence_id).toBe(sequenceId);
+        expect(latestRecord.sync_status).toBe('SUCCESS');
+        expect(latestRecord.service_name).toBe('CancelPreOrder');
     });
 
     And('同步记录中的 supplier order id 是用户创建的订单 id', () => {
-      const latestRecord = context.records[0];
+      const { records: [latestRecord] = [] } = featureContext;
       expect(latestRecord.order_id).toBe(featureContext.order?.id);
     });
 
     And('同步记录中包含订单状态变更为已取消，值为 {int}', (_ctx, statusValue: number) => {
-      const latestRecord = context.records[0];
+      const { records: [latestRecord] = [] } = featureContext;
       const responseBody = latestRecord.response_body as Xiecheng.XcCancelPreOrderSuccessBody;
       expect(responseBody.items).toHaveLength(1);
       expect(responseBody.items[0]).toHaveProperty('orderStatus', statusValue);
