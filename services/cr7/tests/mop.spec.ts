@@ -252,18 +252,18 @@ describeFeature(feature, ({
     });
 
     And('展会同步消息中的演出 ID 是默认展会活动的 ID', () => {
-      const { mopRequestHandler } = featureContext;
+      const { mopRequestHandler, exhibition } = featureContext;
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
         body: expect.objectContaining({
-          otProjectId: featureContext.exhibition.id,
+          otProjectId: exhibition.id,
         }),
       }));
     });
 
     And('展会同步消息中的城市 id 是展会所在城市的 ID', () => {
-      const city = CITY_BY_NAME[featureContext.exhibition.city];
+      const { exhibition, mopRequestHandler } = featureContext;
+      const city = CITY_BY_NAME[exhibition.city];
       expect(city).toBeTruthy();
-      const { mopRequestHandler } = featureContext;
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
         body: expect.objectContaining({
           cityId: city.id,
@@ -272,9 +272,9 @@ describeFeature(feature, ({
     });
 
     And('展会同步消息中的城市名称是展会所在城市的名称', () => {
-      const city = CITY_BY_NAME[featureContext.exhibition.city];
+      const { exhibition, mopRequestHandler } = featureContext;
+      const city = CITY_BY_NAME[exhibition.city];
       expect(city).toBeTruthy();
-      const { mopRequestHandler } = featureContext;
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
         body: expect.objectContaining({
           cityName: city.name,
@@ -295,19 +295,19 @@ describeFeature(feature, ({
     });
 
     And('展会中的场馆 ID 是展会 ID', () => {
-      const { mopRequestHandler } = featureContext;
+      const { mopRequestHandler, exhibition } = featureContext;
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
         body: expect.objectContaining({
-          otVenueId: featureContext.exhibition.id,
+          otVenueId: exhibition.id,
         }),
       }));
     });
 
     And('展会中的场馆名称是展会场馆名称', () => {
-      const { mopRequestHandler } = featureContext;
+      const { mopRequestHandler, exhibition } = featureContext;
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
         body: expect.objectContaining({
-          otVenueName: featureContext.exhibition.venue_name,
+          otVenueName: exhibition.venue_name,
         }),
       }));
     });
@@ -322,10 +322,10 @@ describeFeature(feature, ({
     });
 
     And('展会同步消息中的展会名称是默认展会活动的名称', () => {
-      const { mopRequestHandler } = featureContext;
+      const { mopRequestHandler, exhibition } = featureContext;
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
         body: expect.objectContaining({
-          name: featureContext.exhibition.name,
+          name: exhibition.name,
         }),
       }));
     });
