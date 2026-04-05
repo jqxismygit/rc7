@@ -24,6 +24,8 @@ import {
   setupMopMockServer,
   syncExhibitionToMop,
   syncSessionsToMop,
+  syncTicketsToMop,
+  SyncTicketsToMopRequest,
   SyncSessionsToMopRequest,
 } from './fixtures/mop.js';
 import { toDateLabel } from './lib/relative-date.js';
@@ -36,17 +38,6 @@ const services = ['api', 'user', 'cr7', 'mop'];
 const feature = await loadFeature('tests/features/mop.feature');
 
 type TicketByName = Record<string, Exhibition.TicketCategory>;
-
-type DecryptedMoeSyncRequest = {
-  cityId: string;
-  cityName: string;
-  otProjectId: string;
-  category: number;
-  otVenueId: string;
-  otVenueName: string;
-  projectStatus: number;
-  name: string;
-};
 
 type MopShow = SyncSessionsToMopRequest['shows'][number];
 
@@ -155,7 +146,31 @@ describeFeature(feature, ({
     }
   });
 
-  defineSteps(({ And, Then }) => {
+  defineSteps(({ Given, And, Then }) => {
+    Given('展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天', async (
+      _ctx,
+      ticketName: string,
+      admittance: number,
+    ) => {
+      const { apiServer, adminToken, exhibition } = featureContext;
+      const ticket = await prepareTicketCategory(
+        apiServer,
+        adminToken,
+        exhibition.id,
+        {
+          name: ticketName,
+          admittance,
+          valid_duration_days: 1,
+          refund_policy: 'NON_REFUNDABLE',
+        },
+      );
+
+      featureContext.ticketByName = {
+        ...featureContext.ticketByName,
+        [ticketName]: ticket,
+      };
+    });
+
     And('{string} 库存为 {int}', async (_ctx, ticketName: string, quantity: number) => {
       const { apiServer, adminToken, ticketByName, exhibition } = featureContext;
       const ticket = ticketByName[ticketName];
@@ -176,6 +191,98 @@ describeFeature(feature, ({
         body: expect.anything(),
         uri: expect.anything()
       }));
+    });
+
+    And('票种同步消息中的第 {int} 个票种名称是 {string}', (_ctx, index: number, ticketName: string) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncTicketsToMopRequest;
+      expect(body.skus[index - 1]).toBeTruthy();
+      expect(body.skus[index - 1].name).toBe(ticketName);
+    });
+
+    And('票种同步消息中的第 {int} 个票种 ID 是 {string} 的 ID', (
+      _ctx,
+      index: number,
+      ticketName: string,
+    ) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncTicketsToMopRequest;
+      const ticket = featureContext.ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+      expect(body.skus[index - 1]).toBeTruthy();
+      expect(body.skus[index - 1].otSkuId).toBe(ticket.id);
+    });
+
+    And('票种同步消息中的第 {int} 个票种状态是有效，值为 {int}', (
+      _ctx,
+      index: number,
+      status: number,
+    ) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncTicketsToMopRequest;
+      expect(body.skus[index - 1]).toBeTruthy();
+      expect(body.skus[index - 1].otSkuStatus).toBe(status);
+    });
+
+    And('票种同步消息中的第 {int} 个票种的票面价是 {string} 的价格，单位为元', (
+      _ctx,
+      index: number,
+      ticketName: string,
+    ) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncTicketsToMopRequest;
+      const ticket = featureContext.ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+      const expectedPriceYuan = Number((ticket.price / 100).toFixed(2));
+      expect(body.skus[index - 1]).toBeTruthy();
+      expect(Number(body.skus[index - 1].skuPrice)).toBe(expectedPriceYuan);
+    });
+
+    And('票种同步消息中的第 {int} 个票种的售卖价是 {string} 的价格，单位为元', (
+      _ctx,
+      index: number,
+      ticketName: string,
+    ) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncTicketsToMopRequest;
+      const ticket = featureContext.ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+      const expectedPriceYuan = Number((ticket.price / 100).toFixed(2));
+      expect(body.skus[index - 1]).toBeTruthy();
+      expect(Number(body.skus[index - 1].sellPrice)).toBe(expectedPriceYuan);
+    });
+
+    And('票种同步消息中的第 {int} 个票种的开售时间是展会的开售日期和开始时间的组合', (
+      _ctx,
+      index: number,
+    ) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncTicketsToMopRequest;
+      const expected = `${toSessionDateLabel(featureContext.exhibition.start_date)} ${normalizeTimeLabel(featureContext.exhibition.opening_time)}`;
+      expect(body.skus[index - 1]).toBeTruthy();
+      expect(body.skus[index - 1].onSaleTime).toBe(expected);
+    });
+
+    And('票种同步消息中的第 {int} 个票种的停售时间是展会的结束日期和结束时间的组合', (
+      _ctx,
+      index: number,
+    ) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncTicketsToMopRequest;
+      const expected = `${toSessionDateLabel(featureContext.exhibition.end_date)} ${normalizeTimeLabel(featureContext.exhibition.closing_time)}`;
+      expect(body.skus[index - 1]).toBeTruthy();
+      expect(body.skus[index - 1].offSaleTime).toBe(expected);
+    });
+
+    And('票种同步消息中的第 {int} 个票种的库存模式是共享库存，值为 {int}', (
+      _ctx,
+      index: number,
+      inventoryType: number,
+    ) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncTicketsToMopRequest;
+      expect(body.skus[index - 1]).toBeTruthy();
+      expect(body.skus[index - 1].inventoryType).toBe(inventoryType);
     });
   })
 
@@ -220,48 +327,6 @@ describeFeature(feature, ({
         featureContext.exhibition.id,
         { city: cityName },
       );
-    });
-
-    Given('展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天', async (
-      _ctx,
-      ticketName: string,
-      admittance: number,
-    ) => {
-      const ticket = await prepareTicketCategory(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        {
-          name: ticketName,
-          admittance,
-          valid_duration_days: 1,
-          refund_policy: 'NON_REFUNDABLE',
-        },
-      );
-
-      featureContext.ticketByName = {
-        ...featureContext.ticketByName,
-        [ticketName]: ticket,
-      };
-    });
-
-    Given('展会添加票种 "单人票", 准入人数为 1, 有效期为场次当天', async () => {
-      const ticket = await prepareTicketCategory(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        {
-          name: '单人票',
-          admittance: 1,
-          valid_duration_days: 1,
-          refund_policy: 'NON_REFUNDABLE',
-        },
-      );
-
-      featureContext.ticketByName = {
-        ...featureContext.ticketByName,
-        单人票: ticket,
-      };
     });
 
     Given('猫眼 OTA 已启动', async () => {
@@ -509,5 +574,40 @@ describeFeature(feature, ({
       });
     });
 
+  });
+
+  Scenario('同步票种信息到猫眼', (s: StepTest<void>) => {
+    const { Given, When, And } = s;
+
+    Given('cr7 将票种信息同步到猫眼', async () => {
+      await syncTicketsToMop(
+        featureContext.apiServer,
+        featureContext.adminToken,
+        featureContext.exhibition.id,
+      );
+    });
+
+    When('猫眼收到票种同步消息', () => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      expect(request.uri).toBe('/supply/open/mop/sku/push');
+    });
+
+    And('票种同步消息中的项目 ID 是默认展会活动的 ID', () => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncTicketsToMopRequest;
+      expect(body.otProjectId).toBe(featureContext.exhibition.id);
+    });
+
+    And('票种同步消息中的类型是 OTA 型，值为 {int}', (_ctx, isOta: number) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncTicketsToMopRequest;
+      expect(body.isOta).toBe(isOta);
+    });
+
+    And('票种同步消息中有 {int} 个票种', (_ctx, count: number) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncTicketsToMopRequest;
+      expect(body.skus).toHaveLength(count);
+    });
   });
 });

@@ -8,6 +8,7 @@ ignoreWords:
   - ciphertext
   - JSAPI
   - NOTPAY
+  - skus
 words:
   - apiclient
   - Ctrip

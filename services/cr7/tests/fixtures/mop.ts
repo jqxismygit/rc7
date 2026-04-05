@@ -36,6 +36,21 @@ export interface SyncSessionsToMopRequest {
   }>;
 }
 
+export interface SyncTicketsToMopRequest {
+  otProjectId: string;
+  isOta: number;
+  skus: Array<{
+    otSkuId: string;
+    otSkuStatus: number;
+    name: string;
+    skuPrice: string;
+    sellPrice: string;
+    onSaleTime: string;
+    offSaleTime: string;
+    inventoryType: number;
+  }>;
+}
+
 export async function syncExhibitionToMop(
   server: Server,
   token: string,
@@ -56,6 +71,18 @@ export async function syncSessionsToMop(
   return postJSON<void>(
     server,
     `/exhibition/${eid}/ota/mop/sync/sessions`,
+    { token },
+  );
+}
+
+export async function syncTicketsToMop(
+  server: Server,
+  token: string,
+  eid: string,
+) {
+  return postJSON<void>(
+    server,
+    `/exhibition/${eid}/ota/mop/sync/tickets`,
     { token },
   );
 }
