@@ -6,7 +6,7 @@ import { Errors } from 'moleculer';
 import { fetch, HeadersInit, RequestInit } from 'undici';
 import { format } from 'date-fns';
 
-const { MoleculerClientError } = Errors;
+const { MoleculerClientError, MoleculerServerError } = Errors;
 
 type PrivateKeyInput = string | Buffer | KeyObject;
 type PublicKeyInput = string | Buffer | KeyObject;
@@ -227,7 +227,12 @@ export function parseMopResponseData<T = unknown>(
 		throw new MoleculerClientError('猫眼响应解密缺少 AES key', 502, 'MOP_RESPONSE_AES_KEY_MISSING');
 	}
 
-	const rawData = decryptMopData(response.encryptData, options.aesKey);
+	const { encryptData = null } = response;
+	if (encryptData === null) {
+		return null;
+	}
+
+	const rawData = decryptMopData(encryptData, options.aesKey);
   const result = JSON.parse(rawData) as T;
   return result;
 }
@@ -313,6 +318,15 @@ export async function mopPostJSON<Res = unknown>(
 		aesKey: options.aesKey,
 		publicKey: options.responsePublicKey,
 	});
+
+	const { code, msg } = responseBody;
+	if (code !== 10000) {
+		throw new MoleculerServerError(
+			`猫眼接口返回错误: ${msg}`, 500,
+			'MOP_API_ERROR',
+			{ code, msg, response: parsed }
+		);
+	}
 
 	return parsed;
 }

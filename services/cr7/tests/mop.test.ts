@@ -107,13 +107,13 @@ describe('mop api requests', () => {
 
 	it('verifies and decrypts doc response sample in section 1.6.4', () => {
 		const responseSign = buildMopResponseSign({
-			code: 1000,
+			code: 10000,
 			timestamp: responseTimestamp,
 			privateKey,
 		}).sign;
 
 		const result = parseMopResponseData<{ projectName: string; cityName: string }>({
-			code: 1000,
+			code: 10000,
 			timestamp: responseTimestamp,
 			msg: '成功',
 			sign: responseSign,

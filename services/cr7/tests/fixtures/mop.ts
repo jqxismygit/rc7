@@ -39,11 +39,11 @@ export async function syncExhibitionToMop(
 function buildMopResponse(
   code: number, msg: string, privateKey: string,
   aesKey: string,
-  body: unknown = { msg }
+  body: unknown = null
 ) {
   const timestamp = format(new Date(), 'yyyy-MM-dd HH:mm:ss');
   const { sign } = buildMopResponseSign({ code, timestamp, privateKey });
-  const encryptData = encryptMopData(JSON.stringify(body), aesKey);
+  const encryptData = body === null ? null : encryptMopData(JSON.stringify(body), aesKey);
 
   return {
     code,

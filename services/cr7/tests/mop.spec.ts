@@ -213,7 +213,7 @@ describeFeature(feature, ({
 
     Given('猫眼 OTA 已启动', async () => {
       const mopRequestHandler = vi.fn().mockResolvedValue({
-        code: 1000,
+        code: 10000,
         msg: '成功'
       });
       const mockMopServer = await setupMopMockServer(mopRequestHandler);

@@ -91,11 +91,12 @@ export default class MoeService extends RC7BaseService {
   }
 
   async syncExhibitionToMop(
-    ctx: Context<{ eid: string }, UserMeta>,
-  ): Promise<{ success: true; request: MopProjectSyncRequest }> {
+    ctx: Context<{ eid: string }, UserMeta & { $statusCode?: number }>,
+  ): Promise<void> {
     const { eid } = ctx.params;
-    const schema = await this.getSchema();
-    const exhibition = await getExhibitionById(this.pool, schema, eid) as Exhibition.Exhibition;
+    const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
+      'cr7.exhibition.get', { eid }
+    );
 
     const cityMeta = getCityMeta(exhibition.city);
     const request: MopProjectSyncRequest = {
@@ -124,9 +125,6 @@ export default class MoeService extends RC7BaseService {
       body: request,
     });
 
-    return {
-      success: true,
-      request,
-    };
+    ctx.meta.$statusCode = 204;
   }
 }
