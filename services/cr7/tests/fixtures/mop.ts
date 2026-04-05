@@ -23,6 +23,19 @@ export interface SyncExhibitionToMoeResponse {
   };
 }
 
+export interface SyncSessionsToMopRequest {
+  otProjectId: string;
+  shows: Array<{
+    otShowId: string;
+    otShowStatus: number;
+    startTime: string;
+    endTime: string;
+    showType: number;
+    fetchTicketWay: number[];
+    maxBuyLimitPerOrder: number;
+  }>;
+}
+
 export async function syncExhibitionToMop(
   server: Server,
   token: string,
@@ -31,6 +44,18 @@ export async function syncExhibitionToMop(
   return postJSON<SyncExhibitionToMoeResponse>(
     server,
     `/exhibition/${eid}/ota/mop/sync`,
+    { token },
+  );
+}
+
+export async function syncSessionsToMop(
+  server: Server,
+  token: string,
+  eid: string,
+) {
+  return postJSON<void>(
+    server,
+    `/exhibition/${eid}/ota/mop/sync/sessions`,
     { token },
   );
 }

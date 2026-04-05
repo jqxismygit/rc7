@@ -9,12 +9,23 @@ import {
   loadFeature,
   StepTest,
 } from '@amiceli/vitest-cucumber';
+import { format, isDate, parse, parseISO } from 'date-fns';
 import { Exhibition } from '@cr7/types';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
 import { prepareAdminToken } from './fixtures/user.js';
-import { prepareExhibition, prepareTicketCategory, updateExhibition } from './fixtures/exhibition.js';
+import {
+  getSessions,
+  prepareExhibition,
+  prepareTicketCategory,
+  updateExhibition,
+} from './fixtures/exhibition.js';
 import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
-import { setupMopMockServer, syncExhibitionToMop } from './fixtures/mop.js';
+import {
+  setupMopMockServer,
+  syncExhibitionToMop,
+  syncSessionsToMop,
+  SyncSessionsToMopRequest,
+} from './fixtures/mop.js';
 import { toDateLabel } from './lib/relative-date.js';
 import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
 import { MockServer } from './lib/server.js';
@@ -36,6 +47,40 @@ type DecryptedMoeSyncRequest = {
   projectStatus: number;
   name: string;
 };
+
+type MopShow = SyncSessionsToMopRequest['shows'][number];
+
+function normalizeTimeLabel(time: string): string {
+  const secondPrecision = parse(time, 'HH:mm:ss', new Date());
+  if (!Number.isNaN(secondPrecision.getTime()) && format(secondPrecision, 'HH:mm:ss') === time) {
+    return time;
+  }
+
+  const minutePrecision = parse(time, 'HH:mm', new Date());
+  if (!Number.isNaN(minutePrecision.getTime()) && format(minutePrecision, 'HH:mm') === time) {
+    return format(minutePrecision, 'HH:mm:ss');
+  }
+
+  return time;
+}
+
+function toSessionDateLabel(value: Date | string): string {
+  const dateValue = isDate(value) ? value : parseISO(value);
+  if (Number.isNaN(dateValue.getTime())) {
+    return String(value).slice(0, 10);
+  }
+
+  return format(dateValue, 'yyyy-MM-dd');
+}
+
+function getMopRequestArg(mockHandler: Mock) {
+  expect(mockHandler).toHaveBeenCalled();
+  const call = mockHandler.mock.calls.at(-1);
+  expect(call).toBeDefined();
+  return call?.[0] as { uri: string; body: unknown };
+}
+
+const DATETIME_LABEL_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 
 interface MopServerContext {
   mopRequestHandler: Mock<
@@ -329,5 +374,140 @@ describeFeature(feature, ({
         }),
       }));
     });
+  });
+
+  Scenario('同步场次信息到猫眼', (s: StepTest<void>) => {
+    const { Given, When, And } = s;
+
+    Given('cr7 将场次信息同步到猫眼', async () => {
+      await syncSessionsToMop(
+        featureContext.apiServer,
+        featureContext.adminToken,
+        featureContext.exhibition.id,
+      );
+    });
+
+    When('猫眼收到场次同步消息', () => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      expect(request.uri).toBe('/supply/open/mop/show/push');
+    });
+
+    And('场次同步消息中的项目 ID 是默认展会活动的 ID', () => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncSessionsToMopRequest;
+      expect(body.otProjectId).toBe(featureContext.exhibition.id);
+    });
+
+    And('场次同步消息中有 {int} 个场次', (_ctx, count: number) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncSessionsToMopRequest;
+      expect(body.shows).toHaveLength(count);
+    });
+
+    And('场次同步消息中的首个场次日期与展会开始日期一致', () => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncSessionsToMopRequest;
+      const exhibitionStartDate = toSessionDateLabel(featureContext.exhibition.start_date);
+      expect(body.shows[0].startTime.startsWith(exhibitionStartDate)).toBe(true);
+    });
+
+    And('场次同步消息中的最后一个场次日期与展会结束日期一致', () => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncSessionsToMopRequest;
+      const lastShow = body.shows.at(-1);
+      expect(lastShow).toBeTruthy();
+      const exhibitionEndDate = toSessionDateLabel(featureContext.exhibition.end_date);
+      expect(lastShow?.startTime.startsWith(exhibitionEndDate)).toBe(true);
+    });
+
+    And('场次同步消息中每个场次的 ID 是 cr7 场次 ID', async () => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncSessionsToMopRequest;
+      const sessions = await getSessions(
+        featureContext.apiServer,
+        featureContext.exhibition.id,
+        featureContext.adminToken,
+      );
+      const expectedIds = sessions.map(session => session.id).sort();
+      const actualIds = body.shows.map(show => show.otShowId).sort();
+      expect(actualIds).toEqual(expectedIds);
+    });
+
+    And('场次同步消息中每个场次的状态是有效，值为 {int}', (_ctx, status: number) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncSessionsToMopRequest;
+      body.shows.forEach(show => {
+        expect(show.otShowStatus).toBe(status);
+      });
+    });
+
+    And('场次同步消息中每个场次的开始时间是 cr7 场次的日期和开始时间的组合', async () => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncSessionsToMopRequest;
+      const sessions = await getSessions(
+        featureContext.apiServer,
+        featureContext.exhibition.id,
+        featureContext.adminToken,
+      );
+      const expectedTime = normalizeTimeLabel(featureContext.exhibition.opening_time);
+      const expectedBySessionId = new Map(
+        sessions.map(session => [
+          session.id,
+          `${toSessionDateLabel(session.session_date)} ${expectedTime}`,
+        ])
+      );
+
+      body.shows.forEach(show => {
+        expect(show.startTime).toMatch(DATETIME_LABEL_RE);
+        expect(show.startTime).toBe(expectedBySessionId.get(show.otShowId));
+      });
+    });
+
+    And('场次同步消息中每个场次的结束时间是 cr7 场次的日期和结束时间的组合', async () => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncSessionsToMopRequest;
+      const sessions = await getSessions(
+        featureContext.apiServer,
+        featureContext.exhibition.id,
+        featureContext.adminToken,
+      );
+      const expectedTime = normalizeTimeLabel(featureContext.exhibition.closing_time);
+      const expectedBySessionId = new Map(
+        sessions.map(session => [
+          session.id,
+          `${toSessionDateLabel(session.session_date)} ${expectedTime}`,
+        ])
+      );
+
+      body.shows.forEach(show => {
+        expect(show.endTime).toMatch(DATETIME_LABEL_RE);
+        expect(show.endTime).toBe(expectedBySessionId.get(show.otShowId));
+      });
+    });
+
+    And('场次同步消息中每个场次的类型是单场票，值为 {int}', (_ctx, showType: number) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncSessionsToMopRequest;
+      body.shows.forEach(show => {
+        expect(show.showType).toBe(showType);
+      });
+    });
+
+    And('场次同步消息中每个场次的取票方式是电子检票码，值为 {int}', (_ctx, fetchType: number) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncSessionsToMopRequest;
+      body.shows.forEach((show: MopShow) => {
+        expect(show.fetchTicketWay).toEqual([fetchType]);
+      });
+    });
+
+    And('场次同步消息中每个场次的每笔订单最大购买份数是 {int}', (_ctx, limit: number) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncSessionsToMopRequest;
+      body.shows.forEach(show => {
+        expect(show.maxBuyLimitPerOrder).toBe(limit);
+      });
+    });
+
   });
 });

@@ -13,8 +13,8 @@ type PublicKeyInput = string | Buffer | KeyObject;
 
 interface BuildMopSignOptions {
 	supplier: string;
-	timestamp: string;
-	version: string;
+	timestamp?: string;
+	version?: string;
 	privateKey: PrivateKeyInput;
 }
 
