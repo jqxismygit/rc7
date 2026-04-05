@@ -122,14 +122,9 @@ describe('mop api requests', () => {
 		}, {
 			aesKey,
 			publicKey,
-			verifySign: true,
 		});
 
-		expect(result.envelope.code).toBe(1000);
-		expect(result.envelope.timestamp).toBe(responseTimestamp);
-		expect(result.envelope.sign).toBe(responseSign);
-		expect(result.rawData).toBe('{"projectName":"天龙八部","cityName":"北京"}');
-		expect(result.data).toEqual({
+		expect(result).toEqual({
 			projectName: '天龙八部',
 			cityName: '北京',
 		});

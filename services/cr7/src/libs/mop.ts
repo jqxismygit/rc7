@@ -27,9 +27,9 @@ interface BuildMopRequestOptions extends BuildMopSignOptions {
 	body: unknown;
 }
 
-interface MopPostJSONOptions extends Omit<RequestInit, 'method' | 'body'>, BuildMopRequestOptions {
-	responsePublicKey?: PublicKeyInput;
-	verifyResponseSign?: boolean;
+interface MopPostJSONOptions extends
+Omit<RequestInit, 'method' | 'body'>, BuildMopRequestOptions {
+	responsePublicKey: PublicKeyInput;
 }
 
 interface MopRequestHeaders {
@@ -46,15 +46,14 @@ interface MopRequestPayload {
 interface MopResponseEnvelope {
 	code: string | number;
 	timestamp: string;
-	msg?: string;
-	sign?: string;
-	encryptData?: string;
+	msg: string;
+	sign: string;
+	encryptData: string;
 }
 
 interface ParseMopResponseOptions {
-	aesKey?: string;
-	publicKey?: PublicKeyInput;
-	verifySign?: boolean;
+	aesKey: string;
+	publicKey: PublicKeyInput;
 }
 
 class MopAPIError extends Error {
@@ -134,29 +133,6 @@ function normalizeMopSignUri(uri: string) {
 		return `/${uri.slice('/supply/open/'.length)}`;
 	}
 	return uri;
-}
-
-function parseMopResponseEnvelope(response: unknown): MopResponseEnvelope {
-	if (typeof response !== 'object' || response === null) {
-		throw new MoleculerClientError('猫眼响应格式错误', 502, 'MOP_RESPONSE_INVALID');
-	}
-
-	const envelope = response as Partial<MopResponseEnvelope>;
-	if (typeof envelope.timestamp !== 'string' || envelope.timestamp.length === 0) {
-		throw new MoleculerClientError('猫眼响应格式错误', 502, 'MOP_RESPONSE_INVALID');
-	}
-
-	if (typeof envelope.code !== 'string' && typeof envelope.code !== 'number') {
-		throw new MoleculerClientError('猫眼响应格式错误', 502, 'MOP_RESPONSE_INVALID');
-	}
-
-	return {
-		code: envelope.code,
-		timestamp: envelope.timestamp,
-		msg: typeof envelope.msg === 'string' ? envelope.msg : undefined,
-		sign: typeof envelope.sign === 'string' ? envelope.sign : undefined,
-		encryptData: typeof envelope.encryptData === 'string' ? envelope.encryptData : undefined,
-	};
 }
 
 function buildMopResponseSignMessage(code: string | number, timestamp: string) {
@@ -251,49 +227,26 @@ export function buildMopResponseSign(options: BuildMopResponseSignOptions) {
 }
 
 export function parseMopResponseData<T = unknown>(
-	response: unknown,
-	options: ParseMopResponseOptions = {},
+	response: MopResponseEnvelope,
+	options: ParseMopResponseOptions,
 ) {
-	const envelope = parseMopResponseEnvelope(response);
-	const verifySign = options.verifySign ?? true;
 
-	if (verifySign) {
-		if (!options.publicKey) {
-			throw new MoleculerClientError('猫眼响应验签缺少公钥', 502, 'MOP_RESPONSE_SIGN_KEY_MISSING');
-		}
-
-		const verified = verifyMopResponseSign(envelope, options.publicKey);
-		if (!verified) {
-			throw new MoleculerClientError('猫眼响应验签失败', 400, 'MOP_RESPONSE_SIGN_INVALID');
-		}
+	if (!options.publicKey) {
+		throw new MoleculerClientError('猫眼响应验签缺少公钥', 502, 'MOP_RESPONSE_SIGN_KEY_MISSING');
 	}
 
-	if (typeof envelope.encryptData !== 'string') {
-		return {
-			envelope,
-			data: null,
-			rawData: null,
-		};
-	}
+  const verified = verifyMopResponseSign(response, options.publicKey);
+  if (!verified) {
+    throw new MoleculerClientError('猫眼响应验签失败', 400, 'MOP_RESPONSE_SIGN_INVALID');
+  }
 
 	if (!options.aesKey) {
 		throw new MoleculerClientError('猫眼响应解密缺少 AES key', 502, 'MOP_RESPONSE_AES_KEY_MISSING');
 	}
 
-	const rawData = decryptMopData(envelope.encryptData, options.aesKey);
-	try {
-		return {
-			envelope,
-			data: JSON.parse(rawData) as T,
-			rawData,
-		};
-	} catch {
-		return {
-			envelope,
-			data: rawData as T,
-			rawData,
-		};
-	}
+	const rawData = decryptMopData(response.encryptData, options.aesKey);
+  const result = JSON.parse(rawData) as T;
+  return result;
 }
 
 export function buildMopRequest(options: BuildMopRequestOptions) {
@@ -354,10 +307,7 @@ export async function mopPostJSON<Res = unknown>(
 		body: requestBody,
 	});
 
-	const contentType = res.headers.get('content-type') || '';
-	const responseBody = contentType.includes('application/json')
-		? await res.json()
-		: await res.text();
+	const responseBody = await res.json() as MopResponseEnvelope;
 
 	if (!res.ok) {
 		throw new MopAPIError(res.status, url, 'POST', responseBody);
@@ -366,13 +316,7 @@ export async function mopPostJSON<Res = unknown>(
 	const parsed = parseMopResponseData<Res>(responseBody, {
 		aesKey: options.aesKey,
 		publicKey: options.responsePublicKey,
-		verifySign: options.verifyResponseSign ?? Boolean(options.responsePublicKey),
 	});
 
-	return {
-		request,
-		response: parsed.envelope,
-		data: parsed.data,
-		rawData: parsed.rawData,
-	};
+	return parsed;
 }
