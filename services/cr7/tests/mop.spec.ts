@@ -110,7 +110,7 @@ describeFeature(feature, ({
     }
   });
 
-  defineSteps(({ And }) => {
+  defineSteps(({ And, Then }) => {
     And('{string} 库存为 {int}', async (_ctx, ticketName: string, quantity: number) => {
       const { apiServer, adminToken, ticketByName, exhibition } = featureContext;
       const ticket = ticketByName[ticketName];
@@ -123,6 +123,14 @@ describeFeature(feature, ({
         ticket.id,
         quantity,
       );
+    });
+
+    Then('猫眼收到请求可以正常解密，签名无误', () => {
+      const { mopRequestHandler } = featureContext;
+      expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.anything(),
+        uri: expect.anything()
+      }));
     });
   })
 
@@ -240,14 +248,6 @@ describeFeature(feature, ({
       expect(mopRequestHandler).toHaveBeenCalled();
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
         uri: '/supply/open/mop/project/push'
-      }));
-    });
-
-    Then('猫眼收到请求可以正常解密，签名无误', () => {
-      const { mopRequestHandler } = featureContext;
-      expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
-        body: expect.anything(),
-        uri: expect.anything()
       }));
     });
 
