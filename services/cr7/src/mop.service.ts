@@ -97,14 +97,14 @@ export default class MoeService extends RC7BaseService {
     const schema = await this.getSchema();
     const exhibition = await getExhibitionById(this.pool, schema, eid) as Exhibition.Exhibition;
 
-    const cityMeta = getCityMeta(exhibition.location);
+    const cityMeta = getCityMeta(exhibition.city);
     const request: MopProjectSyncRequest = {
       cityId: cityMeta.id,
       cityName: cityMeta.name,
       otProjectId: exhibition.id,
       category: MOP_PROJECT_CATEGORY_LEISURE_EXHIBITION.value,
       otVenueId: exhibition.id,
-      otVenueName: exhibition.location,
+      otVenueName: exhibition.venue_name,
       projectStatus: MOP_PROJECT_STATUS_VALID,
       name: exhibition.name,
     };

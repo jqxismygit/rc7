@@ -1,5 +1,6 @@
 import { Server } from 'node:http';
 import config from 'config';
+import { ServiceBroker } from 'moleculer';
 import type { Mock, MockInstance } from 'vitest';
 import { expect, vi } from 'vitest';
 import {
@@ -50,6 +51,7 @@ interface ExhibitionContext {
 interface FeatureContext extends
   ExhibitionContext,
   MopServerContext {
+  broker: ServiceBroker;
   apiServer: Server;
   adminToken: string;
 }
@@ -147,6 +149,8 @@ describeFeature(feature, ({
           name: `MOE_${Date.now()}`,
           start_date: toDateLabel(startDate),
           end_date: toDateLabel(endDate),
+          city: '上海',
+          venue_name: '上海展览中心',
           location: '上海',
         },
       );
@@ -161,7 +165,7 @@ describeFeature(feature, ({
         apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
-        { location: cityName },
+        { city: cityName },
       );
     });
 
@@ -257,7 +261,7 @@ describeFeature(feature, ({
     });
 
     And('展会同步消息中的城市 id 是展会所在城市的 ID', () => {
-      const city = CITY_BY_NAME[featureContext.exhibition.location];
+      const city = CITY_BY_NAME[featureContext.exhibition.city];
       expect(city).toBeTruthy();
       const { mopRequestHandler } = featureContext;
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
@@ -268,7 +272,7 @@ describeFeature(feature, ({
     });
 
     And('展会同步消息中的城市名称是展会所在城市的名称', () => {
-      const city = CITY_BY_NAME[featureContext.exhibition.location];
+      const city = CITY_BY_NAME[featureContext.exhibition.city];
       expect(city).toBeTruthy();
       const { mopRequestHandler } = featureContext;
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
@@ -303,7 +307,7 @@ describeFeature(feature, ({
       const { mopRequestHandler } = featureContext;
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
         body: expect.objectContaining({
-          otVenueName: featureContext.exhibition.location,
+          otVenueName: featureContext.exhibition.venue_name,
         }),
       }));
     });
