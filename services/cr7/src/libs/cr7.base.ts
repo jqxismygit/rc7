@@ -1,4 +1,4 @@
-import { Service, Errors } from "moleculer";
+import { Service, Errors, ServiceBroker, Context } from "moleculer";
 import { Pool } from "pg";
 
 const { MoleculerClientError } = Errors;
@@ -10,7 +10,7 @@ const { MoleculerClientError } = Errors;
 export class RC7BaseService extends Service {
   pool!: Pool;
 
-  constructor(broker) {
+  constructor(broker: ServiceBroker) {
     super(broker);
   }
 
@@ -42,13 +42,13 @@ export class RC7BaseService extends Service {
   /**
    * 检查当前用户是否满足 action 所需角色
    */
-  async checkUserRole(ctx) {
-    const requiredRoles: string[] = ctx.action.roles || [];
+  async checkUserRole(ctx: Context) {
+    const requiredRoles: string[] = ctx.action?.roles || [];
     if (requiredRoles.length === 0) {
       return;
     }
 
-    const roles = await ctx.call('user.roles');
+    const roles = await ctx.call('user.roles') as string[];
     const roleSet = new Set(roles.map(role => role.toLowerCase()));
     const satisfy = requiredRoles.some(role => roleSet.has(role));
     if (satisfy === false) {
