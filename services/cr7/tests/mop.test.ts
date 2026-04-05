@@ -14,7 +14,7 @@ describe('mop api requests', () => {
 	const supplier = 'S_001';
 	const timestamp = '2024-09-03 11:45:01';
 	const version = '1.0.1';
-	const uri = '/supply/open/mop/test/project';
+	const uri = '/mop/test/project';
 	const aesKey = 'PCOnnpSKl3op+ROVAltmwHuyYBcQEhy0';
 
 	const privateKey = [
@@ -53,11 +53,10 @@ describe('mop api requests', () => {
 	const responseEncryptData = 'g9rSiAwzoz88L5CdaUmcrsveiazar3icCx1/1MiJkNdbjQpFtMMQAELqs/Mm98C3g0TDD38C7R6s0+tpgxzVUw==';
 
 	it('build mop request payload with doc sample fields', () => {
-		const result = buildMopRequest({
+		const result = buildMopRequest(uri, {
 			supplier,
 			timestamp,
 			version,
-			uri,
 			aesKey,
 			privateKey,
 			body,

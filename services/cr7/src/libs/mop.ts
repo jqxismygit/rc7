@@ -1,6 +1,10 @@
-import { createCipheriv, createDecipheriv, createPrivateKey, createPublicKey, createSign, createVerify, KeyObject } from 'node:crypto';
+import {
+  createCipheriv, createDecipheriv, createPrivateKey,
+  createPublicKey, createSign, createVerify, KeyObject
+} from 'node:crypto';
 import { Errors } from 'moleculer';
 import { fetch, HeadersInit, RequestInit } from 'undici';
+import { format } from 'date-fns';
 
 const { MoleculerClientError } = Errors;
 
@@ -9,20 +13,18 @@ type PublicKeyInput = string | Buffer | KeyObject;
 
 interface BuildMopSignOptions {
 	supplier: string;
-	timestamp?: string;
-	version?: string;
+	timestamp: string;
+	version: string;
 	privateKey: PrivateKeyInput;
-	signUri?: string;
 }
 
 interface BuildMopResponseSignOptions {
-	code: string | number;
+	code: number;
 	timestamp: string;
 	privateKey: PrivateKeyInput;
 }
 
 interface BuildMopRequestOptions extends BuildMopSignOptions {
-	uri: string;
 	aesKey: string;
 	body: unknown;
 }
@@ -44,7 +46,7 @@ interface MopRequestPayload {
 }
 
 interface MopResponseEnvelope {
-	code: string | number;
+	code: number;
 	timestamp: string;
 	msg: string;
 	sign: string;
@@ -70,16 +72,6 @@ class MopAPIError extends Error {
 		this.method = method;
 		this.body = body;
 	}
-}
-
-function formatMopTimestamp(date = new Date()) {
-	const year = date.getFullYear();
-	const month = String(date.getMonth() + 1).padStart(2, '0');
-	const day = String(date.getDate()).padStart(2, '0');
-	const hour = String(date.getHours()).padStart(2, '0');
-	const minute = String(date.getMinutes()).padStart(2, '0');
-	const second = String(date.getSeconds()).padStart(2, '0');
-	return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
 
 function getMopAESAlgorithm(key: Buffer) {
@@ -128,15 +120,8 @@ function parsePublicKey(publicKey: PublicKeyInput): KeyObject | PublicKeyInput {
 	});
 }
 
-function normalizeMopSignUri(uri: string) {
-	if (uri.startsWith('/supply/open/')) {
-		return `/${uri.slice('/supply/open/'.length)}`;
-	}
-	return uri;
-}
-
-function buildMopResponseSignMessage(code: string | number, timestamp: string) {
-	return `${String(code)}${timestamp}`;
+function buildMopResponseSignMessage(code: number, timestamp: string) {
+	return `${code}${timestamp}`;
 }
 
 export function encryptMopData(plainData: string, aesKey: string): string {
@@ -161,35 +146,31 @@ export function decryptMopData(encryptData: string, aesKey: string): string {
 	return decrypted.toString('utf-8');
 }
 
-export function buildMopSign(uri: string, options: BuildMopSignOptions) {
-	const timestamp = options.timestamp ?? formatMopTimestamp();
-	const version = options.version ?? '1.0.0';
-	const signUri = options.signUri ?? normalizeMopSignUri(uri);
-	const message = `${options.supplier}${timestamp}${version}${signUri}`;
+export function buildMopSign(signUri: string, options: BuildMopSignOptions) {
+	const {
+    supplier,
+    privateKey,
+    timestamp = format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
+    version = '1.0.0',
+  } = options;
+	const message = `${supplier}${timestamp}${version}${signUri}`;
 
 	const signer = createSign('RSA-SHA256');
 	signer.update(message, 'utf-8');
 	signer.end();
 
-	const sign = signer.sign(parsePrivateKey(options.privateKey), 'base64');
+	const sign = signer.sign(parsePrivateKey(privateKey), 'base64');
 
-	return {
-		sign,
-		message,
-		signUri,
-		timestamp,
-		version,
-	};
+	return { sign, message, signUri, timestamp, version };
 }
 
 export function verifyMopSign(
 	sign: string,
-	uri: string,
+	signUri: string,
 	options: Omit<BuildMopSignOptions, 'privateKey'> & { publicKey: PublicKeyInput },
 ) {
-	const timestamp = options.timestamp ?? formatMopTimestamp();
-	const version = options.version ?? '1.0.0';
-	const signUri = options.signUri ?? normalizeMopSignUri(uri);
+	const timestamp = options.timestamp;
+	const version = options.version;
 	const message = `${options.supplier}${timestamp}${version}${signUri}`;
 
 	const verifier = createVerify('RSA-SHA256');
@@ -207,21 +188,23 @@ export function verifyMopResponseSign(
 		throw new MoleculerClientError('猫眼响应缺少签名字段', 502, 'MOP_RESPONSE_SIGN_MISSING');
 	}
 
+	const { code, timestamp, sign } = envelope;
 	const verifier = createVerify('RSA-SHA256');
-	verifier.update(buildMopResponseSignMessage(envelope.code, envelope.timestamp), 'utf-8');
+	verifier.update(buildMopResponseSignMessage(code, timestamp), 'utf-8');
 	verifier.end();
 
-	return verifier.verify(parsePublicKey(publicKey), envelope.sign, 'base64');
+	return verifier.verify(parsePublicKey(publicKey), sign, 'base64');
 }
 
 export function buildMopResponseSign(options: BuildMopResponseSignOptions) {
-	const message = buildMopResponseSignMessage(options.code, options.timestamp);
+	const { code, timestamp, privateKey } = options;
+	const message = buildMopResponseSignMessage(code, timestamp);
 	const signer = createSign('RSA-SHA256');
 	signer.update(message, 'utf-8');
 	signer.end();
 
 	return {
-		sign: signer.sign(parsePrivateKey(options.privateKey), 'base64'),
+		sign: signer.sign(parsePrivateKey(privateKey), 'base64'),
 		message,
 	};
 }
@@ -249,13 +232,13 @@ export function parseMopResponseData<T = unknown>(
   return result;
 }
 
-export function buildMopRequest(options: BuildMopRequestOptions) {
+export function buildMopRequest(signUri:string, options: BuildMopRequestOptions) {
 	const plainData = typeof options.body === 'string'
 		? options.body
 		: JSON.stringify(options.body);
 
 	const encryptData = encryptMopData(plainData, options.aesKey);
-	const signResult = buildMopSign(options.uri, options);
+	const signResult = buildMopSign(signUri, options);
 
 	const headers: MopRequestHeaders = {
 		supplier: options.supplier,
@@ -279,7 +262,10 @@ export function buildMopRequest(options: BuildMopRequestOptions) {
 	};
 }
 
-function getMopHeaders(options: MopPostJSONOptions, requestHeaders: MopRequestHeaders): HeadersInit {
+function getMopHeaders(
+  options: MopPostJSONOptions,
+  requestHeaders: MopRequestHeaders
+): HeadersInit {
 	return Object.assign(
 		{ ...options.headers },
 		{
@@ -297,7 +283,7 @@ export async function mopPostJSON<Res = unknown>(
 	url: string,
 	options: MopPostJSONOptions,
 ) {
-	const request = buildMopRequest(options);
+	const request = buildMopRequest(url, options);
 	const requestBody = JSON.stringify(request.payload);
 
 	const res = await fetch(url, {
