@@ -322,39 +322,32 @@ Code block
 
 ⽰例:
 
-
-Code block
-
-
-```txt
+```json
 1 {
-2 "otProjectId": "184674438436570001",
-3 "shows": [
-4 {
-5 "otShowId": "1342342342342001",
-6 "otShowStatus": 1,
-7 "name": "2024-11-03 16:00:00",
-8 "startTime": "2024-11-03 16:00:00",
-```
-
-```javascript
-9 "endtime": "2024-11-03 23:00:00",
-10 "onSaleTime": "2024-10-13 00:00:00",
-11 "offSaleTime": "2024-10-31 00:00:00",
-12 "onSaleType": 2,
-13 "showType": 1,
-14 "showNote": null,
-15 "areaUrl": null,
-16 "maxBuyLimitPerId": 10,
-17 "maxBuyLimitPerOrder": 1,
-18 "maxBuyLimitPerUser": 1,
-19 "showLimit": 1,
-20 "fetchTicketWay": [
-21 2
-22 ]
-23 }
-24 ]
-25 }
+    "otProjectId": "184674438436570001",
+    "shows": [
+        {
+            "otShowId": "1342342342342001",
+            "otShowStatus": 1,
+            "name": "2024-11-03 16:00:00",
+            "startTime": "2024-11-03 16:00:00",
+            "endTime": "2024-11-03 23:00:00",
+            "onSaleTime": "2024-10-13 00:00:00",
+            "offSaleTime": "2024-10-31 00:00:00",
+            "onSaleType": 2,
+            "showType": 1,
+            "showNote": null,
+            "areaUrl": null,
+            "maxBuyLimitPerId": 10,
+            "maxBuyLimitPerOrder": 1,
+            "maxBuyLimitPerUser": 1,
+            "showLimit": 1,
+            "fetchTicketWay": [
+                2
+            ]
+        }
+    ]
+}
 ```
 
 # 2.2.3响应参数列表
@@ -373,66 +366,59 @@ Code block
 
 ⽰例:
 
-
-Code block
-
-
-```txt
-1 {
-2 "otProjectId": "184674438436570001",
-3 "isOta": 0,
-4 "skus": [
-5 {
-6 "otShowId": "1342342342342001",
-7 "otSkuId": "1001",
-8 "otSkuStatus": 1,
-9 "name": "VVVIP",
-```
-
-```txt
-"ticketDesc": "VVVIP",
-11 "maxBuyLimit": 10,
-12 "skuPrice": "199",
-13 "sellPrice": "199",
-14 "isLimit": 1,
-15 "onSaleTime": "2024-11-31 08:00:00",
-16 "offSaleTime": "2024-12-31 20:00:00",
-17 "inventoryType": 1
-18 },
-19 {
-20 "otShowId": "1342342342342001",
-21 "otSkuId": "1002",
-22 "otSkuStatus": 1,
-23 "name": "VIP",
-24 "ticketDesc": "VIP",
-25 "maxBuyLimit": 10,
-26 "skuPrice": "299",
-27 "sellPrice": "299",
-28 "isLimit": 1,
-29 "onSaleTime": "2024-11-31 08:00:00",
-30 "offSaleTime": "2024-12-31 20:00:00",
-31 "inventoryType": 1
-32 },
-33 {
-34 "otShowId": "1342342342342001",
-35 "otSkuId": "1003",
-36 "otSkuStatus": 1,
-37 "name": "VIP",
-38 "ticketDesc": "VIP",
-39 "maxBuyLimit": 10,
-40 "skuPrice": "399",
-41 "sellPrice": "399",
-42 "isLimit": 1,
-43 "onSaleTime": "2024-11-31 08:00:00",
-44 "offSaleTime": "2024-12-31 20:00:00",
-45 "inventoryType": 1,
-46 "isSet": 1,
-47 "setDescription":"这是一个套票",
-48 "baseOtSkuId":"1002",
-49 "setNum": 2
-50 },
-51 ]
-52 }
+```json
+{
+    "otProjectId": "184674438436570001",
+    "isOta": 0,
+    "skus": [
+        {
+            "otShowId": "1342342342342001",
+            "otSkuId": "1001",
+            "otSkuStatus": 1,
+            "name": "VVVIP",
+            "ticketDesc": "VVVIP",
+            "maxBuyLimit": 10,
+            "skuPrice": "199",
+            "sellPrice": "199",
+            "isLimit": 1,
+            "onSaleTime": "2024-11-31 08:00:00",
+            "offSaleTime": "2024-12-31 20:00:00",
+            "inventoryType": 1
+        },
+         {
+            "otShowId": "1342342342342001",
+            "otSkuId": "1002",
+            "otSkuStatus": 1,
+            "name": "VIP",
+            "ticketDesc": "VIP",
+            "maxBuyLimit": 10,
+            "skuPrice": "299",
+            "sellPrice": "299",
+            "isLimit": 1,
+            "onSaleTime": "2024-11-31 08:00:00",
+            "offSaleTime": "2024-12-31 20:00:00",
+            "inventoryType": 1
+        },
+         {
+            "otShowId": "1342342342342001",
+            "otSkuId": "1003",
+            "otSkuStatus": 1,
+            "name": "VIP",
+            "ticketDesc": "VIP",
+            "maxBuyLimit": 10,
+            "skuPrice": "399",
+            "sellPrice": "399",
+            "isLimit": 1,
+            "onSaleTime": "2024-11-31 08:00:00",
+            "offSaleTime": "2024-12-31 20:00:00",
+            "inventoryType": 1,
+            "isSet":1,
+            "setDescription":"这是一个套票",
+            "baseOtSkuId":"1002",
+            "setNum":2
+        }
+    ]
+}
 ```
 
 # 2.3.3响应参数列表
