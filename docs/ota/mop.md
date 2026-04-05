@@ -86,7 +86,7 @@ Code block
 
 # 1.6.1.2 流程
 
-![image](https://cdn-mineru.openxlab.org.cn/result/2026-04-05/4fbc5c21-765b-4a24-9c55-910a37924ce0/de0ee0e739a31143cd0af992b547c2d8a07a76606ecc19c6953b3e9b2ccc55c4.jpg)
+![image](./mop_request.jpg)
 
 
 # 1.6.2 加签验签JAVA代码
