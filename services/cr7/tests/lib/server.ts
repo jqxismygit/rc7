@@ -49,6 +49,7 @@ export async function mockJSONServer(
     query: Record<string, string>;
     path: string;
     method: string;
+    headers: Record<string, string>;
   }) => unknown
 ): Promise<MockServer> {
   return mockServer((req, res) => {
@@ -70,6 +71,7 @@ export async function mockJSONServer(
           query,
           path: url.pathname,
           method: req.method ?? 'GET',
+          headers: req.headers as Record<string, string>,
         });
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(response));

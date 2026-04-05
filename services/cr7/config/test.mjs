@@ -50,5 +50,10 @@ export default {
     secret: 'test_sign_secret',
     aes_key: '1234567890abcdef',
     aes_iv: 'abcdef1234567890',
+  },
+  mop: {
+    base_url: 'https://1.1.1.1',
+    aes_key: '1234567890abcdef',
+    supplier: 'TEST_MOP_SUPPLIER',
   }
 }

@@ -185,7 +185,7 @@ export function verifyMopResponseSign(
 	publicKey: PublicKeyInput,
 ) {
 	if (typeof envelope.sign !== 'string' || envelope.sign.length === 0) {
-		throw new MoleculerClientError('猫眼响应缺少签名字段', 502, 'MOP_RESPONSE_SIGN_MISSING');
+		throw new MoleculerClientError('猫眼响应缺少签名字段', 400, 'MOP_RESPONSE_SIGN_MISSING');
 	}
 
 	const { code, timestamp, sign } = envelope;
@@ -262,6 +262,15 @@ export function buildMopRequest(signUri:string, options: BuildMopRequestOptions)
 	};
 }
 
+function resolveMopSignUri(url: string) {
+	if (url.startsWith('http://') || url.startsWith('https://')) {
+		const parsedUrl = new URL(url);
+		return parsedUrl.pathname;
+	}
+
+	return url;
+}
+
 function getMopHeaders(
   options: MopPostJSONOptions,
   requestHeaders: MopRequestHeaders
@@ -283,7 +292,8 @@ export async function mopPostJSON<Res = unknown>(
 	url: string,
 	options: MopPostJSONOptions,
 ) {
-	const request = buildMopRequest(url, options);
+	const signUri = resolveMopSignUri(url);
+	const request = buildMopRequest(signUri, options);
 	const requestBody = JSON.stringify(request.payload);
 
 	const res = await fetch(url, {

@@ -119,6 +119,7 @@ const routes = [
       'xiecheng.syncXiechengPrice',
       'xiecheng.syncXiechengInventory',
       'xiecheng.listXiechengSyncLogs',
+      'mop.syncExhibitionToMop',
     ],
     {
       autoAliases: true,
@@ -127,6 +128,7 @@ const routes = [
         'POST /:eid/tickets/:tid/ota/xc/sync': 'xiecheng.syncXiechengPrice',
         'POST /:eid/tickets/:tid/ota/xc/sync/inventory': 'xiecheng.syncXiechengInventory',
         'GET /:eid/tickets/:tid/ota/xc/sync/logs': 'xiecheng.listXiechengSyncLogs',
+        'POST /:eid/ota/mop/sync': 'mop.syncExhibitionToMop',
       },
     }
   ),
