@@ -57,6 +57,14 @@ declare module 'config' {
       secret: string;
       aes_key: string;
       aes_iv: string;
+    },
+    mop: {
+      callback_base_url: string;
+      base_url: string;
+      supplier: string;
+      aes_key: string;
+      public_key_path: string;
+      private_key_path: string;
     }
   }
 

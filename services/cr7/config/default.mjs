@@ -62,5 +62,12 @@ export default {
     secret: '<--ignore-->',
     aes_key: '<--ignore-->',
     aes_iv: '<--ignore-->',
+  },
+  mop: {
+    base_url: 'https://myshow.test.maoyan.com',
+    supplier: 'MY-MOP-233',
+    aes_key: 'your_aes_key',
+    public_key_path: path.resolve(etc_path, 'mop/public_key.cer'),
+    private_key_path: path.resolve(etc_path, 'mop/private_key.cer'),
   }
 }

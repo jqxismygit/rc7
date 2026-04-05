@@ -73,3 +73,4 @@ Thumbs.db
 .vscode
 .github
 etc/**/*.pem
+etc/**/*.cer
