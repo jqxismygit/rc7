@@ -200,11 +200,11 @@ public class AESUtils {
 
 # 1.6.4.1 案例
 
-# RSA: publicKey = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC4/ZNBaKROMDQ7A9BiXiRwBvVa qMYywdM7FNo0nYELE3pMsdSgR0ZfENaX3wcIcuUCxkDPstpFMtU2fiBf7HIELLS9 8qwy+Ak1OyRoQfu6sPiSd6Krz34e0H9m0GvqkcEMp3XUcedjCnVFK8ACLhOKTwG5 00G5ioOzumJ/RHhxQwIDAQAB";
+**RSA: publicKey** = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC4/ZNBaKROMDQ7A9BiXiRwBvVa qMYywdM7FNo0nYELE3pMsdSgR0ZfENaX3wcIcuUCxkDPstpFMtU2fiBf7HIELLS9 8qwy+Ak1OyRoQfu6sPiSd6Krz34e0H9m0GvqkcEMp3XUcedjCnVFK8ACLhOKTwG5 00G5ioOzumJ/RHhxQwIDAQAB";
 
-# RSA: privateKey = "MIICdwIBADANBgkqhkiG9w0BAQEFAASCAmEwggJdAgEAAoGBALj9k0FopE4wNDsD 0GJeJHAG9VqoxjLB0zsU2jSdgQsTekyx1KBHRl8Q1pffBwhy5QLGQM+y2kUy1TZ+ IF/scgQstL3yrDL4CTU7JGhB+7qw+JJ3oqvPfh7Qf2bQa+qRwQynddRx52MKdUUr wAIuE4pPAbnTQbmKg7O6Yn9EeHFDAgMBAAECgYAIrgUxxXooHQTmW/h0FRy6kOkE NvUNvqBtnj3ayCUc4u4TGSjz2ERKA50+BP3sfI+YQLsbw7WQF6F/bA2S0qJK0TTH kwap4OeWA1fUhlB+9KkjMji7JY7YWZegBs3ecsULm6sMYnN6BbyEjki8TCrdHgul J09TR5E0TiG+B7Pk2QJBAPxdmNm7JrKUvYxgdqutLUO60xozZptRHhK/1JpxdRvC a33VHy1ZIDWLBebajOgEvFY/LoJhTqntmvVedseuMt8CQQC7p5WrnKNo4bN2qqVm RMoauw3CLPiWf0N5EUXqj4rNs4E3udiGa2wbYnBSMUCVTOMKwxxC7wVRmi/Na5XP 9xIdAkEAiZ0cUXZtZqoXJmofrAP2D93baYkn5X/5Ty4N594Ahw+gf/BsXNUh7DCQ Gk+I0KhsbvdrDCu1spHfkvdc/AvwrwJAESj1BdlwFAI3sA1QzLZTqPgb/PqxzMlc eTC8LQPtVHwqv9bN1xTxsNtinBGG72A1juFirzg+S0UHRAinjXnxfQJBAMqkjgWg iisGqJBa4FJKaCiQcd6mkwcEcsnHyZQwwThDnKO7B1bidrR/vTNbXtOqaIp8xSD1 +Lr8g7aemcG2Mzw=";
+**RSA: privateKey** = "MIICdwIBADANBgkqhkiG9w0BAQEFAASCAmEwggJdAgEAAoGBALj9k0FopE4wNDsD 0GJeJHAG9VqoxjLB0zsU2jSdgQsTekyx1KBHRl8Q1pffBwhy5QLGQM+y2kUy1TZ+ IF/scgQstL3yrDL4CTU7JGhB+7qw+JJ3oqvPfh7Qf2bQa+qRwQynddRx52MKdUUr wAIuE4pPAbnTQbmKg7O6Yn9EeHFDAgMBAAECgYAIrgUxxXooHQTmW/h0FRy6kOkE NvUNvqBtnj3ayCUc4u4TGSjz2ERKA50+BP3sfI+YQLsbw7WQF6F/bA2S0qJK0TTH kwap4OeWA1fUhlB+9KkjMji7JY7YWZegBs3ecsULm6sMYnN6BbyEjki8TCrdHgul J09TR5E0TiG+B7Pk2QJBAPxdmNm7JrKUvYxgdqutLUO60xozZptRHhK/1JpxdRvC a33VHy1ZIDWLBebajOgEvFY/LoJhTqntmvVedseuMt8CQQC7p5WrnKNo4bN2qqVm RMoauw3CLPiWf0N5EUXqj4rNs4E3udiGa2wbYnBSMUCVTOMKwxxC7wVRmi/Na5XP 9xIdAkEAiZ0cUXZtZqoXJmofrAP2D93baYkn5X/5Ty4N594Ahw+gf/BsXNUh7DCQ Gk+I0KhsbvdrDCu1spHfkvdc/AvwrwJAESj1BdlwFAI3sA1QzLZTqPgb/PqxzMlc eTC8LQPtVHwqv9bN1xTxsNtinBGG72A1juFirzg+S0UHRAinjXnxfQJBAMqkjgWg iisGqJBa4FJKaCiQcd6mkwcEcsnHyZQwwThDnKO7B1bidrR/vTNbXtOqaIp8xSD1 +Lr8g7aemcG2Mzw=";
 
-# AES: key = "PCOnnpSKl3op+ROVAltmwHuyYBcQEhy0";
+**AES: key** = "PCOnnpSKl3op+ROVAltmwHuyYBcQEhy0";
 
 
 ```bash
@@ -282,31 +282,28 @@ Code block
 
 ```json
 1 {
-2 "cityId": "310000",
-3 "cityName": "上海市",
-4 "otProjectId": "184674438436570001",
-5 "category": 1,
-6 "otVenueId": "18467342033470003",
-7 "otVenueName": "上海体育场",
-8 "projectStatus": 1,
-9 "name": "项目名称",
-10 "shortName": "项目简称",
-```
-
-```json
-11 "startTime": null,
-12 "endTime": null,
-13 "maxBuyLimitPerId": 0,
-14 "maxBuyLimitPerOrder": 0,
-15 "maxBuyLimitPerUser": 0,
-16 "maxOrderLimitPerUser": 0,
-17 "seatType": 1,
-18 "needRealName": 1,
-19 "attributes": ["1","2","3","4"],
-20 "posterUrl": "https://test-file.show.xiaoxiatech.com/showcloud/e5a4c6a2-274d-4ce6-bf67-a5ef044142ab.png",
-21 "ticketPurchaseNotice": "购票须知",
-22 "projectDesc": "项目详情"
-23 }
+    "cityId": "310000",
+    "cityName": "上海市",
+    "otProjectId": "184674438436570001",
+    "category": 1,
+    "otVenueId": "18467342033470003",
+    "otVenueName": "上海体育场",
+    "projectStatus": 1,
+    "name": "项目名称",
+    "shortName": "项目简称",
+    "startTime": null,
+    "endTime": null,
+    "maxBuyLimitPerId": 0,
+    "maxBuyLimitPerOrder": 0,
+    "maxBuyLimitPerUser": 0,
+    "maxOrderLimitPerUser": 0,
+    "seatType": 1,
+    "needRealName": 1,
+    "attributes": ["1","2","3","4"],
+    "posterUrl": "https://test-file.show.xiaoxiatech.com/showcloud/e5a4c6a2-274d-4ce6-bf67-a5ef044142ab.png",
+    "ticketPurchaseNotice": "购票须知",
+    "projectDesc": "项目详情"
+}
 ```
 
 # 2.1.3响应参数列表
