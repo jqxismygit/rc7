@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Editor, Toolbar } from "@wangeditor/editor-for-react";
 import type { IDomEditor, IEditorConfig, IToolbarConfig } from "@wangeditor/editor";
 import { message } from "antd";
-import { uploadTopicImageApi } from "@/apis/topic";
+import { uploadAssetsVideoApi, uploadTopicImageApi } from "@/apis/topic";
 import { pickApiErrorMessage } from "@/utils/pick-api-error";
 
 export type ArticleRichEditorProps = {
@@ -45,6 +45,21 @@ export function ArticleRichEditor({
             }
           },
         },
+        uploadVideo: {
+          maxFileSize: 200 * 1024 * 1024,
+          allowedFileTypes: ["video/*"],
+          async customUpload(
+            file: File,
+            insertFn: (url: string, poster?: string) => void,
+          ) {
+            try {
+              const res = await uploadAssetsVideoApi(file);
+              insertFn(res.url, "");
+            } catch (e) {
+              message.error(pickApiErrorMessage(e) || "视频上传失败");
+            }
+          },
+        },
       },
     }),
     [disabled],
@@ -52,13 +67,7 @@ export function ArticleRichEditor({
 
   const toolbarConfig: Partial<IToolbarConfig> = useMemo(
     () => ({
-      excludeKeys: [
-        "group-video",
-        "todo",
-        "codeBlock",
-        "insertTable",
-        "fullScreen",
-      ],
+      excludeKeys: ["todo", "codeBlock", "insertTable", "fullScreen"],
     }),
     [],
   );

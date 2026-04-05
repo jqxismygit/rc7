@@ -25,6 +25,8 @@ const ALLOWED_TAGS = [
   "li",
   "a",
   "img",
+  "video",
+  "source",
   "blockquote",
   "hr",
   "pre",
@@ -42,6 +44,12 @@ const ALLOWED_ATTR = [
   "height",
   "target",
   "rel",
+  "controls",
+  "poster",
+  "preload",
+  "muted",
+  "playsinline",
+  "type",
 ];
 
 export function sanitizeArticleHtml(html: string): string {

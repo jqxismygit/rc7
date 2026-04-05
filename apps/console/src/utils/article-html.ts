@@ -25,6 +25,8 @@ const ALLOWED_TAGS = [
   "li",
   "a",
   "img",
+  "video",
+  "source",
   "blockquote",
   "hr",
   "pre",
@@ -42,6 +44,12 @@ const ALLOWED_ATTR = [
   "height",
   "target",
   "rel",
+  "controls",
+  "poster",
+  "preload",
+  "muted",
+  "playsinline",
+  "type",
 ];
 
 export function sanitizeArticleHtml(html: string): string {
@@ -52,10 +60,12 @@ export function sanitizeArticleHtml(html: string): string {
   });
 }
 
-/** 是否无有效正文（空段落、仅 br 等视为空） */
+/** 是否无有效正文（空段落、仅 br 等视为空；仅含图片/视频不算空） */
 export function isArticleHtmlEmpty(html: string | undefined | null): boolean {
   if (html == null || html.trim() === "") return true;
-  const textOnly = DOMPurify.sanitize(html, { ALLOWED_TAGS: [] });
+  const safe = sanitizeArticleHtml(html);
+  if (/<\s*(video|img|source)\b/i.test(safe)) return false;
+  const textOnly = DOMPurify.sanitize(safe, { ALLOWED_TAGS: [] });
   return textOnly.replace(/\u00a0/g, " ").trim() === "";
 }
 
@@ -78,7 +88,8 @@ export function buildArticlePreviewSrcDoc(html: string): string {
     baseHref ? `<base href="${baseHref}/"/>` : ""
   }<style>
 body{margin:0;padding:16px;font-size:16px;line-height:1.65;color:#1a1a1a;word-break:break-word;background:#fff;}
-img{max-width:100%;height:auto;vertical-align:middle;}
+img,video{max-width:100%;height:auto;vertical-align:middle;}
+video{display:block;max-width:100%;border-radius:8px;background:#000;}
 p{margin:0 0 12px;}
 h1,h2,h3{margin:16px 0 8px;font-weight:600;}
 ul,ol{padding-left:1.25em;margin:0 0 12px;}
@@ -98,7 +109,8 @@ export function buildArticleMiniProgramPreviewSrcDoc(html: string): string {
     baseHref ? `<base href="${baseHref}/"/>` : ""
   }<style>
 body{margin:0;padding:24px 16px;font-size:16px;line-height:1.8;color:#adadad;word-break:break-word;background:#090a07;box-sizing:border-box;min-height:100%;}
-img{max-width:100%;height:auto;vertical-align:middle;border-radius:8px;}
+img,video{max-width:100%;height:auto;vertical-align:middle;border-radius:8px;}
+video{display:block;background:#000;}
 p{margin:0 0 12px;}
 h1,h2,h3,h4,h5,h6{margin:16px 0 8px;font-weight:700;color:#ffffff;}
 strong,b,em{color:#e6e6e6;}
