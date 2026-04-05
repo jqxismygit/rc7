@@ -145,6 +145,8 @@ export function assertExhibition(data: Exhibition.Exhibition) {
   expect(data).toHaveProperty('opening_time', expect.any(String));
   expect(data).toHaveProperty('closing_time', expect.any(String));
   expect(data).toHaveProperty('last_entry_time', expect.any(String));
+  expect(data).toHaveProperty('city', expect.any(String));
+  expect(data).toHaveProperty('venue_name', expect.any(String));
   expect(data).toHaveProperty('location', expect.any(String));
   expect(data).toHaveProperty('cover_url', expect.toBeOneOf([expect.any(String), null]));
   expect(data).toHaveProperty('created_at', expect.any(String));
@@ -194,6 +196,8 @@ export async function createExhibitions(
           opening_time: '10:00',
           closing_time: '18:00',
           last_entry_time: '17:00',
+          city: '上海',
+          venue_name: '上海展览中心',
           location: 'Test Location',
           cover_url: null,
         },
@@ -274,6 +278,8 @@ export async function prepareExhibition(
       opening_time: '10:00',
       closing_time: '18:00',
       last_entry_time: '17:00',
+      city: '上海',
+      venue_name: '上海展览中心',
       location: 'Shanghai',
       cover_url: null,
     },

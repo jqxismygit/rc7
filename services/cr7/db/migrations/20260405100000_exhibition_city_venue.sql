@@ -1,0 +1,3 @@
+ALTER TABLE exhibitions
+ADD COLUMN city VARCHAR(255),
+ADD COLUMN venue_name VARCHAR(255);

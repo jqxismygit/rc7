@@ -29,9 +29,9 @@ export async function createExhibition(
   const { rows: [result] } = await client.query(
     `INSERT INTO ${schema}.exhibitions (
       name, description, start_date, end_date,
-      opening_time, closing_time, last_entry_time, location, cover_url
+      opening_time, closing_time, last_entry_time, city, venue_name, location, cover_url
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
     RETURNING
       id, name, description,
       start_date,
@@ -39,6 +39,8 @@ export async function createExhibition(
       opening_time,
       closing_time,
       last_entry_time,
+      city,
+      venue_name,
       location,
       cover_url,
       created_at,
@@ -51,6 +53,8 @@ export async function createExhibition(
       exhibition.opening_time,
       exhibition.closing_time,
       exhibition.last_entry_time,
+      exhibition.city,
+      exhibition.venue_name,
       exhibition.location,
       exhibition.cover_url ?? null
     ]
@@ -84,6 +88,8 @@ export async function getExhibitionById(
       opening_time,
       closing_time,
       last_entry_time,
+      city,
+      venue_name,
       location,
       cover_url,
       created_at,
@@ -121,6 +127,8 @@ export async function getExhibitions(
       opening_time,
       closing_time,
       last_entry_time,
+      city,
+      venue_name,
       location,
       cover_url,
       created_at,
@@ -491,6 +499,14 @@ export async function updateExhibition(
     fields.push(`last_entry_time = $${idx++}`);
     values.push(patch.last_entry_time);
   }
+  if ('city' in patch) {
+    fields.push(`city = $${idx++}`);
+    values.push(patch.city);
+  }
+  if ('venue_name' in patch) {
+    fields.push(`venue_name = $${idx++}`);
+    values.push(patch.venue_name);
+  }
   if ('location' in patch) {
     fields.push(`location = $${idx++}`);
     values.push(patch.location);
@@ -517,6 +533,8 @@ export async function updateExhibition(
       opening_time,
       closing_time,
       last_entry_time,
+      city,
+      venue_name,
       location,
       cover_url,
       created_at,

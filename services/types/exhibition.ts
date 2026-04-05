@@ -7,6 +7,8 @@ export interface Exhibition {
   opening_time: string;
   closing_time: string;
   last_entry_time: string;
+  city: string;
+  venue_name: string;
   location: string;
   cover_url?: string | null;
   created_at: Date;
@@ -21,6 +23,8 @@ export type ExhibitionDraft = Partial<Pick<Exhibition,
   'opening_time' |
   'closing_time' |
   'last_entry_time' |
+  'city' |
+  'venue_name' |
   'location' |
   'cover_url'
 >>;

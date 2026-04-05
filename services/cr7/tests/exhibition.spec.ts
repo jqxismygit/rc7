@@ -179,41 +179,51 @@ describeFeature(feature, ({
             opening_time: null,
             closing_time: null,
             last_entry_time: null,
+            city: null,
+            venue_name: null,
             location: null,
             cover_url: null,
           },
         });
       });
 
-      And('描述为 {string}', (_ctx, description: string) => {
+      And('展会描述为 {string}', (_ctx, description: string) => {
         requireDraftExhibition(context).description = description;
       });
 
-      And('开始日期为 {string}', (_ctx, startDate: string) => {
+      And('展会开始日期为 {string}', (_ctx, startDate: string) => {
         requireDraftExhibition(context).start_date = toDateLabel(startDate);
       });
 
-      And('结束日期为 {string}', (_ctx, endDate: string) => {
+      And('展会结束日期为 {string}', (_ctx, endDate: string) => {
         requireDraftExhibition(context).end_date = toDateLabel(endDate);
       });
 
-      And('开放时间为 {string}', (_ctx, openingTime: string) => {
+      And('展会开放时间为 {string}', (_ctx, openingTime: string) => {
         requireDraftExhibition(context).opening_time = openingTime;
       });
 
-      And('闭馆时间为 {string}', (_ctx, closingTime: string) => {
+      And('展会闭馆时间为 {string}', (_ctx, closingTime: string) => {
         requireDraftExhibition(context).closing_time = closingTime;
       });
 
-      And('最晚入场时间为 {string}', (_ctx, lastEntryTime: string) => {
+      And('展会最晚入场时间为 {string}', (_ctx, lastEntryTime: string) => {
         requireDraftExhibition(context).last_entry_time = lastEntryTime;
       });
 
-      And('地点为 {string}', (_ctx, location: string) => {
+      And('展会城市为 {string}', (_ctx, city: string) => {
+        requireDraftExhibition(context).city = city;
+      });
+
+      And('展会场馆名称为 {string}', (_ctx, venueName: string) => {
+        requireDraftExhibition(context).venue_name = venueName;
+      });
+
+      And('展会地点为 {string}', (_ctx, location: string) => {
         requireDraftExhibition(context).location = location;
       });
 
-      And('封面图为 {string}', (_ctx, coverUrl: string) => {
+      And('展会封面图为 {string}', (_ctx, coverUrl: string) => {
         requireDraftExhibition(context).cover_url = coverUrl;
       });
 
@@ -532,12 +542,14 @@ describeFeature(feature, ({
             opening_time: '10:00',
             closing_time: '18:00',
             last_entry_time: '17:00',
+            city: '上海',
+            venue_name: '上海展览中心',
             location: 'Test Location',
           },
         });
 
         try {
-          await createExhibition(apiServer, context.regularUserToken, requireDraftExhibition(context));
+          await createExhibition(apiServer, context.regularUserToken!, requireDraftExhibition(context));
         } catch (error) {
           rememberError(context, error);
         }
@@ -581,7 +593,7 @@ describeFeature(feature, ({
         try {
           await addTicketCategory(
             apiServer,
-            context.regularUserToken,
+            context.regularUserToken!,
             requireExhibition(context).id,
             requireDraftTicket(context),
           );
@@ -615,41 +627,51 @@ describeFeature(feature, ({
                 opening_time: null,
                 closing_time: null,
                 last_entry_time: null,
+                city: null,
+                venue_name: null,
                 location: null,
                 cover_url: null,
               },
             });
           });
 
-          And('描述为 {string}', (_ctx, description: string) => {
+          And('展会描述为 {string}', (_ctx, description: string) => {
             requireDraftExhibition(context).description = description;
           });
 
-          And('开始日期为 {string}', (_ctx, startDate: string) => {
+          And('展会开始日期为 {string}', (_ctx, startDate: string) => {
             requireDraftExhibition(context).start_date = toDateLabel(startDate);
           });
 
-          And('结束日期为 {string}', (_ctx, endDate: string) => {
+          And('展会结束日期为 {string}', (_ctx, endDate: string) => {
             requireDraftExhibition(context).end_date = toDateLabel(endDate);
           });
 
-          And('开放时间为 {string}', (_ctx, openingTime: string) => {
+          And('展会开放时间为 {string}', (_ctx, openingTime: string) => {
             requireDraftExhibition(context).opening_time = openingTime;
           });
 
-          And('闭馆时间为 {string}', (_ctx, closingTime: string) => {
+          And('展会闭馆时间为 {string}', (_ctx, closingTime: string) => {
             requireDraftExhibition(context).closing_time = closingTime;
           });
 
-          And('最晚入场时间为 {string}', (_ctx, lastEntryTime: string) => {
+          And('展会最晚入场时间为 {string}', (_ctx, lastEntryTime: string) => {
             requireDraftExhibition(context).last_entry_time = lastEntryTime;
           });
 
-          And('地点为 {string}', (_ctx, location: string) => {
+          And('展会城市为 {string}', (_ctx, city: string) => {
+            requireDraftExhibition(context).city = city;
+          });
+
+          And('展会场馆名称为 {string}', (_ctx, venueName: string) => {
+            requireDraftExhibition(context).venue_name = venueName;
+          });
+
+          And('展会地点为 {string}', (_ctx, location: string) => {
             requireDraftExhibition(context).location = location;
           });
 
-          And('封面图为 {string}', (_ctx, coverUrl: string) => {
+          And('展会封面图为 {string}', (_ctx, coverUrl: string) => {
             requireDraftExhibition(context).cover_url = coverUrl;
           });
 
@@ -671,27 +693,35 @@ describeFeature(feature, ({
             context.draftUpdate = { name };
           });
 
-          And('准备更新描述为 {string}', (_ctx, description: string) => {
+          And('准备更新展会描述为 {string}', (_ctx, description: string) => {
             context.draftUpdate!.description = description;
           });
 
-          And('准备更新开放时间为 {string}', (_ctx, openingTime: string) => {
+          And('准备更新展会开放时间为 {string}', (_ctx, openingTime: string) => {
             context.draftUpdate!.opening_time = openingTime;
           });
 
-          And('准备更新闭馆时间为 {string}', (_ctx, closingTime: string) => {
+          And('准备更新展会闭馆时间为 {string}', (_ctx, closingTime: string) => {
             context.draftUpdate!.closing_time = closingTime;
           });
 
-          And('准备更新最晚入场时间为 {string}', (_ctx, lastEntryTime: string) => {
+          And('准备更新展会最晚入场时间为 {string}', (_ctx, lastEntryTime: string) => {
             context.draftUpdate!.last_entry_time = lastEntryTime;
           });
 
-          And('准备更新地点为 {string}', (_ctx, location: string) => {
+          And('准备更新展会地点为 {string}', (_ctx, location: string) => {
             context.draftUpdate!.location = location;
           });
 
-          And('准备更新封面图为 {string}', (_ctx, coverUrl: string) => {
+          And('准备更新展会城市为 {string}', (_ctx, city: string) => {
+            context.draftUpdate!.city = city;
+          });
+
+          And('准备更新展会场馆名称为 {string}', (_ctx, venueName: string) => {
+            context.draftUpdate!.venue_name = venueName;
+          });
+
+          And('准备更新展会封面图为 {string}', (_ctx, coverUrl: string) => {
             context.draftUpdate!.cover_url = coverUrl;
           });
 
@@ -715,6 +745,8 @@ describeFeature(feature, ({
             expect(exhibition.closing_time).toBe('17:00:00');
             expect(exhibition.last_entry_time).toBe('16:00:00');
             expect(exhibition.location).toBe('Beijing');
+            expect(exhibition.city).toBe('北京');
+            expect(exhibition.venue_name).toBe('北京展览中心');
           });
         }
       );

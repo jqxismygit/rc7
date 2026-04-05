@@ -4,7 +4,7 @@
 
 ## 概念说明
 
-- Exhibition（展览）：完整的展览活动，包含日期范围、开放时间、地点和封面图信息。
+- Exhibition（展览）：完整的展览活动，包含日期范围、开放时间、城市、场馆名称、地点和封面图信息。
 - Session（场次）：展览日期范围内按天自动生成的单日场次。
 - Ticket Category（票种）：挂载在展览上的票种配置，供各个场次复用。
 
@@ -93,10 +93,11 @@
   - `404 Not Found`：展览不存在
 - 说明：
   - 该接口用于更新展览基本信息，不修改 `start_date`、`end_date`
+  - 可更新字段范围以 `Exhibition.ExhibitionPatch` 为准，包含 `name`、`description`、`opening_time`、`closing_time`、`last_entry_time`、`city`、`venue_name`、`location`、`cover_url`
   - `cover_url` 允许传 `null` 清空封面图
   - 未出现在 body 中的字段保持原值不变
   - 更新时间成功后，返回最新的 `Exhibition.Exhibition`
-  - 管理后台在「展会列表」行内「编辑」中通过本接口修改名称、描述、开闭场时间、最晚入场、地点与封面等（展期仍仅在创建时设定）
+  - 管理后台在「展会列表」行内「编辑」中通过本接口修改名称、描述、开闭场时间、最晚入场、城市、场馆名称、地点与封面等（展期仍仅在创建时设定）
 
 ## 获取展览详情
 

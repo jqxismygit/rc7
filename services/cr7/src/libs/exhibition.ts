@@ -1,4 +1,4 @@
-import { Context, Errors, ServiceSchema } from "moleculer";
+import { Context, Errors, ServiceBroker, ServiceSchema } from "moleculer";
 import type { Exhibition } from "@cr7/types";
 import {
   createExhibition,
@@ -27,6 +27,8 @@ const EXHIBITION_UPDATE_FIELDS = [
   'opening_time',
   'closing_time',
   'last_entry_time',
+  'city',
+  'venue_name',
   'location',
   'cover_url',
 ] as const;
@@ -40,7 +42,7 @@ interface UserMeta {
  * 展览活动相关服务，提供展览和票种管理功能
  */
 export class ExhibitionService extends RC7BaseService {
-  constructor(broker) {
+  constructor(broker: ServiceBroker) {
     super(broker);
   }
 
@@ -66,7 +68,10 @@ export class ExhibitionService extends RC7BaseService {
         opening_time: 'string',
         closing_time: 'string',
         last_entry_time: 'string',
-        location: 'string'
+        city: 'string',
+        venue_name: 'string',
+        location: 'string',
+        cover_url: { type: 'url', optional: true, nullable: true },
       },
       handler: this.createExhibition
     },
@@ -129,6 +134,8 @@ export class ExhibitionService extends RC7BaseService {
         opening_time: { type: 'string', optional: true },
         closing_time: { type: 'string', optional: true },
         last_entry_time: { type: 'string', optional: true },
+        city: { type: 'string', optional: true },
+        venue_name: { type: 'string', optional: true },
         location: { type: 'string', optional: true },
         cover_url: { type: 'url', optional: true, nullable: true },
       },
