@@ -1084,5 +1084,24 @@ describeFeature(feature, ({
       expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
       expect(mopTicketBody!.ticketInfo[index - 1].checkQrCode).toBe(orderRedemption!.code);
     });
+
+    When('管理员查看猫眼订单同步记录', async () => {
+      const { apiServer, adminToken, order } = featureContext;
+      featureContext.records = await getMopOrderSyncRecords(
+        apiServer,
+        adminToken,
+        order!.id,
+      );
+    });
+
+    Then('订单同步记录里有 {int} 条记录', (_ctx, count: number) => {
+      const { records } = featureContext;
+      expect(records).toHaveLength(count);
+    });
+
+    And('最新的订单同步记录中 request_path 是 {string}', (_ctx, requestPath: string) => {
+      const { records } = featureContext;
+      expect(records![0].request_path).toBe(requestPath);
+    });
   });
 });

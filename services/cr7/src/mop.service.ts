@@ -862,12 +862,23 @@ export default class MoeService extends RC7BaseService {
       return decryptResult.response;
     }
 
-    const { myOrderId } = decryptResult.body;
+    const ticketRequestBody = decryptResult.body;
+    const { myOrderId } = ticketRequestBody;
     if (!myOrderId) {
       return this.buildMopResponse(10001, '参数异常');
     }
 
     const schema = await this.getSchema();
+
+    const { id: recordId } = await createMopOrderSyncRecord(this.pool, schema, {
+      myOrderId,
+      requestPath: MOP_TICKET_URI,
+      requestBody: ticketRequestBody,
+      responseBody: null,
+      syncStatus: 'FAILED',
+      orderId: null,
+    });
+
     const firstSuccessRecord = await getFirstSuccessfulMopOrderSyncRecordByMyOrderId(
       this.pool,
       schema,
@@ -875,7 +886,7 @@ export default class MoeService extends RC7BaseService {
     );
 
     if (firstSuccessRecord?.order_id == null || firstSuccessRecord.user_id == null) {
-      return this.buildMopResponse(10001, '参数异常');
+      return this.finishWithMopResponse(recordId, 10001, '参数异常');
     }
 
     await ctx.call<{ paid_at: Date }, { oid: string }>(
@@ -910,7 +921,15 @@ export default class MoeService extends RC7BaseService {
       })),
     };
 
-    return this.buildMopResponse(10000, '成功', responseBody);
+    return this.finishWithMopResponse(
+      recordId,
+      10000,
+      '成功',
+      responseBody,
+      'SUCCESS',
+      order.id,
+      firstSuccessRecord.user_id,
+    );
   }
 
   async getMopOrderRecord(
