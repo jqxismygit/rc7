@@ -523,6 +523,48 @@ describeFeature(feature, ({
       expect(mopOrderQueryEnvelope).toHaveProperty('sign');
       expect(mopOrderQueryEnvelope).toHaveProperty('encryptData');
     });
+
+    // 支付
+    Given('用户在猫眼支付了订单 {string}', (_ctx, myOrderId: string) => {
+      featureContext.mopTicketDraft = { myOrderId };
+    });
+
+    When('cr7 收到猫眼的支付结果通知，签名验证通过，解密无误', async () => {
+      const { apiServer, mopTicketDraft } = featureContext;
+      featureContext.mopTicketEnvelope = await sendMopTicketConfirmation(apiServer, mopTicketDraft!);
+    });
+
+    Then('cr7 订单状态变更为已经支付', async () => {
+      const { apiServer, adminToken, mopOrderBody } = featureContext;
+      const { channelOrderId } = mopOrderBody!;
+      const paidOrder = await getOrderAdmin(apiServer, channelOrderId, adminToken!);
+      featureContext.order = paidOrder;
+      expect(paidOrder.status).toBe('PAID');
+    });
+
+    And('cr7 订单生成了核销码', async () => {
+      const { broker, order } = featureContext;
+      expect(order).toBeTruthy();
+      featureContext.orderRedemption = await broker.call<
+        Redeem.RedemptionCodeWithOrder, { oid: string }
+      >(
+        'cr7.redemption.getByOrder',
+        { oid: order!.id },
+        { meta: { user: { uid: order!.user_id } } },
+      );
+    });
+
+    Then('cr7 返回了订单支付结果', async () => {
+      const { mopTicketEnvelope } = featureContext;
+      expect(mopTicketEnvelope).toHaveProperty('code');
+      expect(mopTicketEnvelope).toHaveProperty('msg');
+      expect(mopTicketEnvelope).toHaveProperty('sign');
+      expect(mopTicketEnvelope).toHaveProperty('encryptData');
+      await verifyMopResponseSign('/mop/ticket', mopTicketEnvelope!);
+      featureContext.mopTicketBody = await parseMopEncryptedResponse<MopTicketConfirmationResponse>(
+        mopTicketEnvelope!
+      );
+    });
   })
 
   Background(({ Given, And }) => {
@@ -992,46 +1034,6 @@ describeFeature(feature, ({
   Scenario('用户在猫眼支付了订单', (s: StepTest<void>) => {
     const { Given, When, Then, And } = s;
 
-    Given('用户在猫眼支付了订单 {string}', (_ctx, myOrderId: string) => {
-      featureContext.mopTicketDraft = { myOrderId };
-    });
-
-    When('cr7 收到猫眼的支付结果通知，签名验证通过，解密无误', async () => {
-      const { apiServer, mopTicketDraft } = featureContext;
-      featureContext.mopTicketEnvelope = await sendMopTicketConfirmation(apiServer, mopTicketDraft!);
-    });
-
-    Then('cr7 订单状态变更为已经支付', async () => {
-      const { apiServer, adminToken, mopOrderBody } = featureContext;
-      const { channelOrderId } = mopOrderBody!;
-      const paidOrder = await getOrderAdmin(apiServer, channelOrderId, adminToken!);
-      featureContext.order = paidOrder;
-      expect(paidOrder.status).toBe('PAID');
-    });
-
-    And('cr7 订单生成了核销码', async () => {
-      const { broker, order } = featureContext;
-      expect(order).toBeTruthy();
-      featureContext.orderRedemption = await broker.call<
-        Redeem.RedemptionCodeWithOrder, { oid: string }
-      >(
-        'cr7.redemption.getByOrder',
-        { oid: order!.id },
-        { meta: { user: { uid: order!.user_id } } },
-      );
-    });
-
-    Then('cr7 返回了订单支付结果', async () => {
-      const { mopTicketEnvelope } = featureContext;
-      expect(mopTicketEnvelope).toHaveProperty('code');
-      expect(mopTicketEnvelope).toHaveProperty('msg');
-      expect(mopTicketEnvelope).toHaveProperty('sign');
-      expect(mopTicketEnvelope).toHaveProperty('encryptData');
-      await verifyMopResponseSign('/mop/ticket', mopTicketEnvelope!);
-      featureContext.mopTicketBody = await parseMopEncryptedResponse<MopTicketConfirmationResponse>(
-        mopTicketEnvelope!
-      );
-    });
 
     And('订单支付结果的猫眼订单 ID 是 {string}', async (_ctx, myOrderId: string) => {
       expect(featureContext.mopTicketBody!.myOrderId).toBe(myOrderId);
@@ -1153,5 +1155,4 @@ describeFeature(feature, ({
       expect(latestRecord.sync_status).toBe('SUCCESS');
     });
   });
-
 });
