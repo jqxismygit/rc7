@@ -13,7 +13,7 @@ import {
     assertLoginResponse,
     assertUserProfile,
     changePassword,
-    getUserList,
+    listUsers,
     grantRoleToUser,
     getUserProfile,
     passwordLogin,
@@ -506,7 +506,7 @@ describeFeature(feature, ({
             When('管理员账号 {string} 获取用户列表', async (ctx, name: string) => {
                 expect(context.adminName).toBe(name);
                 const { apiServer } = scenarioContext.fixtures.values;
-                const userListResponse = await getUserList(
+                const userListResponse = await listUsers(
                     apiServer,
                     requireAdminLoginResponse(context).token,
                     { page: 1, limit: 20 },
@@ -545,7 +545,7 @@ describeFeature(feature, ({
 
             When('管理员用手机号 {string} 搜索用户列表', async (ctx, phone: string) => {
                 const { apiServer } = scenarioContext.fixtures.values;
-                const searchedUserListResponse = await getUserList(
+                const searchedUserListResponse = await listUsers(
                     apiServer,
                     requireAdminLoginResponse(context).token,
                     { phone },
@@ -568,7 +568,7 @@ describeFeature(feature, ({
 
             When('管理员按 page {int}、limit {int} 获取用户列表', async (_ctx, page: number, limit: number) => {
                 const { apiServer } = scenarioContext.fixtures.values;
-                const pagedUserListResponse = await getUserList(
+                const pagedUserListResponse = await listUsers(
                     apiServer,
                     requireAdminLoginResponse(context).token,
                     { page, limit },

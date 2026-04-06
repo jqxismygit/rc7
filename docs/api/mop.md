@@ -1,6 +1,24 @@
 # 猫眼 MOP 对接接口
 
-本文档描述管理端触发猫眼 MOP 同步的接口。
+本文档描述 CR7 与猫眼 MOP 的对接接口，分为两类：
+
+- A 类：CR7 主动调用猫眼（管理端触发同步）
+- B 类：猫眼回调 CR7（如下单、查单等）
+
+## 实现状态
+
+- 已实现：项目同步、场次同步、票种同步
+- 文档先行（待实现）：创建订单回调等 B 类接口
+
+## 通用协议
+
+- 请求头使用 `supplier`、`timestamp`、`version`、`sign`
+- 请求体使用 `encryptData`，业务明文经 AES 加密后传输
+- 签名规则：
+  - 请求签名：`supplier + timestamp + version + URI`
+  - 响应签名：`code + timestamp`
+- 响应结构统一包含 `code`、`msg`、`timestamp`、`sign`、`encryptData`
+- 详细协议见 [docs/ota/mop.md](docs/ota/mop.md)
 
 ## 同步展览项目到 MOP
 
@@ -81,11 +99,38 @@
   - OTA 票档类型固定为 `isOta = 1`
   - 接口本身不返回业务体，成功仅返回 `204`
 
+## 创建订单回调（猫眼调用 CR7）
+
+- 状态：文档已补充，服务端实现进行中
+- URL: `/ota/mop/order`
+- Method: `POST`
+- 鉴权与安全：
+  - 按 MOP 协议校验请求签名
+  - 对 `encryptData` 解密后读取业务字段
+  - 响应按 MOP 协议加签并加密
+- 业务请求字段（解密后）：
+  - `myOrderId`：猫眼订单 ID
+  - `projectCode`：CR7 展会 ID
+  - `projectShowCode`：CR7 场次 ID
+  - `buyerName`、`buyerPhone`：购买人信息
+  - `needSeat`、`needRealName`：选座/实名标记
+  - `ticketInfo[]`：订单项，核心字段为 `myTicketId`、`skuId`、`ticketPrice`
+- 业务响应字段（加密后）：
+  - `myOrderId`：回传猫眼订单 ID
+  - `channelOrderId`：CR7 订单 ID
+  - `payExpiredTime`：CR7 订单支付过期时间戳（毫秒）
+- 业务约束：
+  - `projectCode`、`projectShowCode`、`skuId` 必须能映射到 CR7 有效资源
+  - `ticketInfo` 中票种与金额需要与 CR7 当前可售信息一致
+  - 下单成功后会创建/复用用户并创建来源为 OTA 的待支付订单
+  - 订单创建失败时，返回 MOP 业务错误码（如库存不足、参数异常）
+
 ## 类型来源
 
 - 路径参数中的 `eid` 对应展览主键，展览类型定义见 `services/types/exhibition.ts` 中 `Exhibition.Exhibition`。
 - 场次同步数据来源于 `services/types/exhibition.ts` 中 `Exhibition.Session` 与 `Exhibition.Exhibition` 的时间字段组合。
 - 票种同步数据来源于 `services/types/exhibition.ts` 中 `Exhibition.TicketCategory` 与 `Exhibition.Exhibition` 的时间字段组合。
+- 创建订单回调中的订单与用户类型来源于 `services/types/order.ts`、`services/types/user.ts`、`services/types/exhibition.ts`。
 
 ## 相关文档
 

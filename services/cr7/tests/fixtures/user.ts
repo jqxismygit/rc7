@@ -20,7 +20,7 @@ export function getUserProfile(server: Server, token: string) {
   return getJSON<User.Profile>(server, '/user/profile', { token });
 }
 
-export function getUserList(
+export function listUsers(
   server: Server,
   token: string,
   query: {

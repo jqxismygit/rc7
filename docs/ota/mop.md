@@ -489,52 +489,48 @@ Code block
 # 2.5.4接⼝请求/响应⽰例
 
 ```json
-Code block
-1 Request
-2 {
-3 "myIDs": "20001595062",
-4 "projectCode": "80033343",
-5 "projectShowCode": "200051948",
-6 "buyerName": "张三",
-7 "buyerMobile": "18342568395",
-8 "totalPrice": "80.00",
-9 "needSeat": true,
-10 "needRealName": true,
-11 "ticketInfo": [
-12 {
-13 "myTicketId": "6141177",
-14 "seatId": "302290394",
-15 "seatName": "1排25座",
-16 "row": "1",
-17 "col": "25",
-18 "areaId": "72866",
-19 "areaName": "乐池",
-20 "skuId": "85383",
-21 "ticketPrice": "80.00",
-22 "userName": "张三",
-23 "idType": 1,
-24 "idNumber": "131636191904260820"
-25 }
-26 ],
-27 "deliveryInfo": [
-28 {
-29 "deliveryType": 1,
-30 "recipientName": "张三",
-31 "recipientMobile": "18342568395"
-32 }
-```
+Request
+{
+    "myOrderId": "20001595062",
+    "projectCode": "80033343",
+    "projectShowCode": "200051948",
+    "buyerName": "张三",
+    "buyerMobile": "18342568395",
+    "totalPrice": "80.00",
+    "needSeat": true,
+    "needRealName": true,
+    "ticketInfo": [
+        {
+            "myTicketId": "6141177",
+            "seatId": "302290394",
+            "seatName": "1排25座",
+            "row": "1",
+            "col": "25",
+            "areaId": "72866",
+            "areaName": "乐池",
+            "skuId": "85383",
+            "ticketPrice": "80.00",
+            "userName": "张三",
+            "idType": 1,
+            "idNumber": "131636191904260820"
+        }
+    ],
+    "deliveryInfo": [
+        {
+            "deliveryType": 1,
+            "recipientName": "张三",
+            "recipientMobile": "18342568395"
+        }
+    ]
+}
 
-```html
-33 ]
-34 }
-35
-36 \(= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-37 Response
-38 {
-39 "myOrderId":"20001595062",
-40 "channelOrderId":"2024040217233400012704",
-41 "payExpiredTime":"1729500276515"
-42 }
+==========================
+Response
+{
+    "myOrderId": "20001595062",
+    "channelOrderId": "2024040217233400012704",
+    "payExpiredTime": "1729500276515"
+}
 ```
 
 # 2.6 ⽀付确认接⼝

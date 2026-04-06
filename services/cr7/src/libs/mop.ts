@@ -50,7 +50,7 @@ interface MopResponseEnvelope {
 	timestamp: string;
 	msg: string;
 	sign: string;
-	encryptData: string;
+	encryptData: string | null;
 }
 
 interface ParseMopResponseOptions {

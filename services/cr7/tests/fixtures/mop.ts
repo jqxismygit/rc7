@@ -1,7 +1,12 @@
 import { Server } from 'node:http';
 import { postJSON } from '../lib/api.js';
 import {
-  buildMopResponseSign, decryptMopData, encryptMopData, verifyMopSign
+  buildMopRequest,
+  buildMopResponseSign,
+  decryptMopData,
+  encryptMopData,
+  parseMopResponseData,
+  verifyMopSign,
 } from '@/libs/mop.js';
 import { format } from 'date-fns';
 import config from 'config';
@@ -51,6 +56,36 @@ export interface SyncTicketsToMopRequest {
   }>;
 }
 
+export interface MopOrderCreateRequest {
+  myOrderId: string;
+  projectCode: string;
+  projectShowCode: string;
+  buyerName: string;
+  buyerPhone: string;
+  totalPrice: string;
+  needSeat: boolean;
+  needRealName: boolean;
+  ticketInfo: Array<{
+    myTicketId: string;
+    skuId: string;
+    ticketPrice: string;
+  }>;
+}
+
+export interface MopOrderSyncResponseData {
+  myOrderId: string;
+  channelOrderId: string;
+  payExpiredTime: string;
+}
+
+export interface MopEncryptedResponse {
+  code: number;
+  timestamp: string;
+  msg: string;
+  sign: string;
+  encryptData: string | null;
+}
+
 export async function syncExhibitionToMop(
   server: Server,
   token: string,
@@ -87,6 +122,40 @@ export async function syncTicketsToMop(
   );
 }
 
+export async function syncMopOrderToCr7(
+  server: Server,
+  body: MopOrderCreateRequest,
+) {
+  const { mop } = config;
+  const { supplier, aes_key: aesKey, private_key_path } = mop;
+  const privateKey = await readFile(path.resolve(private_key_path), 'utf-8');
+
+  const { headers, payload } = buildMopRequest(
+    '/mop/order',
+    { supplier, aesKey, privateKey, body }
+  );
+
+  return postJSON<MopEncryptedResponse>(
+    server,
+    '/mop/order',
+    { headers: { ...headers }, body: payload },
+  );
+}
+
+export async function parseMopEncryptedResponse<T>(response: MopEncryptedResponse) {
+  const { mop } = config;
+  const { aes_key: aesKey, public_key_path } = mop;
+  const publicKey = await readFile(path.resolve(public_key_path), 'utf-8');
+  return parseMopResponseData<T>(response, { aesKey, publicKey });
+}
+
+export async function verifyMopResponseSign(uri: string, response: MopEncryptedResponse) {
+  const { mop } = config;
+  const { public_key_path, supplier } = mop;
+  const publicKey = await readFile(path.resolve(public_key_path), 'utf-8');
+  const { sign, ...options } = response;
+  return verifyMopSign(sign, uri, { ...options, supplier, publicKey });
+}
 
 function buildMopResponse(
   code: number, msg: string, privateKey: string,

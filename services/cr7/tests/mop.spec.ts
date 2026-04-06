@@ -10,9 +10,9 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import { format, isDate, parse, parseISO } from 'date-fns';
-import { Exhibition } from '@cr7/types';
+import { Exhibition, Order, User } from '@cr7/types';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
-import { prepareAdminToken } from './fixtures/user.js';
+import { listUsers, prepareAdminToken } from './fixtures/user.js';
 import {
   getSessions,
   prepareExhibition,
@@ -21,8 +21,14 @@ import {
 } from './fixtures/exhibition.js';
 import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 import {
+  MopEncryptedResponse,
+  MopOrderCreateRequest,
+  MopOrderSyncResponseData,
+  parseMopEncryptedResponse,
+  verifyMopResponseSign,
   setupMopMockServer,
   syncExhibitionToMop,
+  syncMopOrderToCr7,
   syncSessionsToMop,
   syncTicketsToMop,
   SyncTicketsToMopRequest,
@@ -31,6 +37,7 @@ import {
 import { toDateLabel } from './lib/relative-date.js';
 import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
 import { MockServer } from './lib/server.js';
+import { getOrderAdmin } from './fixtures/order.js';
 
 const schema = 'test_mop';
 const services = ['api', 'user', 'cr7', 'mop'];
@@ -84,9 +91,18 @@ interface ExhibitionContext {
   ticketByName: TicketByName;
 }
 
+interface OrderContext {
+  mopOrderDraft: MopOrderCreateRequest;
+  mopOrderEnvelope: MopEncryptedResponse;
+  mopOrderBody: MopOrderSyncResponseData | null;
+  orderUser: User.Profile;
+  order: Order.OrderWithItems;
+}
+
 interface FeatureContext extends
   ExhibitionContext,
-  MopServerContext {
+  MopServerContext,
+  Partial<OrderContext> {
   broker: ServiceBroker;
   apiServer: Server;
   adminToken: string;
@@ -144,13 +160,20 @@ describeFeature(feature, ({
         spy.mockRestore();
       }
     }
+    for (const [key] of Object.entries(featureContext)) {
+      if (['broker', 'apiServer'].includes(key)) {
+        continue;
+      }
+      Object.assign(featureContext, { [key]: undefined });
+    }
   });
 
-  defineSteps(({ Given, And, Then }) => {
-    Given('展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天', async (
+  defineSteps(({ Given, When, And, Then }) => {
+    Given('展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天, 价格为 {int} 元', async (
       _ctx,
       ticketName: string,
       admittance: number,
+      price: number,
     ) => {
       const { apiServer, adminToken, exhibition } = featureContext;
       const ticket = await prepareTicketCategory(
@@ -160,6 +183,7 @@ describeFeature(feature, ({
         {
           name: ticketName,
           admittance,
+          price,
           valid_duration_days: 1,
           refund_policy: 'NON_REFUNDABLE',
         },
@@ -284,6 +308,175 @@ describeFeature(feature, ({
       expect(body.skus[index - 1]).toBeTruthy();
       expect(body.skus[index - 1].inventoryType).toBe(inventoryType);
     });
+
+    // 创建订单
+    Given('用户在猫眼创建了订单', async () => {
+      const sessions = await getSessions(
+        featureContext.apiServer,
+        featureContext.exhibition.id,
+        featureContext.adminToken,
+      );
+      const todayLabel = toDateLabel('今天');
+      const todaySession = sessions.find(
+        item => toSessionDateLabel(item.session_date) === todayLabel
+      );
+      expect(todaySession).toBeTruthy();
+
+      featureContext.mopOrderDraft = {
+        myOrderId: `mop_order_${Date.now()}`,
+        projectCode: featureContext.exhibition.id,
+        projectShowCode: todaySession!.id,
+        buyerName: 'Alice',
+        buyerPhone: '13800000000',
+        totalPrice: '0.00',
+        needSeat: false,
+        needRealName: false,
+        ticketInfo: [],
+      };
+    });
+
+    And('猫眼订单中的订单 ID 是 {string}', (_ctx, orderId: string) => {
+      expect(featureContext.mopOrderDraft).toBeTruthy();
+      featureContext.mopOrderDraft!.myOrderId = orderId;
+    });
+
+    And('猫眼订单中的项目编码是默认展会活动的 ID', () => {
+      expect(featureContext.mopOrderDraft).toBeTruthy();
+      featureContext.mopOrderDraft!.projectCode = featureContext.exhibition.id;
+    });
+
+    And('猫眼订单中的场次 ID 是 {string} 的场次 ID', async (_ctx, dayLabel: string) => {
+      const sessions = await getSessions(
+        featureContext.apiServer,
+        featureContext.exhibition.id,
+        featureContext.adminToken,
+      );
+      const expectedDate = toDateLabel(dayLabel);
+      const expectedSession = sessions.find(item => toSessionDateLabel(item.session_date) === expectedDate);
+      expect(expectedSession).toBeTruthy();
+      expect(featureContext.mopOrderDraft).toBeTruthy();
+      featureContext.mopOrderDraft!.projectShowCode = expectedSession!.id;
+    });
+
+    And('猫眼订单中的购买人信息是 {string}', (_ctx, buyerName: string) => {
+      expect(featureContext.mopOrderDraft).toBeTruthy();
+      featureContext.mopOrderDraft!.buyerName = buyerName;
+    });
+
+    And('猫眼订单中的手机号是 {string}', (_ctx, phone: string) => {
+      expect(featureContext.mopOrderDraft).toBeTruthy();
+      featureContext.mopOrderDraft!.buyerPhone = phone;
+    });
+
+    And('猫眼订单中选座信息是不需要选座', () => {
+      expect(featureContext.mopOrderDraft).toBeTruthy();
+      featureContext.mopOrderDraft!.needSeat = false;
+    });
+
+    And('猫眼订单中是非实名', () => {
+      expect(featureContext.mopOrderDraft).toBeTruthy();
+      featureContext.mopOrderDraft!.needRealName = false;
+    });
+
+    And('猫眼订单中有 {int} 个订单项', (_ctx, count: number) => {
+      expect(featureContext.mopOrderDraft).toBeTruthy();
+      featureContext.mopOrderDraft!.ticketInfo = Array.from({ length: count }, () => ({
+        myTicketId: '',
+        skuId: '',
+        ticketPrice: '0.00',
+      }));
+    });
+
+    And('猫眼订单中的第 {int} 个订单项的 sku ID 是 {string} 的 ID', (
+      _ctx,
+      index: number,
+      ticketName: string,
+    ) => {
+      const ticket = featureContext.ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+      expect(featureContext.mopOrderDraft).toBeTruthy();
+      expect(featureContext.mopOrderDraft!.ticketInfo[index - 1]).toBeTruthy();
+      featureContext.mopOrderDraft!.ticketInfo[index - 1].skuId = ticket.id;
+    });
+
+    And('猫眼订单中的第 {int} 个订单项的猫眼 ID 是 {string}', (
+      _ctx,
+      index: number,
+      myTicketId: string,
+    ) => {
+      expect(featureContext.mopOrderDraft).toBeTruthy();
+      expect(featureContext.mopOrderDraft!.ticketInfo[index - 1]).toBeTruthy();
+      featureContext.mopOrderDraft!.ticketInfo[index - 1].myTicketId = myTicketId;
+    });
+
+    And('猫眼订单中的第 {int} 个订单项的价格是 {string} 的价格，单位为元', (
+      _ctx,
+      index: number,
+      ticketName: string,
+    ) => {
+      const ticket = featureContext.ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+      expect(featureContext.mopOrderDraft).toBeTruthy();
+      expect(featureContext.mopOrderDraft!.ticketInfo[index - 1]).toBeTruthy();
+      featureContext.mopOrderDraft!.ticketInfo[index - 1].ticketPrice = (ticket.price / 100).toFixed(2);
+    });
+
+    And('猫眼订单中的订单总金额是 {int} 个订单项的价格之和，单位为元', (_ctx, itemCount: number) => {
+      expect(featureContext.mopOrderDraft).toBeTruthy();
+      expect(featureContext.mopOrderDraft!.ticketInfo).toHaveLength(itemCount);
+      const totalPrice = featureContext.mopOrderDraft!.ticketInfo
+      .reduce((sum, item) => sum + Number(item.ticketPrice), 0);
+      featureContext.mopOrderDraft!.totalPrice = totalPrice.toFixed(2);
+    });
+
+    When('猫眼将订单同步消息发送给 cr7', async () => {
+      const { apiServer, mopOrderDraft } = featureContext;
+      featureContext.mopOrderEnvelope = await syncMopOrderToCr7(apiServer, mopOrderDraft!);
+    });
+
+    Then('cr7 收到订单同步消息，可以正常验证签名，解密无误', async () => {
+      const { mopOrderEnvelope } = featureContext;
+      await verifyMopResponseSign('/mop/order', mopOrderEnvelope!);
+      featureContext.mopOrderBody = await parseMopEncryptedResponse<MopOrderSyncResponseData>(
+        mopOrderEnvelope!
+      );
+    });
+
+    Then(
+      'cr7 添加了一个新用户，手机号是 {string}，姓名是 {string}',
+      async (_ctx, phone: string, name: string) => {
+      const { mopOrderDraft, apiServer, adminToken } = featureContext;
+      const { buyerPhone, buyerName } = mopOrderDraft!;
+      const { total, users } = await listUsers(apiServer, adminToken!, { phone: buyerPhone });
+      expect(total).toEqual(1);
+      const user = users[0];
+      expect(user).toBeTruthy();
+      expect(user.phone).toEqual(`+86 ${buyerPhone}`);
+      expect(user.name).toEqual(buyerName);
+      featureContext.orderUser = user;
+    });
+
+    Then('cr7 创建了一个订单，状态为待支付', async () => {
+      const { mopOrderBody, apiServer, adminToken } = featureContext;
+      const { channelOrderId } = mopOrderBody!;
+      const order = await getOrderAdmin(apiServer, channelOrderId, adminToken!);
+      expect(order.status).toEqual('PENDING_PAYMENT');
+      featureContext.order = order;
+    });
+
+    And(
+      '订单的第 {int} 个订单项是 {string}，数量为 {int}，价格为票价，单位为元',
+      (_ctx, index: number, ticketName: string, quantity: number) => {
+      const { order } = featureContext;
+      const item = order!.items[index - 1];
+      expect(item).toBeTruthy();
+      const ticket = featureContext.ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+      expect(item.quantity).toEqual(quantity);
+      expect(item.unit_price).toEqual(ticket.price);
+      expect(item.ticket_category_id).toEqual(ticket.id);
+    });
+
   })
 
   Background(({ Given, And }) => {
@@ -320,12 +513,10 @@ describeFeature(feature, ({
     And('默认展会活动的城市是 {string}', async (_ctx, cityName: string) => {
       const city = CITY_BY_NAME[cityName];
       expect(city).toBeTruthy();
-      const { apiServer } = featureContext;
+      const { apiServer, adminToken, exhibition } = featureContext;
       featureContext.exhibition = await updateExhibition(
-        apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        { city: cityName },
+        apiServer, adminToken!,
+        exhibition.id, { city: cityName },
       );
     });
 
@@ -608,6 +799,47 @@ describeFeature(feature, ({
       const request = getMopRequestArg(featureContext.mopRequestHandler);
       const body = request.body as SyncTicketsToMopRequest;
       expect(body.skus).toHaveLength(count);
+    });
+  });
+
+  Scenario('用户通过猫眼 OTA 创建订单', (s: StepTest<void>) => {
+    const { Given, When, Then, And } = s;
+
+
+    And('订单的所有人是新用户 {string}', (_ctx, userName: string) => {
+      const { order, orderUser } = featureContext;
+      expect(orderUser!.name).toEqual(userName);
+      expect(order!.user_id).toEqual(orderUser!.id);
+    });
+
+    And('订单的订单项有 {int} 个', (_ctx, itemCount: number) => {
+      const { mopOrderDraft, order } = featureContext;
+      expect(order!.items).toHaveLength(itemCount);
+      const orderItemsMap = new Map(order!.items.map(item => [item.ticket_category_id, item]));
+      order!.items = mopOrderDraft!.ticketInfo.map(({ skuId }) => orderItemsMap.get(skuId)!);
+    });
+
+    Then('cr7 给猫眼返回了订单同步结果', () => {
+      const { mopOrderEnvelope } = featureContext;
+      expect(mopOrderEnvelope).toHaveProperty('code');
+      expect(mopOrderEnvelope).toHaveProperty('msg');
+      expect(mopOrderEnvelope).toHaveProperty('sign');
+      expect(mopOrderEnvelope).toHaveProperty('encryptData');
+    });
+
+    And('订单同步结果的猫眼订单 ID 是 {string}', (_ctx, myOrderId: string) => {
+      const { mopOrderBody } = featureContext;
+      expect(mopOrderBody!.myOrderId).toBe(myOrderId);
+    });
+
+    And('订单同步结果里的渠道订单 ID 是 cr7 生成的订单 ID', () => {
+      const { mopOrderBody, order } = featureContext;
+      expect(mopOrderBody!.channelOrderId).toEqual(order!.id);
+    });
+
+    And('订单同步结果是订单中 expired at 的时间戳，单位为毫秒', () => {
+      const { mopOrderBody, order } = featureContext;
+      expect(Number(mopOrderBody!.payExpiredTime)).toEqual(new Date(order!.expires_at).getTime());
     });
   });
 });

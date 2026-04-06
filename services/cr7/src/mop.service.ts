@@ -2,9 +2,15 @@ import { readFile } from 'node:fs/promises';
 import config from 'config';
 import { format, isDate, parse, parseISO } from 'date-fns';
 import { Context, Errors, ServiceBroker } from 'moleculer';
-import { Exhibition } from '@cr7/types';
+import { Exhibition, Order } from '@cr7/types';
 import { RC7BaseService } from './libs/cr7.base.js';
-import { mopPostJSON } from './libs/mop.js';
+import {
+  buildMopResponseSign,
+  decryptMopData,
+  encryptMopData,
+  mopPostJSON,
+  verifyMopSign,
+} from './libs/mop.js';
 
 const { MoleculerClientError } = Errors;
 
@@ -60,6 +66,38 @@ type MopSkuSyncRequest = {
   skus: MopSku[];
 };
 
+type MopOrderTicket = {
+  myTicketId: string;
+  skuId: string;
+  ticketPrice: string;
+};
+
+type MopOrderCreateRequest = {
+  myOrderId: string;
+  projectCode: string;
+  projectShowCode: string;
+  buyerName: string;
+  buyerPhone: string;
+  totalPrice: string;
+  needSeat: boolean;
+  needRealName: boolean;
+  ticketInfo: MopOrderTicket[];
+};
+
+type MopOrderCreateResponse = {
+  myOrderId: string;
+  channelOrderId: string;
+  payExpiredTime: string;
+};
+
+type MopResponseEnvelope = {
+  code: number;
+  timestamp: string;
+  msg: string;
+  sign: string;
+  encryptData: string | null;
+};
+
 const MOP_PROJECT_CATEGORY_LEISURE_EXHIBITION = {
   label: '休闲展览',
   value: 9,
@@ -73,6 +111,7 @@ const MOP_SHOW_MAX_BUY_LIMIT_PER_ORDER = 6;
 const MOP_SKU_STATUS_VALID = 1;
 const MOP_SKU_IS_OTA = 1;
 const MOP_INVENTORY_TYPE_SHARED = 1;
+const MOP_ORDER_URI = '/mop/order';
 
 const SUPPORTED_CITIES: Record<string, CityMeta> = {
   上海: { id: '310000', name: '上海市' },
@@ -133,6 +172,18 @@ function toYuanString(cents: number): string {
   return (cents / 100).toFixed(2);
 }
 
+function getHeaderValue(
+  headers: Record<string, string | string[] | undefined>,
+  key: string,
+): string | null {
+  const value = headers[key];
+  if (value === undefined) {
+    return null;
+  }
+
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
 export default class MoeService extends RC7BaseService {
   constructor(broker: ServiceBroker) {
     super(broker);
@@ -173,6 +224,13 @@ export default class MoeService extends RC7BaseService {
             eid: 'string',
           },
           handler: this.syncTicketsToMop,
+        },
+        receiveOrderFromMop: {
+          rest: 'POST /order',
+          params: {
+            encryptData: 'string',
+          },
+          handler: this.receiveOrderFromMop,
         },
       },
 
@@ -307,5 +365,177 @@ export default class MoeService extends RC7BaseService {
     });
 
     ctx.meta.$statusCode = 204;
+  }
+
+  async buildMopResponse(
+    code: number,
+    msg: string,
+    body: unknown = null,
+  ): Promise<MopResponseEnvelope> {
+    const privateKey = await readKey(config.mop.private_key_path);
+    const timestamp = format(new Date(), 'yyyy-MM-dd HH:mm:ss');
+    const { sign } = buildMopResponseSign({ code, timestamp, privateKey });
+
+    return {
+      code,
+      msg,
+      timestamp,
+      sign,
+      encryptData: body === null
+        ? null
+        : encryptMopData(JSON.stringify(body), config.mop.aes_key),
+    };
+  }
+
+  async receiveOrderFromMop(
+    ctx: Context<{ encryptData: string }, { headers?: Record<string, string | string[]>; $statusCode?: number }>,
+  ): Promise<MopResponseEnvelope> {
+    ctx.meta.$statusCode = 200;
+
+    const headers = ctx.meta.headers ?? {};
+    const supplier = getHeaderValue(headers, 'supplier');
+    const timestamp = getHeaderValue(headers, 'timestamp');
+    const version = getHeaderValue(headers, 'version');
+    const sign = getHeaderValue(headers, 'sign');
+
+    if (!supplier || !timestamp || !version || !sign) {
+      return this.buildMopResponse(10001, '参数异常');
+    }
+
+    if (supplier !== config.mop.supplier) {
+      return this.buildMopResponse(10001, '参数异常');
+    }
+
+    const publicKey = await readKey(config.mop.public_key_path);
+    const verified = verifyMopSign(sign, MOP_ORDER_URI, {
+      supplier,
+      timestamp,
+      version,
+      publicKey,
+    });
+
+    if (!verified) {
+      return this.buildMopResponse(10001, '签名验证失败');
+    }
+
+    let requestBody: MopOrderCreateRequest;
+    try {
+      const decrypted = decryptMopData(ctx.params.encryptData, config.mop.aes_key);
+      requestBody = JSON.parse(decrypted) as MopOrderCreateRequest;
+    } catch {
+      return this.buildMopResponse(10001, '报文解析失败');
+    }
+
+    const {
+      myOrderId,
+      projectCode,
+      projectShowCode,
+      buyerName,
+      buyerPhone,
+      totalPrice,
+      ticketInfo,
+    } = requestBody;
+
+    if (
+      !myOrderId ||
+      !projectCode ||
+      !projectShowCode ||
+      !buyerName ||
+      !buyerPhone ||
+      !totalPrice ||
+      !Array.isArray(ticketInfo) ||
+      ticketInfo.length === 0
+    ) {
+      return this.buildMopResponse(10001, '参数异常');
+    }
+
+    const exhibition = await ctx.call<Exhibition.Exhibition | null, { eid: string }>(
+      'cr7.exhibition.get',
+      { eid: projectCode },
+    ).catch(() => null);
+
+    if (!exhibition) {
+      return this.buildMopResponse(30003, '项目状态异常');
+    }
+
+    const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
+      'cr7.exhibition.getSessions',
+      { eid: projectCode },
+    );
+    const session = sessions.find(item => item.id === projectShowCode) ?? null;
+
+    if (!session) {
+      return this.buildMopResponse(30004, '场次状态异常');
+    }
+
+    const ticketCategories = await ctx.call<Exhibition.TicketCategory[], { eid: string }>(
+      'cr7.exhibition.getTicketCategories',
+      { eid: projectCode },
+    );
+    const ticketById = new Map(ticketCategories.map(ticket => [ticket.id, ticket]));
+
+    const totalPriceFromItems = ticketInfo.reduce((sum, item) => sum + Number(item.ticketPrice), 0);
+    if (Number(totalPrice).toFixed(2) !== totalPriceFromItems.toFixed(2)) {
+      return this.buildMopResponse(30002, '订单价格不一致');
+    }
+
+    const itemCountBySku = new Map<string, number>();
+    for (const item of ticketInfo) {
+      const ticket = ticketById.get(item.skuId);
+      if (!ticket) {
+        return this.buildMopResponse(30005, '票档状态异常');
+      }
+
+      const expectedPrice = Number(toYuanString(ticket.price));
+      if (Number(item.ticketPrice) !== expectedPrice) {
+        return this.buildMopResponse(30002, '订单价格不一致');
+      }
+
+      itemCountBySku.set(item.skuId, (itemCountBySku.get(item.skuId) ?? 0) + 1);
+    }
+
+    const userId = await ctx.call<string, { country_code: string; phone: string; name: string }>(
+      'user.findOrCreateByPhone',
+      {
+        country_code: '+86',
+        phone: buyerPhone,
+        name: buyerName,
+      },
+    );
+
+    try {
+      const order = await ctx.call<Order.OrderWithItems, {
+        eid: string;
+        sid: string;
+        items: Order.CreateOrderItem[];
+        source: Order.OrderSource;
+        user_id: string;
+      }>('cr7.order.create', {
+        eid: projectCode,
+        sid: projectShowCode,
+        items: Array.from(itemCountBySku.entries()).map(([ticket_category_id, quantity]) => ({
+          ticket_category_id,
+          quantity,
+        })),
+        source: 'DIRECT',
+        user_id: userId,
+      });
+
+      const responseBody: MopOrderCreateResponse = {
+        myOrderId,
+        channelOrderId: order.id,
+        payExpiredTime: String(new Date(order.expires_at).getTime()),
+      };
+
+      return this.buildMopResponse(10000, '成功', responseBody);
+    } catch (error) {
+      const errorCode = (error as { code?: string })?.code;
+      if (errorCode === 'INVENTORY_NOT_ENOUGH') {
+        return this.buildMopResponse(30006, '库存不足');
+      }
+
+      this.logger.error('处理 MOP 订单同步时发生错误', error);
+      return this.buildMopResponse(10099, '系统异常');
+    }
   }
 }

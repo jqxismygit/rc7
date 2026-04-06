@@ -48,7 +48,7 @@ const onBeforeCall: ApiRouteSchema['onBeforeCall'] = function onBeforeCall(
   const userAgent = req.headers['user-agent'] || null;
   const referrer = req.headers['referer'] || null;
 
-  Object.assign(ctx.meta, { ipAddress, userAgent, referrer });
+  Object.assign(ctx.meta, { ipAddress, userAgent, referrer, headers: req.headers });
 }
 
 function routeConfig(
@@ -204,6 +204,17 @@ const routes = [
         'GET /orders': 'xiecheng.listCtripOrderRecords',
         'GET /orders/:rid': 'xiecheng.getCtripOrderRecord',
       }
+    }
+  ),
+  routeConfig(
+    '/mop',
+    ['mop.receiveOrderFromMop'],
+    {
+      authentication: false,
+      authorization: false,
+      aliases: {
+        'POST /order': 'mop.receiveOrderFromMop',
+      },
     }
   ),
   routeConfig(
