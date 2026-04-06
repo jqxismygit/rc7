@@ -6,6 +6,7 @@ import { Exhibition, Mop, Order } from '@cr7/types';
 import { RC7BaseService } from './libs/cr7.base.js';
 import {
   createMopOrderSyncRecord,
+  getFirstSuccessfulMopOrderSyncRecordByMyOrderId,
   listMopOrderSyncRecordsByOrderId,
   updateMopOrderSyncRecord,
 } from './data/mop.js';
@@ -473,6 +474,7 @@ export default class MoeService extends RC7BaseService {
     body: unknown = null,
     syncStatus: Mop.MopOrderSyncStatus = 'FAILED',
     orderId: string | null = null,
+    userId: string | null = null,
   ) {
     const schema = await this.getSchema();
     const response = await this.buildMopResponse(code, msg, body);
@@ -482,6 +484,7 @@ export default class MoeService extends RC7BaseService {
       responseBody: body,
       syncStatus,
       orderId,
+      userId,
     });
 
     return response;
@@ -543,6 +546,35 @@ export default class MoeService extends RC7BaseService {
       ticketInfo.length === 0
     ) {
       return this.finishWithMopResponse(recordId, 10001, '参数异常');
+    }
+
+    const firstSuccessRecord = await getFirstSuccessfulMopOrderSyncRecordByMyOrderId(
+      this.pool,
+      schema,
+      myOrderId,
+    );
+
+    const order = (firstSuccessRecord?.order_id ?? null) === null
+      ? null
+      : await ctx.call<Order.OrderWithItems, { oid: string }>(
+        'cr7.order.get',
+        { oid: firstSuccessRecord!.order_id! },
+       { meta: { user: { uid: firstSuccessRecord?.user_id } } }
+      )
+      .then(res => res, (error) => (console.error('Error fetching order:', error), null));
+
+    if (order !== null) {
+      const responseBody: MopOrderCreateResponse = {
+        myOrderId,
+        channelOrderId: order.id,
+        payExpiredTime: String(new Date(order.expires_at).getTime()),
+      };
+
+      return this.finishWithMopResponse(
+        recordId, 10000, '成功',
+        responseBody, 'SUCCESS',
+        order.id, order.user_id
+      );
     }
 
     const exhibition = await ctx.call<Exhibition.Exhibition | null, { eid: string }>(
@@ -624,7 +656,8 @@ export default class MoeService extends RC7BaseService {
       };
 
       return this.finishWithMopResponse(
-        recordId, 10000, '成功', responseBody, 'SUCCESS', order.id
+        recordId, 10000, '成功', responseBody, 'SUCCESS',
+        order.id, userId
       );
     } catch (error) {
       const errorCode = (error as { code?: string })?.code;

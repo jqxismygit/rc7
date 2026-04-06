@@ -866,6 +866,37 @@ describeFeature(feature, ({
       const { records, order } = featureContext;
       const [record] = records!;
       expect(record.order_id).toBe(order!.id);
-    })
+    });
+
+    When('猫眼再次把相同的订单信息同步给 cr7', async () => {
+      const { apiServer, mopOrderDraft } = featureContext;
+      featureContext.mopOrderEnvelope = await syncMopOrderToCr7(apiServer, mopOrderDraft!);
+    });
+
+    Then('cr7 再次收到订单同步消息，可以正常验证签名，解密无误', async () => {
+      const { mopOrderEnvelope } = featureContext;
+      await verifyMopResponseSign('/mop/order', mopOrderEnvelope!);
+      featureContext.mopOrderBody = await parseMopEncryptedResponse<MopOrderSyncResponseData>(
+        mopOrderEnvelope!
+      );
+    });
+
+    And('订单同步记录里有两条记录，最新的记录的猫眼订单 ID 是 {string}，同步状态是成功', async (_ctx, myOrderId: string) => {
+      const { apiServer, adminToken, order } = featureContext;
+      featureContext.records = await getMopOrderSyncRecords(apiServer, adminToken, order!.id);
+
+      const { records } = featureContext;
+      expect(records).toHaveLength(2);
+      const [latestRecord] = records!;
+      expect(latestRecord.my_order_id).toBe(myOrderId);
+      expect(latestRecord.sync_status).toBe('SUCCESS');
+    });
+
+    And('最新的订单同步记录里的订单 ID 是 cr7 生成的订单 ID，没有变化', () => {
+      const { records, order } = featureContext;
+      const [latestRecord, firstRecord] = records!;
+      expect(latestRecord.order_id).toBe(order!.id);
+      expect(firstRecord.order_id).toBe(order!.id);
+    });
   });
 });

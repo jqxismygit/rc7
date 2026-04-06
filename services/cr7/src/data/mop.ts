@@ -75,6 +75,33 @@ export async function listMopOrderSyncRecordsByOrderId(
   return rows;
 }
 
+export async function getFirstSuccessfulMopOrderSyncRecordByMyOrderId(
+  client: DBClient,
+  schema: string,
+  myOrderId: string,
+): Promise<Mop.MopOrderSyncRecord | null> {
+  const { rows } = await client.query<Mop.MopOrderSyncRecord>(
+    `SELECT
+      id,
+      my_order_id,
+      request_path,
+      request_body,
+      response_body,
+      sync_status,
+      order_id,
+      user_id,
+      created_at
+    FROM ${schema}.mop_order_sync_records
+    WHERE my_order_id = $1
+      AND sync_status = 'SUCCESS'
+    ORDER BY created_at ASC
+    LIMIT 1`,
+    [myOrderId],
+  );
+
+  return rows[0] ?? null;
+}
+
 export async function updateMopOrderSyncRecord(
   client: DBClient,
   schema: string,
@@ -83,6 +110,7 @@ export async function updateMopOrderSyncRecord(
     responseBody?: unknown | null;
     syncStatus: Mop.MopOrderSyncStatus;
     orderId?: string | null;
+    userId?: string | null;
   }
 ): Promise<Mop.MopOrderSyncRecord> {
   const { rows } = await client.query<Mop.MopOrderSyncRecord>(
@@ -91,6 +119,7 @@ export async function updateMopOrderSyncRecord(
       response_body = $2::jsonb,
       sync_status = $3,
       order_id = COALESCE(order_id, $4::uuid),
+      user_id = COALESCE(user_id, $5::uuid),
       updated_at = NOW()
     WHERE id = $1
     RETURNING
@@ -107,6 +136,7 @@ export async function updateMopOrderSyncRecord(
       params.responseBody == null ? null : JSON.stringify(params.responseBody),
       params.syncStatus,
       params.orderId ?? null,
+      params.userId ?? null,
     ],
   );
 

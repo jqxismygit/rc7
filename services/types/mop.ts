@@ -8,5 +8,6 @@ export interface MopOrderSyncRecord {
   response_body: unknown | null;
   sync_status: MopOrderSyncStatus;
   order_id: string | null;
+  user_id: string | null;
   created_at: string;
 }
