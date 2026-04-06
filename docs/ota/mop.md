@@ -13,19 +13,19 @@
 
 # 1.接⼝说明
 
-# 1.1 概述
+## 1.1 概述
 
 本⽂档详细说明了各⽅系统通过API接⼊⽅式与猫眼开放平台(以下简称MOP)对接的接⼝规范。
 
-# 1.2接⼝回调域名
+## 1.2接⼝回调域名
 
 测试环境: https://myshow.test.maoyan.com
 
 正式环境:请联系对接负责⼈进⾏获取。
 
-# 1.3 接⼝权限获取
+## 1.3 接⼝权限获取
 
-# 1.3.1 必要条件
+### 1.3.1 必要条件
 
 <table><tr><td>AES秘钥</td><td>对业务报文加密解密</td></tr><tr><td>RSA钥匙对</td><td>用户接口加签验签</td></tr><tr><td>supplier供应商编码</td><td>供应商唯一凭证</td></tr></table>
 
@@ -33,32 +33,31 @@
 注:测试环境和⽣产环境隔离, 必要条件两个环境不⼀样,都需要申请
 
 
-# 1.3.2 获取⽅式
+### 1.3.2 获取⽅式
 
 线下沟通
 
-# 1.4 请求参数格式
+## 1.4 请求参数格式
 
-# 1.4.1 header
+### 1.4.1 header
 
 <table><tr><td>supplier</td><td>String</td><td>供应商编码</td></tr><tr><td>timestamp</td><td>String</td><td>请求时间，精确到秒，格式化类型 &quot;yyyy-MM-dd HH:mm:ss&quot;</td></tr><tr><td>version</td><td>String</td><td>版本</td></tr><tr><td>sign</td><td>String</td><td>接口签名，签名生成规则如下所示</td></tr></table>
 
-# 1.4.2 body
+### 1.4.2 body
 
 <table><tr><td>encryptData</td><td>String</td><td>业务密文,具体结构参考下面具体接口文档</td></tr></table>
 
 ⽰例:
 
 ```txt
-Code block
 1 {
 2 "encryptData":"g9rSiAwzoz88L5CdaUmcri/uNMTWLho1ulhUyiwfBNy2Lo+hkKPC8XvjJFQKR/9t g0TDD38C7R6s0+tpgxzVUw=="
 3 }
 ```
 
-# 1.5响应结构格式
+## 1.5响应结构格式
 
-# 1.5.1 响应字段
+### 1.5.1 响应字段
 
 <table><tr><td>code</td><td>String</td><td>响应码</td></tr><tr><td>timestamp</td><td>String</td><td>时间，精确到秒，格式化类型 &quot;yyyy-MM-dd HH:mm:ss&quot;</td></tr><tr><td>msg</td><td>String</td><td>接口响应提示信息</td></tr><tr><td>sign</td><td>String</td><td>响应签名</td></tr><tr><td>encryptData</td><td>String</td><td>业务信息密文 具体明文结构参考下列文档</td></tr></table>
 
@@ -78,18 +77,18 @@ Code block
 
 # 1.6安全性保证
 
-# 1.6.1 安全性保证主要包括: 加签 $+$ 报⽂加密
+## 1.6.1 安全性保证主要包括: 加签 $+$ 报⽂加密
 
-# 1.6.1.1 具体分类
+### 1.6.1.1 具体分类
 
 <table><tr><td>安全性规则</td><td>加密类型</td><td>加密算法</td><td>请求/响应</td><td>加签/加密规则(保证顺序)</td></tr><tr><td rowspan="2">验签</td><td rowspan="2">非对称加密</td><td rowspan="2">SHA256withRSA</td><td>Request</td><td>supplier + timestamp +version + URI用私钥加签</td></tr><tr><td>Response</td><td>code + timestamp 用私钥加签</td></tr><tr><td rowspan="2">报文加密</td><td rowspan="2">对称加密</td><td rowspan="2">AES/ECB/PKCS5Padding</td><td>Request</td><td>具体业务结构转JSON字符串用秘钥加密</td></tr><tr><td>Response</td><td>具体业务结构转JSON字符串用秘钥加密</td></tr></table>
 
-# 1.6.1.2 流程
+### 1.6.1.2 流程
 
 ![image](./mop_request.jpg)
 
 
-# 1.6.2 加签验签JAVA代码
+## 1.6.2 加签验签JAVA代码
 
 ```java
 import org.apache.commons.codec.binary.Base64;
@@ -148,7 +147,7 @@ public class RSAUtils {
   }
 ```
 
-# 1.6.3 加密解密JAVA代码
+## 1.6.3 加密解密JAVA代码
 
 ```java
 import javax.crypto.Cipher;
@@ -196,9 +195,9 @@ public class AESUtils {
 }
 ```
 
-# 1.6.4 案例以及加密前后密⽂明⽂对⽐
+## 1.6.4 案例以及加密前后密⽂明⽂对⽐
 
-# 1.6.4.1 案例
+### 1.6.4.1 案例
 
 **RSA: publicKey** = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC4/ZNBaKROMDQ7A9BiXiRwBvVa qMYywdM7FNo0nYELE3pMsdSgR0ZfENaX3wcIcuUCxkDPstpFMtU2fiBf7HIELLS9 8qwy+Ak1OyRoQfu6sPiSd6Krz34e0H9m0GvqkcEMp3XUcedjCnVFK8ACLhOKTwG5 00G5ioOzumJ/RHhxQwIDAQAB";
 
@@ -229,9 +228,9 @@ curl --location 'localhost:8080/mop/test/project' \
 }
 ```
 
-# 1.6.4.2 具体加密分析
+### 1.6.4.2 具体加密分析
 
-# 1.6.4.2.1 请求
+#### 1.6.4.2.1 请求
 
 | - | - |
 | - | - |
@@ -239,16 +238,16 @@ curl --location 'localhost:8080/mop/test/project' \
 | encryptData | {"projectName":"笑傲江湖","cityName":"上海"} AND AES秘钥 |
 
 
-# 1.6.4.2.2 响应
+#### 1.6.4.2.2 响应
 
 | - | - |
 | - | - |
 | sign | "1000" + "2024-09-03 11:45:02" AND RSA私钥 |
 | encryptData | {"projectName":"天龙八部","cityName":"北京"} AND AES秘钥 |
 
-# 1.7 其他说明
+## 1.7 其他说明
 
-# 1.7.1 城市编码
+### 1.7.1 城市编码
 
 统⼀采⽤2023年中华⼈⺠共和国县以上⾏政区划代码。⽬前仅⽀持⾄市级代码，针对下⼀级区划代码暂不⽀持。
 
@@ -264,13 +263,13 @@ curl --location 'localhost:8080/mop/test/project' \
 
 下⽰接⼝主要分为接⼊⽅调⽤猫眼接⼝(A类接⼝)以及猫眼调⽤接⼊⽅接⼝(B类接⼝)。
 
-# 2.1项⽬推送接⼝
+## 2.1项⽬推送接⼝
 
-# 2.1.1 基础信息
+### 2.1.1 基础信息
 
 <table><tr><td>接口类型</td><td>A</td></tr><tr><td>调用方法</td><td>POST</td></tr><tr><td>URL</td><td>/supply/open/mop/project/push</td></tr><tr><td>Content-Type</td><td>application/json</td></tr></table>
 
-# 2.1.2请求参数列表
+### 2.1.2请求参数列表
 
 <table><tr><td>父元素名称</td><td>类型</td><td>是否必传</td><td>描述</td></tr><tr><td>cityId</td><td>String</td><td>是</td><td>城市ID</td></tr><tr><td>cityName</td><td>String</td><td>是</td><td>城市名称//猫眼当前只支持市,不支持区,(国标)</td></tr><tr><td>otProjectId</td><td>String</td><td>是</td><td>演出ID 增删改key</td></tr><tr><td>category</td><td>Integer</td><td>是</td><td>类目//见枚举→项目类目</td></tr><tr><td>otVenueId</td><td>String</td><td>是</td><td>场馆ID //景点景区</td></tr><tr><td>otVenueName</td><td>String</td><td>是</td><td>场馆name //景点景区</td></tr><tr><td>projectStatus</td><td>Integer</td><td>是</td><td>项目状态//0:无效,1:有效;项目下架或者删除也需要同步</td></tr><tr><td>name</td><td>String</td><td>是</td><td>演出名称(limit length:50)</td></tr><tr><td>shortName</td><td>String</td><td></td><td>演出简称(limit length:20)</td></tr><tr><td>startTime</td><td>String</td><td></td><td>首场开售时间yyyy-MM-dd HH:mm:ss</td></tr><tr><td>endTime</td><td>String</td><td></td><td>末场开售时间yyyy-MM-dd HH:mm:ss</td></tr><tr><td>maxBuyLimitPerId</td><td>Integer</td><td></td><td>项目维度每个有效证件最大购买份数</td></tr><tr><td>maxBuyLimitPerOrder</td><td>Integer</td><td></td><td>项目维度每笔订单最大购买份数</td></tr><tr><td>maxBuyLimitPerUser</td><td>Integer</td><td></td><td>项目维度每个用户最大购买份数</td></tr><tr><td>maxOrderLimitPerUser</td><td>Integer</td><td></td><td>项目维度每个用户最大购买订单数 (MAX阈值)</td></tr><tr><td>seatType</td><td>Integer</td><td>是</td><td>座位类型//1-无座/非选座,2-有座/选座</td></tr><tr><td>needRealName</td><td>Integer</td><td>是</td><td>是否实名制购票//0:N;1:Y</td></tr><tr><td>attributes</td><td>List&lt;String&gt;</td><td></td><td>目前放置certificates,证件类型[&quot;1&quot;,&quot;2&quot;,&quot;3&quot;,&quot;4&quot;] (needRealName==1时必输) 见枚举</td></tr><tr><td>posterUrl</td><td>String</td><td>是</td><td>海报图(limit length:200)</td></tr><tr><td>pseatTicketUrl</td><td>String</td><td></td><td>票区图(选座)(limit length:200)</td></tr><tr><td>ticketPurchaseNotice</td><td>String</td><td></td><td>购票须知(HTML\文本)(暂无长度限制)</td></tr><tr><td>projectDesc</td><td>String</td><td></td><td>项目详情(HTML\文本)(暂无长度限制)</td></tr></table>
 
@@ -306,17 +305,17 @@ Code block
 }
 ```
 
-# 2.1.3响应参数列表
+### 2.1.3响应参数列表
 
 通⽤响应即可
 
-# 2.2场次推送接⼝
+## 2.2场次推送接⼝
 
-# 2.2.1 基础信息
+### 2.2.1 基础信息
 
 <table><tr><td>接口类型</td><td>A</td></tr><tr><td>调用方法</td><td>POST</td></tr><tr><td>URL</td><td>/supply/open/mop/show/push</td></tr><tr><td>Content-Type</td><td>application/json</td></tr></table>
 
-# 2.2.2请求参数列表
+### 2.2.2请求参数列表
 
 <table><tr><td>父元素名称</td><td>元素名称</td><td>类型</td><td>是否必传</td><td>描述</td></tr><tr><td rowspan="2"></td><td>otProjectId</td><td>String</td><td>是</td><td>项目ID</td></tr><tr><td>shows</td><td>List&lt;MopShowDTO&gt;</td><td>是</td><td>场次</td></tr><tr><td rowspan="16">shows</td><td>otShowId</td><td>String</td><td>是</td><td>场次ID，需要保证全局唯一，不同项目</td></tr><tr><td>otShowStatus</td><td>Integer</td><td>是</td><td>场次状态//0:无效;1:有效，场次下架或同步</td></tr><tr><td>name</td><td>String</td><td></td><td>场次name (limit length: 80) (不传默认</td></tr><tr><td>startTime</td><td>String</td><td>是</td><td>场次开始时间 yyyy-MM-dd HH:mm:ss 始时间相同的场次)</td></tr><tr><td>endTime</td><td>String</td><td>是</td><td>场次结束时间 yyyy-MM-dd HH:mm:ss 1时, 结束时间必须和开始时间同一天)</td></tr><tr><td>onSaleTime</td><td>String</td><td></td><td>场次开售时间 yyyy-MM-dd HH:mm:ss 即开售)</td></tr><tr><td>offSaleTime</td><td>String</td><td></td><td>场次停售时间 yyyy-MM-dd HH:mm:ss 次开始时间即为停售时间)</td></tr><tr><td>onSaleType</td><td>Integer</td><td></td><td>开售时间类型，1：审核后立即开售，2 时间(默认为1, offSaleTime有值, 即为:</td></tr><tr><td>showType</td><td>Integer</td><td>是</td><td>场次类型 // 1为单场票(演出时间不能跨 票;</td></tr><tr><td>showNode</td><td>String</td><td></td><td>场次备注 (暂无长度限制)</td></tr><tr><td>areaUrl</td><td>String</td><td>是</td><td>区域图URL(选座必传)(limit length: 20</td></tr><tr><td>maxBuyLimitPerId</td><td>Integer</td><td></td><td>场次维度每个有效证件最大购买份数</td></tr><tr><td>maxBuyLimitPerOrder</td><td>Integer</td><td></td><td>场次维度每笔订单最大购买份数</td></tr><tr><td>maxBuyLimitPerUser</td><td>Integer</td><td></td><td>场次维度每个用户最大购买量</td></tr><tr><td>showLimit</td><td>Integer</td><td></td><td>限购0:关闭1:打开(默认开)</td></tr><tr><td>fetchTicketWay</td><td>ListQE</td><td>是</td><td>取票方式//见枚举→取票方式(注意: 凭证件入场&quot;时必须是实名制项目才可用 过滤)</td></tr></table>
 
@@ -350,17 +349,17 @@ Code block
 }
 ```
 
-# 2.2.3响应参数列表
+## 2.2.3响应参数列表
 
 通⽤响应即可
 
-# 2.3 票档推送接⼝
+## 2.3 票档推送接⼝
 
-# 2.3.1 基础信息
+### 2.3.1 基础信息
 
 <table><tr><td>接口类型</td><td>A</td></tr><tr><td>调用方法</td><td>POST</td></tr><tr><td>URL</td><td>/supply/open/mop/sku/push</td></tr><tr><td>Content-Type</td><td>application/json</td></tr></table>
 
-# 2.3.2请求参数列表
+### 2.3.2请求参数列表
 
 <table><tr><td>父元素名称</td><td>元素名称</td><td>类型</td><td>是否必传</td><td>描述</td></tr><tr><td rowspan="2"></td><td>otProjectId</td><td>String</td><td>是</td><td>项目ID</td></tr><tr><td>skus</td><td>List&lt;MopSkuDTO&gt;</td><td>是</td><td>SKU</td></tr><tr><td rowspan="16">skus</td><td>otShowId</td><td>String</td><td>是</td><td>场次ID //当isOta==0;该字段必须有值,保证全局唯一,不同场次间不可复用票档</td></tr><tr><td>otSkuId</td><td>String</td><td>是</td><td>票档ID(场次内独享,全局唯一)</td></tr><tr><td>otSkuStatus</td><td>Integer</td><td>是</td><td>票档状态//0:无效,1:有效;票档删除或者下架也需要同步</td></tr><tr><td>name</td><td>String</td><td></td><td>票档名称(limit length:80)</td></tr><tr><td>ticketDesc</td><td>String</td><td></td><td>票档描述(暂无长度限制)</td></tr><tr><td>maxBuyLimit</td><td>Integer</td><td></td><td>每个订单最大购买数量</td></tr><tr><td>skuPrice</td><td>String</td><td>是</td><td>票面价(单位元)</td></tr><tr><td>sellPrice</td><td>String</td><td>是</td><td>售卖价格(单位元)</td></tr><tr><td>isLimit</td><td>Integer</td><td></td><td>是否票档限购(默认1)</td></tr><tr><td>onSaleTime</td><td>String</td><td>是</td><td>票档开售时间yyyy-MM-dd HH:mm:ss</td></tr><tr><td>offSaleTime</td><td>String</td><td>是</td><td>票档停售时间yyyy-MM-dd HH:mm:ss</td></tr><tr><td>inventoryType</td><td>String</td><td>是</td><td>库存类型0:未设置1:共享库存2:独立库存(推荐使用共享库存,独立库存只在第一次推送生效,后续的库存变动更新需要通知运营在我们平台手动更新)</td></tr><tr><td>isSet</td><td>Integer</td><td></td><td>是否是套票票档,0:否1:是,不传默认为否</td></tr><tr><td>setDescription</td><td>String</td><td></td><td>套票描述</td></tr><tr><td>baseOtSkuId</td><td>String</td><td>如果是套票必传</td><td>基础票档id,套票不可跨票档,</td></tr><tr><td>setNum</td><td>Integer</td><td>如果是套票必传</td><td>每份包含张数</td></tr></table>
 
@@ -421,19 +420,19 @@ Code block
 }
 ```
 
-# 2.3.3响应参数列表
+### 2.3.3响应参数列表
 
-# 2.4 库存推送接⼝
+## 2.4 库存推送接⼝
 
-# 2.4.1 基础信息
+### 2.4.1 基础信息
 
 <table><tr><td>接口类型</td><td>A</td></tr><tr><td>调用方法</td><td>POST</td></tr><tr><td>URL</td><td>/supply/open/mop/stock/push</td></tr><tr><td>Content-Type</td><td>application/json</td></tr></table>
 
-# 2.4.2请求参数列表
+### 2.4.2请求参数列表
 
 <table><tr><td>父元素名称</td><td>元素名称</td><td>类型</td><td>是否必传</td><td>描述</td></tr><tr><td rowspan="2"></td><td>otProjectId</td><td>String</td><td>是</td><td>项目ID</td></tr><tr><td>stocks</td><td>List&lt;MopStockDTO&gt;</td><td>是</td><td>库存</td></tr><tr><td rowspan="4">stocks</td><td>otShowId</td><td>String</td><td>是</td><td>场次ID</td></tr><tr><td>otSkuId</td><td>String</td><td>是</td><td>商品ID，套票票档无需推送库存，系统自动由基础票档库存计算</td></tr><tr><td>inventoryType</td><td>Integer</td><td>是</td><td>库存类型0:未设置1:共享库存2:独立库存(独立库存不支持库存修改)</td></tr><tr><td>stock</td><td>Integer</td><td>是</td><td>库存数</td></tr></table>
 
-# ⽰例:
+#### ⽰例:
 
 Code block
 
@@ -466,27 +465,27 @@ Code block
 23 }
 ```
 
-# 2.4.3响应参数列表
+### 2.4.3响应参数列表
 
 通⽤响应即可
 
-# 2.5创建订单接⼝
+## 2.5创建订单接⼝
 
-# 2.5.1 基础信息
+### 2.5.1 基础信息
 
 <table><tr><td>接口类型</td><td>B</td></tr><tr><td>调用方法</td><td>POST</td></tr><tr><td>URL</td><td>/mop/order</td></tr><tr><td>Content-Type</td><td>application/json</td></tr></table>
 
-# 2.5.2请求参数列表
+### 2.5.2请求参数列表
 
 <table><tr><td>父元素名称</td><td>元素名称</td><td>类型</td><td>是否必传</td><td>描述</td></tr><tr><td rowspan="10"></td><td>myOrderId</td><td>String</td><td>是</td><td>猫眼订单ID</td></tr><tr><td>projectCode</td><td>String</td><td>是</td><td>项目编码</td></tr><tr><td>projectShowCode</td><td>String</td><td>是</td><td>场次编码</td></tr><tr><td>buyerName</td><td>String</td><td>是</td><td>购票人姓名</td></tr><tr><td>buyerPhone</td><td>String</td><td>是</td><td>购票人手机号</td></tr><tr><td>totalPrice</td><td>String</td><td>是</td><td>去除优惠金额后的订单总价，保留两位小数（单位元）</td></tr><tr><td>needSeat</td><td>Boolean</td><td>是</td><td>是否是选座订单</td></tr><tr><td>needRealName</td><td>Boolean</td><td>是</td><td>是否是实名制订单</td></tr><tr><td>ticketInfo</td><td>List&lt;Ticket&gt;</td><td>是</td><td>订单票信息列表</td></tr><tr><td>deliveryInfo</td><td>Delivery</td><td>是</td><td>订单取票信息</td></tr><tr><td rowspan="14">ticketInfo</td><td>myTicketId</td><td>String</td><td>是</td><td>猫眼票ID</td></tr><tr><td>seatId</td><td>String</td><td></td><td>座位ID(选座订单必传)</td></tr><tr><td>seatName</td><td>String</td><td></td><td>座位名称(选座订单必传)</td></tr><tr><td>row</td><td>String</td><td></td><td>行号(选座订单必传)</td></tr><tr><td>col</td><td>String</td><td></td><td>列号(选座订单必传)</td></tr><tr><td>areaId</td><td>String</td><td></td><td>分区ID(选座订单必传)</td></tr><tr><td>areaName</td><td>String</td><td></td><td>分区名称(选座订单必传)</td></tr><tr><td>skuId</td><td>String</td><td>是</td><td>所属票档ID(如果选择的是套票时传套票的票档id)</td></tr><tr><td>ticketPrice</td><td>String</td><td>是</td><td>票面价格，保留两位小数（单位元）</td></tr><tr><td>userName</td><td>String</td><td></td><td>实名制观演人姓名(实名制订单必传)</td></tr><tr><td>idType</td><td>Integer</td><td></td><td>实名制观演人证件类型(实名制订单必传)</td></tr><tr><td>idNumber</td><td>String</td><td></td><td>实名制观演人证件号(实名制订单必传)</td></tr><tr><td>discounts</td><td>Discount</td><td></td><td>优惠信息</td></tr><tr><td>isPackage</td><td>Integer</td><td></td><td>是否套票：0否，1是</td></tr><tr><td rowspan="3">deliveryInfo</td><td>fetchType</td><td>Integer</td><td>是</td><td>取票方式//见枚举</td></tr><tr><td>recipientName</td><td>String</td><td>是</td><td>收货人姓名</td></tr><tr><td>recipientMobile</td><td>String</td><td>是</td><td>收货人手机号</td></tr><tr><td rowspan="5">discounts</td><td>skuId</td><td>String</td><td></td><td>所属票档ID</td></tr><tr><td>otActivityId</td><td>String</td><td></td><td>活动ID</td></tr><tr><td>conditionValue</td><td>String</td><td></td><td>命中规则</td></tr><tr><td>promoValue</td><td>String</td><td></td><td>*折/减*元</td></tr><tr><td>hitCounts</td><td>String</td><td></td><td>命中次数</td></tr></table>
 
-# 2.5.3响应参数列表
+### 2.5.3响应参数列表
 
 <table><tr><td>父元素名称</td><td>元素名称</td><td>类型</td><td>是否必传</td><td>描述</td></tr><tr><td rowspan="3"></td><td>myOrderId</td><td>String</td><td>是</td><td>猫眼订单ID</td></tr><tr><td>channelOrderId</td><td>String</td><td>是</td><td>渠道订单ID</td></tr><tr><td>payExpiredTime</td><td>String</td><td></td><td>支付过期时间(未来某个时间点的毫秒级时间戳)若不返回则默认按照订单创建后15分钟设置，独立库存默认5分钟</td></tr></table>
 
-# 注：下单响应code码请严格参照⽂末错误码明细回传
+注：下单响应code码请严格参照⽂末错误码明细回传
 
-# 2.5.4接⼝请求/响应⽰例
+### 2.5.4接⼝请求/响应⽰例
 
 ```json
 Request
@@ -533,21 +532,21 @@ Response
 }
 ```
 
-# 2.6 ⽀付确认接⼝
+## 2.6 ⽀付确认接⼝
 
-# 2.6.1 基础信息
+### 2.6.1 基础信息
 
 <table><tr><td>接口类型</td><td>B</td></tr><tr><td>调用方法</td><td>POST</td></tr><tr><td>URL</td><td>/mop/ticket</td></tr><tr><td>Content-Type</td><td>application/json</td></tr></table>
 
-# 2.6.2请求参数列表
+### 2.6.2请求参数列表
 
 <table><tr><td>父元素名称</td><td>元素名称</td><td>类型</td><td>是否必传</td><td>描述</td></tr><tr><td></td><td>myOrderId</td><td>String</td><td>是</td><td>猫眼订单ID</td></tr></table>
 
-# 2.6.3响应参数列表
+### 2.6.3响应参数列表
 
 <table><tr><td>父元素名称</td><td>元素名称</td><td>类型</td><td>是否必传</td><td>描述</td></tr><tr><td rowspan="5"></td><td>myOrderId</td><td>String</td><td>是</td><td>猫眼订单ID</td></tr><tr><td>fetchCode</td><td>String</td><td></td><td>取票码</td></tr><tr><td>fetchQrCode</td><td>String</td><td></td><td>取票二维码</td></tr><tr><td>orderStatus</td><td>Integer</td><td>是</td><td>订单状态</td></tr><tr><td>ticketInfo</td><td>List&lt;Ticket&gt;</td><td>是</td><td>票信息</td></tr><tr><td rowspan="4">ticketInfo</td><td>myTicketId</td><td>String</td><td>是</td><td>猫眼票ID</td></tr><tr><td>channelTicketId</td><td>String</td><td>是</td><td>渠道票ID</td></tr><tr><td>checkCode</td><td>String</td><td></td><td>检票码</td></tr><tr><td>checkQrCode</td><td>String</td><td></td><td>检票二维码</td></tr></table>
 
-# 2.6.4接⼝请求/响应⽰例
+### 2.6.4接⼝请求/响应⽰例
 
 ```json
 Request
@@ -569,21 +568,21 @@ Response
 }
 ```
 
-# 2.7订单查询接⼝
+## 2.7订单查询接⼝
 
-# 2.7.1 基础信息
+### 2.7.1 基础信息
 
 <table><tr><td>接口类型</td><td>B</td></tr><tr><td>调用方法</td><td>POST</td></tr><tr><td>URL</td><td>/mop/orderQuery</td></tr><tr><td>Content-Type</td><td>application/json</td></tr></table>
 
-# 2.7.2请求参数列表
+### 2.7.2请求参数列表
 
 <table><tr><td>父元素名称</td><td>元素名称</td><td>类型</td><td>是否必传</td><td>描述</td></tr><tr><td></td><td>myOrderId</td><td>String</td><td>是</td><td>猫眼订单ID</td></tr></table>
 
-# 2.7.3响应参数列表
+### 2.7.3响应参数列表
 
 <table><tr><td>父元素名称</td><td>元素名称</td><td>类型</td><td>是否必传</td><td>描述</td></tr><tr><td rowspan="7"></td><td>myOrderId</td><td>String</td><td>是</td><td>猫眼订单ID</td></tr><tr><td>fetchCode</td><td>String</td><td></td><td>取票码</td></tr><tr><td>fetchQrCode</td><td>String</td><td></td><td>取票二维码</td></tr><tr><td>orderStatus</td><td>Integer</td><td>是</td><td>订单主状态</td></tr><tr><td>orderRefundStatus</td><td>Integer</td><td>是</td><td>订单退款状态</td></tr><tr><td>orderConsumeStatus</td><td>Integer</td><td>是</td><td>订单核销状态</td></tr><tr><td>ticketInfo</td><td>List&lt;Ticket&gt;</td><td>是</td><td>票信息</td></tr><tr><td rowspan="5">ticketInfo</td><td>myTicketId</td><td>String</td><td>是</td><td>猫眼票ID</td></tr><tr><td>channelTicketId</td><td>String</td><td>是</td><td>渠道票ID</td></tr><tr><td>ticketConsumeStatus</td><td>Integer</td><td>是</td><td>票核销状态</td></tr><tr><td>checkCode</td><td>String</td><td></td><td>检票码</td></tr><tr><td>checkQrCode</td><td>String</td><td></td><td>检票二维码</td></tr></table>
 
-# 2.7.4接⼝请求/响应⽰例
+### 2.7.4接⼝请求/响应⽰例
 
 ```json
 Request
@@ -612,24 +611,23 @@ Response
 }
 ```
 
-# 2.8订单关键状态变更通知
+## 2.8订单关键状态变更通知
 
-# 2.8.1 基础信息
+### 2.8.1 基础信息
 
 <table><tr><td>接口类型</td><td>B</td></tr><tr><td>调用方法</td><td>POST</td></tr><tr><td>URL</td><td>/mop/orderStatusChange</td></tr><tr><td>Content-Type</td><td>application/json</td></tr></table>
 
-# 2.8.2请求参数列表
+### 2.8.2请求参数列表
 
 <table><tr><td>父元素名称</td><td>元素名称</td><td>类型</td><td>是否必传</td><td>描述</td></tr><tr><td rowspan="2"></td><td>myOrderId</td><td>String</td><td>是</td><td>猫眼订单ID</td></tr><tr><td>bizType</td><td>Integer</td><td>是</td><td>业务类型，0：订单取消，1：订单退款</td></tr></table>
 
-# 2.8.3响应参数列表
+### 2.8.3响应参数列表
 
 通⽤响应即可
 
-# 2.8.4接⼝请求/响应⽰例
+### 2.8.4接⼝请求/响应⽰例
 
-```txt
-Code block
+```json
 1 Request
 2 {
 3 "myOrderId": "20001595062",
@@ -637,13 +635,13 @@ Code block
 5 }
 ```
 
-# 2.9订单核销通知
+## 2.9订单核销通知
 
-# 2.9.1 基础信息
+### 2.9.1 基础信息
 
 <table><tr><td>接口类型</td><td>A</td></tr><tr><td>调用方法</td><td>POST</td></tr><tr><td>URL</td><td>/supply/open/mop/consume</td></tr><tr><td>Content-Type</td><td>application/json</td></tr></table>
 
-# 2.9.2请求参数列表
+### 2.9.2请求参数列表
 
 <table><tr><td>父元素名称</td><td>元素名称</td><td>类型</td><td>是否必传</td><td>描述</td></tr><tr><td rowspan="3"></td><td>myOrderId</td><td>String</td><td>是</td><td>猫眼订单ID</td></tr><tr><td>ticketInfo</td><td>List&lt;String&gt;</td><td></td><td>所需核销猫眼票ID，若不传入票ID则表明整单核销</td></tr><tr><td>ticketCheckList</td><td>List&lt;TicketCheckLimitDTO&gt;</td><td></td><td>多次核销票时,必传;如通票核销时;可以多次核销</td></tr><tr><td rowspan="3">ticketCheckList</td><td>myTicketId</td><td>String</td><td></td><td>猫眼票ID</td></tr><tr><td>checkNum</td><td>Integer</td><td></td><td>第几次检票</td></tr><tr><td>checkLimit</td><td>Integer</td><td></td><td>最大检票次数</td></tr></table>
 
@@ -669,19 +667,19 @@ Request
 
 # 2.10订单出票通知
 
-# 2.10.1 基础信息
+## 2.10.1 基础信息
 
 <table><tr><td>接口类型</td><td>A</td></tr><tr><td>调用方法</td><td>POST</td></tr><tr><td>URL</td><td>/supply/open/mop/ticketNotify</td></tr><tr><td>Content-Type</td><td>application/json</td></tr></table>
 
-# 2.10.2 请求参数列表
+## 2.10.2 请求参数列表
 
 <table><tr><td>父元素名称</td><td>元素名称</td><td>类型</td><td>是否必传</td><td>描述</td></tr><tr><td rowspan="5"></td><td>myOrderId</td><td>String</td><td>是</td><td>猫眼订单ID</td></tr><tr><td>fetchCode</td><td>String</td><td></td><td>取票码</td></tr><tr><td>fetchQrCode</td><td>String</td><td></td><td>取票二维码</td></tr><tr><td>ticketInfo</td><td>List&lt;Ticket&gt;</td><td>是</td><td>票信息</td></tr><tr><td>performResult</td><td>Integer</td><td>是</td><td>出票失败0出票成功1</td></tr><tr><td rowspan="7">ticketInfo</td><td>myTicketId</td><td>String</td><td>是</td><td>猫眼票ID</td></tr><tr><td>checkCode</td><td>String</td><td></td><td>检票码</td></tr><tr><td>checkQrCode</td><td>String</td><td></td><td>检票二维码</td></tr><tr><td>floor</td><td>String</td><td></td><td>楼层名称</td></tr><tr><td>seatName</td><td>String</td><td></td><td>座位名称</td></tr><tr><td>areaName</td><td>String</td><td></td><td>区域名称</td></tr><tr><td>seatId</td><td>String</td><td></td><td>渠道座位ID</td></tr></table>
 
-# 2.10.3 响应参数列表
+## 2.10.3 响应参数列表
 
 通⽤响应即可
 
-# 2.10.4接⼝请求/响应⽰例
+## 2.10.4接⼝请求/响应⽰例
 
 ```txt
 Code block
@@ -702,19 +700,19 @@ Code block
 
 # 2.11动态码查询接⼝
 
-# 2.11.1 基础信息
+## 2.11.1 基础信息
 
 <table><tr><td>接口类型</td><td>B</td></tr><tr><td>调用方法</td><td>POST</td></tr><tr><td>URL</td><td>/mop/queryDynamicCode</td></tr><tr><td>Content-Type</td><td>application/json</td></tr></table>
 
-# 2.11.2 请求参数列表
+## 2.11.2 请求参数列表
 
 <table><tr><td>父元素名称</td><td>元素名称</td><td>类型</td><td>是否必传</td><td>描述</td></tr><tr><td rowspan="2"></td><td>myOrderId</td><td>String</td><td>是</td><td>猫眼订单ID</td></tr><tr><td>myTicketId</td><td>String</td><td>是</td><td>猫眼票ID</td></tr></table>
 
-# 2.11.3 响应参数列表
+## 2.11.3 响应参数列表
 
 <table><tr><td>父元素名称</td><td>元素名称</td><td>类型</td><td>是否必传</td><td>描述</td></tr><tr><td rowspan="5"></td><td>myOrderId</td><td>String</td><td>是</td><td>猫眼订单ID</td></tr><tr><td>myTicketId</td><td>String</td><td>是</td><td>猫眼票ID</td></tr><tr><td>code</td><td>String</td><td></td><td>动态码</td></tr><tr><td>qrCode</td><td>String</td><td></td><td>动态二维码</td></tr><tr><td>codingType</td><td>Integer</td><td></td><td>码类型 冗余字 段</td></tr></table>
 
-# 2.11.4接⼝请求/响应⽰例
+## 2.11.4接⼝请求/响应⽰例
 
 Code block
 1 Request
