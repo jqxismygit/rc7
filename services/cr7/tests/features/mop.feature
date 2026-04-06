@@ -83,6 +83,7 @@ Feature: 对接猫眼 OTA
       And 猫眼订单中的第 2 个订单项的猫眼 ID 是 "mop_ticket_002"
       And 猫眼订单中的第 2 个订单项的价格是 "单人票" 的价格，单位为元
       And 猫眼订单中的订单总金额是 2 个订单项的价格之和，单位为元
+
      When 猫眼将订单同步消息发送给 cr7
      Then cr7 收到订单同步消息，可以正常验证签名，解密无误
      Then cr7 添加了一个新用户，手机号是 "13800000000"，姓名是 "Alice"
@@ -95,12 +96,18 @@ Feature: 对接猫眼 OTA
       And 订单同步结果的猫眼订单 ID 是 "mop_order_001"
       And 订单同步结果里的渠道订单 ID 是 cr7 生成的订单 ID
       And 订单同步结果是订单中 expired at 的时间戳，单位为毫秒
-     When 管理员查看猫眼订单同步记录
-     Then 订单同步记录里有一条记录，记录的猫眼订单 ID 是 "mop_order_001"，同步状态是成功
+
+     When 管理员第 1 次查看猫眼订单同步记录
+     Then 订单同步记录里有 1 条记录
+      And 第 1 次查看时，最新的订单同步记录中 request_path 是 "/mop/order"， 状态为成功
       And 订单同步记录里的订单 ID 是 cr7 生成的订单 ID
+
      When 猫眼再次把相同的订单信息同步给 cr7
      Then cr7 再次收到订单同步消息，可以正常验证签名，解密无误
-      And 订单同步记录里有两条记录，最新的记录的猫眼订单 ID 是 "mop_order_001"，同步状态是成功
+
+     When 管理员第 2 次查看猫眼订单同步记录
+     Then 订单同步记录里有 2 条记录
+      And 第 2 次查看时，最新的订单同步记录中 request_path 是 "/mop/order"， 状态为成功
       And 最新的订单同步记录里的订单 ID 是 cr7 生成的订单 ID，没有变化
 
   Scenario: 用户在猫眼查看订单详情
@@ -178,15 +185,19 @@ Feature: 对接猫眼 OTA
       And 订单详情中的第 1 个订单项的检票码是 cr7 订单的核销码
       And 订单详情中的第 1 个订单项的检票二维码是 cr7 订单的核销码
 
-     When 管理员查看猫眼订单同步记录
+     When 管理员第 1 次查看猫眼订单同步记录
      Then 订单同步记录里有 2 条记录
-      And 最新的订单同步记录中 request_path 是 "/mop/ticket"
+      And 第 1 次查看时，最新的订单同步记录中 request_path 是 "/mop/ticket"， 状态为成功
+
      When 猫眼再次把相同的订单支付结果同步给 cr7
      Then cr7 再次收到订单支付结果同步消息，可以正常验证签名，解密无误
       And cr7 订单状态为已付款，付款时间没有变化
       And cr7 订单的核销码的创建时间没有变化
       And 订单支付结果中的第 1 个订单项的检票码仍然是 cr7 订单的核销码
-      And 订单同步记录里有 3 条记录，最新的记录的猫眼订单 ID 是 "mop_order_001"，同步状态是成功
+
+     When 管理员第 2 次查看猫眼订单同步记录
+     Then 订单同步记录里有 3 条记录
+      And 第 2 次查看时，最新的订单同步记录中 request_path 是 "/mop/ticket"， 状态为成功
 
   Scenario: 用户在核销了订单之后，通知猫眼
     Given 用户在猫眼创建了订单
@@ -204,14 +215,17 @@ Feature: 对接猫眼 OTA
       And 猫眼订单中的订单总金额是 1 个订单项的价格之和，单位为元
      When 猫眼将订单同步消息发送给 cr7
      Then cr7 收到订单同步消息，可以正常验证签名，解密无误
+
     Given 用户在猫眼支付了订单 "mop_order_001"
      When cr7 收到猫眼的支付结果通知，签名验证通过，解密无误
      Then cr7 订单状态变更为已经支付
       And cr7 订单生成了核销码
      Then cr7 返回了订单支付结果
+
      When 用户核销了订单
      Then cr7 通知猫眼订单 "mop_order_001" 已经核销
      Then cr7 核销码状态变成已核销
+
     Given 用户在猫眼查看订单 "mop_order_001" 的详情
      When cr7 收到猫眼订单查询请求，签名验证通过，解密无误
      Then cr7 返回订单详情给猫眼
@@ -249,12 +263,15 @@ Feature: 对接猫眼 OTA
       And 订单详情中的退款状态为未发起，值为 0
       And 订单详情中的核销状态为未消费，值为 0
 
-     When 管理员查看猫眼订单同步记录
+     When 管理员第 1 次查看猫眼订单同步记录
      Then 订单同步记录里有 2 条记录
-      And 最新的订单同步记录中 request_path 是 "/mop/orderStatusChange"
+      And 第 1 次查看时，最新的订单同步记录中 request_path 是 "/mop/orderStatusChange"， 状态为成功
 
      When 猫眼再次把相同的订单取消信息同步给 cr7
      Then cr7 再次收到订单取消同步消息，可以正常验证签名，解密无误
       And cr7 订单状态为已取消，订单状态没有变化
-      And 订单同步记录里有 3 条记录，最新的记录的猫眼订单 ID 是 "mop_order_001"，同步状态是成功
+
+     When 管理员第 2 次查看猫眼订单同步记录
+     Then 订单同步记录里有 3 条记录
+      And 第 2 次查看时，最新的订单同步记录中 request_path 是 "/mop/orderStatusChange"， 状态为成功
 

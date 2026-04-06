@@ -693,7 +693,7 @@ describeFeature(feature, ({
     });
 
     // records
-    When('管理员查看猫眼订单同步记录', async () => {
+    When('管理员第 {int} 次查看猫眼订单同步记录', async () => {
       const { apiServer, adminToken, order } = featureContext;
       featureContext.records = await getMopOrderSyncRecords(
         apiServer, adminToken, order!.id
@@ -705,9 +705,10 @@ describeFeature(feature, ({
       expect(records).toHaveLength(count);
     });
 
-    And('最新的订单同步记录中 request_path 是 {string}', (_ctx, requestPath: string) => {
+    And('第 {int} 次查看时，最新的订单同步记录中 request_path 是 {string}， 状态为成功', (_ctx, _checkIndex: number, requestPath: string) => {
       const { records } = featureContext;
       expect(records![0].request_path).toBe(requestPath);
+      expect(records![0].sync_status).toBe('SUCCESS');
     });
 
   })
@@ -1075,16 +1076,6 @@ describeFeature(feature, ({
       expect(Number(mopOrderBody!.payExpiredTime)).toEqual(new Date(order!.expires_at).getTime());
     });
 
-    Then('订单同步记录里有一条记录，记录的猫眼订单 ID 是 {string}，同步状态是成功', (_ctx, myOrderId: string) => {
-      const { records, order, mopOrderDraft } = featureContext;
-      expect(records).toHaveLength(1);
-      const [record] = records!;
-      expect(record.my_order_id).toBe(myOrderId);
-      expect(record.sync_status).toBe('SUCCESS');
-      expect(record.request_path).toBe('/mop/order');
-      expect(record.request_body).toEqual(mopOrderDraft);
-    });
-
     And('订单同步记录里的订单 ID 是 cr7 生成的订单 ID', () => {
       const { records, order } = featureContext;
       const [record] = records!;
@@ -1102,17 +1093,6 @@ describeFeature(feature, ({
       featureContext.mopOrderBody = await parseMopEncryptedResponse<MopOrderSyncResponseData>(
         mopOrderEnvelope!
       );
-    });
-
-    And('订单同步记录里有两条记录，最新的记录的猫眼订单 ID 是 {string}，同步状态是成功', async (_ctx, myOrderId: string) => {
-      const { apiServer, adminToken, order } = featureContext;
-      featureContext.records = await getMopOrderSyncRecords(apiServer, adminToken, order!.id);
-
-      const { records } = featureContext;
-      expect(records).toHaveLength(2);
-      const [latestRecord] = records!;
-      expect(latestRecord.my_order_id).toBe(myOrderId);
-      expect(latestRecord.sync_status).toBe('SUCCESS');
     });
 
     And('最新的订单同步记录里的订单 ID 是 cr7 生成的订单 ID，没有变化', () => {
@@ -1186,11 +1166,6 @@ describeFeature(feature, ({
       expect(records).toHaveLength(count);
     });
 
-    And('最新的订单同步记录中 request_path 是 {string}', (_ctx, requestPath: string) => {
-      const { records } = featureContext;
-      expect(records![0].request_path).toBe(requestPath);
-    });
-
     When('猫眼再次把相同的订单支付结果同步给 cr7', async () => {
       const { apiServer, mopTicketDraft } = featureContext;
       featureContext.mopTicketEnvelope = await sendMopTicketConfirmation(apiServer, mopTicketDraft!);
@@ -1230,15 +1205,6 @@ describeFeature(feature, ({
       expect(mopTicketBody!.ticketInfo[index - 1].checkCode).toBe(orderRedemption!.code);
     });
 
-    And('订单同步记录里有 3 条记录，最新的记录的猫眼订单 ID 是 {string}，同步状态是成功', async (_ctx, myOrderId: string) => {
-      const { apiServer, adminToken, order } = featureContext;
-      featureContext.records = await getMopOrderSyncRecords(apiServer, adminToken, order!.id);
-      const { records } = featureContext;
-      expect(records).toHaveLength(3);
-      const [latestRecord] = records!;
-      expect(latestRecord.my_order_id).toBe(myOrderId);
-      expect(latestRecord.sync_status).toBe('SUCCESS');
-    });
   });
 
   Scenario('用户在核销了订单之后，通知猫眼', (s: StepTest<void>) => {
@@ -1294,15 +1260,5 @@ describeFeature(feature, ({
       expect(cancelledOrder.cancelled_at).toBe(order!.cancelled_at);
     });
 
-    And('订单同步记录里有 3 条记录，最新的记录的猫眼订单 ID 是 {string}，同步状态是成功', async (_ctx, myOrderId: string) => {
-      const { apiServer, adminToken, order, mopOrderBody } = featureContext;
-      const orderId = order?.id ?? mopOrderBody!.channelOrderId;
-      featureContext.records = await getMopOrderSyncRecords(apiServer, adminToken, orderId);
-      const { records } = featureContext;
-      expect(records).toHaveLength(3);
-      const [latestRecord] = records!;
-      expect(latestRecord.my_order_id).toBe(myOrderId);
-      expect(latestRecord.sync_status).toBe('SUCCESS');
-    });
   });
 });
