@@ -24,8 +24,11 @@ import {
   MopEncryptedResponse,
   getMopOrderSyncRecords,
   MopOrderCreateRequest,
+  MopOrderQueryRequest,
+  MopOrderQueryResponseData,
   MopOrderSyncResponseData,
   parseMopEncryptedResponse,
+  queryMopOrderFromCr7,
   verifyMopResponseSign,
   setupMopMockServer,
   syncExhibitionToMop,
@@ -101,10 +104,17 @@ interface OrderContext {
   records: Mop.MopOrderSyncRecord[];
 }
 
+interface OrderQueryContext {
+  mopOrderQueryDraft: MopOrderQueryRequest;
+  mopOrderQueryEnvelope: MopEncryptedResponse;
+  mopOrderQueryBody: MopOrderQueryResponseData | null;
+}
+
 interface FeatureContext extends
   ExhibitionContext,
   MopServerContext,
-  Partial<OrderContext> {
+  Partial<OrderContext>,
+  Partial<OrderQueryContext> {
   broker: ServiceBroker;
   apiServer: Server;
   adminToken: string;
@@ -480,6 +490,28 @@ describeFeature(feature, ({
       expect(item.ticket_category_id).toEqual(ticket.id);
     });
 
+    // 查询订单
+    Given('用户在猫眼查看订单 {string} 的详情', async (_ctx, myOrderId: string) => {
+      featureContext.mopOrderQueryDraft = { myOrderId };
+            const { apiServer, mopOrderQueryDraft } = featureContext;
+      featureContext.mopOrderQueryEnvelope = await queryMopOrderFromCr7(apiServer, mopOrderQueryDraft!);
+    });
+
+    When('cr7 收到猫眼订单查询请求，签名验证通过，解密无误', async () => {
+      const { mopOrderQueryEnvelope } = featureContext;
+      await verifyMopResponseSign('/mop/orderQuery', mopOrderQueryEnvelope!);
+      featureContext.mopOrderQueryBody = await parseMopEncryptedResponse<MopOrderQueryResponseData>(
+        mopOrderQueryEnvelope!
+      );
+    });
+
+    Then('cr7 返回订单详情给猫眼', () => {
+      const { mopOrderQueryEnvelope } = featureContext;
+      expect(mopOrderQueryEnvelope).toHaveProperty('code');
+      expect(mopOrderQueryEnvelope).toHaveProperty('msg');
+      expect(mopOrderQueryEnvelope).toHaveProperty('sign');
+      expect(mopOrderQueryEnvelope).toHaveProperty('encryptData');
+    });
   })
 
   Background(({ Given, And }) => {
@@ -897,6 +929,52 @@ describeFeature(feature, ({
       const [latestRecord, firstRecord] = records!;
       expect(latestRecord.order_id).toBe(order!.id);
       expect(firstRecord.order_id).toBe(order!.id);
+    });
+  });
+
+  Scenario('用户在猫眼查看订单详情', (s: StepTest<void>) => {
+    const { And } = s;
+
+    And('订单详情中的猫眼订单 ID 是 {string}', (_ctx, myOrderId: string) => {
+      expect(featureContext.mopOrderQueryBody!.myOrderId).toBe(myOrderId);
+    });
+
+    And('订单详情中的订单状态为初始状态， 值为 {int}', (_ctx, status: number) => {
+      expect(featureContext.mopOrderQueryBody!.orderStatus).toBe(status);
+    });
+
+    And('订单详情中的退款状态为未发起，值为 {int}', (_ctx, status: number) => {
+      expect(featureContext.mopOrderQueryBody!.orderRefundStatus).toBe(status);
+    });
+
+    And('订单详情中的核销状态为未消费，值为 {int}', (_ctx, status: number) => {
+      expect(featureContext.mopOrderQueryBody!.orderConsumeStatus).toBe(status);
+    });
+
+    And('订单详情中的取票码为 null，取票二维码为 null', () => {
+      expect(featureContext.mopOrderQueryBody!.fetchCode).toBeNull();
+      expect(featureContext.mopOrderQueryBody!.fetchQrCode).toBeNull();
+    });
+
+    And('订单详情中有 {int} 个订单项', (_ctx, itemCount: number) => {
+      expect(featureContext.mopOrderQueryBody!.ticketInfo).toHaveLength(itemCount);
+    });
+
+    And('订单详情中的第 {int} 个订单项的猫眼 ID 是 {string}', (_ctx, index: number, myTicketId: string) => {
+      expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1].myTicketId).toBe(myTicketId);
+    });
+
+    And('订单详情中的第 {int} 个订单项的渠道票 ID 是 {string} 的 ID', (_ctx, index: number, ticketName: string) => {
+      const ticket = featureContext.ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+      expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1].channelTicketId).toBe(ticket.id);
+    });
+
+    And('订单详情中的第 {int} 个订单项的核销状态为未消费，值为 {int}', (_ctx, index: number, status: number) => {
+      expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1].ticketConsumeStatus).toBe(status);
     });
   });
 });

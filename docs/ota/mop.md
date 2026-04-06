@@ -586,32 +586,31 @@ Code block
 
 # 2.7.4接⼝请求/响应⽰例
 
-```txt
-Code block
-1 Request
-2 {
-3 "myOrderId": "20001595062"
-4 }
-5
-6 \(= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-7 Response
-8 {
-9 "myOrderId": "20001595062",
-10 "fetchCode": null,
-11 "fetchQrCode": null,
-12 "orderStatus": 7,
-13 "orderRefundStatus": 0,
-14 "orderConsumeStatus": 0,
-15 "ticketInfo": [
-16 {
-17 "myTicketId": "6141177",
-18 "channelTicketId": "585672460389097544",
-19 "ticketConsumeStatus": 0,
-20 "checkCode": "6649862059761665",
-21 "checkQrCode": "6649862059761665"
-22 }
-23 ]
-24 }
+```json
+Request
+{
+    "myOrderId": "20001595062"
+}
+
+==========================
+Response
+{
+    "myOrderId": "20001595062",
+    "fetchCode": null,
+    "fetchQrCode": null,
+    "orderStatus": 7,
+    "orderRefundStatus": 0,
+    "orderConsumeStatus": 0,
+    "ticketInfo": [
+        {
+            "myTicketId": "6141177",
+            "channelTicketId": "585672460389097544",
+            "ticketConsumeStatus": 0,
+            "checkCode": "6649862059761665",
+            "checkQrCode": "6649862059761665"
+        }
+    ]
+}
 ```
 
 # 2.8订单关键状态变更通知

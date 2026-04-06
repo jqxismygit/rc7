@@ -217,12 +217,13 @@ const routes = [
   ),
   routeConfig(
     '/mop',
-    ['mop.receiveOrderFromMop'],
+    ['mop.receiveOrderFromMop', 'mop.queryOrderFromMop'],
     {
       authentication: false,
       authorization: false,
       aliases: {
         'POST /order': 'mop.receiveOrderFromMop',
+        'POST /orderQuery': 'mop.queryOrderFromMop',
       },
     }
   ),

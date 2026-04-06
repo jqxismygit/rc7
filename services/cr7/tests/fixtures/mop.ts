@@ -80,6 +80,26 @@ export interface MopOrderSyncResponseData {
   payExpiredTime: string;
 }
 
+export interface MopOrderQueryRequest {
+  myOrderId: string;
+}
+
+export interface MopOrderQueryResponseData {
+  myOrderId: string;
+  fetchCode: string | null;
+  fetchQrCode: string | null;
+  orderStatus: number;
+  orderRefundStatus: number;
+  orderConsumeStatus: number;
+  ticketInfo: Array<{
+    myTicketId: string;
+    channelTicketId: string;
+    ticketConsumeStatus: number;
+    checkCode: string | null;
+    checkQrCode: string | null;
+  }>;
+}
+
 export interface MopEncryptedResponse {
   code: number;
   timestamp: string;
@@ -140,6 +160,26 @@ export async function syncMopOrderToCr7(
   return postJSON<MopEncryptedResponse>(
     server,
     '/mop/order',
+    { headers: { ...headers }, body: payload },
+  );
+}
+
+export async function queryMopOrderFromCr7(
+  server: Server,
+  body: MopOrderQueryRequest,
+) {
+  const { mop } = config;
+  const { supplier, aes_key: aesKey, private_key_path } = mop;
+  const privateKey = await readFile(path.resolve(private_key_path), 'utf-8');
+
+  const { headers, payload } = buildMopRequest(
+    '/mop/orderQuery',
+    { supplier, aesKey, privateKey, body }
+  );
+
+  return postJSON<MopEncryptedResponse>(
+    server,
+    '/mop/orderQuery',
     { headers: { ...headers }, body: payload },
   );
 }

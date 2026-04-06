@@ -96,6 +96,26 @@ type MopOrderCreateResponse = {
   payExpiredTime: string;
 };
 
+type MopOrderQueryRequest = {
+  myOrderId: string;
+};
+
+type MopOrderQueryResponse = {
+  myOrderId: string;
+  fetchCode: string | null;
+  fetchQrCode: string | null;
+  orderStatus: number;
+  orderRefundStatus: number;
+  orderConsumeStatus: number;
+  ticketInfo: Array<{
+    myTicketId: string;
+    channelTicketId: string;
+    ticketConsumeStatus: number;
+    checkCode: string | null;
+    checkQrCode: string | null;
+  }>;
+};
+
 type MopResponseEnvelope = {
   code: number;
   timestamp: string;
@@ -128,6 +148,56 @@ const MOP_SKU_STATUS_VALID = 1;
 const MOP_SKU_IS_OTA = 1;
 const MOP_INVENTORY_TYPE_SHARED = 1;
 const MOP_ORDER_URI = '/mop/order';
+const MOP_ORDER_QUERY_URI = '/mop/orderQuery';
+
+const MOP_ORDER_STATUS = {
+  INITIAL: 0,
+  CANCELED: 2,
+  ISSUED: 7,
+} as const;
+
+const MOP_REFUND_STATUS = {
+  NONE: 0,
+  PROCESSING: 1,
+  FAILED: 2,
+  REFUNDED: 3,
+} as const;
+
+const MOP_CONSUME_STATUS = {
+  NOT_CONSUMED: 0,
+} as const;
+
+function toMopOrderStatus(status: Order.OrderStatus): number {
+  switch (status) {
+    case 'PENDING_PAYMENT':
+      return MOP_ORDER_STATUS.INITIAL;
+    case 'CANCELLED':
+    case 'EXPIRED':
+      return MOP_ORDER_STATUS.CANCELED;
+    case 'PAID':
+    case 'REFUND_REQUESTED':
+    case 'REFUND_PROCESSING':
+    case 'REFUNDED':
+    case 'REFUND_FAILED':
+      return MOP_ORDER_STATUS.ISSUED;
+    default:
+      return MOP_ORDER_STATUS.INITIAL;
+  }
+}
+
+function toMopRefundStatus(status: Order.OrderStatus): number {
+  switch (status) {
+    case 'REFUND_REQUESTED':
+    case 'REFUND_PROCESSING':
+      return MOP_REFUND_STATUS.PROCESSING;
+    case 'REFUNDED':
+      return MOP_REFUND_STATUS.REFUNDED;
+    case 'REFUND_FAILED':
+      return MOP_REFUND_STATUS.FAILED;
+    default:
+      return MOP_REFUND_STATUS.NONE;
+  }
+}
 
 const SUPPORTED_CITIES: Record<string, CityMeta> = {
   上海: { id: '310000', name: '上海市' },
@@ -247,6 +317,13 @@ export default class MoeService extends RC7BaseService {
             encryptData: 'string',
           },
           handler: this.receiveOrderFromMop,
+        },
+        queryOrderFromMop: {
+          rest: 'POST /orderQuery',
+          params: {
+            encryptData: 'string',
+          },
+          handler: this.queryOrderFromMop,
         },
         getMopOrderRecord: {
           rest: 'GET /orders/:rid',
@@ -668,6 +745,72 @@ export default class MoeService extends RC7BaseService {
       this.logger.error('处理 MOP 订单同步时发生错误', error);
       return this.finishWithMopResponse(recordId, 10099, '系统异常');
     }
+  }
+
+  async queryOrderFromMop(
+    ctx: Context<
+      { encryptData: string },
+      {
+        headers?: Record<string, string | string[]>;
+        $statusCode?: number;
+      }
+    >,
+  ): Promise<MopResponseEnvelope> {
+    ctx.meta.$statusCode = 200;
+
+    const headers = ctx.meta.headers ?? {};
+    const signValidation = await this.validateMopSign(headers, MOP_ORDER_QUERY_URI);
+    if (signValidation.ok === false) {
+      return signValidation.response;
+    }
+
+    const decryptResult = await this.decryptMopRequestBody<MopOrderQueryRequest>(
+      ctx.params.encryptData,
+    );
+    if (decryptResult.ok === false) {
+      return decryptResult.response;
+    }
+
+    const { myOrderId } = decryptResult.body;
+    if (!myOrderId) {
+      return this.buildMopResponse(10001, '参数异常');
+    }
+
+    const schema = await this.getSchema();
+    const firstSuccessRecord = await getFirstSuccessfulMopOrderSyncRecordByMyOrderId(
+      this.pool,
+      schema,
+      myOrderId,
+    );
+
+    if (firstSuccessRecord?.order_id == null || firstSuccessRecord.user_id == null) {
+      return this.buildMopResponse(10001, '参数异常');
+    }
+
+    const order = await ctx.call<Order.OrderWithItems, { oid: string }>(
+      'cr7.order.get',
+      { oid: firstSuccessRecord.order_id },
+      { meta: { user: { uid: firstSuccessRecord.user_id } } }
+    );
+
+    const requestBody = firstSuccessRecord.request_body as MopOrderCreateRequest;
+    const responseBody: MopOrderQueryResponse = {
+      myOrderId,
+      fetchCode: null,
+      fetchQrCode: null,
+      orderStatus: toMopOrderStatus(order.status),
+      orderRefundStatus: toMopRefundStatus(order.status),
+      orderConsumeStatus: MOP_CONSUME_STATUS.NOT_CONSUMED,
+      ticketInfo: requestBody.ticketInfo.map(item => ({
+        myTicketId: item.myTicketId,
+        channelTicketId: item.skuId,
+        ticketConsumeStatus: MOP_CONSUME_STATUS.NOT_CONSUMED,
+        checkCode: null,
+        checkQrCode: null,
+      })),
+    };
+
+    return this.buildMopResponse(10000, '成功', responseBody);
   }
 
   async getMopOrderRecord(
