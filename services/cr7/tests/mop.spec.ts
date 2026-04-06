@@ -1103,5 +1103,55 @@ describeFeature(feature, ({
       const { records } = featureContext;
       expect(records![0].request_path).toBe(requestPath);
     });
+
+    When('猫眼再次把相同的订单支付结果同步给 cr7', async () => {
+      const { apiServer, mopTicketDraft } = featureContext;
+      featureContext.mopTicketEnvelope = await sendMopTicketConfirmation(apiServer, mopTicketDraft!);
+    });
+
+    Then('cr7 再次收到订单支付结果同步消息，可以正常验证签名，解密无误', async () => {
+      const { mopTicketEnvelope } = featureContext;
+      await verifyMopResponseSign('/mop/ticket', mopTicketEnvelope!);
+      featureContext.mopTicketBody = await parseMopEncryptedResponse<MopTicketConfirmationResponse>(
+        mopTicketEnvelope!
+      );
+    });
+
+    And('cr7 订单状态为已付款，付款时间没有变化', async () => {
+      const { apiServer, adminToken, order } = featureContext;
+      const currentOrder = await getOrderAdmin(apiServer, order!.id, adminToken!);
+      expect(currentOrder.status).toBe('PAID');
+      expect(currentOrder.paid_at).toBe(order!.paid_at);
+    });
+
+    And('cr7 订单的核销码的创建时间没有变化', async () => {
+      const { broker, order, orderRedemption } = featureContext;
+      const currentRedemption = await broker.call<
+        Redeem.RedemptionCodeWithOrder, { oid: string }
+      >(
+        'cr7.redemption.getByOrder',
+        { oid: order!.id },
+        { meta: { user: { uid: order!.user_id } } },
+      );
+      expect(new Date(currentRedemption.created_at).getTime()).toBe(new Date(orderRedemption!.created_at).getTime());
+    });
+
+    And('订单支付结果中的第 {int} 个订单项的检票码仍然是 cr7 订单的核销码', (_ctx, index: number) => {
+      const { mopTicketBody, orderRedemption } = featureContext;
+      expect(orderRedemption).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1].checkCode).toBe(orderRedemption!.code);
+    });
+
+    And('订单同步记录里有 3 条记录，最新的记录的猫眼订单 ID 是 {string}，同步状态是成功', async (_ctx, myOrderId: string) => {
+      const { apiServer, adminToken, order } = featureContext;
+      featureContext.records = await getMopOrderSyncRecords(apiServer, adminToken, order!.id);
+      const { records } = featureContext;
+      expect(records).toHaveLength(3);
+      const [latestRecord] = records!;
+      expect(latestRecord.my_order_id).toBe(myOrderId);
+      expect(latestRecord.sync_status).toBe('SUCCESS');
+    });
   });
+
 });
