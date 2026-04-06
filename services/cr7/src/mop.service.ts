@@ -98,6 +98,16 @@ type MopResponseEnvelope = {
   encryptData: string | null;
 };
 
+type MopRequestHeaders = Record<string, string | string[] | undefined>;
+
+type MopSignValidationResult =
+  | { ok: true }
+  | { ok: false; response: MopResponseEnvelope };
+
+type MopDecryptResult<T> =
+  | { ok: true; body: T }
+  | { ok: false; response: MopResponseEnvelope };
+
 const MOP_PROJECT_CATEGORY_LEISURE_EXHIBITION = {
   label: '休闲展览',
   value: 9,
@@ -173,7 +183,7 @@ function toYuanString(cents: number): string {
 }
 
 function getHeaderValue(
-  headers: Record<string, string | string[] | undefined>,
+  headers: MopRequestHeaders,
   key: string,
 ): string | null {
   const value = headers[key];
@@ -387,27 +397,31 @@ export default class MoeService extends RC7BaseService {
     };
   }
 
-  async receiveOrderFromMop(
-    ctx: Context<{ encryptData: string }, { headers?: Record<string, string | string[]>; $statusCode?: number }>,
-  ): Promise<MopResponseEnvelope> {
-    ctx.meta.$statusCode = 200;
-
-    const headers = ctx.meta.headers ?? {};
+  async validateMopSign(
+    headers: MopRequestHeaders,
+    signUri: string,
+  ): Promise<MopSignValidationResult> {
     const supplier = getHeaderValue(headers, 'supplier');
     const timestamp = getHeaderValue(headers, 'timestamp');
     const version = getHeaderValue(headers, 'version');
     const sign = getHeaderValue(headers, 'sign');
 
     if (!supplier || !timestamp || !version || !sign) {
-      return this.buildMopResponse(10001, '参数异常');
+      return {
+        ok: false,
+        response: await this.buildMopResponse(10001, '参数异常'),
+      };
     }
 
     if (supplier !== config.mop.supplier) {
-      return this.buildMopResponse(10001, '参数异常');
+      return {
+        ok: false,
+        response: await this.buildMopResponse(10001, '参数异常'),
+      };
     }
 
     const publicKey = await readKey(config.mop.public_key_path);
-    const verified = verifyMopSign(sign, MOP_ORDER_URI, {
+    const verified = verifyMopSign(sign, signUri, {
       supplier,
       timestamp,
       version,
@@ -415,16 +429,49 @@ export default class MoeService extends RC7BaseService {
     });
 
     if (!verified) {
-      return this.buildMopResponse(10001, '签名验证失败');
+      return {
+        ok: false,
+        response: await this.buildMopResponse(10001, '签名验证失败'),
+      };
     }
 
-    let requestBody: MopOrderCreateRequest;
+    return { ok: true };
+  }
+
+  async decryptMopRequestBody<T>(encryptData: string): Promise<MopDecryptResult<T>> {
     try {
-      const decrypted = decryptMopData(ctx.params.encryptData, config.mop.aes_key);
-      requestBody = JSON.parse(decrypted) as MopOrderCreateRequest;
+      const decrypted = decryptMopData(encryptData, config.mop.aes_key);
+      return {
+        ok: true,
+        body: JSON.parse(decrypted) as T,
+      };
     } catch {
-      return this.buildMopResponse(10001, '报文解析失败');
+      return {
+        ok: false,
+        response: await this.buildMopResponse(10001, '报文解析失败'),
+      };
     }
+  }
+
+  async receiveOrderFromMop(
+    ctx: Context<{ encryptData: string }, { headers?: Record<string, string | string[]>; $statusCode?: number }>,
+  ): Promise<MopResponseEnvelope> {
+    ctx.meta.$statusCode = 200;
+
+    const headers = ctx.meta.headers ?? {};
+    const signValidation = await this.validateMopSign(headers, MOP_ORDER_URI);
+    if (!signValidation.ok) {
+      return signValidation.response;
+    }
+
+    const decryptResult = await this.decryptMopRequestBody<MopOrderCreateRequest>(
+      ctx.params.encryptData,
+    );
+    if (!decryptResult.ok) {
+      return decryptResult.response;
+    }
+
+    const requestBody = decryptResult.body;
 
     const {
       myOrderId,
