@@ -838,6 +838,7 @@ export default class MoeService extends RC7BaseService {
     const orderConsumeStatus = isConsumed
       ? MOP_CONSUME_STATUS.CONSUMED
       : MOP_CONSUME_STATUS.NOT_CONSUMED;
+    const redeemCode = redemption?.code ?? null;
 
     const requestBody = firstSuccessRecord.request_body as MopOrderCreateRequest;
     const responseBody: MopOrderQueryResponse = {
@@ -851,8 +852,8 @@ export default class MoeService extends RC7BaseService {
         myTicketId: item.myTicketId,
         channelTicketId: item.skuId,
         ticketConsumeStatus: orderConsumeStatus,
-        checkCode: null,
-        checkQrCode: null,
+        checkCode: redeemCode,
+        checkQrCode: redeemCode,
       })),
     };
 
