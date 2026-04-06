@@ -114,4 +114,18 @@ export default {
   margin-top: -6rpx;
 }
 
+.nav-title {
+  flex: 1;
+  min-width: 0;
+  padding: 0 16rpx;
+  color: $text-white;
+  font-size: 32rpx;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 </style>

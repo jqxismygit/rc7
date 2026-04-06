@@ -50,13 +50,28 @@ const ALLOWED_ATTR = [
   "muted",
   "playsinline",
   "type",
+  "data-w-e-type",
+  "data-w-e-is-void",
 ];
 
+/**
+ * 兼容历史文章里已落库的普通 `<div><video/></div>` 结构，
+ * 补成 wangEditor 可稳定回显的视频容器结构。
+ */
+export function normalizeArticleEditorHtml(html: string): string {
+  if (!html) return html;
+
+  return html.replace(
+    /<div(?![^>]*\bdata-w-e-type=)([^>]*)>\s*((?:<video\b[\s\S]*?<\/video>)|(?:<iframe\b[\s\S]*?<\/iframe>))\s*<\/div>/gi,
+    '<div$1 data-w-e-type="video" data-w-e-is-void>$2</div>',
+  );
+}
+
 export function sanitizeArticleHtml(html: string): string {
-  return DOMPurify.sanitize(html, {
+  return DOMPurify.sanitize(normalizeArticleEditorHtml(html), {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
-    ALLOW_DATA_ATTR: false,
+    ALLOW_DATA_ATTR: true,
   });
 }
 
