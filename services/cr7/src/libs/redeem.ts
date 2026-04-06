@@ -173,6 +173,10 @@ export class RedemptionService extends RC7BaseService {
         await ctx.call('xiecheng.notifyOrderConsumed', { oid: order.id });
       }
 
+      if (order.source === 'MOP') {
+        await ctx.call('mop.notifyOrderConsumed', { oid: order.id });
+      }
+
       await dbClient.query('COMMIT');
       return redemption;
     } catch (error) {

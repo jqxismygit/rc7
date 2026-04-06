@@ -7,6 +7,7 @@ import { RC7BaseService } from './libs/cr7.base.js';
 import {
   createMopOrderSyncRecord,
   getFirstSuccessfulMopOrderSyncRecordByMyOrderId,
+  getSuccessfulOrderCreateRecordByOrderId,
   listMopOrderSyncRecordsByOrderId,
   updateMopOrderSyncRecord,
 } from './data/mop.js';
@@ -167,6 +168,7 @@ const MOP_INVENTORY_TYPE_SHARED = 1;
 const MOP_ORDER_URI = '/mop/order';
 const MOP_ORDER_QUERY_URI = '/mop/orderQuery';
 const MOP_TICKET_URI = '/mop/ticket';
+const MOP_CONSUME_URI = '/supply/open/mop/consume';
 
 const MOP_ORDER_STATUS = {
   INITIAL: 0,
@@ -183,6 +185,7 @@ const MOP_REFUND_STATUS = {
 
 const MOP_CONSUME_STATUS = {
   NOT_CONSUMED: 0,
+  CONSUMED: 1,
 } as const;
 
 function toMopOrderStatus(status: Order.OrderStatus): number {
@@ -357,6 +360,13 @@ export default class MoeService extends RC7BaseService {
             rid: 'uuid',
           },
           handler: this.getMopOrderRecord,
+        },
+
+        notifyOrderConsumed: {
+          params: {
+            oid: 'string',
+          },
+          handler: this.notifyOrderConsumed,
         },
       },
 
@@ -818,6 +828,17 @@ export default class MoeService extends RC7BaseService {
       { meta: { user: { uid: firstSuccessRecord.user_id } } }
     );
 
+    const redemption = await ctx.call<Redeem.RedemptionCodeWithOrder, { oid: string }>(
+      'cr7.redemption.getByOrder',
+      { oid: firstSuccessRecord.order_id },
+      { meta: { user: { uid: firstSuccessRecord.user_id } } },
+    ).then(res => res, () => null);
+
+    const isConsumed = redemption?.status === 'REDEEMED';
+    const orderConsumeStatus = isConsumed
+      ? MOP_CONSUME_STATUS.CONSUMED
+      : MOP_CONSUME_STATUS.NOT_CONSUMED;
+
     const requestBody = firstSuccessRecord.request_body as MopOrderCreateRequest;
     const responseBody: MopOrderQueryResponse = {
       myOrderId,
@@ -825,11 +846,11 @@ export default class MoeService extends RC7BaseService {
       fetchQrCode: null,
       orderStatus: toMopOrderStatus(order.status),
       orderRefundStatus: toMopRefundStatus(order.status),
-      orderConsumeStatus: MOP_CONSUME_STATUS.NOT_CONSUMED,
+      orderConsumeStatus,
       ticketInfo: requestBody.ticketInfo.map(item => ({
         myTicketId: item.myTicketId,
         channelTicketId: item.skuId,
-        ticketConsumeStatus: MOP_CONSUME_STATUS.NOT_CONSUMED,
+        ticketConsumeStatus: orderConsumeStatus,
         checkCode: null,
         checkQrCode: null,
       })),
@@ -939,5 +960,39 @@ export default class MoeService extends RC7BaseService {
     const schema = await this.getSchema();
 
     return listMopOrderSyncRecordsByOrderId(this.pool, schema, rid);
+  }
+
+  async notifyOrderConsumed(
+    ctx: Context<{ oid: string }>,
+  ): Promise<void> {
+    const { oid } = ctx.params;
+    const schema = await this.getSchema();
+
+    const record = await getSuccessfulOrderCreateRecordByOrderId(this.pool, schema, oid);
+    if (!record) {
+      throw new MoleculerClientError(
+        `No successful MOP order create record found for order ${oid}`,
+        404,
+        'MOP_ORDER_RECORD_NOT_FOUND'
+      );
+    }
+
+    const requestBody = record.request_body as MopOrderCreateRequest;
+    const consumeBody = {
+      myOrderId: record.my_order_id,
+      ticketInfo: requestBody.ticketInfo.map(t => t.myTicketId),
+    };
+
+    const privateKey = await readKey(config.mop.private_key_path);
+    const publicKey = await readKey(config.mop.public_key_path);
+    const consumeUrl = new URL(MOP_CONSUME_URI, config.mop.base_url).toString();
+
+    await mopPostJSON(consumeUrl, {
+      supplier: config.mop.supplier,
+      aesKey: config.mop.aes_key,
+      privateKey,
+      responsePublicKey: publicKey,
+      body: consumeBody,
+    });
   }
 }

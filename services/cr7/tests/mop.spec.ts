@@ -20,6 +20,7 @@ import {
   updateExhibition,
 } from './fixtures/exhibition.js';
 import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
+import { redeemCode } from './fixtures/redeem.js';
 import {
   MopEncryptedResponse,
   getMopOrderSyncRecords,
@@ -504,7 +505,7 @@ describeFeature(feature, ({
     // 查询订单
     Given('用户在猫眼查看订单 {string} 的详情', async (_ctx, myOrderId: string) => {
       featureContext.mopOrderQueryDraft = { myOrderId };
-            const { apiServer, mopOrderQueryDraft } = featureContext;
+      const { apiServer, mopOrderQueryDraft } = featureContext;
       featureContext.mopOrderQueryEnvelope = await queryMopOrderFromCr7(apiServer, mopOrderQueryDraft!);
     });
 
@@ -1153,6 +1154,45 @@ describeFeature(feature, ({
       const [latestRecord] = records!;
       expect(latestRecord.my_order_id).toBe(myOrderId);
       expect(latestRecord.sync_status).toBe('SUCCESS');
+    });
+  });
+
+  Scenario('用户在核销了订单之后，通知猫眼', (s: StepTest<void>) => {
+    const { When, Then, And } = s;
+
+    When('用户核销了订单', async () => {
+      const { apiServer, adminToken, exhibition, orderRedemption } = featureContext;
+      await redeemCode(apiServer, exhibition.id, orderRedemption!.code, adminToken!);
+    });
+
+    Then('cr7 通知猫眼订单 {string} 已经核销', (_ctx, myOrderId: string) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      expect(request.uri).toBe('/supply/open/mop/consume');
+      expect(request.body).toMatchObject({ myOrderId });
+    });
+
+    Then('cr7 核销码状态变成已核销', async () => {
+      const { broker, order } = featureContext;
+      const redemption = await broker.call<
+        Redeem.RedemptionCodeWithOrder, { oid: string }
+      >(
+        'cr7.redemption.getByOrder',
+        { oid: order!.id },
+        { meta: { user: { uid: order!.user_id } } },
+      );
+      expect(redemption.status).toBe('REDEEMED');
+    });
+
+    And('订单详情中的订单状态为已出票， 值为 {int}', (_ctx, status: number) => {
+      expect(featureContext.mopOrderQueryBody!.orderStatus).toBe(status);
+    });
+
+    And('订单详情中的退款状态为未发起，值为 {int}', (_ctx, status: number) => {
+      expect(featureContext.mopOrderQueryBody!.orderRefundStatus).toBe(status);
+    });
+
+    And('订单详情中的核销状态为已消费，值为 {int}', (_ctx, status: number) => {
+      expect(featureContext.mopOrderQueryBody!.orderConsumeStatus).toBe(status);
     });
   });
 });

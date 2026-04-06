@@ -102,6 +102,34 @@ export async function getFirstSuccessfulMopOrderSyncRecordByMyOrderId(
   return rows[0] ?? null;
 }
 
+export async function getSuccessfulOrderCreateRecordByOrderId(
+  client: DBClient,
+  schema: string,
+  orderId: string,
+): Promise<Mop.MopOrderSyncRecord | null> {
+  const { rows } = await client.query<Mop.MopOrderSyncRecord>(
+    `SELECT
+      id,
+      my_order_id,
+      request_path,
+      request_body,
+      response_body,
+      sync_status,
+      order_id,
+      user_id,
+      created_at
+    FROM ${schema}.mop_order_sync_records
+    WHERE order_id = $1
+      AND request_path = '/mop/order'
+      AND sync_status = 'SUCCESS'
+    ORDER BY created_at ASC
+    LIMIT 1`,
+    [orderId],
+  );
+
+  return rows[0] ?? null;
+}
+
 export async function updateMopOrderSyncRecord(
   client: DBClient,
   schema: string,

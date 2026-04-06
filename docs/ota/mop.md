@@ -660,12 +660,11 @@ Code block
 # 2.9.4接⼝请求/响应⽰例
 
 ```txt
-Code block
-1 Request
-2 {
-3 "myOrderId": "20001595062"
-4 "ticketInfo": ["6141177"]
-5 }
+Request
+{
+    "myOrderId": "20001595062"
+    "ticketInfo": ["6141177"]
+}
 ```
 
 # 2.10订单出票通知
