@@ -47,7 +47,7 @@ export class OrderService extends RC7BaseService {
         items: 'array',
         source: {
           type: 'enum',
-          values: ['DIRECT', 'CTRIP'],
+          values: ['DIRECT', 'CTRIP', 'MOP'],
           optional: true,
           default: 'DIRECT',
         },

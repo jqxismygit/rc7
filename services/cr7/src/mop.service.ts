@@ -2,8 +2,13 @@ import { readFile } from 'node:fs/promises';
 import config from 'config';
 import { format, isDate, parse, parseISO } from 'date-fns';
 import { Context, Errors, ServiceBroker } from 'moleculer';
-import { Exhibition, Order } from '@cr7/types';
+import { Exhibition, Mop, Order } from '@cr7/types';
 import { RC7BaseService } from './libs/cr7.base.js';
+import {
+  createMopOrderSyncRecord,
+  listMopOrderSyncRecordsByOrderId,
+  updateMopOrderSyncRecord,
+} from './data/mop.js';
 import {
   buildMopResponseSign,
   decryptMopData,
@@ -242,6 +247,14 @@ export default class MoeService extends RC7BaseService {
           },
           handler: this.receiveOrderFromMop,
         },
+        getMopOrderRecord: {
+          rest: 'GET /orders/:rid',
+          roles: ['admin'],
+          params: {
+            rid: 'uuid',
+          },
+          handler: this.getMopOrderRecord,
+        },
       },
 
       async started() {
@@ -453,25 +466,61 @@ export default class MoeService extends RC7BaseService {
     }
   }
 
+  async finishWithMopResponse(
+    recordId: string,
+    code: number,
+    msg: string,
+    body: unknown = null,
+    syncStatus: Mop.MopOrderSyncStatus = 'FAILED',
+    orderId: string | null = null,
+  ) {
+    const schema = await this.getSchema();
+    const response = await this.buildMopResponse(code, msg, body);
+
+    await updateMopOrderSyncRecord(this.pool, schema, {
+      id: recordId,
+      responseBody: body,
+      syncStatus,
+      orderId,
+    });
+
+    return response;
+  }
+
   async receiveOrderFromMop(
-    ctx: Context<{ encryptData: string }, { headers?: Record<string, string | string[]>; $statusCode?: number }>,
+    ctx: Context<
+      { encryptData: string },
+      {
+        headers?: Record<string, string | string[]>;
+        $statusCode?: number;
+      }
+    >,
   ): Promise<MopResponseEnvelope> {
     ctx.meta.$statusCode = 200;
 
     const headers = ctx.meta.headers ?? {};
     const signValidation = await this.validateMopSign(headers, MOP_ORDER_URI);
-    if (!signValidation.ok) {
+    if (signValidation.ok === false) {
       return signValidation.response;
     }
 
     const decryptResult = await this.decryptMopRequestBody<MopOrderCreateRequest>(
       ctx.params.encryptData,
     );
-    if (!decryptResult.ok) {
+    if (decryptResult.ok === false) {
       return decryptResult.response;
     }
 
     const requestBody = decryptResult.body;
+    const schema = await this.getSchema();
+    const { id: recordId } = await createMopOrderSyncRecord(this.pool, schema, {
+      myOrderId: requestBody.myOrderId ?? null,
+      requestPath: MOP_ORDER_URI,
+      requestBody,
+      responseBody: null,
+      syncStatus: 'FAILED',
+      orderId: null,
+    });
 
     const {
       myOrderId,
@@ -493,7 +542,7 @@ export default class MoeService extends RC7BaseService {
       !Array.isArray(ticketInfo) ||
       ticketInfo.length === 0
     ) {
-      return this.buildMopResponse(10001, '参数异常');
+      return this.finishWithMopResponse(recordId, 10001, '参数异常');
     }
 
     const exhibition = await ctx.call<Exhibition.Exhibition | null, { eid: string }>(
@@ -502,7 +551,7 @@ export default class MoeService extends RC7BaseService {
     ).catch(() => null);
 
     if (!exhibition) {
-      return this.buildMopResponse(30003, '项目状态异常');
+      return this.finishWithMopResponse(recordId, 30003, '项目状态异常');
     }
 
     const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
@@ -512,7 +561,7 @@ export default class MoeService extends RC7BaseService {
     const session = sessions.find(item => item.id === projectShowCode) ?? null;
 
     if (!session) {
-      return this.buildMopResponse(30004, '场次状态异常');
+      return this.finishWithMopResponse(recordId, 30004, '场次状态异常');
     }
 
     const ticketCategories = await ctx.call<Exhibition.TicketCategory[], { eid: string }>(
@@ -523,19 +572,19 @@ export default class MoeService extends RC7BaseService {
 
     const totalPriceFromItems = ticketInfo.reduce((sum, item) => sum + Number(item.ticketPrice), 0);
     if (Number(totalPrice).toFixed(2) !== totalPriceFromItems.toFixed(2)) {
-      return this.buildMopResponse(30002, '订单价格不一致');
+      return this.finishWithMopResponse(recordId, 30002, '订单价格不一致');
     }
 
     const itemCountBySku = new Map<string, number>();
     for (const item of ticketInfo) {
       const ticket = ticketById.get(item.skuId);
       if (!ticket) {
-        return this.buildMopResponse(30005, '票档状态异常');
+        return this.finishWithMopResponse(recordId, 30005, '票档状态异常');
       }
 
       const expectedPrice = Number(toYuanString(ticket.price));
       if (Number(item.ticketPrice) !== expectedPrice) {
-        return this.buildMopResponse(30002, '订单价格不一致');
+        return this.finishWithMopResponse(recordId, 30002, '订单价格不一致');
       }
 
       itemCountBySku.set(item.skuId, (itemCountBySku.get(item.skuId) ?? 0) + 1);
@@ -564,7 +613,7 @@ export default class MoeService extends RC7BaseService {
           ticket_category_id,
           quantity,
         })),
-        source: 'DIRECT',
+        source: 'MOP',
         user_id: userId,
       });
 
@@ -574,15 +623,26 @@ export default class MoeService extends RC7BaseService {
         payExpiredTime: String(new Date(order.expires_at).getTime()),
       };
 
-      return this.buildMopResponse(10000, '成功', responseBody);
+      return this.finishWithMopResponse(
+        recordId, 10000, '成功', responseBody, 'SUCCESS', order.id
+      );
     } catch (error) {
       const errorCode = (error as { code?: string })?.code;
       if (errorCode === 'INVENTORY_NOT_ENOUGH') {
-        return this.buildMopResponse(30006, '库存不足');
+        return this.finishWithMopResponse(recordId, 30006, '库存不足');
       }
 
       this.logger.error('处理 MOP 订单同步时发生错误', error);
-      return this.buildMopResponse(10099, '系统异常');
+      return this.finishWithMopResponse(recordId, 10099, '系统异常');
     }
+  }
+
+  async getMopOrderRecord(
+    ctx: Context<{ rid: string }, UserMeta>,
+  ): Promise<Mop.MopOrderSyncRecord[]> {
+    const { rid } = ctx.params;
+    const schema = await this.getSchema();
+
+    return listMopOrderSyncRecordsByOrderId(this.pool, schema, rid);
   }
 }

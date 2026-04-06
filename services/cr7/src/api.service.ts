@@ -207,6 +207,15 @@ const routes = [
     }
   ),
   routeConfig(
+    '/ota/mop',
+    ['mop.getMopOrderRecord'],
+    {
+      aliases: {
+        'GET /orders/:rid': 'mop.getMopOrderRecord',
+      }
+    }
+  ),
+  routeConfig(
     '/mop',
     ['mop.receiveOrderFromMop'],
     {

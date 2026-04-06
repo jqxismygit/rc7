@@ -10,7 +10,7 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import { format, isDate, parse, parseISO } from 'date-fns';
-import { Exhibition, Order, User } from '@cr7/types';
+import { Exhibition, Mop, Order, User } from '@cr7/types';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
 import { listUsers, prepareAdminToken } from './fixtures/user.js';
 import {
@@ -22,6 +22,7 @@ import {
 import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 import {
   MopEncryptedResponse,
+  getMopOrderSyncRecords,
   MopOrderCreateRequest,
   MopOrderSyncResponseData,
   parseMopEncryptedResponse,
@@ -97,6 +98,7 @@ interface OrderContext {
   mopOrderBody: MopOrderSyncResponseData | null;
   orderUser: User.Profile;
   order: Order.OrderWithItems;
+  records: Mop.MopOrderSyncRecord[];
 }
 
 interface FeatureContext extends
@@ -456,11 +458,12 @@ describeFeature(feature, ({
       featureContext.orderUser = user;
     });
 
-    Then('cr7 创建了一个订单，状态为待支付', async () => {
+    Then('cr7 创建了一个订单，来源为 {string}, 状态为待支付', async (_ctx, source: string) => {
       const { mopOrderBody, apiServer, adminToken } = featureContext;
       const { channelOrderId } = mopOrderBody!;
       const order = await getOrderAdmin(apiServer, channelOrderId, adminToken!);
       expect(order.status).toEqual('PENDING_PAYMENT');
+      expect(order.source).toEqual(source);
       featureContext.order = order;
     });
 
@@ -841,5 +844,28 @@ describeFeature(feature, ({
       const { mopOrderBody, order } = featureContext;
       expect(Number(mopOrderBody!.payExpiredTime)).toEqual(new Date(order!.expires_at).getTime());
     });
+
+    When('管理员查看猫眼订单同步记录', async () => {
+      const { apiServer, adminToken, order } = featureContext;
+      featureContext.records = await getMopOrderSyncRecords(
+        apiServer, adminToken, order!.id
+      );
+    });
+
+    Then('订单同步记录里有一条记录，记录的猫眼订单 ID 是 {string}，同步状态是成功', (_ctx, myOrderId: string) => {
+      const { records, order, mopOrderDraft } = featureContext;
+      expect(records).toHaveLength(1);
+      const [record] = records!;
+      expect(record.my_order_id).toBe(myOrderId);
+      expect(record.sync_status).toBe('SUCCESS');
+      expect(record.request_path).toBe('/mop/order');
+      expect(record.request_body).toEqual(mopOrderDraft);
+    });
+
+    And('订单同步记录里的订单 ID 是 cr7 生成的订单 ID', () => {
+      const { records, order } = featureContext;
+      const [record] = records!;
+      expect(record.order_id).toBe(order!.id);
+    })
   });
 });

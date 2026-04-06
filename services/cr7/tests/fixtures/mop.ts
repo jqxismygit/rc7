@@ -13,6 +13,8 @@ import config from 'config';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { mockJSONServer } from '../lib/server.js';
+import type { Mop } from '@cr7/types';
+import { getJSON } from '../lib/api.js';
 
 export interface SyncExhibitionToMoeResponse {
   success: true;
@@ -139,6 +141,18 @@ export async function syncMopOrderToCr7(
     server,
     '/mop/order',
     { headers: { ...headers }, body: payload },
+  );
+}
+
+export async function getMopOrderSyncRecords(
+  server: Server,
+  token: string,
+  cr7OrderId: string,
+): Promise<Mop.MopOrderSyncRecord[]> {
+  return getJSON<Mop.MopOrderSyncRecord[]>(
+    server,
+    `/ota/mop/orders/${cr7OrderId}`,
+    { token },
   );
 }
 
