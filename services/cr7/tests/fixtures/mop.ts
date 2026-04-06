@@ -104,6 +104,11 @@ export interface MopTicketConfirmationRequest {
   myOrderId: string;
 }
 
+export interface MopOrderStatusChangeRequest {
+  myOrderId: string;
+  bizType: number;
+}
+
 export interface MopTicketConfirmationResponse {
   myOrderId: string;
   fetchCode: string | null;
@@ -217,6 +222,26 @@ export async function sendMopTicketConfirmation(
   return postJSON<MopEncryptedResponse>(
     server,
     '/mop/ticket',
+    { headers: { ...headers }, body: payload },
+  );
+}
+
+export async function sendMopOrderStatusChange(
+  server: Server,
+  body: MopOrderStatusChangeRequest,
+) {
+  const { mop } = config;
+  const { supplier, aes_key: aesKey, private_key_path } = mop;
+  const privateKey = await readFile(path.resolve(private_key_path), 'utf-8');
+
+  const { headers, payload } = buildMopRequest(
+    '/mop/orderStatusChange',
+    { supplier, aesKey, privateKey, body }
+  );
+
+  return postJSON<MopEncryptedResponse>(
+    server,
+    '/mop/orderStatusChange',
     { headers: { ...headers }, body: payload },
   );
 }

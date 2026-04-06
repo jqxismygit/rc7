@@ -25,6 +25,7 @@ import {
   MopEncryptedResponse,
   getMopOrderSyncRecords,
   MopOrderCreateRequest,
+  MopOrderStatusChangeRequest,
   MopOrderQueryRequest,
   MopOrderQueryResponseData,
   MopOrderSyncResponseData,
@@ -32,6 +33,7 @@ import {
   MopTicketConfirmationResponse,
   parseMopEncryptedResponse,
   queryMopOrderFromCr7,
+  sendMopOrderStatusChange,
   sendMopTicketConfirmation,
   verifyMopResponseSign,
   setupMopMockServer,
@@ -121,12 +123,18 @@ interface TicketConfirmationContext {
   orderRedemption: Redeem.RedemptionCodeWithOrder;
 }
 
+interface OrderStatusChangeContext {
+  mopOrderStatusChangeDraft: MopOrderStatusChangeRequest;
+  mopOrderStatusChangeEnvelope: MopEncryptedResponse;
+}
+
 interface FeatureContext extends
   ExhibitionContext,
   MopServerContext,
   Partial<OrderContext>,
   Partial<OrderQueryContext>,
-  Partial<TicketConfirmationContext> {
+  Partial<TicketConfirmationContext>,
+  Partial<OrderStatusChangeContext> {
   broker: ServiceBroker;
   apiServer: Server;
   adminToken: string;
@@ -553,6 +561,10 @@ describeFeature(feature, ({
       expect(featureContext.mopOrderQueryBody!.orderConsumeStatus).toBe(status);
     });
 
+    And('订单详情中的订单状态为已取消，值为 {int}', (_ctx, status: number) => {
+      expect(featureContext.mopOrderQueryBody!.orderStatus).toBe(status);
+    });
+
     And('订单详情中的取票码为 null，取票二维码为 null', () => {
       expect(featureContext.mopOrderQueryBody!.fetchCode).toBeNull();
       expect(featureContext.mopOrderQueryBody!.fetchQrCode).toBeNull();
@@ -638,6 +650,66 @@ describeFeature(feature, ({
         mopTicketEnvelope!
       );
     });
+
+    // 取消订单
+    Given('用户在猫眼取消了订单 {string}', (_ctx, myOrderId: string) => {
+      featureContext.mopOrderStatusChangeDraft = {
+        myOrderId,
+        bizType: 0,
+      };
+    });
+
+    When('cr7 收到猫眼的取消通知，签名验证通过，解密无误', async () => {
+      const { apiServer, mopOrderStatusChangeDraft } = featureContext;
+      featureContext.mopOrderStatusChangeEnvelope = await sendMopOrderStatusChange(
+        apiServer,
+        mopOrderStatusChangeDraft!,
+      );
+      await verifyMopResponseSign('/mop/orderStatusChange', featureContext.mopOrderStatusChangeEnvelope);
+    });
+
+    Then('cr7 订单状态变更为已取消', async () => {
+      const { apiServer, adminToken, mopOrderBody } = featureContext;
+      const cancelledOrder = await getOrderAdmin(
+        apiServer,
+        mopOrderBody!.channelOrderId,
+        adminToken!,
+      );
+      featureContext.order = cancelledOrder;
+      expect(cancelledOrder.status).toBe('CANCELLED');
+    });
+
+    Then('cr7 返回了订单取消结果', () => {
+      const { mopOrderStatusChangeEnvelope } = featureContext;
+      expect(mopOrderStatusChangeEnvelope).toHaveProperty('code');
+      expect(mopOrderStatusChangeEnvelope).toHaveProperty('msg');
+      expect(mopOrderStatusChangeEnvelope).toHaveProperty('sign');
+      expect(mopOrderStatusChangeEnvelope).toHaveProperty('encryptData');
+      expect(mopOrderStatusChangeEnvelope!.code).toBe(10000);
+    });
+
+    And('订单取消结果中的 encrypt data 为 null', () => {
+      expect(featureContext.mopOrderStatusChangeEnvelope!.encryptData).toBeNull();
+    });
+
+    // records
+    When('管理员查看猫眼订单同步记录', async () => {
+      const { apiServer, adminToken, order } = featureContext;
+      featureContext.records = await getMopOrderSyncRecords(
+        apiServer, adminToken, order!.id
+      );
+    });
+
+    Then('订单同步记录里有 {int} 条记录', (_ctx, count: number) => {
+      const { records } = featureContext;
+      expect(records).toHaveLength(count);
+    });
+
+    And('最新的订单同步记录中 request_path 是 {string}', (_ctx, requestPath: string) => {
+      const { records } = featureContext;
+      expect(records![0].request_path).toBe(requestPath);
+    });
+
   })
 
   Background(({ Given, And }) => {
@@ -1003,13 +1075,6 @@ describeFeature(feature, ({
       expect(Number(mopOrderBody!.payExpiredTime)).toEqual(new Date(order!.expires_at).getTime());
     });
 
-    When('管理员查看猫眼订单同步记录', async () => {
-      const { apiServer, adminToken, order } = featureContext;
-      featureContext.records = await getMopOrderSyncRecords(
-        apiServer, adminToken, order!.id
-      );
-    });
-
     Then('订单同步记录里有一条记录，记录的猫眼订单 ID 是 {string}，同步状态是成功', (_ctx, myOrderId: string) => {
       const { records, order, mopOrderDraft } = featureContext;
       expect(records).toHaveLength(1);
@@ -1116,15 +1181,6 @@ describeFeature(feature, ({
       expect(mopTicketBody!.ticketInfo[index - 1].checkQrCode).toBe(orderRedemption!.code);
     });
 
-    When('管理员查看猫眼订单同步记录', async () => {
-      const { apiServer, adminToken, order } = featureContext;
-      featureContext.records = await getMopOrderSyncRecords(
-        apiServer,
-        adminToken,
-        order!.id,
-      );
-    });
-
     Then('订单同步记录里有 {int} 条记录', (_ctx, count: number) => {
       const { records } = featureContext;
       expect(records).toHaveLength(count);
@@ -1211,5 +1267,42 @@ describeFeature(feature, ({
       expect(redemption.status).toBe('REDEEMED');
     });
 
+  });
+
+  Scenario('用户在猫眼取消了订单', (s: StepTest<void>) => {
+    const { When, Then, And } = s;
+
+    When('猫眼再次把相同的订单取消信息同步给 cr7', async () => {
+      const { apiServer, mopOrderStatusChangeDraft } = featureContext;
+      featureContext.mopOrderStatusChangeEnvelope = await sendMopOrderStatusChange(
+        apiServer,
+        mopOrderStatusChangeDraft!,
+      );
+    });
+
+    Then('cr7 再次收到订单取消同步消息，可以正常验证签名，解密无误', async () => {
+      const { mopOrderStatusChangeEnvelope } = featureContext;
+      await verifyMopResponseSign('/mop/orderStatusChange', mopOrderStatusChangeEnvelope!);
+      expect(mopOrderStatusChangeEnvelope!.code).toBe(10000);
+      expect(mopOrderStatusChangeEnvelope!.encryptData).toBeNull();
+    });
+
+    And('cr7 订单状态为已取消，订单状态没有变化', async () => {
+      const { apiServer, adminToken, order } = featureContext;
+      const cancelledOrder = await getOrderAdmin(apiServer, order!.id, adminToken!);
+      expect(cancelledOrder.status).toBe('CANCELLED');
+      expect(cancelledOrder.cancelled_at).toBe(order!.cancelled_at);
+    });
+
+    And('订单同步记录里有 3 条记录，最新的记录的猫眼订单 ID 是 {string}，同步状态是成功', async (_ctx, myOrderId: string) => {
+      const { apiServer, adminToken, order, mopOrderBody } = featureContext;
+      const orderId = order?.id ?? mopOrderBody!.channelOrderId;
+      featureContext.records = await getMopOrderSyncRecords(apiServer, adminToken, orderId);
+      const { records } = featureContext;
+      expect(records).toHaveLength(3);
+      const [latestRecord] = records!;
+      expect(latestRecord.my_order_id).toBe(myOrderId);
+      expect(latestRecord.sync_status).toBe('SUCCESS');
+    });
   });
 });

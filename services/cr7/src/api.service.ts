@@ -217,7 +217,12 @@ const routes = [
   ),
   routeConfig(
     '/mop',
-    ['mop.receiveOrderFromMop', 'mop.queryOrderFromMop', 'mop.receiveTicketFromMop'],
+    [
+      'mop.receiveOrderFromMop',
+      'mop.queryOrderFromMop',
+      'mop.receiveTicketFromMop',
+      'mop.receiveOrderStatusChangeFromMop',
+    ],
     {
       authentication: false,
       authorization: false,
@@ -225,6 +230,7 @@ const routes = [
         'POST /order': 'mop.receiveOrderFromMop',
         'POST /orderQuery': 'mop.queryOrderFromMop',
         'POST /ticket': 'mop.receiveTicketFromMop',
+        'POST /orderStatusChange': 'mop.receiveOrderStatusChangeFromMop',
       },
     }
   ),

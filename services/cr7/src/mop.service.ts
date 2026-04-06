@@ -121,6 +121,11 @@ type MopTicketConfirmationRequest = {
   myOrderId: string;
 };
 
+type MopOrderStatusChangeRequest = {
+  myOrderId: string;
+  bizType: number;
+};
+
 type MopTicketConfirmationResponse = {
   myOrderId: string;
   fetchCode: string | null;
@@ -168,7 +173,9 @@ const MOP_INVENTORY_TYPE_SHARED = 1;
 const MOP_ORDER_URI = '/mop/order';
 const MOP_ORDER_QUERY_URI = '/mop/orderQuery';
 const MOP_TICKET_URI = '/mop/ticket';
+const MOP_ORDER_STATUS_CHANGE_URI = '/mop/orderStatusChange';
 const MOP_CONSUME_URI = '/supply/open/mop/consume';
+const MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_CANCEL = 0;
 
 const MOP_ORDER_STATUS = {
   INITIAL: 0,
@@ -352,6 +359,13 @@ export default class MoeService extends RC7BaseService {
             encryptData: 'string',
           },
           handler: this.receiveTicketFromMop,
+        },
+        receiveOrderStatusChangeFromMop: {
+          rest: 'POST /orderStatusChange',
+          params: {
+            encryptData: 'string',
+          },
+          handler: this.receiveOrderStatusChangeFromMop,
         },
         getMopOrderRecord: {
           rest: 'GET /orders/:rid',
@@ -950,6 +964,82 @@ export default class MoeService extends RC7BaseService {
       responseBody,
       'SUCCESS',
       order.id,
+      firstSuccessRecord.user_id,
+    );
+  }
+
+  async receiveOrderStatusChangeFromMop(
+    ctx: Context<
+      { encryptData: string },
+      {
+        headers?: Record<string, string | string[]>;
+        $statusCode?: number;
+      }
+    >,
+  ): Promise<MopResponseEnvelope> {
+    ctx.meta.$statusCode = 200;
+
+    const headers = ctx.meta.headers ?? {};
+    const signValidation = await this.validateMopSign(headers, MOP_ORDER_STATUS_CHANGE_URI);
+    if (signValidation.ok === false) {
+      return signValidation.response;
+    }
+
+    const decryptResult = await this.decryptMopRequestBody<MopOrderStatusChangeRequest>(
+      ctx.params.encryptData,
+    );
+    if (decryptResult.ok === false) {
+      return decryptResult.response;
+    }
+
+    const requestBody = decryptResult.body;
+    const schema = await this.getSchema();
+    const { myOrderId, bizType } = requestBody;
+    if (!myOrderId || bizType !== MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_CANCEL) {
+      return this.buildMopResponse(10001, '参数异常');
+    }
+
+    const { id: recordId } = await createMopOrderSyncRecord(this.pool, schema, {
+      myOrderId: requestBody.myOrderId ?? null,
+      requestPath: MOP_ORDER_STATUS_CHANGE_URI,
+      requestBody,
+      responseBody: null,
+      syncStatus: 'FAILED',
+      orderId: null,
+    });
+
+    const firstSuccessRecord = await getFirstSuccessfulMopOrderSyncRecordByMyOrderId(
+      this.pool,
+      schema,
+      myOrderId,
+    );
+
+    if (firstSuccessRecord?.order_id == null || firstSuccessRecord.user_id == null) {
+      return this.finishWithMopResponse(recordId, 10001, '参数异常');
+    }
+
+    try {
+      await ctx.call(
+        'cr7.order.cancel',
+        { oid: firstSuccessRecord.order_id },
+        { meta: { user: { uid: firstSuccessRecord.user_id } } },
+      );
+      ctx.meta.$statusCode = 200;
+    } catch (error) {
+      this.logger.error('处理 MOP 订单取消通知时发生错误', error);
+      return this.finishWithMopResponse(
+        recordId, 10099,
+        (error as Error).message || '系统异常'
+      );
+    }
+
+    return this.finishWithMopResponse(
+      recordId,
+      10000,
+      '成功',
+      null,
+      'SUCCESS',
+      firstSuccessRecord.order_id,
       firstSuccessRecord.user_id,
     );
   }
