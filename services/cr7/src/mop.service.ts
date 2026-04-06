@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import config from 'config';
 import { format, isDate, parse, parseISO } from 'date-fns';
 import { Context, Errors, ServiceBroker } from 'moleculer';
-import { Exhibition, Mop, Order } from '@cr7/types';
+import { Exhibition, Mop, Order, Redeem } from '@cr7/types';
 import { RC7BaseService } from './libs/cr7.base.js';
 import {
   createMopOrderSyncRecord,
@@ -116,6 +116,23 @@ type MopOrderQueryResponse = {
   }>;
 };
 
+type MopTicketConfirmationRequest = {
+  myOrderId: string;
+};
+
+type MopTicketConfirmationResponse = {
+  myOrderId: string;
+  fetchCode: string | null;
+  fetchQrCode: string | null;
+  orderStatus: number;
+  ticketInfo: Array<{
+    myTicketId: string;
+    channelTicketId: string;
+    checkCode: string | null;
+    checkQrCode: string | null;
+  }>;
+};
+
 type MopResponseEnvelope = {
   code: number;
   timestamp: string;
@@ -149,6 +166,7 @@ const MOP_SKU_IS_OTA = 1;
 const MOP_INVENTORY_TYPE_SHARED = 1;
 const MOP_ORDER_URI = '/mop/order';
 const MOP_ORDER_QUERY_URI = '/mop/orderQuery';
+const MOP_TICKET_URI = '/mop/ticket';
 
 const MOP_ORDER_STATUS = {
   INITIAL: 0,
@@ -324,6 +342,13 @@ export default class MoeService extends RC7BaseService {
             encryptData: 'string',
           },
           handler: this.queryOrderFromMop,
+        },
+        receiveTicketFromMop: {
+          rest: 'POST /ticket',
+          params: {
+            encryptData: 'string',
+          },
+          handler: this.receiveTicketFromMop,
         },
         getMopOrderRecord: {
           rest: 'GET /orders/:rid',
@@ -807,6 +832,81 @@ export default class MoeService extends RC7BaseService {
         ticketConsumeStatus: MOP_CONSUME_STATUS.NOT_CONSUMED,
         checkCode: null,
         checkQrCode: null,
+      })),
+    };
+
+    return this.buildMopResponse(10000, '成功', responseBody);
+  }
+
+  async receiveTicketFromMop(
+    ctx: Context<
+      { encryptData: string },
+      {
+        headers?: Record<string, string | string[]>;
+        $statusCode?: number;
+      }
+    >,
+  ): Promise<MopResponseEnvelope> {
+    ctx.meta.$statusCode = 200;
+
+    const headers = ctx.meta.headers ?? {};
+    const signValidation = await this.validateMopSign(headers, MOP_TICKET_URI);
+    if (signValidation.ok === false) {
+      return signValidation.response;
+    }
+
+    const decryptResult = await this.decryptMopRequestBody<MopTicketConfirmationRequest>(
+      ctx.params.encryptData,
+    );
+    if (decryptResult.ok === false) {
+      return decryptResult.response;
+    }
+
+    const { myOrderId } = decryptResult.body;
+    if (!myOrderId) {
+      return this.buildMopResponse(10001, '参数异常');
+    }
+
+    const schema = await this.getSchema();
+    const firstSuccessRecord = await getFirstSuccessfulMopOrderSyncRecordByMyOrderId(
+      this.pool,
+      schema,
+      myOrderId,
+    );
+
+    if (firstSuccessRecord?.order_id == null || firstSuccessRecord.user_id == null) {
+      return this.buildMopResponse(10001, '参数异常');
+    }
+
+    await ctx.call<{ paid_at: Date }, { oid: string }>(
+      'cr7.order.markPaid',
+      { oid: firstSuccessRecord.order_id },
+    );
+
+    const order = await ctx.call<Order.OrderWithItems, { oid: string }>(
+      'cr7.order.get',
+      { oid: firstSuccessRecord.order_id },
+      { meta: { user: { uid: firstSuccessRecord.user_id } } }
+    );
+
+    const redemption = await ctx.call<Redeem.RedemptionCodeWithOrder, { oid: string }>(
+      'cr7.redemption.getByOrder',
+      { oid: firstSuccessRecord.order_id },
+      { meta: { user: { uid: firstSuccessRecord.user_id } } },
+    ).then(res => res, () => null);
+    const redeemCode = redemption?.code ?? null;
+
+    const requestBody = firstSuccessRecord.request_body as MopOrderCreateRequest;
+    const responseBody: MopTicketConfirmationResponse = {
+      myOrderId,
+      fetchCode: null,
+      fetchQrCode: null,
+      orderStatus: toMopOrderStatus(order.status),
+      ticketInfo: requestBody.ticketInfo.map(item => ({
+        myTicketId: item.myTicketId,
+        channelTicketId: item.skuId,
+        checkCode: redeemCode,
+        checkQrCode: redeemCode,
       })),
     };
 

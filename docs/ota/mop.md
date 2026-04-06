@@ -549,25 +549,24 @@ Response
 
 # 2.6.4接⼝请求/响应⽰例
 
-```txt
-Code block
-1 Request
-2 {
-3 "myOrderId": "20001595062"
-4 }
-5
-6 \(= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
-7 Response
-8 {
-9 "myOrderId": "20001595062",
-10 "orderStatus": 4,
-11 "ticketInfo": [
-12 {
-13 "myTicketId": "6141177",
-14 "channelTicketId": "585672460389097544"
-15 }
-16 ]
-17 }
+```json
+Request
+{
+    "myOrderId": "20001595062"
+}
+
+==========================
+Response
+{
+    "myOrderId": "20001595062",
+    "orderStatus": 4,
+    "ticketInfo": [
+        {
+            "myTicketId": "6141177",
+            "channelTicketId": "585672460389097544"
+        }
+    ]
+}
 ```
 
 # 2.7订单查询接⼝

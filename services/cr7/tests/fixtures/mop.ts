@@ -100,6 +100,23 @@ export interface MopOrderQueryResponseData {
   }>;
 }
 
+export interface MopTicketConfirmationRequest {
+  myOrderId: string;
+}
+
+export interface MopTicketConfirmationResponse {
+  myOrderId: string;
+  fetchCode: string | null;
+  fetchQrCode: string | null;
+  orderStatus: number;
+  ticketInfo: Array<{
+    myTicketId: string;
+    channelTicketId: string;
+    checkCode: string | null;
+    checkQrCode: string | null;
+  }>;
+}
+
 export interface MopEncryptedResponse {
   code: number;
   timestamp: string;
@@ -180,6 +197,26 @@ export async function queryMopOrderFromCr7(
   return postJSON<MopEncryptedResponse>(
     server,
     '/mop/orderQuery',
+    { headers: { ...headers }, body: payload },
+  );
+}
+
+export async function sendMopTicketConfirmation(
+  server: Server,
+  body: MopTicketConfirmationRequest,
+) {
+  const { mop } = config;
+  const { supplier, aes_key: aesKey, private_key_path } = mop;
+  const privateKey = await readFile(path.resolve(private_key_path), 'utf-8');
+
+  const { headers, payload } = buildMopRequest(
+    '/mop/ticket',
+    { supplier, aesKey, privateKey, body }
+  );
+
+  return postJSON<MopEncryptedResponse>(
+    server,
+    '/mop/ticket',
     { headers: { ...headers }, body: payload },
   );
 }

@@ -10,7 +10,7 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import { format, isDate, parse, parseISO } from 'date-fns';
-import { Exhibition, Mop, Order, User } from '@cr7/types';
+import { Exhibition, Mop, Order, Redeem, User } from '@cr7/types';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
 import { listUsers, prepareAdminToken } from './fixtures/user.js';
 import {
@@ -27,8 +27,11 @@ import {
   MopOrderQueryRequest,
   MopOrderQueryResponseData,
   MopOrderSyncResponseData,
+  MopTicketConfirmationRequest,
+  MopTicketConfirmationResponse,
   parseMopEncryptedResponse,
   queryMopOrderFromCr7,
+  sendMopTicketConfirmation,
   verifyMopResponseSign,
   setupMopMockServer,
   syncExhibitionToMop,
@@ -110,11 +113,19 @@ interface OrderQueryContext {
   mopOrderQueryBody: MopOrderQueryResponseData | null;
 }
 
+interface TicketConfirmationContext {
+  mopTicketDraft: MopTicketConfirmationRequest;
+  mopTicketEnvelope: MopEncryptedResponse;
+  mopTicketBody: MopTicketConfirmationResponse | null;
+  orderRedemption: Redeem.RedemptionCodeWithOrder;
+}
+
 interface FeatureContext extends
   ExhibitionContext,
   MopServerContext,
   Partial<OrderContext>,
-  Partial<OrderQueryContext> {
+  Partial<OrderQueryContext>,
+  Partial<TicketConfirmationContext> {
   broker: ServiceBroker;
   apiServer: Server;
   adminToken: string;
@@ -975,6 +986,103 @@ describeFeature(feature, ({
     And('订单详情中的第 {int} 个订单项的核销状态为未消费，值为 {int}', (_ctx, index: number, status: number) => {
       expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1]).toBeTruthy();
       expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1].ticketConsumeStatus).toBe(status);
+    });
+  });
+
+  Scenario('用户在猫眼支付了订单', (s: StepTest<void>) => {
+    const { Given, When, Then, And } = s;
+
+    Given('用户在猫眼支付了订单 {string}', (_ctx, myOrderId: string) => {
+      featureContext.mopTicketDraft = { myOrderId };
+    });
+
+    When('cr7 收到猫眼的支付结果通知，签名验证通过，解密无误', async () => {
+      const { apiServer, mopTicketDraft } = featureContext;
+      featureContext.mopTicketEnvelope = await sendMopTicketConfirmation(apiServer, mopTicketDraft!);
+    });
+
+    Then('cr7 订单状态变更为已经支付', async () => {
+      const { apiServer, adminToken, mopOrderBody } = featureContext;
+      const { channelOrderId } = mopOrderBody!;
+      const paidOrder = await getOrderAdmin(apiServer, channelOrderId, adminToken!);
+      featureContext.order = paidOrder;
+      expect(paidOrder.status).toBe('PAID');
+    });
+
+    And('cr7 订单生成了核销码', async () => {
+      const { broker, order } = featureContext;
+      expect(order).toBeTruthy();
+      featureContext.orderRedemption = await broker.call<
+        Redeem.RedemptionCodeWithOrder, { oid: string }
+      >(
+        'cr7.redemption.getByOrder',
+        { oid: order!.id },
+        { meta: { user: { uid: order!.user_id } } },
+      );
+    });
+
+    Then('cr7 返回了订单支付结果', async () => {
+      const { mopTicketEnvelope } = featureContext;
+      expect(mopTicketEnvelope).toHaveProperty('code');
+      expect(mopTicketEnvelope).toHaveProperty('msg');
+      expect(mopTicketEnvelope).toHaveProperty('sign');
+      expect(mopTicketEnvelope).toHaveProperty('encryptData');
+      await verifyMopResponseSign('/mop/ticket', mopTicketEnvelope!);
+      featureContext.mopTicketBody = await parseMopEncryptedResponse<MopTicketConfirmationResponse>(
+        mopTicketEnvelope!
+      );
+    });
+
+    And('订单支付结果的猫眼订单 ID 是 {string}', async (_ctx, myOrderId: string) => {
+      expect(featureContext.mopTicketBody!.myOrderId).toBe(myOrderId);
+    });
+
+    And('订单支付结果的订单状态是已出票，值为 {int}', (_ctx, status: number) => {
+      const { mopTicketBody } = featureContext;
+      expect(mopTicketBody!.orderStatus).toBe(status);
+    });
+
+    And('订单支付结果中的取票码是 null', () => {
+      const { mopTicketBody } = featureContext;
+      expect(mopTicketBody!.fetchCode).toBeNull();
+    });
+
+    And('订单支付结果中的取票二维码是 null', () => {
+      const { mopTicketBody } = featureContext;
+      expect(mopTicketBody!.fetchQrCode).toBeNull();
+    });
+
+    And('订单支付结果中有 {int} 个订单项', (_ctx, itemCount: number) => {
+      const { mopTicketBody } = featureContext;
+      expect(mopTicketBody!.ticketInfo).toHaveLength(itemCount);
+    });
+
+    And('订单支付结果中的第 {int} 个订单项的猫眼 ID 是 {string}', (_ctx, index: number, myTicketId: string) => {
+      const { mopTicketBody } = featureContext;
+      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1].myTicketId).toBe(myTicketId);
+    });
+
+    And('订单支付结果中的第 {int} 个订单项的渠道票 ID 是 {string} 的 ID', (_ctx, index: number, ticketName: string) => {
+      const ticket = featureContext.ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+      const { mopTicketBody } = featureContext;
+      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1].channelTicketId).toBe(ticket.id);
+    });
+
+    And('订单支付结果中的第 {int} 个订单项的检票码是 cr7 的订单的核销码', (_ctx, index: number) => {
+      const { mopTicketBody, orderRedemption } = featureContext;
+      expect(orderRedemption).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1].checkCode).toBe(orderRedemption!.code);
+    });
+
+    And('订单支付结果中的第 {int} 个订单项的检票二维码是 cr7 的订单的核销码', (_ctx, index: number) => {
+      const { mopTicketBody, orderRedemption } = featureContext;
+      expect(orderRedemption).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1].checkQrCode).toBe(orderRedemption!.code);
     });
   });
 });
