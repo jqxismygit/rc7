@@ -10,7 +10,7 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import { format, isDate, parse, parseISO } from 'date-fns';
-import { Exhibition, Mop, Order, Redeem, User } from '@cr7/types';
+import { Exhibition, Inventory, Mop, Order, Redeem, User } from '@cr7/types';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
 import { listUsers, prepareAdminToken } from './fixtures/user.js';
 import {
@@ -19,7 +19,7 @@ import {
   prepareTicketCategory,
   updateExhibition,
 } from './fixtures/exhibition.js';
-import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
+import { getSessionTickets, updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 import { redeemCode } from './fixtures/redeem.js';
 import {
   MopEncryptedResponse,
@@ -461,6 +461,62 @@ describeFeature(feature, ({
       featureContext.mopOrderDraft!.totalPrice = totalPrice.toFixed(2);
     });
 
+    Then('默认展会活动的 {string} 在 {string} 的库存为 {int}', async (
+      _ctx,
+      ticketName: string,
+      dayLabel: string,
+      expectedQuantity: number,
+    ) => {
+      const { apiServer, adminToken, exhibition, ticketByName } = featureContext;
+      const ticket = ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+
+      const sessions = await getSessions(apiServer, exhibition.id, adminToken);
+      const targetDate = toDateLabel(dayLabel);
+      const targetSession = sessions.find(
+        item => toSessionDateLabel(item.session_date) === targetDate,
+      );
+      expect(targetSession).toBeTruthy();
+
+      const sessionTickets = await getSessionTickets(
+        apiServer,
+        adminToken,
+        exhibition.id,
+        targetSession!.id,
+      );
+      const sessionTicket = sessionTickets.find((item: Inventory.SessionTicketsInventory) => item.id === ticket.id);
+      expect(sessionTicket).toBeTruthy();
+      expect(sessionTicket!.quantity).toBe(expectedQuantity);
+    });
+
+    Then('默认展会活动的 {string} 在 {string} 的库存保持为 {int}', async (
+      _ctx,
+      ticketName: string,
+      dayLabel: string,
+      expectedQuantity: number,
+    ) => {
+      const { apiServer, adminToken, exhibition, ticketByName } = featureContext;
+      const ticket = ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+
+      const sessions = await getSessions(apiServer, exhibition.id, adminToken);
+      const targetDate = toDateLabel(dayLabel);
+      const targetSession = sessions.find(
+        item => toSessionDateLabel(item.session_date) === targetDate,
+      );
+      expect(targetSession).toBeTruthy();
+
+      const sessionTickets = await getSessionTickets(
+        apiServer,
+        adminToken,
+        exhibition.id,
+        targetSession!.id,
+      );
+      const sessionTicket = sessionTickets.find((item: Inventory.SessionTicketsInventory) => item.id === ticket.id);
+      expect(sessionTicket).toBeTruthy();
+      expect(sessionTicket!.quantity).toBe(expectedQuantity);
+    });
+
     When('猫眼将订单同步消息发送给 cr7', async () => {
       const { apiServer, mopOrderDraft } = featureContext;
       featureContext.mopOrderEnvelope = await syncMopOrderToCr7(apiServer, mopOrderDraft!);
@@ -690,6 +746,64 @@ describeFeature(feature, ({
 
     And('订单取消结果中的 encrypt data 为 null', () => {
       expect(featureContext.mopOrderStatusChangeEnvelope!.encryptData).toBeNull();
+    });
+
+    // 退款订单
+    Given('用户在猫眼对订单 {string} 申请了退款', (_ctx, myOrderId: string) => {
+      featureContext.mopOrderStatusChangeDraft = {
+        myOrderId,
+        bizType: 1,
+      };
+    });
+
+    When('cr7 收到猫眼的退款通知，签名验证通过，解密无误', async () => {
+      const { apiServer, mopOrderStatusChangeDraft } = featureContext;
+      featureContext.mopOrderStatusChangeEnvelope = await sendMopOrderStatusChange(
+        apiServer,
+        mopOrderStatusChangeDraft!,
+      );
+      await verifyMopResponseSign('/mop/orderStatusChange', featureContext.mopOrderStatusChangeEnvelope);
+    });
+
+    And('猫眼退款消息中的状态值为 {int}，表示用户申请了退款', (_ctx, status: number) => {
+      expect(featureContext.mopOrderStatusChangeDraft).toBeTruthy();
+      expect(featureContext.mopOrderStatusChangeDraft!.bizType).toBe(status);
+      expect(featureContext.mopOrderStatusChangeDraft!.bizType).toBe(1);
+    });
+
+
+    Then('cr7 订单状态变更为已退款', async () => {
+      const { apiServer, adminToken, mopOrderBody } = featureContext;
+      const refundedOrder = await getOrderAdmin(
+        apiServer,
+        mopOrderBody!.channelOrderId,
+        adminToken!,
+      );
+      featureContext.order = refundedOrder;
+      expect(refundedOrder.status).toBe('REFUNDED');
+    });
+
+    And('cr7 订单的核销码失效', async () => {
+      const { broker, order } = featureContext;
+      expect(order).toBeTruthy();
+      await expect(
+        broker.call('cr7.redemption.getByOrder',
+          { oid: order!.id },
+          { meta: { user: { uid: order!.user_id } } },
+        )
+      ).rejects.toMatchObject({
+        code: 410,
+        type: 'ORDER_NOT_REDEEMABLE',
+      });
+    });
+
+    Then('cr7 返回了订单退款结果', () => {
+      const { mopOrderStatusChangeEnvelope } = featureContext;
+      expect(mopOrderStatusChangeEnvelope).toHaveProperty('code');
+      expect(mopOrderStatusChangeEnvelope).toHaveProperty('msg');
+      expect(mopOrderStatusChangeEnvelope).toHaveProperty('sign');
+      expect(mopOrderStatusChangeEnvelope).toHaveProperty('encryptData');
+      expect(mopOrderStatusChangeEnvelope!.code).toBe(10000);
     });
 
     // records
@@ -1260,5 +1374,44 @@ describeFeature(feature, ({
       expect(cancelledOrder.cancelled_at).toBe(order!.cancelled_at);
     });
 
+  });
+
+  Scenario('用户在猫眼对订单申请了退款', (s: StepTest<void>) => {
+    const { Given, When, Then, And } = s;
+
+    And('订单退款结果中的 encrypt data 为 null', () => {
+      expect(featureContext.mopOrderStatusChangeEnvelope!.encryptData).toBeNull();
+    });
+
+    And('订单详情中的退款状态为已退款，值为 {int}', (_ctx, status: number) => {
+      expect(featureContext.mopOrderQueryBody!.orderRefundStatus).toBe(status);
+    });
+
+    Given('猫眼再次把相同的订单退款信息同步给 cr7', async () => {
+      const { apiServer, mopOrderStatusChangeDraft } = featureContext;
+      featureContext.mopOrderStatusChangeEnvelope = await sendMopOrderStatusChange(
+        apiServer,
+        mopOrderStatusChangeDraft!,
+      );
+    });
+
+    When('cr7 再次收到订单退款同步消息，可以正常验证签名，解密无误', async () => {
+      const { mopOrderStatusChangeEnvelope } = featureContext;
+      await verifyMopResponseSign('/mop/orderStatusChange', mopOrderStatusChangeEnvelope!);
+    });
+
+    Then('cr7 再次返回了订单退款结果，订单退款结果中的 encrypt data 为 null', () => {
+      const { mopOrderStatusChangeEnvelope } = featureContext;
+      expect(mopOrderStatusChangeEnvelope).toHaveProperty('code');
+      expect(mopOrderStatusChangeEnvelope!.code).toBe(10000);
+      expect(mopOrderStatusChangeEnvelope!.encryptData).toBeNull();
+    });
+
+    And('cr7 订单状态为已退款，订单状态没有变化，退款时间没有变化', async () => {
+      const { apiServer, adminToken, order } = featureContext;
+      const currentOrder = await getOrderAdmin(apiServer, order!.id, adminToken!);
+      expect(currentOrder.status).toBe('REFUNDED');
+      expect(currentOrder.updated_at).toBe(order!.updated_at);
+    });
   });
 });

@@ -176,6 +176,7 @@ const MOP_TICKET_URI = '/mop/ticket';
 const MOP_ORDER_STATUS_CHANGE_URI = '/mop/orderStatusChange';
 const MOP_CONSUME_URI = '/supply/open/mop/consume';
 const MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_CANCEL = 0;
+const MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_REFUND = 1;
 
 const MOP_ORDER_STATUS = {
   INITIAL: 0,
@@ -995,7 +996,12 @@ export default class MoeService extends RC7BaseService {
     const requestBody = decryptResult.body;
     const schema = await this.getSchema();
     const { myOrderId, bizType } = requestBody;
-    if (!myOrderId || bizType !== MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_CANCEL) {
+    if (!myOrderId
+      || (
+        bizType !== MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_CANCEL
+        && bizType !== MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_REFUND
+      )
+    ) {
       return this.buildMopResponse(10001, '参数异常');
     }
 
@@ -1019,14 +1025,21 @@ export default class MoeService extends RC7BaseService {
     }
 
     try {
-      await ctx.call(
-        'cr7.order.cancel',
-        { oid: firstSuccessRecord.order_id },
-        { meta: { user: { uid: firstSuccessRecord.user_id } } },
-      );
+      if (bizType === MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_CANCEL) {
+        await ctx.call(
+          'cr7.order.cancel',
+          { oid: firstSuccessRecord.order_id },
+          { meta: { user: { uid: firstSuccessRecord.user_id } } },
+        );
+      } else if (bizType === MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_REFUND) {
+        await ctx.call(
+          'cr7.order.markRefunded',
+          { oid: firstSuccessRecord.order_id },
+        );
+      }
       ctx.meta.$statusCode = 200;
     } catch (error) {
-      this.logger.error('处理 MOP 订单取消通知时发生错误', error);
+      this.logger.error('处理 MOP 订单状态变更通知时发生错误', error);
       return this.finishWithMopResponse(
         recordId, 10099,
         (error as Error).message || '系统异常'
