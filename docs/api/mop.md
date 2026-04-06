@@ -125,12 +125,35 @@
   - 下单成功后会创建/复用用户并创建来源为 OTA 的待支付订单
   - 订单创建失败时，返回 MOP 业务错误码（如库存不足、参数异常）
 
+## 查看单个 CR7 订单的猫眼同步记录
+
+- URL: `/ota/mop/orders/:rid`
+- Method: `GET`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Params:
+  ```ts
+  { rid: string }
+  ```
+- Response Body:
+  ```ts
+  Mop.MopOrderSyncRecord[]
+  ```
+- 关键特性：
+  - 仅管理员可访问。
+  - 返回记录按 `created_at DESC` 排序，第一条为最新同步记录。
+  - 每条记录包含 `request_path`、解密后的 `request_body`、同步状态与关联 `order_id`。
+  - 请求刚解密成功时即落盘，同步完成后更新 `response_body`、`sync_status` 与 `order_id`。
+
 ## 类型来源
 
 - 路径参数中的 `eid` 对应展览主键，展览类型定义见 `services/types/exhibition.ts` 中 `Exhibition.Exhibition`。
 - 场次同步数据来源于 `services/types/exhibition.ts` 中 `Exhibition.Session` 与 `Exhibition.Exhibition` 的时间字段组合。
 - 票种同步数据来源于 `services/types/exhibition.ts` 中 `Exhibition.TicketCategory` 与 `Exhibition.Exhibition` 的时间字段组合。
 - 创建订单回调中的订单与用户类型来源于 `services/types/order.ts`、`services/types/user.ts`、`services/types/exhibition.ts`。
+- 猫眼同步记录查询类型来源于 `services/types/mop.ts` 中 `Mop.MopOrderSyncRecord`。
 
 ## 相关文档
 
