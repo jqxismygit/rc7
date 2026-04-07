@@ -187,7 +187,7 @@ Java
 1 {
 2 "signed " : {
 3 "signInfo" : "消息签名",
-4 "timeStamp" : "时间戳"
+4 "timestamp" : "时间戳"
 5 }
 6 }
 
@@ -253,7 +253,7 @@ Java
         "id": "2549337712832"
     },
     "signed": {
-        "timeStamp": "1631757264606",
+        "timestamp": "1631757264606",
         "signInfo": "请使用申请的签名"
     }
 }
@@ -307,7 +307,7 @@ Java
     ]
 },
 "signed": {
-    "timeStamp": "1631757264606",
+    "timestamp": "1631757264606",
     "signInfo": "请使用申请的签名"
 },
 "projectId": "349337712877"
@@ -341,7 +341,7 @@ Java
 {
     "performId": "3",
     "signed": {
-        "timeStamp": "1631757264606",
+        "timestamp": "1631757264606",
         "signInfo": "请使用申请的签名"
     },
     "packages": [
@@ -448,7 +448,7 @@ Java
     ],
     "projectId": "88232",
     "signed": {
-        "timeStamp": "173175726460336",
+        "timestamp": "173175726460336",
         "signInfo": "Zxx="
     }
 }
@@ -496,7 +496,7 @@ Java
     ],
     "venueId": "349337712877",
     "signed": {
-        "timeStamp": "1631757264606",
+        "timestamp": "1631757264606",
         "signInfo": "请使用申请的签名"
     },
     "projectId": "349337712877",
@@ -574,7 +574,7 @@ Java
 {
     "performId": "3",
     "signed": {
-        "timeStamp": "1631757264606",
+        "timestamp": "1631757264606",
         "signInfo": "请使用申请的签名"
     },
     "projectId": "349337712877",
@@ -823,7 +823,7 @@ API密钥(apiSecret)=MD5(apiKey+apiPw)
         "apiSecret": "xxxx",
         "msgId": "1685430689762",
         "signed": "xxx",
-        "timeStamp": "1685430689762",
+        "timestamp": "1685430689762",
         "version": "1.0.0"
     }
 }
@@ -890,7 +890,7 @@ API密钥(apiSecret)=MD5(apiKey+apiPw)
         "apiSecret": "secretkey",
         "msgId": "msgId",
         "signed": "signXXXXXXXXXXXX",
-        "timeStamp": "1682058632087",
+        "timestamp": "1682058632087",
         "version": "1.0"
     }
 }
@@ -966,7 +966,7 @@ API密钥(apiSecret)=MD5(apiKey+apiPw)
         "apiSecret": "secretkey",
         "msgId": "msgId",
         "signed": "signXXXXXXXXXXXX",
-        "timeStamp": "1682061180867",
+        "timestamp": "1682061180867",
         "version": "1.0"
     }
 }
@@ -1103,7 +1103,7 @@ a. 在大麦场景中，由于存在预存款、月结等多模式，并且大�
 ]
 },
 "signed": {
-    "timeStamp": "1631757264606",
+    "timestamp": "1631757264606",
     "signInfo": "请使用申请的签名"
 }
 }
@@ -1133,7 +1133,7 @@ Java
 1  {
 2  "signed": {
 3    "signInfo": "消息签名",
-4    "timeStamp": "时间戳"
+4    "timestamp": "时间戳"
 5  }
 6  }
 
@@ -1182,7 +1182,7 @@ Java
 
 {
     "signed": {
-        "timeStamp": "1631757264606",
+        "timestamp": "1631757264606",
         "signInfo": "请使用申请的签名"
     },
     "cOrderId": "大麦订单号",
@@ -1259,7 +1259,7 @@ Java
         "apiSecret": "secretkey",
         "msgId": "msgId",
         "signed": "signXXXXXXXXXXXX",
-        "timeStamp": "1682058632087",
+        "timestamp": "1682058632087",
         "version": "1.0"
     }
 }
@@ -1304,7 +1304,7 @@ JSON
 
 {
     "signed": {
-        "timeStamp": "1631757264606",
+        "timestamp": "1631757264606",
         "signInfo": "请使用申请的签名"
     },
     "daMaiOrderId": "大麦订单号",
@@ -1329,7 +1329,7 @@ private static String version = "version=";
 private static String msgID = "msgID=";
 private static String apiKey = "apiKey=";
 private static String apiSecret = "apiSecret=";
-private static String timeStamp = "timeStamp=";
+private static String timestamp = "timestamp=";
 private static String DEFAULT_OPT = "&";
 
 private String getSinged(
@@ -1340,7 +1340,7 @@ private String getSinged(
     sb.append(msgID).append(timeSmp).append(DEFAULT_OPT);
     sb.append(apiKey).append(apiKey).append(DEFAULT_OPT);
     sb.append(apiSecret).append(secret).append(DEFAULT_OPT);
-    sb.append(timeStamp).append(timeSmp);
+    sb.append(timestamp).append(timeSmp);
     return MD5.crypt(sb.toString()).toUpperCase();
 }
 
