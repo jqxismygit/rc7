@@ -69,5 +69,10 @@ export default {
     aes_key: 'your_aes_key',
     public_key_path: path.resolve(etc_path, 'mop/public_key.cer'),
     private_key_path: path.resolve(etc_path, 'mop/private_key.cer'),
+  },
+  damai: {
+    base_url: 'https://api.damai.cn',
+    api_key: 'your_api_key',
+    api_pwd: 'your_api_pwd',
   }
 }

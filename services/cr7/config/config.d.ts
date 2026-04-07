@@ -65,6 +65,11 @@ declare module 'config' {
       aes_key: string;
       public_key_path: string;
       private_key_path: string;
+    },
+    damai: {
+      base_url: string;
+      api_key: string;
+      api_pwd: string;
     }
   }
 

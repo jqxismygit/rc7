@@ -18,9 +18,11 @@ import {
   updateExhibition,
 } from './fixtures/exhibition.js';
 import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
+import { syncExhibitionToDamai } from './fixtures/damai.js';
 import { toDateLabel } from './lib/relative-date.js';
 import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
-import { MockServer } from './lib/server.js';
+import { MockServer, mockJSONServer } from './lib/server.js';
+import { verifyDamaiSignature } from '@/libs/damai.js';
 
 const schema = 'test_damai';
 const services = ['api', 'user', 'cr7', 'damai'];
@@ -38,6 +40,59 @@ interface FeatureContext extends ExhibitionContext {
   broker: ServiceBroker;
   apiServer: Server;
   adminToken: string;
+  damaiRequestHandler?: ReturnType<typeof vi.fn>;
+}
+
+interface DamaiSignedPayload {
+  timestamp: string;
+  signInfo: string;
+}
+
+interface DamaiHeadPayload {
+  version: string;
+  msgId: string;
+  apiKey: string;
+  apiSecret: string;
+  timestamp: string;
+  signed: string;
+}
+
+interface DamaiProjectSyncPayload {
+  projectInfo: {
+    id: string;
+    name: string;
+    chooseSeatFlag: boolean;
+    posters: string | null;
+    introduce: string;
+  };
+  venueInfo: {
+    id: string;
+    name: string;
+  };
+  signed: DamaiSignedPayload;
+  head: DamaiHeadPayload;
+}
+
+interface DamaiMockRequest {
+  body: DamaiProjectSyncPayload;
+  query: Record<string, string>;
+  path: string;
+  method: string;
+  headers: Record<string, string>;
+}
+
+function getDamaiRequestArg(mock: ReturnType<typeof vi.fn> | undefined): DamaiMockRequest {
+  expect(mock).toHaveBeenCalled();
+  const [request] = mock!.mock.calls.at(-1) ?? [];
+  expect(request).toBeTruthy();
+  return request as DamaiMockRequest;
+}
+
+async function setupDamaiMockServer(requestHandler: ReturnType<typeof vi.fn>) {
+  return mockJSONServer(async (request) => {
+    await (requestHandler as unknown as (data: unknown) => unknown)(request);
+    return { code: '0', desc: '成功' };
+  });
 }
 
 const openedMockServers: MockServer[] = [];
@@ -174,31 +229,88 @@ describeFeature(feature, ({
       );
     });
 
-    Given('大麦 OTA 服务已启动', () => {
-      // todo mock damai ota server
+    Given('大麦 OTA 服务已启动', async () => {
+      const damaiRequestHandler = vi.fn();
+      const mockDamaiServer = await setupDamaiMockServer(damaiRequestHandler);
+      const baseUrlSpy = vi.spyOn(config.damai, 'base_url', 'get').mockReturnValue(mockDamaiServer.address);
+
+      openedMockServers.push(mockDamaiServer);
+      openedSpies.push(baseUrlSpy);
+      featureContext.damaiRequestHandler = damaiRequestHandler;
     });
   });
 
   Scenario('同步展会信息到大麦', (s: StepTest<void>) => {
     const { Given, When, Then, And } = s;
 
-    Given('cr7 将展会信息同步到大麦', () => {
-      // TODO: 实现具体的展会同步逻辑
+    Given('cr7 将展会信息同步到大麦', async () => {
+      await syncExhibitionToDamai(
+        featureContext.apiServer,
+        featureContext.adminToken,
+        featureContext.exhibition.id,
+      );
     });
 
     When('大麦收到展会同步消息', () => {
-      // TODO: 实现大麦接收展会同步消息的验证
+      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      expect(request.path).toBe('/b2b2c/2.0/sync/project');
+      expect(request.method).toBe('POST');
     });
 
     Then('大麦收到请求签名无误', () => {
-      // TODO: 实现大麦验证请求的逻辑
+      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const { signed, head } = request.body;
+
+      expect(signed.timestamp).toBe(head.timestamp);
+      expect(head.signed).toBe(signed.signInfo);
+      expect(verifyDamaiSignature(signed.signInfo, {
+        apiKey: head.apiKey,
+        apiSecret: head.apiSecret,
+        msgId: head.msgId,
+        timestamp: head.timestamp,
+        version: head.version,
+      })).toBe(true);
     });
 
-    And('展会同步消息中的演出 ID 是默认展会活动的 ID', () => {
+    And('展会同步消息中的项目 ID 是默认展会活动的 ID', () => {
+      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
       const { exhibition } = featureContext;
-      expect(exhibition).toBeTruthy();
-      expect(exhibition.id).toBeTruthy();
-      // TODO: 补充具体的验证逻辑
+      expect(request.body.projectInfo.id).toBe(exhibition.id);
+    });
+
+    And('展会同步消息中的项目名称是默认展会活动的名称', () => {
+      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const { exhibition } = featureContext;
+      expect(request.body.projectInfo.name).toBe(exhibition.name);
+    });
+
+    And('展会同步消息中的座位信息是无座', () => {
+      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      expect(request.body.projectInfo.chooseSeatFlag).toBe(false);
+    });
+
+    And('展会同步消息中的海报 URL 是默认展会活动的封面 URL', () => {
+      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const { exhibition } = featureContext;
+      expect(request.body.projectInfo.posters).toBe(exhibition.cover_url ?? null);
+    });
+
+    And('展会同步消息中的介绍信息是默认展会活动的描述信息', () => {
+      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const { exhibition } = featureContext;
+      expect(request.body.projectInfo.introduce).toBe(exhibition.description);
+    });
+
+    And('展会同步消息中的展馆 ID 是默认展会活动的 ID', () => {
+      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const { exhibition } = featureContext;
+      expect(request.body.venueInfo.id).toBe(exhibition.id);
+    });
+
+    And('展会同步消息中的展馆名称是默认展会活动的展馆名称', () => {
+      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const { exhibition } = featureContext;
+      expect(request.body.venueInfo.name).toBe(exhibition.venue_name);
     });
   });
 });
