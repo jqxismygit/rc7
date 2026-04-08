@@ -882,7 +882,7 @@ describeFeature(feature, ({
   });
 
   Scenario('同步展会信息到猫眼', (s: StepTest<void>) => {
-    const { Given, When, Then, And } = s;
+    const { Given, When, And } = s;
 
     Given('cr7 将展会信息同步到猫眼', async () => {
       await syncExhibitionToMop(
@@ -909,7 +909,7 @@ describeFeature(feature, ({
       }));
     });
 
-    And('展会同步消息中的城市 id 是展会所在城市的 ID', () => {
+    And('展会同步消息中的城市 ID 是展会所在城市的 ID', () => {
       const { exhibition, mopRequestHandler } = featureContext;
       const city = CITY_BY_NAME[exhibition.city];
       expect(city).toBeTruthy();
