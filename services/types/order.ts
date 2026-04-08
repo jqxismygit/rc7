@@ -8,7 +8,7 @@ export type OrderStatus =
   | 'CANCELLED'         // 已取消
   | 'EXPIRED';          // 已过期
 
-export type OrderSource = 'DIRECT' | 'CTRIP' | 'MOP';
+export type OrderSource = 'DIRECT' | 'CTRIP' | 'MOP' | 'DAMAI';
 
 export interface Order {
   id: string;
@@ -23,7 +23,7 @@ export interface Order {
   cancelled_at: string | null;
   released_at: string | null;
   hidden_at: string | null;
-  // DIRECT for CR7 native orders, CTRIP for Ctrip OTA, MOP for Maoyan OTA callbacks.
+  // DIRECT for CR7 native orders, CTRIP, MOP, DAMAI OTA callbacks.
   source: OrderSource;
   created_at: string;
   updated_at: string;

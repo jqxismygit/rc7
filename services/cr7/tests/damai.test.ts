@@ -22,6 +22,7 @@ import {
 describe('Damai api signing', () => {
   const apiKey = 'qmyihai60s';
   const apiSecret = '9333C6B484EE98AF23500D9620A9FE1D';
+	const outboundSign = 'OUTBOUND_SIGN_FROM_CONFIG';
   const msgId = '1677647220299';
   const timestamp = '1677647220299';
   const version = '1.0.0';
@@ -63,7 +64,9 @@ describe('Damai api signing', () => {
 		}));
 
 		await damaiPostJson('https://example.com/damai', {
-      apiKey,apiSecret,
+			apiKey,
+			apiSecret,
+			sign: outboundSign,
 			msgId,timestamp,version,
       signTarget: 'both',
 			body: {
@@ -97,13 +100,13 @@ describe('Damai api signing', () => {
 		expect(requestBody.payload.orderId).toBe('123');
 		expect(requestBody.head).toEqual({
 			version, msgId,
-      apiKey,apiSecret,timestamp,
-      signed: expectedSignature,
+			apiKey,apiSecret,timestamp,
+			signed: outboundSign,
 		});
 
 		expect(requestBody.signed).toEqual({
 				timestamp,
-				signInfo: expectedSignature,
+				signInfo: outboundSign,
 		});
 	});
 });

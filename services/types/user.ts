@@ -1,4 +1,4 @@
-export type AuthMethodType = 'WECHAT_MINI' | 'PASSWORD';
+export type AuthMethodType = 'DAMAI' | 'WECHAT_MINI' | 'PASSWORD';
 
 export interface Role {
   id: string;
@@ -8,6 +8,8 @@ export interface Role {
 export interface Profile {
   id: string;
   name: string;
+  /** 未绑定大麦时为 null */
+  damai_user_id?: string | null;
   /** 拼合格式如 "+86 12345678901"，未绑定时为 null */
   phone?: string | null;
   /** 未绑定微信时为 null */

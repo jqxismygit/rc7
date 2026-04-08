@@ -57,23 +57,27 @@ export async function getUserProfile(
     `SELECT
       u.id,
       u.name,
+      ud.damai_user_id,
       uw.openid,
       CASE
         WHEN up.uid IS NULL THEN NULL
         ELSE up.country_code || ' ' || up.phone
       END AS phone,
       ARRAY_REMOVE(ARRAY[
+        CASE WHEN ud.uid IS NOT NULL THEN 'DAMAI' END,
         CASE WHEN uw.uid IS NOT NULL THEN 'WECHAT_MINI' END,
         CASE WHEN upw.uid IS NOT NULL THEN 'PASSWORD' END
       ], NULL)::text[] AS auth_methods,
       u.created_at,
       GREATEST(
         u.updated_at,
+        COALESCE(ud.updated_at, u.updated_at),
         COALESCE(uw.updated_at, u.updated_at),
         COALESCE(up.updated_at, u.updated_at),
         COALESCE(upw.updated_at, u.updated_at)
       ) AS updated_at
      FROM ${schema}.users u
+     LEFT JOIN ${schema}.user_damai ud ON u.id = ud.uid
      LEFT JOIN ${schema}.user_wechat uw ON u.id = uw.uid
      LEFT JOIN ${schema}.user_phone up ON u.id = up.uid
      LEFT JOIN ${schema}.user_password upw ON u.id = upw.uid
@@ -113,23 +117,27 @@ export async function listUserProfiles(
     `SELECT
       u.id,
       u.name,
+      ud.damai_user_id,
       uw.openid,
       CASE
         WHEN up.uid IS NULL THEN NULL
         ELSE up.country_code || ' ' || up.phone
       END AS phone,
       ARRAY_REMOVE(ARRAY[
+        CASE WHEN ud.uid IS NOT NULL THEN 'DAMAI' END,
         CASE WHEN uw.uid IS NOT NULL THEN 'WECHAT_MINI' END,
         CASE WHEN upw.uid IS NOT NULL THEN 'PASSWORD' END
       ], NULL)::text[] AS auth_methods,
       u.created_at,
       GREATEST(
         u.updated_at,
+        COALESCE(ud.updated_at, u.updated_at),
         COALESCE(uw.updated_at, u.updated_at),
         COALESCE(up.updated_at, u.updated_at),
         COALESCE(upw.updated_at, u.updated_at)
       ) AS updated_at
     FROM ${schema}.users u
+    LEFT JOIN ${schema}.user_damai ud ON u.id = ud.uid
     LEFT JOIN ${schema}.user_wechat uw ON u.id = uw.uid
     LEFT JOIN ${schema}.user_phone up ON u.id = up.uid
     LEFT JOIN ${schema}.user_password upw ON u.id = upw.uid
@@ -199,6 +207,36 @@ export async function upsertUserByPhone(
     SELECT uid FROM upsert_phone
     LIMIT 1`,
     [country_code, phone, name],
+  );
+
+  return user.uid;
+}
+
+export async function upsertUserByDamaiId(
+  client: DBClient,
+  schema: string,
+  damai_user_id: string,
+  name: string,
+) {
+  const { rows: [user] } = await client.query<{ uid: string }>(
+    `WITH upsert_damai AS (
+      INSERT INTO ${schema}.user_damai (uid, damai_user_id)
+      VALUES (GEN_RANDOM_UUID(), $1)
+      ON CONFLICT (damai_user_id) DO NOTHING
+      RETURNING uid
+    ),
+    created_user AS (
+      INSERT INTO ${schema}.users (id, name)
+      SELECT uid, $2
+      FROM upsert_damai
+      ON CONFLICT (id) DO NOTHING
+      RETURNING id AS uid
+    )
+    SELECT uid FROM created_user
+    UNION ALL
+    SELECT uid FROM ${schema}.user_damai WHERE damai_user_id = $1
+    LIMIT 1`,
+    [damai_user_id, name],
   );
 
   return user.uid;

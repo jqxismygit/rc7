@@ -55,5 +55,8 @@ export default {
     base_url: 'https://1.1.1.1',
     aes_key: '1234567890abcdef',
     supplier: 'TEST_MOP_SUPPLIER',
+  },
+  damai: {
+    base_url: 'https://1.1.1.1',
   }
 }

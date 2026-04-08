@@ -222,6 +222,17 @@ const routes = [
     }
   ),
   routeConfig(
+    '/ota/damai',
+    ['damai.createOrderFromDamai'],
+    {
+      authentication: false,
+      authorization: false,
+      aliases: {
+        'POST /createOrder': 'damai.createOrderFromDamai',
+      },
+    }
+  ),
+  routeConfig(
     '/mop',
     [
       'mop.receiveOrderFromMop',

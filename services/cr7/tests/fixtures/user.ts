@@ -93,6 +93,7 @@ export function assertUserProfile(profile: unknown) {
   expect(profile).toBeTypeOf('object');
   const userProfile = profile as User.Profile;
   expect(userProfile.id).toEqual(expect.any(String));
+  expect(profile).toHaveProperty('damai_user_id', expect.toBeOneOf([expect.any(String), null]));
   if (userProfile.phone !== null) {
     expect(userProfile.phone).toBeTypeOf('string');
   } else {

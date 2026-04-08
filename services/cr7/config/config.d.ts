@@ -68,6 +68,7 @@ declare module 'config' {
     },
     damai: {
       base_url: string;
+      sign: string;
       api_key: string;
       api_pwd: string;
     }

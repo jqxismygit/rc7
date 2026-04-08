@@ -72,7 +72,8 @@ export default {
   },
   damai: {
     base_url: 'https://api.damai.cn',
-    api_key: 'your_api_key',
-    api_pwd: 'your_api_pwd',
+    api_key: '3309712MW9',
+    sign: '<--ignore-->',
+    api_pwd: '<--ignore-->',
   }
 }

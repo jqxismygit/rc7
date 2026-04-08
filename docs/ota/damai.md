@@ -702,34 +702,43 @@ API密钥(apiSecret)=MD5(apiKey+apiPw)
 
 请求报文
 
+```json
 {
     "bodySubmitOrder": {
         "orderInfo": {
             "certifications": [
-                "certNo": "23272419950628072X",
-                "certType": 1,
-                "seatId": "259484"
-            },
+                {
+                    "certNo": "23272419950628072X",
+                    "certType": 1,
+                    "seatId": "259484"
+                }
+            ],
             "commodityInfoList": [
-                "priceId": "128553",
-                "seatId": "259484",
-                "subOrderId": "3221038191278529541"
+                {
+                    "priceId": "128553",
+                    "seatId": "259484",
+                    "subOrderId": "3221038191278529541"
+                }
             ],
             "daMaiOrderId": "3221038191278529541",
             "deliveryMethod": 3,
-            "expand2": "{"realAmount": "30", "privilegeType": "使用优惠", "privilegeName": "大麦优惠}),"
+            "expand2": "{\"realAmount\":\"30\",\"privilegeType\":\"使用优惠\",\"privilegeName\":\"大麦优惠\"}",
             "expressFee": 0,
             "hasSeat": true,
             "performId": "340868",
             "priceInfo": [
-                "num": 1,
-                "price": 30,
-                "priceId": "128553",
-                "type": 0,
-                "activityInfoList": [
-                    "activityId": "7111111111",
-                    "activityName": "每满2件打6折"
-                ]
+                {
+                    "num": 1,
+                    "price": 30,
+                    "priceId": "128553",
+                    "type": 0,
+                    "activityInfoList": [
+                        {
+                            "activityId": "7111111111",
+                            "activityName": "每满2件打6折"
+                        }
+                    ]
+                }
             ],
             "projectId": "22456884",
             "realAmountOfFen": 30,
@@ -743,17 +752,18 @@ API密钥(apiSecret)=MD5(apiKey+apiPw)
                 "name": "刘玉凤",
                 "userId": "3862524195"
             }
-        ]
+        }
+    },
+    "head": {
+        "apiKey": "qmyihai60s",
+        "apiSecret": "9333C6B484EE98AF23500D9620A9FE1D",
+        "msgId": "1677647220299",
+        "signed": "818515D53D4A8163025156EC8605AB56",
+        "timestamp": "1677647220299",
+        "version": "1.0.0"
     }
 }
-
-"apiKey": "qmyihai60s",
-"apiSecret": "9333C6B484EE98AF23500D9620A9FE1D",
-"msgId": "1677647220299",
-"signed": "818515D53D4A8163025156EC8605AB56",
-"timestamp": "1677647220299",
-"version": "1.0.0"
-}
+```
 
 ##### 响应报文
 

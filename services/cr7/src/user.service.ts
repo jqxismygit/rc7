@@ -10,6 +10,7 @@ import {
   updatePassword,
   getRoleIdByName,
   assignRoleToUser,
+  upsertUserByDamaiId,
   upsertUserByPhone,
 } from './data/user.js';
 import { handleUserError } from './libs/errors.js';
@@ -130,6 +131,15 @@ export default class UserService extends Service {
             name: 'string',
           },
           handler: this.findOrCreateByPhone,
+        },
+
+        findOrCreateByDamaiId: {
+          visibility: 'protected',
+          params: {
+            damai_user_id: 'string',
+            name: 'string',
+          },
+          handler: this.findOrCreateByDamaiId,
         },
       },
 
@@ -260,6 +270,15 @@ export default class UserService extends Service {
     const { country_code, phone, name } = ctx.params;
     const schema = await this.getSchema();
     const uid = await upsertUserByPhone(this.pool, schema, country_code, phone, name);
+    return uid;
+  }
+
+  async findOrCreateByDamaiId(
+    ctx: Context<{ damai_user_id: string; name: string }>
+  ) {
+    const { damai_user_id, name } = ctx.params;
+    const schema = await this.getSchema();
+    const uid = await upsertUserByDamaiId(this.pool, schema, damai_user_id, name);
     return uid;
   }
 }

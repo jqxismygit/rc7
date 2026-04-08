@@ -1,16 +1,24 @@
 import config from 'config';
 import { format, isDate, parse, parseISO } from 'date-fns';
 import { Context, Errors, ServiceBroker } from 'moleculer';
-import { Exhibition } from '@cr7/types';
+import { Exhibition, Order } from '@cr7/types';
 import { RC7BaseService } from './libs/cr7.base.js';
-import { damaiPostJson } from './libs/damai.js';
+import { buildDamaiSignature, damaiPostJson, verifyDamaiSignature } from './libs/damai.js';
 
 const { MoleculerClientError } = Errors;
 
-interface UserMeta {
-  uid: string;
+interface Meta {
   $statusCode?: number;
 }
+
+type DamaiHeadPayload = {
+  version: string;
+  msgId: string;
+  apiKey: string;
+  apiSecret: string;
+  timestamp: string;
+  signed: string;
+};
 
 type DamaiProjectSyncRequest = {
   projectInfo: {
@@ -54,6 +62,70 @@ type DamaiPriceSyncRequest = {
   projectId: string;
   performId: string;
   priceList: DamaiPrice[];
+};
+
+type DamaiSubmitOrderCommodityInfo = {
+  priceId: string;
+  seatId?: string;
+  subOrderId: string;
+  packageId?: string;
+};
+
+type DamaiSubmitOrderPriceInfo = {
+  priceId: string;
+  num: number | string;
+  price: number;
+  type?: number;
+};
+
+type DamaiSubmitOrderUserInfo = {
+  userId: string;
+  name?: string;
+  mobile?: string;
+};
+
+type DamaiCreateOrderRequest = {
+  head: DamaiHeadPayload;
+  bodySubmitOrder: {
+    orderInfo: {
+      daMaiOrderId: string;
+      projectId: string;
+      performId: string;
+      hasSeat: boolean;
+      commodityInfoList: DamaiSubmitOrderCommodityInfo[];
+      priceInfo: DamaiSubmitOrderPriceInfo[];
+      userInfo: DamaiSubmitOrderUserInfo;
+      totalAmountFen: number;
+      realAmountOfFen: number;
+      expressFee?: number;
+    };
+  };
+};
+
+type DamaiCreateOrderResponse = {
+  head: {
+    returnCode: string;
+    returnDesc: string;
+  };
+  body: {
+    orderInfo: {
+      orderId?: string;
+      totalAmount?: number;
+      realAmount?: number;
+      expressFee?: number;
+    };
+  };
+};
+
+type DamaiValidatedCreateOrderInfo = {
+  daMaiOrderId: string;
+  projectId: string;
+  performId: string;
+  commodityInfoList: DamaiSubmitOrderCommodityInfo[];
+  priceInfo: DamaiSubmitOrderPriceInfo[];
+  userInfo: DamaiSubmitOrderUserInfo;
+  totalAmountFen: number;
+  realAmountOfFen: number;
 };
 
 type ExhibitionSessionTicket = Exhibition.TicketCategory & {
@@ -114,13 +186,77 @@ function formatDamaiSessionDateTime(sessionDate: string | Date, time: string, pa
   return format(parsed, `yyyy-MM-dd ${pattern}`);
 }
 
+function buildDamaiCreateOrderError(returnCode: string, returnDesc: string): DamaiCreateOrderResponse {
+  return {
+    head: {
+      returnCode,
+      returnDesc,
+    },
+    body: {
+      orderInfo: {},
+    },
+  };
+}
+
+function buildDamaiCreateOrderSuccess(input: {
+  orderId: string;
+  totalAmount: number;
+  realAmount: number;
+  expressFee?: number;
+}): DamaiCreateOrderResponse {
+  return {
+    head: {
+      returnCode: '0',
+      returnDesc: '成功',
+    },
+    body: {
+      orderInfo: {
+        orderId: input.orderId,
+        totalAmount: input.totalAmount,
+        realAmount: input.realAmount,
+        expressFee: input.expressFee ?? 0,
+      },
+    },
+  };
+}
+
+function isValidDamaiCreateOrderRequest(payload: DamaiCreateOrderRequest): boolean {
+  const { head } = payload;
+
+  if (head.apiKey !== config.damai.api_key) {
+    return false;
+  }
+
+  const expected = buildDamaiSignature({
+    apiKey: config.damai.api_key,
+    apiPw: config.damai.api_pwd,
+    msgId: head.msgId,
+    timestamp: head.timestamp,
+    version: head.version,
+  });
+
+  if (head.apiSecret !== expected.apiSecret) {
+    return false;
+  }
+
+  return verifyDamaiSignature(head.signed, {
+    apiKey: config.damai.api_key,
+    apiPw: config.damai.api_pwd,
+    msgId: head.msgId,
+    timestamp: head.timestamp,
+    version: head.version,
+  });
+}
+
 class DamaiService extends RC7BaseService {
   constructor(broker: ServiceBroker) {
     super(broker);
 
     this.parseServiceSchema({
       name: 'damai',
-      settings: {},
+      settings: {
+        $noVersionPrefix: true,
+      },
       hooks: {
         before: {
           '*': ['checkUserRole'],
@@ -154,11 +290,27 @@ class DamaiService extends RC7BaseService {
           },
           handler: this.syncTicketsToDamai,
         },
+        createOrderFromDamai: {
+          rest: 'POST /createOrder',
+          params: {
+            head: 'object',
+            bodySubmitOrder: 'object',
+          },
+          handler: this.createOrderFromDamai,
+        },
+      },
+
+      async started() {
+        await this.initPool();
+      },
+
+      async stopped() {
+        await this.closePool();
       },
     });
   }
 
-  async syncExhibitionToDamai(ctx: Context<{ eid: string }, UserMeta>): Promise<void> {
+  async syncExhibitionToDamai(ctx: Context<{ eid: string }, Meta>): Promise<void> {
     const { eid } = ctx.params;
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
       'cr7.exhibition.get',
@@ -182,6 +334,7 @@ class DamaiService extends RC7BaseService {
     const syncUrl = new URL('/b2b2c/2.0/sync/project', config.damai.base_url).toString();
     await damaiPostJson(syncUrl, {
       apiKey: config.damai.api_key,
+      sign: config.damai.sign,
       apiPw: config.damai.api_pwd,
       signTarget: 'both',
       body: request,
@@ -191,7 +344,7 @@ class DamaiService extends RC7BaseService {
   }
 
   async syncSessionsToDamai(
-    ctx: Context<{ eid: string; start_session_date?: Date; end_session_date?: Date }, UserMeta>
+    ctx: Context<{ eid: string; start_session_date?: Date; end_session_date?: Date }, Meta>
   ): Promise<void> {
     const { eid, start_session_date, end_session_date } = ctx.params;
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
@@ -236,6 +389,7 @@ class DamaiService extends RC7BaseService {
     const syncUrl = new URL('/b2b2c/2.0/sync/perform', config.damai.base_url).toString();
     await damaiPostJson(syncUrl, {
       apiKey: config.damai.api_key,
+      sign: config.damai.sign,
       apiPw: config.damai.api_pwd,
       signTarget: 'both',
       body: request,
@@ -245,7 +399,7 @@ class DamaiService extends RC7BaseService {
   }
 
   async syncTicketsToDamai(
-    ctx: Context<{ eid: string; sid: string }, UserMeta>
+    ctx: Context<{ eid: string; sid: string }, Meta>
   ): Promise<void> {
     const { eid, sid } = ctx.params;
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
@@ -282,12 +436,150 @@ class DamaiService extends RC7BaseService {
     const syncUrl = new URL('/b2b2c/2.0/sync/price', config.damai.base_url).toString();
     await damaiPostJson(syncUrl, {
       apiKey: config.damai.api_key,
+      sign: config.damai.sign,
       apiPw: config.damai.api_pwd,
       signTarget: 'both',
       body: request,
     });
 
     ctx.meta.$statusCode = 204;
+  }
+
+  async createOrderFromDamai(
+    ctx: Context<DamaiCreateOrderRequest, Meta>,
+  ): Promise<DamaiCreateOrderResponse> {
+    ctx.meta.$statusCode = 200;
+
+    const payload = ctx.params;
+    if (!isValidDamaiCreateOrderRequest(payload)) {
+      return buildDamaiCreateOrderError('10001', '签名错误');
+    }
+
+    const {
+      daMaiOrderId,
+      projectId,
+      performId,
+      commodityInfoList,
+      priceInfo,
+      userInfo,
+      totalAmountFen,
+      realAmountOfFen,
+    } = payload.bodySubmitOrder?.orderInfo ?? {} as DamaiValidatedCreateOrderInfo;
+
+    if (
+      !daMaiOrderId ||
+      !projectId ||
+      !performId ||
+      !userInfo?.userId ||
+      !Array.isArray(commodityInfoList) ||
+      commodityInfoList.length === 0 ||
+      !Array.isArray(priceInfo) ||
+      priceInfo.length === 0 ||
+      typeof totalAmountFen !== 'number' ||
+      typeof realAmountOfFen !== 'number'
+    ) {
+      return buildDamaiCreateOrderError('10001', '参数异常');
+    }
+
+    const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
+      'cr7.exhibition.get',
+      { eid: projectId },
+    ).catch(() => null);
+    if (!exhibition) {
+      return buildDamaiCreateOrderError('30003', '项目状态异常');
+    }
+
+    const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
+      'cr7.exhibition.getSessions',
+      { eid: projectId },
+    );
+    const session = sessions.find(item => item.id === performId) ?? null;
+    if (!session) {
+      return buildDamaiCreateOrderError('30004', '场次状态异常');
+    }
+
+    const tickets = await ctx.call<Exhibition.TicketCategory[], { eid: string }>(
+      'cr7.exhibition.getTicketCategories',
+      { eid: projectId },
+    );
+    const ticketById = new Map(tickets.map(ticket => [ticket.id, ticket]));
+
+    for (const commodity of commodityInfoList) {
+      if (!commodity.priceId || !commodity.subOrderId) {
+        return buildDamaiCreateOrderError('10001', '参数异常');
+      }
+
+      if (!ticketById.has(commodity.priceId)) {
+        return buildDamaiCreateOrderError('30005', '票档状态异常');
+      }
+    }
+
+    let calculatedTotalAmountFen = 0;
+    const itemCountBySku = new Map<string, number>();
+    for (const item of priceInfo) {
+      const quantity = typeof item.num === 'string' ? Number(item.num) : item.num;
+      if (!item || !item.priceId || !Number.isInteger(quantity) || quantity <= 0) {
+        return buildDamaiCreateOrderError('10001', '参数异常');
+      }
+
+      const ticket = ticketById.get(item.priceId);
+      if (!ticket) {
+        return buildDamaiCreateOrderError('30005', '票档状态异常');
+      }
+
+      const expectedPriceInCent = ticket.price * 100;
+      if (item.price !== expectedPriceInCent) {
+        return buildDamaiCreateOrderError('30002', '订单价格不一致');
+      }
+
+      calculatedTotalAmountFen += item.price * quantity;
+      itemCountBySku.set(item.priceId, (itemCountBySku.get(item.priceId) ?? 0) + quantity);
+    }
+
+    if (calculatedTotalAmountFen !== totalAmountFen || realAmountOfFen !== totalAmountFen) {
+      return buildDamaiCreateOrderError('30002', '订单价格不一致');
+    }
+
+    const userId = await ctx.call<string, { damai_user_id: string; name: string }>(
+      'user.findOrCreateByDamaiId',
+      {
+        damai_user_id: userInfo.userId,
+        name: userInfo.name?.trim() || userInfo.userId,
+      }
+    );
+
+    try {
+      const order = await ctx.call<Order.OrderWithItems, {
+        eid: string;
+        sid: string;
+        items: Order.CreateOrderItem[];
+        source: Order.OrderSource;
+        user_id: string;
+      }>('cr7.order.create', {
+        eid: projectId,
+        sid: performId,
+        items: Array.from(itemCountBySku.entries()).map(([ticket_category_id, quantity]) => ({
+          ticket_category_id,
+          quantity,
+        })),
+        source: 'DAMAI',
+        user_id: userId,
+      });
+
+      return buildDamaiCreateOrderSuccess({
+        orderId: order.id,
+        totalAmount: totalAmountFen,
+        realAmount: realAmountOfFen,
+      });
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      if (code === 'INVENTORY_NOT_ENOUGH') {
+        return buildDamaiCreateOrderError('30006', '库存不足');
+      }
+
+      this.logger.error('处理大麦订单同步时发生错误', error);
+      return buildDamaiCreateOrderError('10099', '系统异常');
+    }
   }
 }
 

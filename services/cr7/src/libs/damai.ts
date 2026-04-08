@@ -3,6 +3,7 @@ import { fetch, HeadersInit, RequestInit, Response } from 'undici';
 
 interface DamaiSignatureOptions {
 	apiKey: string;
+	sign?: string;
 	apiPw?: string;
 	apiSecret?: string;
 	msgId?: string;
@@ -125,26 +126,34 @@ export async function damaiPostJson<Res = unknown>(
 ) {
 	const signTarget = options.signTarget ?? 'head';
 	const body = options.body ?? {};
-	const sign = buildDamaiSignature(options);
+	const version = options.version ?? '1.0.0';
+	const timestamp = options.timestamp ?? Date.now().toString();
+	const msgId = options.msgId ?? timestamp;
+	const apiSecret = resolveApiSecret(options);
+	const signed = options.sign;
+
+	if (typeof signed !== 'string' || signed.length === 0) {
+		throw new TypeError('Damai outbound request requires sign');
+	}
 
 	const payload = { ...body } as Record<string, unknown>;
 
 	if (signTarget === 'head' || signTarget === 'both') {
 		const head: DamaiRequestHead = {
-			version: sign.version,
-			msgId: sign.msgId,
-			apiKey: sign.apiKey,
-			apiSecret: sign.apiSecret,
-			timestamp: sign.timestamp,
-			signed: sign.signed,
+			version,
+			msgId,
+			apiKey: options.apiKey,
+			apiSecret,
+			timestamp,
+			signed,
 		};
 		payload.head = head;
 	}
 
 	if (signTarget === 'signed' || signTarget === 'both') {
 		payload.signed = {
-			timestamp: sign.timestamp,
-			signInfo: sign.signed,
+			timestamp,
+			signInfo: signed,
 		};
 	}
 
