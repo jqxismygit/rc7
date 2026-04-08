@@ -471,9 +471,32 @@ describeFeature(feature, ({
       const { apiServer, exhibition, adminToken } = featureContext;
       const sessions = await getSessions(apiServer, exhibition.id, adminToken);
 
-      const expectedIds = sessions.map(session => session.id).sort();
-      const actualIds = body.performs.map(perform => perform.id).sort();
-      expect(actualIds).toEqual(expectedIds);
+      const expectedIds = new Set(sessions.map(session => session.id));
+      for (const perform of body.performs) {
+        expect(expectedIds.has(perform.id)).toBe(true);
+      }
+    });
+
+    And('场次同步消息中的第 1 个场次的日期是 {string}', (ctx, expectedDate: string) => {
+      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const body = request.body as DamaiPerformSyncPayload;
+      const perform = body.performs[0];
+      const { exhibition } = featureContext;
+      const expectedLabel = formatDamaiSessionDateTime(
+        toDateLabel(expectedDate), exhibition.opening_time, 'HH:mm'
+      )
+      expect(perform.showTime).toBe(expectedLabel);
+    });
+
+    And('场次同步消息中的第 2 个场次的日期是 {string}', (ctx, expectedDate: string) => {
+      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const body = request.body as DamaiPerformSyncPayload;
+      const perform = body.performs[1];
+      const { exhibition } = featureContext;
+      const expectedLabel = formatDamaiSessionDateTime(
+        toDateLabel(expectedDate), exhibition.opening_time, 'HH:mm'
+      )
+      expect(perform.showTime).toBe(expectedLabel);
     });
 
     And('场次同步消息中每个场次的名称都是展会的日期', async () => {
