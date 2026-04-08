@@ -123,6 +123,7 @@ const routes = [
       'mop.syncSessionsToMop',
       'mop.syncTicketsToMop',
       'damai.syncExhibitionToDamai',
+      'damai.syncSessionsToDamai',
     ],
     {
       autoAliases: true,
@@ -135,6 +136,7 @@ const routes = [
         'POST /:eid/ota/mop/sync/sessions': 'mop.syncSessionsToMop',
         'POST /:eid/ota/mop/sync/tickets': 'mop.syncTicketsToMop',
         'POST /:eid/ota/damai/sync': 'damai.syncExhibitionToDamai',
+        'POST /:eid/ota/damai/sync/sessions': 'damai.syncSessionsToDamai',
       },
     }
   ),

@@ -12,3 +12,15 @@ export async function syncExhibitionToDamai(
     { token },
   );
 }
+
+export async function syncSessionsToDamai(
+  server: Server,
+  token: string,
+  eid: string,
+) {
+  return postJSON<void>(
+    server,
+    `/exhibition/${eid}/ota/damai/sync/sessions`,
+    { token },
+  );
+}
