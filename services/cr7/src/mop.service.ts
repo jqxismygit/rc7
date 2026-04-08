@@ -87,6 +87,7 @@ type MopOrderCreateRequest = {
   projectShowCode: string;
   buyerName: string;
   buyerPhone: string;
+  mobileNoAreaCode: string;
   totalPrice: string;
   needSeat: boolean;
   needRealName: boolean;
@@ -290,6 +291,15 @@ function formatMopDateTime(sessionDate: string | Date, time: string): string {
 
 function toYuanString(cents: number): string {
   return (cents / 100).toFixed(2);
+}
+
+function toMopCountryCode(mobileNoAreaCode: string | null | undefined): string {
+  const trimmed = mobileNoAreaCode?.trim() ?? '';
+  if (!trimmed) {
+    return '+86';
+  }
+
+  return trimmed.startsWith('+') ? trimmed : `+${trimmed}`;
 }
 
 function getHeaderValue(
@@ -665,6 +675,7 @@ export default class MoeService extends RC7BaseService {
       projectShowCode,
       buyerName,
       buyerPhone,
+      mobileNoAreaCode,
       totalPrice,
       ticketInfo,
     } = requestBody;
@@ -759,7 +770,7 @@ export default class MoeService extends RC7BaseService {
     const userId = await ctx.call<string, { country_code: string; phone: string; name: string }>(
       'user.findOrCreateByPhone',
       {
-        country_code: '+86',
+        country_code: toMopCountryCode(mobileNoAreaCode),
         phone: buyerPhone,
         name: buyerName,
       },

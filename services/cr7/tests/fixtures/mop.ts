@@ -64,6 +64,7 @@ export interface MopOrderCreateRequest {
   projectShowCode: string;
   buyerName: string;
   buyerPhone: string;
+  mobileNoAreaCode: string;
   totalPrice: string;
   needSeat: boolean;
   needRealName: boolean;

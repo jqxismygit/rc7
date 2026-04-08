@@ -360,6 +360,7 @@ describeFeature(feature, ({
         projectShowCode: todaySession!.id,
         buyerName: 'Alice',
         buyerPhone: '13800000000',
+        mobileNoAreaCode: '86',
         totalPrice: '0.00',
         needSeat: false,
         needRealName: false,
@@ -398,6 +399,11 @@ describeFeature(feature, ({
     And('猫眼订单中的手机号是 {string}', (_ctx, phone: string) => {
       expect(featureContext.mopOrderDraft).toBeTruthy();
       featureContext.mopOrderDraft!.buyerPhone = phone;
+    });
+
+    And('猫眼订单中的国别码是 {string}', (_ctx, countryCode: string) => {
+      expect(featureContext.mopOrderDraft).toBeTruthy();
+      featureContext.mopOrderDraft!.mobileNoAreaCode = countryCode;
     });
 
     And('猫眼订单中选座信息是不需要选座', () => {
@@ -531,15 +537,15 @@ describeFeature(feature, ({
     });
 
     Then(
-      'cr7 添加了一个新用户，手机号是 {string}，姓名是 {string}',
-      async (_ctx, phone: string, name: string) => {
+      'cr7 添加了一个新用户，手机号是 {string}，国别码是 {string}，姓名是 {string}',
+      async (_ctx, phone: string, countryCode: string, name: string) => {
       const { mopOrderDraft, apiServer, adminToken } = featureContext;
       const { buyerPhone, buyerName } = mopOrderDraft!;
       const { total, users } = await listUsers(apiServer, adminToken!, { phone: buyerPhone });
       expect(total).toEqual(1);
       const user = users[0];
       expect(user).toBeTruthy();
-      expect(user.phone).toEqual(`+86 ${buyerPhone}`);
+      expect(user.phone).toEqual(`+${countryCode} ${buyerPhone}`);
       expect(user.name).toEqual(buyerName);
       featureContext.orderUser = user;
     });
@@ -1169,8 +1175,7 @@ describeFeature(feature, ({
   });
 
   Scenario('用户通过猫眼 OTA 创建订单', (s: StepTest<void>) => {
-    const { Given, When, Then, And } = s;
-
+    const { When, Then, And } = s;
 
     And('订单的所有人是新用户 {string}', (_ctx, userName: string) => {
       const { order, orderUser } = featureContext;
