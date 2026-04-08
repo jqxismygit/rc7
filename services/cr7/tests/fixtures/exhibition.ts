@@ -99,12 +99,16 @@ export async function getTicketCategories(
 export async function getSessions(
   server: Server,
   eid: string,
-  token?: string
+  token?: string,
+  range?: {
+    start_session_date?: string;
+    end_session_date?: string;
+  },
 ) {
   return getJSON<Exhibition.Session[]>(
     server,
     `/exhibition/${eid}/sessions`,
-    { token }
+    { token, query: range }
   )
   .then((res) => res.map(r => Object.assign(r, { session_date: new Date(r.session_date) })));
 }

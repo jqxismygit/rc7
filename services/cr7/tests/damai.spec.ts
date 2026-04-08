@@ -43,6 +43,10 @@ interface FeatureContext extends ExhibitionContext {
   apiServer: Server;
   adminToken: string;
   damaiRequestHandler?: ReturnType<typeof vi.fn>;
+  syncedSessionRange?: {
+    start_session_date: string;
+    end_session_date: string;
+  };
 }
 
 interface DamaiSignedPayload {
@@ -409,11 +413,21 @@ describeFeature(feature, ({
   Scenario('同步场次信息到大麦', (s: StepTest<void>) => {
     const { Given, When, Then, And } = s;
 
-    Given('cr7 将场次信息同步到大麦', async () => {
+    Given(
+      'cr7 将场次信息同步到大麦, 同步的场次开始时间是 {string}，结束时间是 {string}',
+      async (_ctx, startDate: string, endDate: string) => {
+      const start_session_date = toDateLabel(startDate);
+      const end_session_date = toDateLabel(endDate);
+      featureContext.syncedSessionRange = {
+        start_session_date,
+        end_session_date,
+      };
+
       await syncSessionsToDamai(
         featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
+        featureContext.syncedSessionRange,
       );
     });
 
@@ -454,11 +468,8 @@ describeFeature(feature, ({
     And('场次同步消息中每个场次的 ID 是默认展会活动对应场次的 ID', async () => {
       const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
       const body = request.body as DamaiPerformSyncPayload;
-      const sessions = await getSessions(
-        featureContext.apiServer,
-        featureContext.exhibition.id,
-        featureContext.adminToken,
-      );
+      const { apiServer, exhibition, adminToken } = featureContext;
+      const sessions = await getSessions(apiServer, exhibition.id, adminToken);
 
       const expectedIds = sessions.map(session => session.id).sort();
       const actualIds = body.performs.map(perform => perform.id).sort();

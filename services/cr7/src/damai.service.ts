@@ -119,6 +119,8 @@ class DamaiService extends RC7BaseService {
           roles: ['admin'],
           params: {
             eid: 'string',
+            start_session_date: { type: 'date', convert: true, optional: true },
+            end_session_date: { type: 'date', convert: true, optional: true },
           },
           handler: this.syncSessionsToDamai,
         },
@@ -158,16 +160,26 @@ class DamaiService extends RC7BaseService {
     ctx.meta.$statusCode = 204;
   }
 
-  async syncSessionsToDamai(ctx: Context<{ eid: string }, UserMeta>): Promise<void> {
-    const { eid } = ctx.params;
+  async syncSessionsToDamai(
+    ctx: Context<{ eid: string; start_session_date?: Date; end_session_date?: Date }, UserMeta>
+  ): Promise<void> {
+    const { eid, start_session_date, end_session_date } = ctx.params;
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
       'cr7.exhibition.get',
       { eid },
     );
-    const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
-      'cr7.exhibition.getSessions',
-      { eid },
-    );
+    const query: { eid: string; start_session_date?: Date; end_session_date?: Date } = { eid };
+    if (start_session_date) {
+      query.start_session_date = start_session_date;
+    }
+    if (end_session_date) {
+      query.end_session_date = end_session_date;
+    }
+
+    const sessions = await ctx.call<
+      Exhibition.Session[],
+      { eid: string; start_session_date?: Date; end_session_date?: Date }
+    >('cr7.exhibition.getSessions', query);
     const sortedSessions = [...sessions].sort((left, right) => {
       const leftDate = toDateLabel(left.session_date);
       const rightDate = toDateLabel(right.session_date);
