@@ -362,7 +362,7 @@ describeFeature(feature, ({
         buyerPhone: '13800000000',
         totalPrice: '0.00',
         needSeat: false,
-        needRealName: false,
+        needRealName: 0,
         ticketInfo: [],
       };
     });
@@ -405,9 +405,9 @@ describeFeature(feature, ({
       featureContext.mopOrderDraft!.needSeat = false;
     });
 
-    And('猫眼订单中是非实名', () => {
+    And('猫眼订单中是非实名, 值为 {int}', (_ctx, value: 0 | 1) => {
       expect(featureContext.mopOrderDraft).toBeTruthy();
-      featureContext.mopOrderDraft!.needRealName = false;
+      featureContext.mopOrderDraft!.needRealName = value;
     });
 
     And('猫眼订单中有 {int} 个订单项', (_ctx, count: number) => {

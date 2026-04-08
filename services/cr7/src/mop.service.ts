@@ -87,7 +87,7 @@ type MopOrderCreateRequest = {
   buyerPhone: string;
   totalPrice: string;
   needSeat: boolean;
-  needRealName: boolean;
+  needRealName: 0 | 1;
   ticketInfo: MopOrderTicket[];
 };
 
