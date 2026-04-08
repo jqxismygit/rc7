@@ -38,6 +38,8 @@ type MopProjectSyncRequest = {
   otVenueId: string;
   otVenueName: string;
   projectStatus: number;
+  seatType: 1 | 2;
+  needRealName: 0 | 1;
   name: string;
 };
 
@@ -177,6 +179,9 @@ const MOP_ORDER_STATUS_CHANGE_URI = '/mop/orderStatusChange';
 const MOP_CONSUME_URI = '/supply/open/mop/consume';
 const MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_CANCEL = 0;
 const MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_REFUND = 1;
+const MOP_SEAT_TYPE_NONE = 1;
+const MOP_NEED_REAL_NAME_NO = 0;
+
 
 const MOP_ORDER_STATUS = {
   INITIAL: 0,
@@ -412,6 +417,8 @@ export default class MoeService extends RC7BaseService {
       otVenueId: exhibition.id,
       otVenueName: exhibition.venue_name,
       projectStatus: MOP_PROJECT_STATUS_VALID,
+      seatType: MOP_SEAT_TYPE_NONE,
+      needRealName: MOP_NEED_REAL_NAME_NO,
       name: exhibition.name,
     };
 

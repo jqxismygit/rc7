@@ -961,6 +961,24 @@ describeFeature(feature, ({
       }));
     });
 
+    And('展会中的场馆的座位类型是无座，值为 {int}', (_ctx, value: number) => {
+      const { mopRequestHandler } = featureContext;
+      expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.objectContaining({
+          seatType: value,
+        }),
+      }));
+    });
+
+    And('展会中的场馆的实名制认证类型是非实名制，值为 {int}', (_ctx, value: number) => {
+      const { mopRequestHandler } = featureContext;
+      expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.objectContaining({
+          needRealName: value,
+        }),
+      }));
+    });
+
     And('展会中的项目状态是有效，值为 {int}', (_ctx, status: number) => {
       const { mopRequestHandler } = featureContext;
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
