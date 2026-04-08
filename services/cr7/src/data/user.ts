@@ -97,19 +97,22 @@ export async function listUserProfiles(
   schema: string,
   options: {
     phone?: string;
+    damai_user_id?: string;
     page: number;
     limit: number;
   },
 ) {
-  const { phone, page, limit } = options;
+  const { phone, damai_user_id, page, limit } = options;
   const offset = (page - 1) * limit;
 
   const { rows: countRows } = await client.query<{ total: string }>(
     `SELECT COUNT(*)::text AS total
     FROM ${schema}.users u
+    LEFT JOIN ${schema}.user_damai ud ON u.id = ud.uid
     LEFT JOIN ${schema}.user_phone up ON u.id = up.uid
-    WHERE ($1::text IS NULL OR up.phone = $1)`,
-    [phone ?? null],
+    WHERE ($1::text IS NULL OR up.phone = $1)
+      AND ($2::text IS NULL OR ud.damai_user_id = $2)`,
+    [phone ?? null, damai_user_id ?? null],
   );
   const total = parseInt(countRows[0].total, 10);
 
@@ -142,9 +145,10 @@ export async function listUserProfiles(
     LEFT JOIN ${schema}.user_phone up ON u.id = up.uid
     LEFT JOIN ${schema}.user_password upw ON u.id = upw.uid
     WHERE ($1::text IS NULL OR up.phone = $1)
+      AND ($2::text IS NULL OR ud.damai_user_id = $2)
       ORDER BY u.created_at DESC
-      LIMIT $2 OFFSET $3`,
-    [phone ?? null, limit, offset],
+      LIMIT $3 OFFSET $4`,
+    [phone ?? null, damai_user_id ?? null, limit, offset],
   );
 
   return {

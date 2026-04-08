@@ -907,11 +907,10 @@ describeFeature(feature, ({
     });
 
     Then('cr7 创建了一个用户，其关联的大麦 ID 是 {string}, 手机号为空，姓名是 {string}', async (_ctx, damaiId: string, expectedName: string) => {
-      const { users } = await listUsers(
-        featureContext.apiServer,
-        featureContext.adminToken,
+      const { apiServer, adminToken } = featureContext;
+      const { users: [user] } = await listUsers(
+        apiServer, adminToken, { damai_user_id: damaiId }
       );
-      const user = users.find(item => item.damai_user_id === damaiId);
       expect(user).toBeTruthy();
       expect(user!.damai_user_id).toBe(damaiId);
       expect(user!.phone ?? null).toBeNull();

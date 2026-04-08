@@ -154,6 +154,7 @@
   ```ts
   {
     phone?: string;  // 可选，按手机号精确过滤
+    damai_user_id?: string; // 可选，按大麦用户 ID 精确过滤
     page?: number;   // 可选，页码，默认 1
     limit?: number;  // 可选，每页数量，默认 20
   }
@@ -170,6 +171,8 @@
 - 说明：
   - 不传 `phone` 时返回全部用户列表（分页）
   - 传 `phone` 时按手机号精确过滤，例如 `12345678901`
+  - 传 `damai_user_id` 时按大麦用户 ID 精确过滤
+  - `phone` 与 `damai_user_id` 可同时传入，按与关系组合过滤
   - `page` 和 `limit` 均可选，默认返回第 1 页，每页 20 条
   - `damai_user_id` 对未绑定大麦账号的用户为 `null`
   - 列表中的 `phone` 保持完整格式（如 `+86 12345678901`）

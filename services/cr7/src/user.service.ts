@@ -91,6 +91,10 @@ export default class UserService extends Service {
               type: 'string',
               optional: true,
             },
+            damai_user_id: {
+              type: 'string',
+              optional: true,
+            },
             page: {
               type: 'number',
               integer: true,
@@ -256,11 +260,21 @@ export default class UserService extends Service {
     return { role_names: roles.map(role => role.name) };
   }
 
-  async list(ctx: Context<{ phone?: string; page?: number; limit?: number }>) {
+  async list(
+    ctx: Context<{
+      phone?: string;
+      damai_user_id?: string;
+      page?: number;
+      limit?: number
+    }>
+  ) {
     const schema = await this.getSchema();
-    const { phone, page = 1, limit = 20 } = ctx.params;
+    const { phone, damai_user_id, page = 1, limit = 20 } = ctx.params;
 
-    const users = await listUserProfiles(this.pool, schema, { phone, page, limit });
+    const users = await listUserProfiles(
+      this.pool, schema,
+      { phone, damai_user_id, page, limit }
+    );
     return users;
   }
 

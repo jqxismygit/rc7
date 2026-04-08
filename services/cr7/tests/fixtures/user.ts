@@ -25,6 +25,7 @@ export function listUsers(
   token: string,
   query: {
     phone?: string;
+    damai_user_id?: string;
     page?: number;
     limit?: number;
   } = {},
