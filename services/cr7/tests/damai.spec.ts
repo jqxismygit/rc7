@@ -535,6 +535,43 @@ describeFeature(feature, ({
       const { records, payOrderResponse } = featureContext;
       expect(records![0].response_body).toEqual(payOrderResponse);
     });
+
+    // 支付
+    Given('用户在大麦支付了订单 {string}', (_ctx, damaiOrderId: string) => {
+      featureContext.payOrderRequest = buildDamaiPayOrderRequest({
+        daMaiOrderId: damaiOrderId,
+      });
+    });
+
+    When('cr7 收到订单支付成功的消息，可以正常验证签名', async () => {
+      const request = featureContext.payOrderRequest;
+      expect(request).toBeTruthy();
+
+      featureContext.payOrderResponse = await syncDamaiPayOrderToCr7(
+        featureContext.apiServer,
+        request!,
+      );
+
+      expect(verifyDamaiSignature(request!.head.signed, {
+        apiKey: config.damai.api_key,
+        apiPw: config.damai.api_pwd,
+        msgId: request!.head.msgId,
+        timestamp: request!.head.timestamp,
+        version: request!.head.version,
+      })).toBe(true);
+      expect(featureContext.payOrderResponse?.head.returnCode).toBe('0');
+    });
+
+    Then('cr7 将订单状态更新为已支付', async () => {
+      expect(featureContext.order).toBeTruthy();
+      const order = await getOrderAdmin(
+        featureContext.apiServer,
+        featureContext.order!.id,
+        featureContext.adminToken,
+      );
+      expect(order.status).toBe('PAID');
+      featureContext.order = order;
+    });
   });
 
   Background(({ Given, And }) => {
@@ -940,7 +977,7 @@ describeFeature(feature, ({
   });
 
   Scenario('用户通过大麦 OTA 创建订单', (s: StepTest<void>) => {
-    const { Given, When, Then, And } = s;
+    const { When, Then, And } = s;
 
     And('订单的订单项有 {int} 个', (_ctx, count: number) => {
       expect(featureContext.order).toBeTruthy();
@@ -1032,43 +1069,7 @@ describeFeature(feature, ({
   });
 
   Scenario('用户在大麦支付了订单', (s: StepTest<void>) => {
-    const { Given, When, Then, And } = s;
-
-    Given('用户在大麦支付了订单 {string}', (_ctx, damaiOrderId: string) => {
-      featureContext.payOrderRequest = buildDamaiPayOrderRequest({
-        daMaiOrderId: damaiOrderId,
-      });
-    });
-
-    When('cr7 收到订单支付成功的消息，可以正常验证签名', async () => {
-      const request = featureContext.payOrderRequest;
-      expect(request).toBeTruthy();
-
-      featureContext.payOrderResponse = await syncDamaiPayOrderToCr7(
-        featureContext.apiServer,
-        request!,
-      );
-
-      expect(verifyDamaiSignature(request!.head.signed, {
-        apiKey: config.damai.api_key,
-        apiPw: config.damai.api_pwd,
-        msgId: request!.head.msgId,
-        timestamp: request!.head.timestamp,
-        version: request!.head.version,
-      })).toBe(true);
-      expect(featureContext.payOrderResponse?.head.returnCode).toBe('0');
-    });
-
-    Then('cr7 将订单状态更新为已支付', async () => {
-      expect(featureContext.order).toBeTruthy();
-      const order = await getOrderAdmin(
-        featureContext.apiServer,
-        featureContext.order!.id,
-        featureContext.adminToken,
-      );
-      expect(order.status).toBe('PAID');
-      featureContext.order = order;
-    });
+    const { When, Then, And } = s;
 
     And('cr7 返回了大麦订单支付结果', () => {
       const response = featureContext.payOrderResponse;
@@ -1122,4 +1123,7 @@ describeFeature(feature, ({
     });
   });
 
+  Scenario('用户在核销了订单之后，通知大麦', (s: StepTest<void>) => {
+    const { When, Then, And } = s;
+  });
 });
