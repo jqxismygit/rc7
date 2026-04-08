@@ -367,6 +367,118 @@ describeFeature(feature, ({
       expect(sessionTicket!.quantity).toBe(expectedQuantity);
     });
 
+    //创建订单
+    Given('用户在大麦创建了订单', () => {
+      featureContext.orderDraft = {
+        daMaiOrderId: '',
+        projectId: featureContext.exhibition.id,
+        performId: '',
+        hasSeat: false,
+        commodityInfoList: [],
+        priceInfo: [],
+        userInfo: {
+          userId: '',
+        },
+        totalAmountFen: 0,
+        realAmountOfFen: 0,
+        expressFee: 0,
+      };
+    });
+
+    And('大麦的订单中的大麦订单 ID 是 {string}', (_ctx, damaiOrderId: string) => {
+      featureContext.orderDraft!.daMaiOrderId = damaiOrderId;
+    });
+
+    And('大麦的订单中的项目 ID 是默认展会活动的 ID', () => {
+      featureContext.orderDraft!.projectId = featureContext.exhibition.id;
+    });
+
+    And('大麦的订单中的场次 ID 是 {string} 场次', async (_ctx, sessionDate: string) => {
+      const sessions = await getSessions(
+        featureContext.apiServer,
+        featureContext.exhibition.id,
+        featureContext.adminToken,
+      );
+      const matchedSession = sessions.find(session => toDateOnlyLabel(session.session_date) === toDateLabel(sessionDate));
+      expect(matchedSession).toBeTruthy();
+      featureContext.orderDraft!.performId = matchedSession!.id;
+    });
+
+    And('大麦的订单中的订单项有 {int} 个', (_ctx, count: number) => {
+      const draft = featureContext.orderDraft!;
+      draft.priceInfo = Array.from({ length: count }, () => ({
+        priceId: '',
+        num: 0,
+        price: 0,
+      }));
+      draft.commodityInfoList = [];
+    });
+
+    And('大麦的订单中的第 {int} 个订单项 ID 是 {string} 的 ID，数量为 {int}，价格为票价，单位为分', (_ctx, index: number, ticketName: string, quantity: number) => {
+      const ticket = featureContext.ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+      const draft = featureContext.orderDraft!;
+      draft.priceInfo[index - 1] = {
+        priceId: ticket.id,
+        num: quantity,
+        price: ticket.price * 100,
+      };
+
+      for (let itemIndex = 0; itemIndex < quantity; itemIndex += 1) {
+        draft.commodityInfoList.push({
+          priceId: ticket.id,
+          subOrderId: `${draft.daMaiOrderId || 'damai_order'}_${index}_${itemIndex + 1}`,
+        });
+      }
+    });
+
+    And('大麦的订单中的总金额是 {int} 分，实付金额是 {int} 分', (_ctx, totalAmount: number, payAmount: number) => {
+      const draft = featureContext.orderDraft!;
+      draft.totalAmountFen = totalAmount;
+      draft.realAmountOfFen = payAmount;
+    });
+
+    And('大麦的订单中的买家大麦 ID 是 {string}', (_ctx, buyerDamaiId: string) => {
+      featureContext.orderDraft!.userInfo.userId = buyerDamaiId;
+    });
+
+    When('大麦将订单同步消息发送给 cr7', async () => {
+      const request = buildDamaiCreateOrderRequest(featureContext.orderDraft!);
+      featureContext.createOrderRequest = request;
+      featureContext.createOrderResponse = await syncDamaiOrderToCr7(
+        featureContext.apiServer,
+        request,
+      );
+    });
+
+    Then('cr7 收到订单同步消息，可以正常验证签名', () => {
+      const request = featureContext.createOrderRequest;
+      expect(request).toBeTruthy();
+      expect(verifyDamaiSignature(request!.head.signed, {
+        apiKey: config.damai.api_key,
+        apiPw: config.damai.api_pwd,
+        msgId: request!.head.msgId,
+        timestamp: request!.head.timestamp,
+        version: request!.head.version,
+      })).toBe(true);
+      expect(featureContext.createOrderResponse?.head.returnCode).toBe('0');
+    });
+
+    And('cr7 创建了一个订单，来源为 {string}, 状态为待支付', async (_ctx, source: string) => {
+      const response = featureContext.createOrderResponse;
+      expect(response).toBeTruthy();
+      expect(response!.body.orderInfo.orderId).toBeTruthy();
+
+      const order = await getOrderAdmin(
+        featureContext.apiServer,
+        response!.body.orderInfo.orderId!,
+        featureContext.adminToken,
+      );
+      expect(order.source).toBe(source);
+      expect(order.status).toBe('PENDING_PAYMENT');
+      featureContext.order = order;
+    });
+
     // 订单同步记录
     When('管理员 {int} 次查看大麦订单同步记录', async () => {
       const { apiServer, adminToken, order } = featureContext;
@@ -810,135 +922,6 @@ describeFeature(feature, ({
   Scenario('用户通过大麦 OTA 创建订单', (s: StepTest<void>) => {
     const { Given, When, Then, And } = s;
 
-    Given('用户在大麦创建了订单', () => {
-      featureContext.orderDraft = {
-        daMaiOrderId: '',
-        projectId: featureContext.exhibition.id,
-        performId: '',
-        hasSeat: false,
-        commodityInfoList: [],
-        priceInfo: [],
-        userInfo: {
-          userId: '',
-        },
-        totalAmountFen: 0,
-        realAmountOfFen: 0,
-        expressFee: 0,
-      };
-    });
-
-    And('大麦的订单中的大麦订单 ID 是 {string}', (_ctx, damaiOrderId: string) => {
-      featureContext.orderDraft!.daMaiOrderId = damaiOrderId;
-    });
-
-    And('大麦的订单中的项目 ID 是默认展会活动的 ID', () => {
-      featureContext.orderDraft!.projectId = featureContext.exhibition.id;
-    });
-
-    And('大麦的订单中的场次 ID 是 {string} 场次', async (_ctx, sessionDate: string) => {
-      const sessions = await getSessions(
-        featureContext.apiServer,
-        featureContext.exhibition.id,
-        featureContext.adminToken,
-      );
-      const matchedSession = sessions.find(session => toDateOnlyLabel(session.session_date) === toDateLabel(sessionDate));
-      expect(matchedSession).toBeTruthy();
-      featureContext.orderDraft!.performId = matchedSession!.id;
-    });
-
-    And('大麦的订单中的订单项有 {int} 个', (_ctx, count: number) => {
-      const draft = featureContext.orderDraft!;
-      draft.priceInfo = Array.from({ length: count }, () => ({
-        priceId: '',
-        num: 0,
-        price: 0,
-      }));
-      draft.commodityInfoList = [];
-    });
-
-    And('大麦的订单中的第 {int} 个订单项 ID 是 {string} 的 ID，数量为 {int}，价格为票价，单位为分', (_ctx, index: number, ticketName: string, quantity: number) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
-      const draft = featureContext.orderDraft!;
-      draft.priceInfo[index - 1] = {
-        priceId: ticket.id,
-        num: quantity,
-        price: ticket.price * 100,
-      };
-
-      for (let itemIndex = 0; itemIndex < quantity; itemIndex += 1) {
-        draft.commodityInfoList.push({
-          priceId: ticket.id,
-          subOrderId: `${draft.daMaiOrderId || 'damai_order'}_${index}_${itemIndex + 1}`,
-        });
-      }
-    });
-
-    And('大麦的订单中的第 2 个订单项 ID 是 {string} 的 ID，数量为 {int}，价格为票价，单位为分', (_ctx, ticketName: string, quantity: number) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
-      const draft = featureContext.orderDraft!;
-      draft.priceInfo[1] = {
-        priceId: ticket.id,
-        num: quantity,
-        price: ticket.price * 100,
-      };
-
-      for (let itemIndex = 0; itemIndex < quantity; itemIndex += 1) {
-        draft.commodityInfoList.push({
-          priceId: ticket.id,
-          subOrderId: `${draft.daMaiOrderId || 'damai_order'}_2_${itemIndex + 1}`,
-        });
-      }
-    });
-
-    And('大麦的订单中的总金额是 {int} 分，实付金额是 {int} 分', (_ctx, totalAmount: number, payAmount: number) => {
-      const draft = featureContext.orderDraft!;
-      draft.totalAmountFen = totalAmount;
-      draft.realAmountOfFen = payAmount;
-    });
-
-    And('大麦的订单中的买家大麦 ID 是 {string}', (_ctx, buyerDamaiId: string) => {
-      featureContext.orderDraft!.userInfo.userId = buyerDamaiId;
-    });
-
-    When('大麦将订单同步消息发送给 cr7', async () => {
-      const request = buildDamaiCreateOrderRequest(featureContext.orderDraft!);
-      featureContext.createOrderRequest = request;
-      featureContext.createOrderResponse = await syncDamaiOrderToCr7(
-        featureContext.apiServer,
-        request,
-      );
-    });
-
-    Then('cr7 收到订单同步消息，可以正常验证签名', () => {
-      const request = featureContext.createOrderRequest;
-      expect(request).toBeTruthy();
-      expect(verifyDamaiSignature(request!.head.signed, {
-        apiKey: config.damai.api_key,
-        apiPw: config.damai.api_pwd,
-        msgId: request!.head.msgId,
-        timestamp: request!.head.timestamp,
-        version: request!.head.version,
-      })).toBe(true);
-      expect(featureContext.createOrderResponse?.head.returnCode).toBe('0');
-    });
-
-    And('cr7 创建了一个订单，来源为 {string}, 状态为待支付', async (_ctx, source: string) => {
-      const response = featureContext.createOrderResponse;
-      expect(response).toBeTruthy();
-      expect(response!.body.orderInfo.orderId).toBeTruthy();
-
-      const order = await getOrderAdmin(
-        featureContext.apiServer,
-        response!.body.orderInfo.orderId!,
-        featureContext.adminToken,
-      );
-      expect(order.source).toBe(source);
-      expect(order.status).toBe('PENDING_PAYMENT');
-      featureContext.order = order;
-    });
-
     And('订单的订单项有 {int} 个', (_ctx, count: number) => {
       expect(featureContext.order).toBeTruthy();
       expect(featureContext.order!.items).toHaveLength(count);
@@ -1026,6 +1009,9 @@ describeFeature(feature, ({
       expect(featureContext.createOrderResponse!.body.orderInfo.totalAmount).toBe(totalAmount);
       expect(featureContext.createOrderResponse!.body.orderInfo.realAmount).toBe(payAmount);
     });
+  });
+
+  Scenario('用户在大麦支付了订单', (s: StepTest<void>) => {
   });
 
 });
