@@ -66,7 +66,7 @@ function getHeaders(
   ) as HeadersInit;
 }
 
-async function handlerBody<Result>(res: Response): Promise<Result | string> {
+async function handlerBody<Result>(res: Response): Promise<Result | string | null> {
   if (res.status === 204) {
     return null;
   }
