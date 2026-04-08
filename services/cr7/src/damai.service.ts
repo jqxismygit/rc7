@@ -127,6 +127,29 @@ type DamaiCreateOrderResponse = {
   };
 };
 
+type DamaiPayOrderRequest = {
+  head: DamaiHeadPayload;
+  bodyPayOrder: {
+    orderInfo: {
+      daMaiOrderId: string;
+    };
+  };
+};
+
+type DamaiPayOrderResponse = {
+  head: {
+    returnCode: string;
+    returnDesc: string;
+  };
+  body: {
+    orderPayInfo: {
+      thirdOrderId?: string;
+      daMaiOrderId?: string;
+      payStatus?: number;
+    };
+  };
+};
+
 type DamaiValidatedCreateOrderInfo = {
   daMaiOrderId: string;
   projectId: string;
@@ -148,6 +171,8 @@ const DAMAI_TICKET_TYPE_ELECTRONIC = 2;
 const DAMAI_RULE_TYPE_NON_REAL_NAME = 0;
 const DAMAI_TICKET_SALE_STATE_ON_SALE = 1;
 const DAMAI_CREATE_ORDER_URI = '/damai/createOrder';
+const DAMAI_PAY_CALLBACK_URI = '/damai/payCallBack';
+const DAMAI_PAY_STATUS_SUCCESS = 1;
 
 function toDateValue(value: string | Date): Date {
   if (isDate(value)) {
@@ -231,9 +256,7 @@ function buildDamaiCreateOrderSuccess(input: {
   };
 }
 
-function isValidDamaiCreateOrderRequest(payload: DamaiCreateOrderRequest): boolean {
-  const { head } = payload;
-
+function isValidDamaiHead(head: DamaiHeadPayload): boolean {
   if (head.apiKey !== config.damai.api_key) {
     return false;
   }
@@ -257,6 +280,37 @@ function isValidDamaiCreateOrderRequest(payload: DamaiCreateOrderRequest): boole
     timestamp: head.timestamp,
     version: head.version,
   });
+}
+
+function buildDamaiPayOrderError(returnCode: string, returnDesc: string): DamaiPayOrderResponse {
+  return {
+    head: {
+      returnCode,
+      returnDesc,
+    },
+    body: {
+      orderPayInfo: {},
+    },
+  };
+}
+
+function buildDamaiPayOrderSuccess(input: {
+  orderId: string;
+  daMaiOrderId: string;
+}): DamaiPayOrderResponse {
+  return {
+    head: {
+      returnCode: '0',
+      returnDesc: '成功',
+    },
+    body: {
+      orderPayInfo: {
+        thirdOrderId: input.orderId,
+        daMaiOrderId: input.daMaiOrderId,
+        payStatus: DAMAI_PAY_STATUS_SUCCESS,
+      },
+    },
+  };
 }
 
 class DamaiService extends RC7BaseService {
@@ -308,6 +362,14 @@ class DamaiService extends RC7BaseService {
             bodySubmitOrder: 'object',
           },
           handler: this.createOrderFromDamai,
+        },
+        payOrderFromDamai: {
+          rest: 'POST /payCallBack',
+          params: {
+            head: 'object',
+            bodyPayOrder: 'object',
+          },
+          handler: this.payOrderFromDamai,
         },
         getDamaiOrderRecord: {
           rest: 'GET /orders/:rid',
@@ -464,13 +526,13 @@ class DamaiService extends RC7BaseService {
     ctx.meta.$statusCode = 204;
   }
 
-  async finishWithDamaiResponse(
+  async finishWithDamaiResponse<T extends DamaiCreateOrderResponse | DamaiPayOrderResponse>(
     recordId: string,
-    response: DamaiCreateOrderResponse,
+    response: T,
     syncStatus: Damai.DamaiOrderSyncStatus = 'FAILED',
     orderId?: string,
     userId?: string,
-  ): Promise<DamaiCreateOrderResponse> {
+  ): Promise<T> {
     const schema = await this.getSchema();
 
     await updateDamaiOrderSyncRecord(this.pool, schema, {
@@ -501,7 +563,7 @@ class DamaiService extends RC7BaseService {
       orderId: null,
     });
 
-    if (!isValidDamaiCreateOrderRequest(payload)) {
+    if (isValidDamaiHead(payload.head) === false) {
       return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('10001', '签名错误'));
     }
 
@@ -660,6 +722,74 @@ class DamaiService extends RC7BaseService {
 
       this.logger.error('处理大麦订单同步时发生错误', error);
       return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('10099', '系统异常'));
+    }
+  }
+
+  async payOrderFromDamai(
+    ctx: Context<DamaiPayOrderRequest, Meta>,
+  ): Promise<DamaiPayOrderResponse> {
+    ctx.meta.$statusCode = 200;
+
+    const payload = ctx.params;
+    const schema = await this.getSchema();
+
+    const { id: recordId } = await createDamaiOrderSyncRecord(this.pool, schema, {
+      damaiOrderId: payload.bodyPayOrder?.orderInfo?.daMaiOrderId ?? null,
+      requestPath: DAMAI_PAY_CALLBACK_URI,
+      requestBody: payload,
+      responseBody: null,
+      syncStatus: 'FAILED',
+      orderId: null,
+    });
+
+    if (isValidDamaiHead(payload.head) === false) {
+      return this.finishWithDamaiResponse(recordId, buildDamaiPayOrderError('10001', '签名错误'));
+    }
+
+    const daMaiOrderId = payload.bodyPayOrder?.orderInfo?.daMaiOrderId;
+    if (!daMaiOrderId) {
+      return this.finishWithDamaiResponse(recordId, buildDamaiPayOrderError('10001', '参数异常'));
+    }
+
+    const firstSuccessRecord = await getFirstSuccessfulDamaiOrderSyncRecordByDamaiOrderId(
+      this.pool,
+      schema,
+      daMaiOrderId,
+    );
+
+    if (firstSuccessRecord?.order_id == null || firstSuccessRecord.user_id == null) {
+      return this.finishWithDamaiResponse(recordId, buildDamaiPayOrderError('30001', '订单不存在'));
+    }
+
+    try {
+      await ctx.call<{ paid_at: Date }, { oid: string }>(
+        'cr7.order.markPaid',
+        { oid: firstSuccessRecord.order_id },
+      );
+
+      return this.finishWithDamaiResponse(
+        recordId,
+        buildDamaiPayOrderSuccess({
+          orderId: firstSuccessRecord.order_id,
+          daMaiOrderId,
+        }),
+        'SUCCESS',
+        firstSuccessRecord.order_id,
+        firstSuccessRecord.user_id,
+      );
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+
+      if (code === 'ORDER_NOT_FOUND') {
+        return this.finishWithDamaiResponse(recordId, buildDamaiPayOrderError('30001', '订单不存在'));
+      }
+
+      if (code === 'ORDER_STATUS_INVALID') {
+        return this.finishWithDamaiResponse(recordId, buildDamaiPayOrderError('30007', '订单状态异常'));
+      }
+
+      this.logger.error('处理大麦订单支付回调时发生错误', error);
+      return this.finishWithDamaiResponse(recordId, buildDamaiPayOrderError('10099', '系统异常'));
     }
   }
 

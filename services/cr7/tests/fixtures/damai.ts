@@ -65,6 +65,38 @@ export interface DamaiCreateOrderResponse {
   };
 }
 
+export interface DamaiPayOrderBody {
+  daMaiOrderId: string;
+}
+
+export interface DamaiPayOrderRequest {
+  head: {
+    version: string;
+    msgId: string;
+    apiKey: string;
+    apiSecret: string;
+    timestamp: string;
+    signed: string;
+  };
+  bodyPayOrder: {
+    orderInfo: DamaiPayOrderBody;
+  };
+}
+
+export interface DamaiPayOrderResponse {
+  head: {
+    returnCode: string;
+    returnDesc: string;
+  };
+  body: {
+    orderPayInfo: {
+      thirdOrderId?: string;
+      daMaiOrderId?: string;
+      payStatus?: number;
+    };
+  };
+}
+
 export async function syncExhibitionToDamai(
   server: Server,
   token: string,
@@ -129,6 +161,27 @@ export function buildDamaiCreateOrderRequest(orderInfo: DamaiCreateOrderBody): D
   };
 }
 
+export function buildDamaiPayOrderRequest(orderInfo: DamaiPayOrderBody): DamaiPayOrderRequest {
+  const signature = buildDamaiSignature({
+    apiKey: config.damai.api_key,
+    apiPw: config.damai.api_pwd,
+  });
+
+  return {
+    head: {
+      version: signature.version,
+      msgId: signature.msgId,
+      apiKey: signature.apiKey,
+      apiSecret: signature.apiSecret,
+      timestamp: signature.timestamp,
+      signed: signature.signed,
+    },
+    bodyPayOrder: {
+      orderInfo,
+    },
+  };
+}
+
 export async function syncDamaiOrderToCr7(
   server: Server,
   body: DamaiCreateOrderRequest,
@@ -136,6 +189,17 @@ export async function syncDamaiOrderToCr7(
   return postJSON<DamaiCreateOrderResponse>(
     server,
     '/ota/damai/createOrder',
+    { body },
+  );
+}
+
+export async function syncDamaiPayOrderToCr7(
+  server: Server,
+  body: DamaiPayOrderRequest,
+) {
+  return postJSON<DamaiPayOrderResponse>(
+    server,
+    '/ota/damai/payCallBack',
     { body },
   );
 }

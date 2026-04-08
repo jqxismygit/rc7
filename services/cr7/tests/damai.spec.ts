@@ -23,11 +23,15 @@ import { getOrderAdmin } from './fixtures/order.js';
 import { getSessionTickets, updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 import {
   buildDamaiCreateOrderRequest,
+  buildDamaiPayOrderRequest,
   DamaiCreateOrderBody,
   DamaiCreateOrderRequest,
   DamaiCreateOrderResponse,
+  DamaiPayOrderRequest,
+  DamaiPayOrderResponse,
   getDamaiOrderSyncRecords,
   syncDamaiOrderToCr7,
+  syncDamaiPayOrderToCr7,
   syncExhibitionToDamai,
   syncSessionsToDamai,
   syncTicketsToDamai,
@@ -65,10 +69,16 @@ interface CreateOrderContext {
   records: Damai.DamaiOrderSyncRecord[];
 }
 
+interface PayOrderContext {
+  payOrderRequest: DamaiPayOrderRequest;
+  payOrderResponse: DamaiPayOrderResponse;
+}
+
 interface FeatureContext extends
   ExhibitionContext,
   Partial<SessionSyncContext>,
-  Partial<CreateOrderContext> {
+  Partial<CreateOrderContext>,
+  Partial<PayOrderContext> {
   broker: ServiceBroker;
   apiServer: Server;
   adminToken: string;
@@ -140,7 +150,7 @@ interface DamaiPriceSyncPayload {
 }
 
 interface DamaiMockRequest {
-  body: DamaiProjectSyncPayload | DamaiPerformSyncPayload | DamaiPriceSyncPayload | DamaiCreateOrderRequest;
+  body: DamaiProjectSyncPayload | DamaiPerformSyncPayload | DamaiPriceSyncPayload | DamaiCreateOrderRequest | DamaiPayOrderRequest;
   query: Record<string, string>;
   path: string;
   method: string;
@@ -480,7 +490,7 @@ describeFeature(feature, ({
     });
 
     // 订单同步记录
-    When('管理员 {int} 次查看大麦订单同步记录', async () => {
+    When('管理员第 {int} 次查看大麦订单同步记录', async () => {
       const { apiServer, adminToken, order } = featureContext;
       featureContext.records = await getDamaiOrderSyncRecords(apiServer, adminToken, order!.id);
     });
@@ -514,6 +524,16 @@ describeFeature(feature, ({
     And('第 {int} 次查看时，最新的订单同步记录里的响应体为 cr7 返回给大麦的订单同步结果', (_ctx, _checkIndex: number) => {
       const { records, createOrderResponse } = featureContext;
       expect(records![0].response_body).toEqual(createOrderResponse);
+    });
+
+    And('第 {int} 次查看时，最新的订单同步记录里的请求体为大麦订单支付消息的请求体', (_ctx, _checkIndex: number) => {
+      const { records, payOrderRequest } = featureContext;
+      expect(records![0].request_body).toEqual(payOrderRequest);
+    });
+
+    And('第 {int} 次查看时，最新的订单同步记录里的响应体为 cr7 返回给大麦的订单支付结果', (_ctx, _checkIndex: number) => {
+      const { records, payOrderResponse } = featureContext;
+      expect(records![0].response_body).toEqual(payOrderResponse);
     });
   });
 
@@ -1012,6 +1032,94 @@ describeFeature(feature, ({
   });
 
   Scenario('用户在大麦支付了订单', (s: StepTest<void>) => {
+    const { Given, When, Then, And } = s;
+
+    Given('用户在大麦支付了订单 {string}', (_ctx, damaiOrderId: string) => {
+      featureContext.payOrderRequest = buildDamaiPayOrderRequest({
+        daMaiOrderId: damaiOrderId,
+      });
+    });
+
+    When('cr7 收到订单支付成功的消息，可以正常验证签名', async () => {
+      const request = featureContext.payOrderRequest;
+      expect(request).toBeTruthy();
+
+      featureContext.payOrderResponse = await syncDamaiPayOrderToCr7(
+        featureContext.apiServer,
+        request!,
+      );
+
+      expect(verifyDamaiSignature(request!.head.signed, {
+        apiKey: config.damai.api_key,
+        apiPw: config.damai.api_pwd,
+        msgId: request!.head.msgId,
+        timestamp: request!.head.timestamp,
+        version: request!.head.version,
+      })).toBe(true);
+      expect(featureContext.payOrderResponse?.head.returnCode).toBe('0');
+    });
+
+    Then('cr7 将订单状态更新为已支付', async () => {
+      expect(featureContext.order).toBeTruthy();
+      const order = await getOrderAdmin(
+        featureContext.apiServer,
+        featureContext.order!.id,
+        featureContext.adminToken,
+      );
+      expect(order.status).toBe('PAID');
+      featureContext.order = order;
+    });
+
+    And('cr7 返回了大麦订单支付结果', () => {
+      const response = featureContext.payOrderResponse;
+      expect(response).toBeTruthy();
+      expect(response).toHaveProperty('head.returnCode', '0');
+      expect(response).toHaveProperty('head.returnDesc', '成功');
+    });
+
+    And('订单支付结果里的第三方订单 ID 是 cr7 创建的订单 ID', () => {
+      expect(featureContext.payOrderResponse).toBeTruthy();
+      expect(featureContext.order).toBeTruthy();
+      expect(featureContext.payOrderResponse!.body.orderPayInfo.thirdOrderId).toBe(featureContext.order!.id);
+    });
+
+    And('订单支付结果里的大麦订单 ID 是 {string}', (_ctx, damaiOrderId: string) => {
+      expect(featureContext.payOrderResponse).toBeTruthy();
+      expect(featureContext.payOrderResponse!.body.orderPayInfo.daMaiOrderId).toBe(damaiOrderId);
+    });
+
+    And('订单支付结果里的支付状态为成功，值为 {int}', (_ctx, expectedStatus: number) => {
+      expect(featureContext.payOrderResponse).toBeTruthy();
+      expect(featureContext.payOrderResponse!.body.orderPayInfo.payStatus).toBe(expectedStatus);
+    });
+
+    When('大麦再次把相同的订单支付消息发送给 cr7', async () => {
+      featureContext.payOrderResponse = await syncDamaiPayOrderToCr7(
+        featureContext.apiServer,
+        featureContext.payOrderRequest!,
+      );
+    });
+
+    Then('cr7 再次收到订单支付成功的消息，可以正常验证签名', () => {
+      const request = featureContext.payOrderRequest;
+      expect(request).toBeTruthy();
+      expect(verifyDamaiSignature(request!.head.signed, {
+        apiKey: config.damai.api_key,
+        apiPw: config.damai.api_pwd,
+        msgId: request!.head.msgId,
+        timestamp: request!.head.timestamp,
+        version: request!.head.version,
+      })).toBe(true);
+      expect(featureContext.payOrderResponse?.head.returnCode).toBe('0');
+    });
+
+    And('cr7 返回了大麦订单支付结果，订单 ID 是之前创建的订单 ID，大麦订单 ID 是 {string}，支付状态为成功，值为 {int}', (_ctx, damaiOrderId: string, expectedStatus: number) => {
+      expect(featureContext.payOrderResponse).toBeTruthy();
+      expect(featureContext.order).toBeTruthy();
+      expect(featureContext.payOrderResponse!.body.orderPayInfo.thirdOrderId).toBe(featureContext.order!.id);
+      expect(featureContext.payOrderResponse!.body.orderPayInfo.daMaiOrderId).toBe(damaiOrderId);
+      expect(featureContext.payOrderResponse!.body.orderPayInfo.payStatus).toBe(expectedStatus);
+    });
   });
 
 });
