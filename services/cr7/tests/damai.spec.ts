@@ -1123,6 +1123,10 @@ describeFeature(feature, ({
     });
   });
 
+  Scenario('用户在大麦查询电子票信息', (s: StepTest<void>) => {
+    const { When, Then, And } = s;
+  });
+
   Scenario('用户在核销了订单之后，通知大麦', (s: StepTest<void>) => {
     const { When, Then, And } = s;
   });
