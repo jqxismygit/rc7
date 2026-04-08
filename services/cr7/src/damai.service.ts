@@ -1,7 +1,7 @@
 import config from 'config';
 import { format, isDate, parse, parseISO } from 'date-fns';
 import { Context, Errors, ServiceBroker } from 'moleculer';
-import { Damai, Exhibition, Order } from '@cr7/types';
+import { Damai, Exhibition, Order, Redeem } from '@cr7/types';
 import { RC7BaseService } from './libs/cr7.base.js';
 import { buildDamaiSignature, damaiPostJson, verifyDamaiSignature } from './libs/damai.js';
 import {
@@ -10,6 +10,8 @@ import {
   listDamaiOrderSyncRecordsByOrderId,
   updateDamaiOrderSyncRecord,
 } from './data/damai.js';
+import { getExhibitionById, getSessionById } from './data/exhibition.js';
+import { getOrderById } from './data/order.js';
 
 const { MoleculerClientError } = Errors;
 
@@ -150,6 +152,41 @@ type DamaiPayOrderResponse = {
   };
 };
 
+type DamaiGetETicketInfoRequest = {
+  head: DamaiHeadPayload;
+  bodyGetESeatInfo: {
+    daMaiUserId?: string;
+    orderId: string;
+  };
+};
+
+type DamaiGetETicketInfo = {
+  aoDetailId: string;
+  certType: number;
+  hasSeat: boolean;
+  price: number;
+  priceId: string;
+  qrcodeType: number;
+  qrCode: string;
+  exchangeCode: string;
+  seatByNumber: boolean;
+};
+
+type DamaiGetETicketInfoResponse = {
+  head: {
+    returnCode: string;
+    returnDesc: string;
+  };
+  body: {
+    bodyGetESeatInfo: {
+      projectName?: string;
+      showTime?: number;
+      venueName?: string;
+      eticketInfos: DamaiGetETicketInfo[];
+    };
+  };
+};
+
 type DamaiValidatedCreateOrderInfo = {
   daMaiOrderId: string;
   projectId: string;
@@ -173,6 +210,8 @@ const DAMAI_TICKET_SALE_STATE_ON_SALE = 1;
 const DAMAI_CREATE_ORDER_URI = '/damai/createOrder';
 const DAMAI_PAY_CALLBACK_URI = '/damai/payCallBack';
 const DAMAI_PAY_STATUS_SUCCESS = 1;
+const DAMAI_CERT_TYPE_NON_REAL_NAME = 0;
+const DAMAI_QRCODE_TYPE_STATIC = 1;
 
 function toDateValue(value: string | Date): Date {
   if (isDate(value)) {
@@ -313,6 +352,48 @@ function buildDamaiPayOrderSuccess(input: {
   };
 }
 
+function toDamaiTimestamp(sessionDate: string | Date, time: string): number {
+  const label = `${toDateLabel(sessionDate)} ${normalizeTimeLabel(time)}`;
+  const parsed = parse(label, 'yyyy-MM-dd HH:mm:ss', new Date());
+  return parsed.getTime();
+}
+
+function buildDamaiGetETicketInfoError(returnCode: string, returnDesc: string): DamaiGetETicketInfoResponse {
+  return {
+    head: {
+      returnCode,
+      returnDesc,
+    },
+    body: {
+      bodyGetESeatInfo: {
+        eticketInfos: [],
+      },
+    },
+  };
+}
+
+function buildDamaiGetETicketInfoSuccess(input: {
+  projectName: string;
+  showTime: number;
+  venueName: string;
+  eticketInfos: DamaiGetETicketInfo[];
+}): DamaiGetETicketInfoResponse {
+  return {
+    head: {
+      returnCode: '0',
+      returnDesc: '成功',
+    },
+    body: {
+      bodyGetESeatInfo: {
+        projectName: input.projectName,
+        showTime: input.showTime,
+        venueName: input.venueName,
+        eticketInfos: input.eticketInfos,
+      },
+    },
+  };
+}
+
 class DamaiService extends RC7BaseService {
   constructor(broker: ServiceBroker) {
     super(broker);
@@ -370,6 +451,14 @@ class DamaiService extends RC7BaseService {
             bodyPayOrder: 'object',
           },
           handler: this.payOrderFromDamai,
+        },
+        getETicketInfoFromDamai: {
+          rest: 'POST /getSeatInfo',
+          params: {
+            head: 'object',
+            bodyGetESeatInfo: 'object',
+          },
+          handler: this.getETicketInfoFromDamai,
         },
         getDamaiOrderRecord: {
           rest: 'GET /orders/:rid',
@@ -664,7 +753,7 @@ class DamaiService extends RC7BaseService {
         return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('30005', '票档状态异常'));
       }
 
-      const expectedPriceInCent = ticket.price * 100;
+      const expectedPriceInCent = ticket.price;
       if (item.price !== expectedPriceInCent) {
         return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('30002', '订单价格不一致'));
       }
@@ -791,6 +880,65 @@ class DamaiService extends RC7BaseService {
       this.logger.error('处理大麦订单支付回调时发生错误', error);
       return this.finishWithDamaiResponse(recordId, buildDamaiPayOrderError('10099', '系统异常'));
     }
+  }
+
+  async getETicketInfoFromDamai(
+    ctx: Context<DamaiGetETicketInfoRequest, Meta>,
+  ): Promise<DamaiGetETicketInfoResponse> {
+    ctx.meta.$statusCode = 200;
+
+    const payload = ctx.params;
+    if (isValidDamaiHead(payload.head) === false) {
+      return buildDamaiGetETicketInfoError('10001', '签名错误');
+    }
+
+    const orderId = payload.bodyGetESeatInfo?.orderId;
+    if (!orderId) {
+      return buildDamaiGetETicketInfoError('10001', '参数异常');
+    }
+
+    const schema = await this.getSchema();
+    const order = await getOrderById(this.pool, schema, orderId).catch(() => null);
+    if (!order) {
+      return buildDamaiGetETicketInfoError('20030', '订单不存在');
+    }
+
+    if (order.status !== 'PAID') {
+      return buildDamaiGetETicketInfoError('20030', '订单未支付');
+    }
+
+    const [exhibition, session, redemption] = await Promise.all([
+      getExhibitionById(this.pool, schema, order.exhibit_id).catch(() => null),
+      getSessionById(this.pool, schema, order.session_id).catch(() => null),
+      ctx.call<Redeem.RedemptionCodeWithOrder, { oid: string }>(
+        'cr7.redemption.getByOrder',
+        { oid: order.id },
+        { meta: { user: { uid: order.user_id } } },
+      ).catch(() => null),
+    ]);
+
+    if (!exhibition || !session || !redemption?.code) {
+      return buildDamaiGetETicketInfoError('20030', '获取电子票失败');
+    }
+
+    const eticketInfos = order.items.flatMap(item => Array.from({ length: item.quantity }, () => ({
+      aoDetailId: item.id,
+      certType: DAMAI_CERT_TYPE_NON_REAL_NAME,
+      hasSeat: false,
+      price: item.unit_price,
+      priceId: item.ticket_category_id,
+      qrcodeType: DAMAI_QRCODE_TYPE_STATIC,
+      qrCode: redemption.code,
+      exchangeCode: redemption.code,
+      seatByNumber: false,
+    })));
+
+    return buildDamaiGetETicketInfoSuccess({
+      projectName: exhibition.name,
+      venueName: exhibition.venue_name,
+      showTime: toDamaiTimestamp(session.session_date, exhibition.opening_time),
+      eticketInfos,
+    });
   }
 
   async getDamaiOrderRecord(

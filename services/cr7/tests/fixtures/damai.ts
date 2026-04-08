@@ -97,6 +97,50 @@ export interface DamaiPayOrderResponse {
   };
 }
 
+export interface DamaiGetETicketInfoBody {
+  daMaiUserId?: string;
+  orderId: string;
+}
+
+export interface DamaiGetETicketInfoRequest {
+  head: {
+    version: string;
+    msgId: string;
+    apiKey: string;
+    apiSecret: string;
+    timestamp: string;
+    signed: string;
+  };
+  bodyGetESeatInfo: DamaiGetETicketInfoBody;
+}
+
+export interface DamaiETicketInfo {
+  aoDetailId: string;
+  certType: number;
+  hasSeat: boolean;
+  price: number;
+  priceId: string;
+  qrcodeType: number;
+  qrCode: string;
+  exchangeCode: string;
+  seatByNumber: boolean;
+}
+
+export interface DamaiGetETicketInfoResponse {
+  head: {
+    returnCode: string;
+    returnDesc: string;
+  };
+  body: {
+    bodyGetESeatInfo: {
+      projectName?: string;
+      showTime?: number;
+      venueName?: string;
+      eticketInfos: DamaiETicketInfo[];
+    };
+  };
+}
+
 export async function syncExhibitionToDamai(
   server: Server,
   token: string,
@@ -182,6 +226,25 @@ export function buildDamaiPayOrderRequest(orderInfo: DamaiPayOrderBody): DamaiPa
   };
 }
 
+export function buildDamaiGetETicketInfoRequest(orderInfo: DamaiGetETicketInfoBody): DamaiGetETicketInfoRequest {
+  const signature = buildDamaiSignature({
+    apiKey: config.damai.api_key,
+    apiPw: config.damai.api_pwd,
+  });
+
+  return {
+    head: {
+      version: signature.version,
+      msgId: signature.msgId,
+      apiKey: signature.apiKey,
+      apiSecret: signature.apiSecret,
+      timestamp: signature.timestamp,
+      signed: signature.signed,
+    },
+    bodyGetESeatInfo: orderInfo,
+  };
+}
+
 export async function syncDamaiOrderToCr7(
   server: Server,
   body: DamaiCreateOrderRequest,
@@ -200,6 +263,17 @@ export async function syncDamaiPayOrderToCr7(
   return postJSON<DamaiPayOrderResponse>(
     server,
     '/ota/damai/payCallBack',
+    { body },
+  );
+}
+
+export async function syncDamaiGetETicketInfoToCr7(
+  server: Server,
+  body: DamaiGetETicketInfoRequest,
+) {
+  return postJSON<DamaiGetETicketInfoResponse>(
+    server,
+    '/ota/damai/getSeatInfo',
     { body },
   );
 }

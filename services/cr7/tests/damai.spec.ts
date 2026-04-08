@@ -23,13 +23,17 @@ import { getOrderAdmin } from './fixtures/order.js';
 import { getSessionTickets, updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 import {
   buildDamaiCreateOrderRequest,
+  buildDamaiGetETicketInfoRequest,
   buildDamaiPayOrderRequest,
   DamaiCreateOrderBody,
   DamaiCreateOrderRequest,
   DamaiCreateOrderResponse,
+  DamaiGetETicketInfoRequest,
+  DamaiGetETicketInfoResponse,
   DamaiPayOrderRequest,
   DamaiPayOrderResponse,
   getDamaiOrderSyncRecords,
+  syncDamaiGetETicketInfoToCr7,
   syncDamaiOrderToCr7,
   syncDamaiPayOrderToCr7,
   syncExhibitionToDamai,
@@ -74,11 +78,17 @@ interface PayOrderContext {
   payOrderResponse: DamaiPayOrderResponse;
 }
 
+interface GetETicketContext {
+  getETicketRequest: DamaiGetETicketInfoRequest;
+  getETicketResponse: DamaiGetETicketInfoResponse;
+}
+
 interface FeatureContext extends
   ExhibitionContext,
   Partial<SessionSyncContext>,
   Partial<CreateOrderContext>,
-  Partial<PayOrderContext> {
+  Partial<PayOrderContext>,
+  Partial<GetETicketContext> {
   broker: ServiceBroker;
   apiServer: Server;
   adminToken: string;
@@ -150,7 +160,13 @@ interface DamaiPriceSyncPayload {
 }
 
 interface DamaiMockRequest {
-  body: DamaiProjectSyncPayload | DamaiPerformSyncPayload | DamaiPriceSyncPayload | DamaiCreateOrderRequest | DamaiPayOrderRequest;
+  body:
+    | DamaiProjectSyncPayload
+    | DamaiPerformSyncPayload
+    | DamaiPriceSyncPayload
+    | DamaiCreateOrderRequest
+    | DamaiPayOrderRequest
+    | DamaiGetETicketInfoRequest;
   query: Record<string, string>;
   path: string;
   method: string;
@@ -272,7 +288,7 @@ describeFeature(feature, ({
         {
           name: ticketName,
           admittance,
-          price,
+          price: price * 100,
           valid_duration_days: 1,
           refund_policy: 'NON_REFUNDABLE',
         },
@@ -316,11 +332,11 @@ describeFeature(feature, ({
       expect(body.priceList[index - 1].name).toBe(ticketName);
     });
 
-    And('票种同步消息中的第 {int} 个票种的价格是 {int} 元', (_ctx, index: number, priceYuan: number) => {
+    And('票种同步消息中的第 {int} 个票种的价格是 {int} 分', (_ctx, index: number, priceFen: number) => {
       const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
       const body = request.body as DamaiPriceSyncPayload;
       expect(body.priceList[index - 1]).toBeTruthy();
-      expect(body.priceList[index - 1].price).toBe(priceYuan);
+      expect(body.priceList[index - 1].price).toBe(priceFen);
     });
 
     And('票种同步消息中的第 {int} 个票种的票品状态是可售，值为 {int}', (_ctx, index: number, saleState: number) => {
@@ -431,7 +447,7 @@ describeFeature(feature, ({
       draft.priceInfo[index - 1] = {
         priceId: ticket.id,
         num: quantity,
-        price: ticket.price * 100,
+        price: ticket.price,
       };
 
       for (let itemIndex = 0; itemIndex < quantity; itemIndex += 1) {
@@ -1125,6 +1141,142 @@ describeFeature(feature, ({
 
   Scenario('用户在大麦查询电子票信息', (s: StepTest<void>) => {
     const { When, Then, And } = s;
+
+    When('用户在大麦查询订单的电子票信息', async () => {
+      featureContext.getETicketRequest = buildDamaiGetETicketInfoRequest({
+        orderId: featureContext.order!.id,
+      });
+
+      featureContext.getETicketResponse = await syncDamaiGetETicketInfoToCr7(
+        featureContext.apiServer,
+        featureContext.getETicketRequest,
+      );
+    });
+
+    Then('大麦收到查询电子票信息的请求，可以正常验证签名', () => {
+      const request = featureContext.getETicketRequest;
+      expect(request).toBeTruthy();
+      expect(verifyDamaiSignature(request!.head.signed, {
+        apiKey: config.damai.api_key,
+        apiPw: config.damai.api_pwd,
+        msgId: request!.head.msgId,
+        timestamp: request!.head.timestamp,
+        version: request!.head.version,
+      })).toBe(true);
+      expect(featureContext.getETicketResponse?.head.returnCode).toBe('0');
+    });
+
+    And('大麦查询电子票信息的请求里的第三方订单 ID 是 cr7 创建的订单 ID', () => {
+      expect(featureContext.getETicketRequest).toBeTruthy();
+      expect(featureContext.getETicketRequest!.bodyGetESeatInfo.orderId).toBe(featureContext.order!.id);
+    });
+
+    Then('cr7 给大麦返回了电子票信息', () => {
+      expect(featureContext.getETicketResponse).toBeTruthy();
+      expect(featureContext.getETicketResponse!.head.returnCode).toBe('0');
+    });
+
+    And('电子票信息中的项目名称为默认展会活动的名称', () => {
+      expect(featureContext.getETicketResponse).toBeTruthy();
+      expect(featureContext.getETicketResponse!.body.bodyGetESeatInfo.projectName).toBe(featureContext.exhibition.name);
+    });
+
+    And('电子票信息中的场馆名称为默认展会活动的展馆名称', () => {
+      expect(featureContext.getETicketResponse).toBeTruthy();
+      expect(featureContext.getETicketResponse!.body.bodyGetESeatInfo.venueName).toBe(featureContext.exhibition.venue_name);
+    });
+
+    And('电子票信息中的演出时间为 {string} 场次的演出时间， 格式为毫秒级时间戳', async (_ctx, sessionDate: string) => {
+      const sessions = await getSessions(
+        featureContext.apiServer,
+        featureContext.exhibition.id,
+        featureContext.adminToken,
+      );
+      const matchedSession = sessions.find(session => toDateOnlyLabel(session.session_date) === toDateLabel(sessionDate));
+      expect(matchedSession).toBeTruthy();
+
+      const expectedShowTime = parse(
+        `${toDateOnlyLabel(matchedSession!.session_date)} ${normalizeTimeLabel(featureContext.exhibition.opening_time)}`,
+        'yyyy-MM-dd HH:mm:ss',
+        new Date(),
+      ).getTime();
+
+      expect(featureContext.getETicketResponse!.body.bodyGetESeatInfo.showTime).toBe(expectedShowTime);
+    });
+
+    And('电子票信息中的电子票有 {int} 张', (_ctx, count: number) => {
+      expect(featureContext.getETicketResponse).toBeTruthy();
+      expect(featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos).toHaveLength(count);
+    });
+
+    And('电子票信息中的电子票的票单号为 cr7 订单 item ID，不是票种 ID', () => {
+      const eticketInfos = featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos;
+      const orderItemIds = new Set(featureContext.order!.items.map(item => item.id));
+      const ticketCategoryIds = new Set(featureContext.order!.items.map(item => item.ticket_category_id));
+
+      eticketInfos.forEach(ticket => {
+        expect(orderItemIds.has(ticket.aoDetailId)).toBe(true);
+        expect(ticketCategoryIds.has(ticket.aoDetailId)).toBe(false);
+      });
+    });
+
+    And('电子票信息中的证件类型为非实名制，值为 {int}', (_ctx, certType: number) => {
+      featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach(ticket => {
+        expect(ticket.certType).toBe(certType);
+      });
+    });
+
+    And('电子票信息中的是否有座位为无座，值为 {boolean}', (_ctx, hasSeatLabel: boolean) => {
+      featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach(ticket => {
+        expect(ticket.hasSeat).toBe(hasSeatLabel);
+      });
+    });
+
+    And('电子票信息中的票价为订单 item 价格，单位为分', () => {
+      const expectedPrices = featureContext.order!.items.flatMap(item => Array.from(
+        { length: item.quantity },
+        () => item.unit_price,
+      ));
+      const actualPrices = featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.map(ticket => ticket.price);
+      expect(actualPrices).toEqual(expectedPrices);
+    });
+
+    And('电子票信息中的价格 ID 是票种 ID', () => {
+      const expectedPriceIds = featureContext.order!.items.flatMap(item => Array.from(
+        { length: item.quantity },
+        () => item.ticket_category_id,
+      ));
+      const actualPriceIds = featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.map(ticket => ticket.priceId);
+      expect(actualPriceIds).toEqual(expectedPriceIds);
+    });
+
+    And('电子票信息中的取票类型为静态二维码电子票，值为 {int}', (_ctx, qrcodeType: number) => {
+      featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach(ticket => {
+        expect(ticket.qrcodeType).toBe(qrcodeType);
+      });
+    });
+
+    And('电子票信息中的二维码为订单的核销码', async () => {
+      const redemption = await featureContext.broker.call('cr7.redemption.getByOrder', {
+        oid: featureContext.order!.id,
+      }, {
+        meta: {
+          user: {
+            uid: featureContext.order!.user_id,
+          },
+        },
+      }) as { code: string };
+
+      featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach(ticket => {
+        expect(ticket.qrCode).toBe(redemption.code);
+      });
+    });
+
+    And('电子票信息中的是否对号入座为否，值为 {boolean}', (_ctx, seatByNumberLabel: boolean) => {
+      featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach(ticket => {
+        expect(ticket.seatByNumber).toBe(seatByNumberLabel);
+      });
+    });
   });
 
   Scenario('用户在核销了订单之后，通知大麦', (s: StepTest<void>) => {

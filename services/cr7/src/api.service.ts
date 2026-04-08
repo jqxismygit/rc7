@@ -223,13 +223,14 @@ const routes = [
   ),
   routeConfig(
     '/ota/damai',
-    ['damai.createOrderFromDamai', 'damai.payOrderFromDamai'],
+    ['damai.createOrderFromDamai', 'damai.payOrderFromDamai', 'damai.getETicketInfoFromDamai'],
     {
       authentication: false,
       authorization: false,
       aliases: {
         'POST /createOrder': 'damai.createOrderFromDamai',
         'POST /payCallBack': 'damai.payOrderFromDamai',
+        'POST /getSeatInfo': 'damai.getETicketInfoFromDamai',
       },
     }
   ),
