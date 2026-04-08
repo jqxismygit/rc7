@@ -10,7 +10,7 @@ import {
   loadFeature,
   StepTest,
 } from '@amiceli/vitest-cucumber';
-import { Exhibition, Order, User } from '@cr7/types';
+import { Damai, Exhibition, Order, User } from '@cr7/types';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
 import { listUsers, prepareAdminToken } from './fixtures/user.js';
 import {
@@ -26,6 +26,7 @@ import {
   DamaiCreateOrderBody,
   DamaiCreateOrderRequest,
   DamaiCreateOrderResponse,
+  getDamaiOrderSyncRecords,
   syncDamaiOrderToCr7,
   syncExhibitionToDamai,
   syncSessionsToDamai,
@@ -61,6 +62,7 @@ interface CreateOrderContext {
   createOrderResponse: DamaiCreateOrderResponse;
   order: Order.OrderWithItems;
   orderUser: User.Profile;
+  records: Damai.DamaiOrderSyncRecord[];
 }
 
 interface FeatureContext extends
@@ -340,6 +342,66 @@ describeFeature(feature, ({
       const sessionTicket = sessionTickets.find(item => item.id === ticket.id);
       expect(sessionTicket).toBeTruthy();
       expect(sessionTicket!.quantity).toBe(expectedQuantity);
+    });
+
+    Then('默认展会活动的 {string} 在 {string} 场次的库存仍然为 {int}', async (_ctx, ticketName: string, sessionDate: string, expectedQuantity: number) => {
+      const ticket = featureContext.ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+
+      const sessions = await getSessions(
+        featureContext.apiServer,
+        featureContext.exhibition.id,
+        featureContext.adminToken,
+      );
+      const matchedSession = sessions.find(session => toDateOnlyLabel(session.session_date) === toDateLabel(sessionDate));
+      expect(matchedSession).toBeTruthy();
+
+      const sessionTickets = await getSessionTickets(
+        featureContext.apiServer,
+        featureContext.adminToken,
+        featureContext.exhibition.id,
+        matchedSession!.id,
+      );
+      const sessionTicket = sessionTickets.find(item => item.id === ticket.id);
+      expect(sessionTicket).toBeTruthy();
+      expect(sessionTicket!.quantity).toBe(expectedQuantity);
+    });
+
+    // 订单同步记录
+    When('管理员 {int} 次查看大麦订单同步记录', async () => {
+      const { apiServer, adminToken, order } = featureContext;
+      featureContext.records = await getDamaiOrderSyncRecords(apiServer, adminToken, order!.id);
+    });
+
+    Then('订单同步记录里有 {int} 条记录', (_ctx, count: number) => {
+      const { records } = featureContext;
+      expect(records).toHaveLength(count);
+    });
+
+    And('第 {int} 次查看时，最新的订单同步记录中 request path 是 {string}, 状态为成功', (_ctx, _checkIndex: number, requestPath: string) => {
+      const { records } = featureContext;
+      expect(records![0].request_path).toBe(requestPath);
+      expect(records![0].sync_status).toBe('SUCCESS');
+    });
+
+    And('第 {int} 次查看时，最新的订单同步记录里的订单 ID 是 cr7 创建的订单 ID', (_ctx, _checkIndex: number) => {
+      const { records, order } = featureContext;
+      expect(records![0].order_id).toBe(order!.id);
+    });
+
+    And('第 {int} 次查看时，最新的订单同步记录里的用户 ID 是 cr7 创建的订单关联的用户 ID', (_ctx, _checkIndex: number) => {
+      const { records, order } = featureContext;
+      expect(records![0].user_id).toBe(order!.user_id);
+    });
+
+    And('第 {int} 次查看时，最新的订单同步记录里的请求体为大麦订单同步的请求体', (_ctx, _checkIndex: number) => {
+      const { records, createOrderRequest } = featureContext;
+      expect(records![0].request_body).toEqual(createOrderRequest);
+    });
+
+    And('第 {int} 次查看时，最新的订单同步记录里的响应体为 cr7 返回给大麦的订单同步结果', (_ctx, _checkIndex: number) => {
+      const { records, createOrderResponse } = featureContext;
+      expect(records![0].response_body).toEqual(createOrderResponse);
     });
   });
 
@@ -933,6 +995,34 @@ describeFeature(feature, ({
 
     And('订单同步结果里的订单总金额是 {int} 分，实付金额是 {int} 分', (_ctx, totalAmount: number, payAmount: number) => {
       expect(featureContext.createOrderResponse).toBeTruthy();
+      expect(featureContext.createOrderResponse!.body.orderInfo.totalAmount).toBe(totalAmount);
+      expect(featureContext.createOrderResponse!.body.orderInfo.realAmount).toBe(payAmount);
+    });
+
+    When('大麦再次把相同的订单同步消息发送给 cr7', async () => {
+      featureContext.createOrderResponse = await syncDamaiOrderToCr7(
+        featureContext.apiServer,
+        featureContext.createOrderRequest!,
+      );
+    });
+
+    Then('cr7 再次收到订单同步消息，可以正常验证签名', () => {
+      const request = featureContext.createOrderRequest;
+      expect(request).toBeTruthy();
+      expect(verifyDamaiSignature(request!.head.signed, {
+        apiKey: config.damai.api_key,
+        apiPw: config.damai.api_pwd,
+        msgId: request!.head.msgId,
+        timestamp: request!.head.timestamp,
+        version: request!.head.version,
+      })).toBe(true);
+      expect(featureContext.createOrderResponse?.head.returnCode).toBe('0');
+    });
+
+    And('cr7 给大麦返回了订单同步结果，订单 ID 是之前创建的订单 ID，订单总金额是 {int} 分，实付金额是 {int} 分', (_ctx, totalAmount: number, payAmount: number) => {
+      expect(featureContext.createOrderResponse).toBeTruthy();
+      expect(featureContext.order).toBeTruthy();
+      expect(featureContext.createOrderResponse!.body.orderInfo.orderId).toBe(featureContext.order!.id);
       expect(featureContext.createOrderResponse!.body.orderInfo.totalAmount).toBe(totalAmount);
       expect(featureContext.createOrderResponse!.body.orderInfo.realAmount).toBe(payAmount);
     });

@@ -1,7 +1,8 @@
 import { Server } from 'node:http';
 import config from 'config';
+import { Damai } from '@cr7/types';
 import { buildDamaiSignature } from '@/libs/damai.js';
-import { postJSON } from '../lib/api.js';
+import { getJSON, postJSON } from '../lib/api.js';
 
 export interface DamaiSubmitOrderCommodityInfo {
   priceId: string;
@@ -136,5 +137,17 @@ export async function syncDamaiOrderToCr7(
     server,
     '/ota/damai/createOrder',
     { body },
+  );
+}
+
+export async function getDamaiOrderSyncRecords(
+  server: Server,
+  token: string,
+  cr7OrderId: string,
+): Promise<Damai.DamaiOrderSyncRecord[]> {
+  return getJSON<Damai.DamaiOrderSyncRecord[]>(
+    server,
+    `/ota/damai/orders/${cr7OrderId}`,
+    { token },
   );
 }

@@ -1,14 +1,24 @@
 import config from 'config';
 import { format, isDate, parse, parseISO } from 'date-fns';
 import { Context, Errors, ServiceBroker } from 'moleculer';
-import { Exhibition, Order } from '@cr7/types';
+import { Damai, Exhibition, Order } from '@cr7/types';
 import { RC7BaseService } from './libs/cr7.base.js';
 import { buildDamaiSignature, damaiPostJson, verifyDamaiSignature } from './libs/damai.js';
+import {
+  createDamaiOrderSyncRecord,
+  getFirstSuccessfulDamaiOrderSyncRecordByDamaiOrderId,
+  listDamaiOrderSyncRecordsByOrderId,
+  updateDamaiOrderSyncRecord,
+} from './data/damai.js';
 
 const { MoleculerClientError } = Errors;
 
 interface Meta {
   $statusCode?: number;
+}
+
+interface UserMeta {
+  uid: string;
 }
 
 type DamaiHeadPayload = {
@@ -137,6 +147,7 @@ const DAMAI_PERFORM_STATUS_ENABLED = 1;
 const DAMAI_TICKET_TYPE_ELECTRONIC = 2;
 const DAMAI_RULE_TYPE_NON_REAL_NAME = 0;
 const DAMAI_TICKET_SALE_STATE_ON_SALE = 1;
+const DAMAI_CREATE_ORDER_URI = '/damai/createOrder';
 
 function toDateValue(value: string | Date): Date {
   if (isDate(value)) {
@@ -298,6 +309,14 @@ class DamaiService extends RC7BaseService {
           },
           handler: this.createOrderFromDamai,
         },
+        getDamaiOrderRecord: {
+          rest: 'GET /orders/:rid',
+          roles: ['admin'],
+          params: {
+            rid: 'uuid',
+          },
+          handler: this.getDamaiOrderRecord,
+        },
       },
 
       async started() {
@@ -445,14 +464,45 @@ class DamaiService extends RC7BaseService {
     ctx.meta.$statusCode = 204;
   }
 
+  async finishWithDamaiResponse(
+    recordId: string,
+    response: DamaiCreateOrderResponse,
+    syncStatus: Damai.DamaiOrderSyncStatus = 'FAILED',
+    orderId?: string,
+    userId?: string,
+  ): Promise<DamaiCreateOrderResponse> {
+    const schema = await this.getSchema();
+
+    await updateDamaiOrderSyncRecord(this.pool, schema, {
+      id: recordId,
+      responseBody: response,
+      syncStatus,
+      orderId: orderId ?? null,
+      userId: userId ?? null,
+    });
+
+    return response;
+  }
+
   async createOrderFromDamai(
     ctx: Context<DamaiCreateOrderRequest, Meta>,
   ): Promise<DamaiCreateOrderResponse> {
     ctx.meta.$statusCode = 200;
 
     const payload = ctx.params;
+    const schema = await this.getSchema();
+
+    const { id: recordId } = await createDamaiOrderSyncRecord(this.pool, schema, {
+      damaiOrderId: payload.bodySubmitOrder?.orderInfo?.daMaiOrderId ?? null,
+      requestPath: DAMAI_CREATE_ORDER_URI,
+      requestBody: payload,
+      responseBody: null,
+      syncStatus: 'FAILED',
+      orderId: null,
+    });
+
     if (!isValidDamaiCreateOrderRequest(payload)) {
-      return buildDamaiCreateOrderError('10001', '签名错误');
+      return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('10001', '签名错误'));
     }
 
     const {
@@ -478,7 +528,32 @@ class DamaiService extends RC7BaseService {
       typeof totalAmountFen !== 'number' ||
       typeof realAmountOfFen !== 'number'
     ) {
-      return buildDamaiCreateOrderError('10001', '参数异常');
+      return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('10001', '参数异常'));
+    }
+
+    const firstSuccessRecord = await getFirstSuccessfulDamaiOrderSyncRecordByDamaiOrderId(
+      this.pool,
+      schema,
+      daMaiOrderId,
+    );
+
+    if (firstSuccessRecord?.order_id) {
+      const previousResponse = firstSuccessRecord.response_body as DamaiCreateOrderResponse | undefined;
+      const response = previousResponse?.head?.returnCode === '0'
+        ? previousResponse
+        : buildDamaiCreateOrderSuccess({
+          orderId: firstSuccessRecord.order_id,
+          totalAmount: totalAmountFen,
+          realAmount: realAmountOfFen,
+        });
+
+      return this.finishWithDamaiResponse(
+        recordId,
+        response,
+        'SUCCESS',
+        firstSuccessRecord.order_id,
+        firstSuccessRecord.user_id,
+      );
     }
 
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
@@ -486,7 +561,7 @@ class DamaiService extends RC7BaseService {
       { eid: projectId },
     ).catch(() => null);
     if (!exhibition) {
-      return buildDamaiCreateOrderError('30003', '项目状态异常');
+      return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('30003', '项目状态异常'));
     }
 
     const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
@@ -495,7 +570,7 @@ class DamaiService extends RC7BaseService {
     );
     const session = sessions.find(item => item.id === performId) ?? null;
     if (!session) {
-      return buildDamaiCreateOrderError('30004', '场次状态异常');
+      return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('30004', '场次状态异常'));
     }
 
     const tickets = await ctx.call<Exhibition.TicketCategory[], { eid: string }>(
@@ -506,11 +581,11 @@ class DamaiService extends RC7BaseService {
 
     for (const commodity of commodityInfoList) {
       if (!commodity.priceId || !commodity.subOrderId) {
-        return buildDamaiCreateOrderError('10001', '参数异常');
+        return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('10001', '参数异常'));
       }
 
       if (!ticketById.has(commodity.priceId)) {
-        return buildDamaiCreateOrderError('30005', '票档状态异常');
+        return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('30005', '票档状态异常'));
       }
     }
 
@@ -519,17 +594,17 @@ class DamaiService extends RC7BaseService {
     for (const item of priceInfo) {
       const quantity = typeof item.num === 'string' ? Number(item.num) : item.num;
       if (!item || !item.priceId || !Number.isInteger(quantity) || quantity <= 0) {
-        return buildDamaiCreateOrderError('10001', '参数异常');
+        return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('10001', '参数异常'));
       }
 
       const ticket = ticketById.get(item.priceId);
       if (!ticket) {
-        return buildDamaiCreateOrderError('30005', '票档状态异常');
+        return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('30005', '票档状态异常'));
       }
 
       const expectedPriceInCent = ticket.price * 100;
       if (item.price !== expectedPriceInCent) {
-        return buildDamaiCreateOrderError('30002', '订单价格不一致');
+        return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('30002', '订单价格不一致'));
       }
 
       calculatedTotalAmountFen += item.price * quantity;
@@ -537,7 +612,7 @@ class DamaiService extends RC7BaseService {
     }
 
     if (calculatedTotalAmountFen !== totalAmountFen || realAmountOfFen !== totalAmountFen) {
-      return buildDamaiCreateOrderError('30002', '订单价格不一致');
+      return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('30002', '订单价格不一致'));
     }
 
     const userId = await ctx.call<string, { damai_user_id: string; name: string }>(
@@ -566,20 +641,35 @@ class DamaiService extends RC7BaseService {
         user_id: userId,
       });
 
-      return buildDamaiCreateOrderSuccess({
-        orderId: order.id,
-        totalAmount: totalAmountFen,
-        realAmount: realAmountOfFen,
-      });
+      return this.finishWithDamaiResponse(
+        recordId,
+        buildDamaiCreateOrderSuccess({
+          orderId: order.id,
+          totalAmount: totalAmountFen,
+          realAmount: realAmountOfFen,
+        }),
+        'SUCCESS',
+        order.id,
+        userId,
+      );
     } catch (error) {
       const code = (error as { code?: string }).code;
       if (code === 'INVENTORY_NOT_ENOUGH') {
-        return buildDamaiCreateOrderError('30006', '库存不足');
+        return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('30006', '库存不足'));
       }
 
       this.logger.error('处理大麦订单同步时发生错误', error);
-      return buildDamaiCreateOrderError('10099', '系统异常');
+      return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('10099', '系统异常'));
     }
+  }
+
+  async getDamaiOrderRecord(
+    ctx: Context<{ rid: string }, UserMeta>,
+  ): Promise<Damai.DamaiOrderSyncRecord[]> {
+    const { rid } = ctx.params;
+    const schema = await this.getSchema();
+
+    return listDamaiOrderSyncRecordsByOrderId(this.pool, schema, rid);
   }
 }
 

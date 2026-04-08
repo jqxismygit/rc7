@@ -233,6 +233,15 @@ const routes = [
     }
   ),
   routeConfig(
+    '/ota/damai/orders',
+    ['damai.getDamaiOrderRecord'],
+    {
+      aliases: {
+        'GET /:rid': 'damai.getDamaiOrderRecord',
+      }
+    }
+  ),
+  routeConfig(
     '/mop',
     [
       'mop.receiveOrderFromMop',
