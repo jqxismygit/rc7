@@ -66,7 +66,7 @@ export interface MopOrderCreateRequest {
   buyerPhone: string;
   totalPrice: string;
   needSeat: boolean;
-  needRealName: 0 | 1;
+  needRealName: boolean;
   ticketInfo: Array<{
     myTicketId: string;
     skuId: string;
