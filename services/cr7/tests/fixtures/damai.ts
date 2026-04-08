@@ -30,3 +30,16 @@ export async function syncSessionsToDamai(
     { token, body },
   );
 }
+
+export async function syncTicketsToDamai(
+  server: Server,
+  token: string,
+  eid: string,
+  sid: string,
+) {
+  return postJSON<void>(
+    server,
+    `/exhibition/${eid}/sessions/${sid}/ota/damai/sync/tickets`,
+    { token },
+  );
+}

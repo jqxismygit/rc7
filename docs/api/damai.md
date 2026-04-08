@@ -92,8 +92,38 @@
     - `ruleType`：固定为 `0`（无实名限制）
   - 接口本身不返回业务体，成功仅返回 `204`。
 
+## 同步票种信息到大麦
+
+- URL: `/exhibition/:eid/sessions/:sid/ota/damai/sync/tickets`
+- Method: `POST`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Params:
+  ```ts
+  { eid: string, sid: string }
+  ```
+- Response Status:
+  - `204 No Content`：同步请求发送成功
+  - `400 Bad Request`：参数格式错误
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：非管理员权限
+  - `404 Not Found`：展览不存在或场次不存在
+- 关键特性：
+  - 仅管理员可执行该接口。
+  - 同步请求发送到大麦 `/b2b2c/2.0/sync/price` 接口。
+  - 票种信息来源于指定场次下的票种列表，按创建顺序发送。
+  - 每个票种生成一个 `priceList` 项，主要字段包括：
+    - `id`：CR7 票种 ID
+    - `name`：CR7 票种名称
+    - `price`：票种价格（单位元）
+    - `saleState`：固定为 `1`（可售）
+  - 接口本身不返回业务体，成功仅返回 `204`。
+
 ## 类型来源
 
 - `Exhibition`：[types/exhibition.ts](../../services/types/exhibition.ts)
   - `Exhibition.Exhibition`：展览主体
   - `Exhibition.Session`：场次
+  - `Exhibition.TicketCategory`：票种
