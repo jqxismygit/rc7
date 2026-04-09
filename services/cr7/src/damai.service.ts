@@ -152,6 +152,20 @@ type DamaiPayOrderResponse = {
   };
 };
 
+type DamaiCancelOrderRequest = {
+  head: DamaiHeadPayload;
+  cancelOrderInfo: {
+    orderId: string;
+  };
+};
+
+type DamaiCancelOrderResponse = {
+  head: {
+    returnCode: string;
+    returnDesc: string;
+  };
+};
+
 type DamaiGetETicketInfoRequest = {
   head: DamaiHeadPayload;
   bodyGetESeatInfo: {
@@ -209,6 +223,7 @@ const DAMAI_RULE_TYPE_NON_REAL_NAME = 0;
 const DAMAI_TICKET_SALE_STATE_ON_SALE = 1;
 const DAMAI_CREATE_ORDER_URI = '/damai/createOrder';
 const DAMAI_PAY_CALLBACK_URI = '/damai/payCallBack';
+const DAMAI_CANCEL_ORDER_URI = '/damai/cancelOrder';
 const DAMAI_PAY_STATUS_SUCCESS = 1;
 const DAMAI_VALIDATE_URI = '/b2b2c/2.0/sync/validate';
 const DAMAI_VALIDATE_STATUS_VALIDATED = 2;
@@ -354,6 +369,24 @@ function buildDamaiPayOrderSuccess(input: {
   };
 }
 
+function buildDamaiCancelOrderError(returnCode: string, returnDesc: string): DamaiCancelOrderResponse {
+  return {
+    head: {
+      returnCode,
+      returnDesc,
+    },
+  };
+}
+
+function buildDamaiCancelOrderSuccess(): DamaiCancelOrderResponse {
+  return {
+    head: {
+      returnCode: '0',
+      returnDesc: '取消订单成功',
+    },
+  };
+}
+
 function toDamaiTimestamp(sessionDate: string | Date, time: string): number {
   const label = `${toDateLabel(sessionDate)} ${normalizeTimeLabel(time)}`;
   const parsed = parse(label, 'yyyy-MM-dd HH:mm:ss', new Date());
@@ -453,6 +486,14 @@ class DamaiService extends RC7BaseService {
             bodyPayOrder: 'object',
           },
           handler: this.payOrderFromDamai,
+        },
+        cancelOrderFromDamai: {
+          rest: 'POST /cancelOrder',
+          params: {
+            head: 'object',
+            cancelOrderInfo: 'object',
+          },
+          handler: this.cancelOrderFromDamai,
         },
         getETicketInfoFromDamai: {
           rest: 'POST /getSeatInfo',
@@ -623,7 +664,7 @@ class DamaiService extends RC7BaseService {
     ctx.meta.$statusCode = 204;
   }
 
-  async finishWithDamaiResponse<T extends DamaiCreateOrderResponse | DamaiPayOrderResponse>(
+  async finishWithDamaiResponse<T extends DamaiCreateOrderResponse | DamaiPayOrderResponse | DamaiCancelOrderResponse>(
     recordId: string,
     response: T,
     syncStatus: Damai.DamaiOrderSyncStatus = 'FAILED',
@@ -887,6 +928,87 @@ class DamaiService extends RC7BaseService {
 
       this.logger.error('处理大麦订单支付回调时发生错误', error);
       return this.finishWithDamaiResponse(recordId, buildDamaiPayOrderError('20024', '系统异常'));
+    }
+  }
+
+  async cancelOrderFromDamai(
+    ctx: Context<DamaiCancelOrderRequest, Meta>,
+  ): Promise<DamaiCancelOrderResponse> {
+    ctx.meta.$statusCode = 200;
+
+    const payload = ctx.params;
+    const schema = await this.getSchema();
+
+    const { id: recordId } = await createDamaiOrderSyncRecord(this.pool, schema, {
+      damaiOrderId: null,
+      requestPath: DAMAI_CANCEL_ORDER_URI,
+      requestBody: payload,
+      responseBody: null,
+      syncStatus: 'FAILED',
+      orderId: null,
+    });
+
+    if (isValidDamaiHead(payload.head) === false) {
+      return this.finishWithDamaiResponse(recordId, buildDamaiCancelOrderError('20000', '签名错误'));
+    }
+
+    const orderId = payload.cancelOrderInfo?.orderId;
+    if (!orderId) {
+      return this.finishWithDamaiResponse(recordId, buildDamaiCancelOrderError('20001', '参数异常'));
+    }
+
+    const order = await getOrderById(this.pool, schema, orderId).catch(() => null);
+    if (!order) {
+      return this.finishWithDamaiResponse(recordId, buildDamaiCancelOrderError('20040', '取消订单失败 -- 订单不存在'));
+    }
+
+    if (order.status === 'CANCELLED') {
+      return this.finishWithDamaiResponse(
+        recordId,
+        buildDamaiCancelOrderSuccess(),
+        'SUCCESS',
+        order.id,
+        order.user_id,
+      );
+    }
+
+    try {
+      await ctx.call(
+        'cr7.order.cancel',
+        { oid: order.id },
+        { meta: { user: { uid: order.user_id } } },
+      );
+
+      // Nested cr7.order.cancel sets $statusCode=204; reset to 200 for Damai callback JSON response.
+      ctx.meta.$statusCode = 200;
+
+      return this.finishWithDamaiResponse(
+        recordId,
+        buildDamaiCancelOrderSuccess(),
+        'SUCCESS',
+        order.id,
+        order.user_id,
+      );
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      if (code === 'ORDER_STATUS_INVALID') {
+        return this.finishWithDamaiResponse(
+          recordId,
+          buildDamaiCancelOrderError('20040', '取消订单失败 -- 订单状态异常'),
+          'FAILED',
+          order.id,
+          order.user_id,
+        );
+      }
+
+      this.logger.error('处理大麦订单取消回调时发生错误', error);
+      return this.finishWithDamaiResponse(
+        recordId,
+        buildDamaiCancelOrderError('20040', '取消订单失败 -- 系统异常'),
+        'FAILED',
+        order.id,
+        order.user_id,
+      );
     }
   }
 

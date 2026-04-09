@@ -97,6 +97,29 @@ export interface DamaiPayOrderResponse {
   };
 }
 
+export interface DamaiCancelOrderBody {
+  orderId: string;
+}
+
+export interface DamaiCancelOrderRequest {
+  head: {
+    version: string;
+    msgId: string;
+    apiKey: string;
+    apiSecret: string;
+    timestamp: string;
+    signed: string;
+  };
+  cancelOrderInfo: DamaiCancelOrderBody;
+}
+
+export interface DamaiCancelOrderResponse {
+  head: {
+    returnCode: string;
+    returnDesc: string;
+  };
+}
+
 export interface DamaiGetETicketInfoBody {
   daMaiUserId?: string;
   orderId: string;
@@ -245,6 +268,25 @@ export function buildDamaiGetETicketInfoRequest(orderInfo: DamaiGetETicketInfoBo
   };
 }
 
+export function buildDamaiCancelOrderRequest(orderInfo: DamaiCancelOrderBody): DamaiCancelOrderRequest {
+  const signature = buildDamaiSignature({
+    apiKey: config.damai.api_key,
+    apiPw: config.damai.api_pwd,
+  });
+
+  return {
+    head: {
+      version: signature.version,
+      msgId: signature.msgId,
+      apiKey: signature.apiKey,
+      apiSecret: signature.apiSecret,
+      timestamp: signature.timestamp,
+      signed: signature.signed,
+    },
+    cancelOrderInfo: orderInfo,
+  };
+}
+
 export async function syncDamaiOrderToCr7(
   server: Server,
   body: DamaiCreateOrderRequest,
@@ -274,6 +316,17 @@ export async function syncDamaiGetETicketInfoToCr7(
   return postJSON<DamaiGetETicketInfoResponse>(
     server,
     '/ota/damai/getSeatInfo',
+    { body },
+  );
+}
+
+export async function syncDamaiCancelOrderToCr7(
+  server: Server,
+  body: DamaiCancelOrderRequest,
+) {
+  return postJSON<DamaiCancelOrderResponse>(
+    server,
+    '/ota/damai/cancelOrder',
     { body },
   );
 }

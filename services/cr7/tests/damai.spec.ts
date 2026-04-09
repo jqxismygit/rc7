@@ -22,9 +22,12 @@ import {
 import { getOrderAdmin } from './fixtures/order.js';
 import { getSessionTickets, updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 import {
+  buildDamaiCancelOrderRequest,
   buildDamaiCreateOrderRequest,
   buildDamaiGetETicketInfoRequest,
   buildDamaiPayOrderRequest,
+  DamaiCancelOrderRequest,
+  DamaiCancelOrderResponse,
   DamaiCreateOrderBody,
   DamaiCreateOrderRequest,
   DamaiCreateOrderResponse,
@@ -34,6 +37,7 @@ import {
   DamaiPayOrderResponse,
   getDamaiOrderSyncRecords,
   syncDamaiGetETicketInfoToCr7,
+  syncDamaiCancelOrderToCr7,
   syncDamaiOrderToCr7,
   syncDamaiPayOrderToCr7,
   syncExhibitionToDamai,
@@ -79,6 +83,11 @@ interface PayOrderContext {
   payOrderResponse: DamaiPayOrderResponse;
 }
 
+interface CancelOrderContext {
+  cancelOrderRequest: DamaiCancelOrderRequest;
+  cancelOrderResponse: DamaiCancelOrderResponse;
+}
+
 interface GetETicketContext {
   getETicketRequest: DamaiGetETicketInfoRequest;
   getETicketResponse: DamaiGetETicketInfoResponse;
@@ -110,6 +119,7 @@ interface FeatureContext extends
   Partial<SessionSyncContext>,
   Partial<CreateOrderContext>,
   Partial<PayOrderContext>,
+  Partial<CancelOrderContext>,
   Partial<GetETicketContext>,
   Partial<RedeemContext> {
   broker: ServiceBroker;
@@ -580,6 +590,16 @@ describeFeature(feature, ({
       expect(records![0].response_body).toEqual(payOrderResponse);
     });
 
+    And('第 {int} 次查看时，最新的订单同步记录里的请求体为大麦订单取消消息的请求体', (_ctx, _checkIndex: number) => {
+      const { records, cancelOrderRequest } = featureContext;
+      expect(records![0].request_body).toEqual(cancelOrderRequest);
+    });
+
+    And('第 {int} 次查看时，最新的订单同步记录里的响应体为 cr7 返回给大麦的订单取消结果', (_ctx, _checkIndex: number) => {
+      const { records, cancelOrderResponse } = featureContext;
+      expect(records![0].response_body).toEqual(cancelOrderResponse);
+    });
+
     // 支付
     Given('用户在大麦支付了订单 {string}', (_ctx, damaiOrderId: string) => {
       featureContext.payOrderRequest = buildDamaiPayOrderRequest({
@@ -614,6 +634,44 @@ describeFeature(feature, ({
         featureContext.adminToken,
       );
       expect(order.status).toBe('PAID');
+      featureContext.order = order;
+    });
+
+    // 取消
+    Given('用户在大麦取消了订单', () => {
+      featureContext.cancelOrderRequest = buildDamaiCancelOrderRequest({
+        orderId: featureContext.order!.id,
+      });
+    });
+
+    When('cr7 收到订单取消的消息，可以正常验证签名', async () => {
+      const request = featureContext.cancelOrderRequest;
+      expect(request).toBeTruthy();
+
+      featureContext.cancelOrderResponse = await syncDamaiCancelOrderToCr7(
+        featureContext.apiServer,
+        request!,
+      );
+
+      expect(verifyDamaiSignature(request!.head.signed, {
+        apiKey: config.damai.api_key,
+        apiPw: config.damai.api_pwd,
+        msgId: request!.head.msgId,
+        timestamp: request!.head.timestamp,
+        version: request!.head.version,
+      })).toBe(true);
+      expect(featureContext.cancelOrderResponse?.head.returnCode).toBe('0');
+    });
+
+
+    Then('cr7 将订单状态更新为已取消', async () => {
+      expect(featureContext.order).toBeTruthy();
+      const order = await getOrderAdmin(
+        featureContext.apiServer,
+        featureContext.order!.id,
+        featureContext.adminToken,
+      );
+      expect(order.status).toBe('CANCELLED');
       featureContext.order = order;
     });
   });
@@ -1378,6 +1436,48 @@ describeFeature(feature, ({
       request.body.validateVoucherRequestList.forEach(voucher => {
         expect(voucher.validateTime).toBe(expectedTime);
       });
+    });
+  });
+
+  Scenario('用户在大麦取消了订单', (s: StepTest<void>) => {
+    const { Given, Then, And } = s;
+
+    And('订单取消消息中的订单 ID 是 cr7 创建的订单 ID', () => {
+      expect(featureContext.cancelOrderRequest).toBeTruthy();
+      expect(featureContext.order).toBeTruthy();
+      expect(featureContext.cancelOrderRequest!.cancelOrderInfo.orderId).toBe(featureContext.order!.id);
+    });
+
+
+    And('cr7 返回了大麦订单取消结果，状态为成功，值为 {string}', (_ctx, expectedCode: string) => {
+      expect(featureContext.cancelOrderResponse).toBeTruthy();
+      expect(featureContext.cancelOrderResponse!.head.returnCode).toBe(expectedCode);
+    });
+
+    And('cr7 再次返回了大麦订单取消结果，状态为成功，值为 {string}', (_ctx, expectedCode: string) => {
+      expect(featureContext.cancelOrderResponse).toBeTruthy();
+      expect(featureContext.cancelOrderResponse!.head.returnCode).toBe(expectedCode);
+    });
+
+    Given('大麦再次把相同的订单取消消息发送给 cr7', async () => {
+      featureContext.cancelOrderResponse = await syncDamaiCancelOrderToCr7(
+        featureContext.apiServer,
+        featureContext.cancelOrderRequest!,
+      );
+    });
+
+    Then('cr7 再次收到订单取消的消息，可以正常验证签名', () => {
+      const request = featureContext.cancelOrderRequest;
+      expect(request).toBeTruthy();
+
+      expect(verifyDamaiSignature(request!.head.signed, {
+        apiKey: config.damai.api_key,
+        apiPw: config.damai.api_pwd,
+        msgId: request!.head.msgId,
+        timestamp: request!.head.timestamp,
+        version: request!.head.version,
+      })).toBe(true);
+      expect(featureContext.cancelOrderResponse?.head.returnCode).toBe('0');
     });
   });
 });
