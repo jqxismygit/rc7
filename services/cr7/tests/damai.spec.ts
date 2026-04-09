@@ -177,7 +177,7 @@ interface DamaiPerform {
   saleEndTime: string;
   showTime: string;
   endTime: string;
-  tTypeAndDeliveryMethod: Record<string, number[]>;
+  tTypeAndDMethod: Record<string, number[]>;
   ruleType: number;
 }
 
@@ -1033,7 +1033,7 @@ describeFeature(feature, ({
       const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
 
       request.body.performs.forEach(perform => {
-        expect(perform.tTypeAndDeliveryMethod[ticketType]).toEqual([ticketType]);
+        expect(perform.tTypeAndDMethod[ticketType]).toEqual([ticketType]);
       });
     });
 

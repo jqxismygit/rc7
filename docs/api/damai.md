@@ -88,7 +88,7 @@
     - `saleEndTime`：展览最后入馆时间 + 场次日期，格式 `yyyy-MM-dd HH:mm`
     - `showTime`：展览开放时间 + 场次日期，格式 `yyyy-MM-dd HH:mm`
     - `endTime`：展览闭馆时间 + 场次日期，格式 `yyyy-MM-dd HH:mm`
-    - `tTypeAndDeliveryMethod`：固定为 `{2: [2]}`（电子票）
+    - `tTypeAndDMethod`：固定为 `{2: [2]}`（电子票）
     - `ruleType`：固定为 `0`（无实名限制）
   - 接口本身不返回业务体，成功仅返回 `204`。
 
