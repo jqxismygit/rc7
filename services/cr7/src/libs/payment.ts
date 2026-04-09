@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto';
 import { Context, ServiceBroker, ServiceSchema } from 'moleculer';
 import { format } from 'date-fns';
 import { addMinutes } from 'date-fns';
-import { PoolClient } from 'pg';
 import type { Payment } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
 import {
@@ -29,8 +28,6 @@ import {
 } from '../data/payment.js';
 import { getTicketCategoryRefundPoliciesByOrderId } from '../data/exhibition.js';
 import {
-  markOrderRefunded,
-  releaseOrderInventory,
   setOrderCurrentRefund,
 } from '../data/order.js';
 import { handlePaymentDataError } from './errors.js';
@@ -162,6 +159,37 @@ export class PaymentService extends RC7BaseService {
       handler: this.initiatePaymentRefund,
     },
 
+    'payment.updateRefundResult': {
+      params: {
+        out_refund_no: 'string',
+        refund_status: 'string',
+        refund_id: {
+          type: 'string',
+          optional: true,
+        },
+        refund_channel: {
+          type: 'string',
+          optional: true,
+        },
+        callback_refund_amount: {
+          type: 'number',
+          integer: true,
+          positive: true,
+          optional: true,
+          convert: true,
+        },
+        error_message: {
+          type: 'string',
+          optional: true,
+        },
+        succeeded_at: {
+          type: 'string',
+          optional: true,
+        },
+      },
+      handler: this.updateThirdPartyRefundResult,
+    },
+
     'order.refundsAdmin': {
       rest: 'GET /:oid/refunds',
       roles: ['admin'],
@@ -214,7 +242,6 @@ export class PaymentService extends RC7BaseService {
   methods = {
     getWechatPayClientPrimaryKey: this.getWechatPayClientPrimaryKey,
     getWechatPayConfig: this.getWechatPayConfig,
-    refundOrderAndReleaseInventory: this.refundOrderAndReleaseInventory,
   }
 
   async initiateWechatPay(
@@ -428,6 +455,63 @@ export class PaymentService extends RC7BaseService {
     }
   }
 
+  async updateThirdPartyRefundResult(
+    ctx: Context<{
+      out_refund_no: string;
+      refund_status: string;
+      refund_id?: string;
+      refund_channel?: string;
+      callback_refund_amount?: number;
+      error_message?: string;
+      succeeded_at?: string;
+    }>
+  ): Promise<Payment.RefundRecord | null> {
+    const schema = await this.getSchema();
+    const {
+      out_refund_no,
+      refund_status,
+      refund_id,
+      refund_channel,
+      callback_refund_amount,
+      error_message,
+      succeeded_at,
+    } = ctx.params;
+
+    const dbClient = await this.pool.connect();
+    try {
+      await dbClient.query('BEGIN');
+
+      const updated = await updateRefundRecordFromCallback(
+        dbClient,
+        schema,
+        out_refund_no,
+        {
+          refund_status,
+          refund_id,
+          refund_channel,
+          callback_refund_amount,
+          error_message,
+          succeeded_at,
+          failed_at: refund_status === 'SUCCESS' ? null : new Date(),
+        },
+      ).catch(handlePaymentDataError);
+
+      await dbClient.query('COMMIT');
+
+      if (!updated) {
+        return null;
+      }
+
+      return getCurrentRefundRecordByOrderId(dbClient, schema, updated.order_id)
+        .catch(handlePaymentDataError);
+    } catch (error) {
+      await dbClient.query('ROLLBACK');
+      return handlePaymentDataError(error);
+    } finally {
+      dbClient.release();
+    }
+  }
+
   async listOrderRefundsAdmin(
     ctx: Context<{ oid: string }>
   ): Promise<Payment.RefundRecord[]> {
@@ -474,33 +558,6 @@ export class PaymentService extends RC7BaseService {
     return null;
   }
 
-  async refundOrderAndReleaseInventory(
-    dbClient: PoolClient, schema: string,
-    orderId: string, outRefundNo: string
-  ) {
-     const settlement = await markOrderRefunded(
-        dbClient,
-        schema,
-        orderId,
-        outRefundNo,
-     );
-
-     if (settlement === null) {
-       return;
-     }
-
-     if (settlement.released_at !== null) {
-       return;
-     }
-
-    await releaseOrderInventory(
-      dbClient,
-      schema,
-      orderId,
-      settlement.session_id,
-    );
-  }
-
   async handleWechatRefundCallback(
     ctx: Context<WechatCallbackNotification, { $statusCode?: number }>
   ) {
@@ -534,40 +591,38 @@ export class PaymentService extends RC7BaseService {
       { out_trade_no, out_refund_no, refund_status }
     );
 
-    const dbClient = await this.pool.connect();
-    try {
-      await dbClient.query('BEGIN');
-
-      const updated = await updateRefundRecordFromCallback(
-        dbClient,
-        schema,
-        out_refund_no!,
-        {
-          refund_status: refund_status!,
-          refund_id,
-          refund_channel: channel,
-          callback_refund_amount: amount.refund,
-          error_message: reason,
-          succeeded_at: success_time,
-          failed_at: refund_status === 'SUCCESS' ? null : new Date(),
-        },
-      ).catch(handlePaymentDataError);
-
-      if (updated?.status === 'SUCCEEDED') {
-        await this.refundOrderAndReleaseInventory(
-          dbClient, schema, updated.order_id, out_refund_no!
-        );
+    const updatedRefundRecord = await ctx.call<
+      Payment.RefundRecord | null,
+      {
+        out_refund_no: string;
+        refund_status: string;
+        refund_id?: string;
+        refund_channel?: string;
+        callback_refund_amount?: number;
+        error_message?: string;
+        succeeded_at?: string;
       }
+    >(
+      'cr7.payment.updateRefundResult',
+      {
+        out_refund_no: out_refund_no!,
+        refund_status: refund_status!,
+        refund_id,
+        refund_channel: channel,
+        callback_refund_amount: amount.refund,
+        error_message: reason,
+        succeeded_at: success_time,
+      }
+    );
 
-      await markWechatRefundCallbackProcessed(dbClient, schema, notification.id);
-      await dbClient.query('COMMIT');
-    } catch (error) {
-      await dbClient.query('ROLLBACK');
-      throw error;
-    } finally {
-      dbClient.release();
+    if (updatedRefundRecord?.status === 'SUCCEEDED') {
+      await ctx.call(
+        'cr7.order.markRefunded',
+        { oid: updatedRefundRecord.order_id, out_refund_no: out_refund_no! },
+      )
     }
 
+    await markWechatRefundCallbackProcessed(this.pool, schema, notification.id);
     ctx.meta.$statusCode = 204;
   }
 

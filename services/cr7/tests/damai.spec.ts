@@ -10,7 +10,7 @@ import {
   loadFeature,
   StepTest,
 } from '@amiceli/vitest-cucumber';
-import { Damai, Exhibition, Order, Redeem, User } from '@cr7/types';
+import { Damai, Exhibition, Order, Payment, Redeem, User } from '@cr7/types';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
 import { listUsers, prepareAdminToken, suUserToken } from './fixtures/user.js';
 import {
@@ -20,6 +20,7 @@ import {
   updateExhibition,
 } from './fixtures/exhibition.js';
 import { getOrderAdmin } from './fixtures/order.js';
+import { getAdminOrderRefunds } from './fixtures/payment.js';
 import { getSessionTickets, updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 import {
   buildDamaiCancelOrderRequest,
@@ -95,6 +96,7 @@ interface CancelOrderContext {
 interface RefundApplyContext {
   refundApplyRequest: DamaiRefundApplyRequest;
   refundApplyResponse: DamaiRefundApplyResponse;
+  refundRecords: Payment.RefundRecord[];
 }
 
 interface GetETicketContext {
@@ -1531,7 +1533,8 @@ describeFeature(feature, ({
   });
 
   Scenario('用户在大麦申请了退款', (s: StepTest<void>) => {
-    const { Then, And } = s;
+    const { Then, And, When } = s;
+
     And('订单退款申请消息中的大麦订单 ID 是 {string}', (_ctx, damaiOrderId: string) => {
       expect(featureContext.refundApplyRequest!.bodyRefundApply.refundInfo.daMaiOrderId).toBe(damaiOrderId);
     });
@@ -1562,11 +1565,69 @@ describeFeature(feature, ({
       featureContext.order = order;
     });
 
-    And('cr7 系统只有一个订单, cr7 订单号不变，退款 ID 是 {string}', async (_ctx, refundId: string) => {
-      const { apiServer, adminToken } = featureContext;
-      const order = await getOrderAdmin(apiServer, featureContext.order!.id, adminToken);
-      expect(order.id).toBe(featureContext.order!.id);
-      expect(order.current_refund_out_refund_no).toBe(refundId);
+    Then('cr7 给大麦返回了订单退款申请结果', () => {
+      const { refundApplyResponse } = featureContext;
+      expect(refundApplyResponse).toBeTruthy();
+      expect(refundApplyResponse!.head.returnCode).toBe('0');
+      expect(refundApplyResponse!.head.returnDesc).toBe('成功');
+    });
+
+    Then('cr7 返回的订单退款结果里的退款 ID 是 cr7生成的 uuid 去掉短横线的字符串', async () => {
+      const order = await getOrderAdmin(
+        featureContext.apiServer,
+        featureContext.order!.id,
+        featureContext.adminToken,
+      );
+      expect(order.current_refund_out_refund_no).toMatch(/^[0-9a-f]{32}$/i);
+      featureContext.order = order;
+    });
+
+    When('管理员查看订单的退款记录', async () => {
+      const refunds = await getAdminOrderRefunds(
+        featureContext.apiServer,
+        featureContext.order!.id,
+        featureContext.adminToken,
+      );
+      featureContext.refundRecords = refunds;
+    });
+
+    Then('订单的退款记录里有 {int} 条记录', (_ctx, count: number) => {
+      expect(featureContext.refundRecords).toHaveLength(count);
+    });
+
+    And('退款记录里的订单 ID 是 cr7 创建的订单 ID', () => {
+      const refundRecord = featureContext.refundRecords![0];
+      expect(refundRecord.order_id).toBe(featureContext.order!.id);
+    });
+
+    And('退款记录里的 refound no 是 返回给大麦的订单退款申请结果里的退款 ID', () => {
+      const refundRecord = featureContext.refundRecords![0];
+      expect(refundRecord.out_refund_no).toBe(featureContext.order!.current_refund_out_refund_no);
+    });
+
+    And('退款记录里的 out trade no 是 {string}', (_ctx, damaiOrderId: string) => {
+      const refundRecord = featureContext.refundRecords![0];
+      expect(refundRecord.out_trade_no).toBe(damaiOrderId);
+    });
+
+    And('退款记录里的第三方退款 ID 是 {string}', (_ctx, refundId: string) => {
+      const refundRecord = featureContext.refundRecords![0];
+      expect(refundRecord.refund_id).toBe(refundId);
+    });
+
+    And('退款记录里的退款金额是 {int} 分', (_ctx, refundAmountFen: number) => {
+      const refundRecord = featureContext.refundRecords![0];
+      expect(refundRecord.refund_amount).toBe(refundAmountFen);
+    });
+
+    And('退款记录里的退款原因是 {string}', (_ctx, refundReason: string) => {
+      const refundRecord = featureContext.refundRecords![0];
+      expect(refundRecord.reason).toBe(refundReason);
+    });
+
+    And('退款记录里的退款状态是已退款', () => {
+      const refundRecord = featureContext.refundRecords![0];
+      expect(refundRecord.refund_status).toBe('SUCCESS');
     });
   });
 });

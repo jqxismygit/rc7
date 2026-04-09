@@ -291,7 +291,18 @@ Feature: 对接大麦 OTA
       And 订单退款申请消息中的退款原因是 "不想看了"
       And 订单退款申请消息中的退款金额是 35000 分
      Then cr7 将订单状态更新为已退款
-      And cr7 系统只有一个订单, cr7 订单号不变，退款 ID 是 "damai_refund_id_123"
+     Then cr7 给大麦返回了订单退款申请结果
+     Then cr7 返回的订单退款结果里的退款 ID 是 cr7生成的 uuid 去掉短横线的字符串
+
+    When 管理员查看订单的退款记录
+    Then 订单的退款记录里有 1 条记录
+     And 退款记录里的订单 ID 是 cr7 创建的订单 ID
+     And 退款记录里的 refound no 是 返回给大麦的订单退款申请结果里的退款 ID
+     And 退款记录里的 out trade no 是 "damai_order_id_123"
+     And 退款记录里的第三方退款 ID 是 "damai_refund_id_123"
+     And 退款记录里的退款金额是 35000 分
+     And 退款记录里的退款原因是 "不想看了"
+     And 退款记录里的退款状态是已退款
 
      Then 默认展会活动的 "早鸟票" 在 "今天" 场次的库存为 2
      Then 默认展会活动的 "单人票" 在 "今天" 场次的库存为 2

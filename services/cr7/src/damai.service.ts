@@ -1,4 +1,5 @@
 import config from 'config';
+import { randomUUID } from 'node:crypto';
 import { format, isDate, parse, parseISO } from 'date-fns';
 import { Context, Errors, ServiceBroker } from 'moleculer';
 import { Damai, Exhibition, Order, Redeem } from '@cr7/types';
@@ -1122,17 +1123,29 @@ class DamaiService extends RC7BaseService {
     }
 
     try {
+      const outRefundNo = randomUUID().replace(/-/g, '');
+
       await ctx.call(
         'cr7.payment.refund',
         {
           oid: order.id,
           payment_method: 'DAMAI' as const,
           out_trade_no: refundInfo.daMaiOrderId,
-          out_refund_no: refundId,
+          out_refund_no: outRefundNo,
           reason: refundInfo.refundReason,
           refund_amount: refundAmountFen,
         },
         { meta: { user: { uid: order.user_id } } }
+      );
+
+      await ctx.call(
+        'cr7.payment.updateRefundResult',
+        {
+          out_refund_no: outRefundNo,
+          refund_status: 'SUCCESS',
+          refund_id: refundId,
+          succeeded_at: new Date().toISOString(),
+        },
       );
 
       await ctx.call('cr7.order.markRefunded', { oid: order.id });
