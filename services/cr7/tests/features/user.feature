@@ -1,5 +1,9 @@
 
 Feature: user registration and login
+
+  Background:
+    Given cr7 服务已启动
+
   Scenario: wechat user login
     Given wechat mini app
     When wechat user_1 first open
