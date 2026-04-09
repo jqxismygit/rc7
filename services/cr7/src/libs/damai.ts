@@ -116,7 +116,7 @@ export async function damaiPostJson<Res = unknown>(
 	options: DamaiPostJSONOptions,
 ) {
 	const body = options.body ?? {};
-	const timestamp = options.timestamp ?? Date.now().toString();
+	const timeStamp = options.timestamp ?? Date.now().toString();
 	const signed = options.sign;
 
 	if (typeof signed !== 'string' || signed.length === 0) {
@@ -126,7 +126,7 @@ export async function damaiPostJson<Res = unknown>(
 	const payload = {
 		...body,
 		signed: {
-			timestamp,
+			timeStamp,
 			signInfo: signed,
 		}
 	} as Record<string, unknown>;
