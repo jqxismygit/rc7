@@ -601,10 +601,7 @@ class DamaiService extends RC7BaseService {
 
     const syncUrl = new URL('/b2b2c/2.0/sync/project', config.damai.base_url).toString();
     await damaiPostJson(syncUrl, {
-      apiKey: config.damai.api_key,
       sign: config.damai.sign,
-      apiPw: config.damai.api_pwd,
-      signTarget: 'both',
       body: request,
     });
 
@@ -656,10 +653,7 @@ class DamaiService extends RC7BaseService {
 
     const syncUrl = new URL('/b2b2c/2.0/sync/perform', config.damai.base_url).toString();
     await damaiPostJson(syncUrl, {
-      apiKey: config.damai.api_key,
       sign: config.damai.sign,
-      apiPw: config.damai.api_pwd,
-      signTarget: 'both',
       body: request,
     });
 
@@ -703,10 +697,7 @@ class DamaiService extends RC7BaseService {
 
     const syncUrl = new URL('/b2b2c/2.0/sync/price', config.damai.base_url).toString();
     await damaiPostJson(syncUrl, {
-      apiKey: config.damai.api_key,
       sign: config.damai.sign,
-      apiPw: config.damai.api_pwd,
-      signTarget: 'both',
       body: request,
     });
 
@@ -1287,10 +1278,7 @@ class DamaiService extends RC7BaseService {
 
     const syncUrl = new URL(DAMAI_VALIDATE_URI, config.damai.base_url).toString();
     await damaiPostJson(syncUrl, {
-      apiKey: config.damai.api_key,
       sign: config.damai.sign,
-      apiPw: config.damai.api_pwd,
-      signTarget: 'signed',
       body,
     });
   }

@@ -11,21 +11,12 @@ interface DamaiSignatureOptions {
 	version?: string;
 }
 
-type DamaiSignTarget = 'head' | 'signed' | 'both';
-
-interface DamaiPostJSONOptions extends Omit<RequestInit, 'method' | 'body'>, DamaiSignatureOptions {
+interface DamaiPostJSONOptions extends Omit<RequestInit, 'method' | 'body'> {
 	body?: Record<string, unknown>;
-	signTarget?: DamaiSignTarget;
+	sign: string;
+	timestamp?: string;
 }
 
-interface DamaiRequestHead {
-	version: string;
-	msgId: string;
-	apiKey: string;
-	apiSecret: string;
-	timestamp: string;
-	signed: string;
-}
 
 class DamaiAPIError extends Error {
 	status: number;
@@ -124,38 +115,21 @@ export async function damaiPostJson<Res = unknown>(
 	url: string,
 	options: DamaiPostJSONOptions,
 ) {
-	const signTarget = options.signTarget ?? 'head';
 	const body = options.body ?? {};
-	const version = options.version ?? '1.0.0';
 	const timestamp = options.timestamp ?? Date.now().toString();
-	const msgId = options.msgId ?? timestamp;
-	const apiSecret = resolveApiSecret(options);
 	const signed = options.sign;
 
 	if (typeof signed !== 'string' || signed.length === 0) {
 		throw new TypeError('Damai outbound request requires sign');
 	}
 
-	const payload = { ...body } as Record<string, unknown>;
-
-	if (signTarget === 'head' || signTarget === 'both') {
-		const head: DamaiRequestHead = {
-			version,
-			msgId,
-			apiKey: options.apiKey,
-			apiSecret,
-			timestamp,
-			signed,
-		};
-		payload.head = head;
-	}
-
-	if (signTarget === 'signed' || signTarget === 'both') {
-		payload.signed = {
+	const payload = {
+		...body,
+		signed: {
 			timestamp,
 			signInfo: signed,
-		};
-	}
+		}
+	} as Record<string, unknown>;
 
 	const res = await fetch(url, {
 		...options,

@@ -64,11 +64,7 @@ describe('Damai api signing', () => {
 		}));
 
 		await damaiPostJson('https://example.com/damai', {
-			apiKey,
-			apiSecret,
 			sign: outboundSign,
-			msgId,timestamp,version,
-      signTarget: 'both',
 			body: {
 				payload: {
 					orderId: '123',
@@ -83,29 +79,17 @@ describe('Damai api signing', () => {
 
 		const requestBody = JSON.parse(request.body as string) as {
 			payload: { orderId: string };
-			head: {
-				version: string;
-				msgId: string;
-				apiKey: string;
-				apiSecret: string;
-				timestamp: string;
-				signed: string;
-			};
 			signed: {
-					timestamp: string;
+				timestamp: string;
 				signInfo: string;
 			};
 		};
 
 		expect(requestBody.payload.orderId).toBe('123');
-		expect(requestBody.head).toEqual({
-			version, msgId,
-			apiKey,apiSecret,timestamp,
-			signed: outboundSign,
-		});
+		expect(requestBody).not.toHaveProperty('head');
 
 		expect(requestBody.signed).toEqual({
-				timestamp,
+				timestamp: expect.any(String),
 				signInfo: outboundSign,
 		});
 	});

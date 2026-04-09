@@ -167,7 +167,6 @@ interface DamaiProjectSyncPayload {
     name: string;
   };
   signed: DamaiSignedPayload;
-  head: DamaiHeadPayload;
 }
 
 interface DamaiPerform {
@@ -186,7 +185,6 @@ interface DamaiPerformSyncPayload {
   projectId: string;
   performs: DamaiPerform[];
   signed: DamaiSignedPayload;
-  head: DamaiHeadPayload;
 }
 
 interface DamaiPrice {
@@ -827,12 +825,10 @@ describeFeature(feature, ({
 
     Then('大麦收到请求签名无误', () => {
       const request = getDamaiRequestArg<DamaiProjectSyncPayload>(featureContext.damaiRequestHandler!);
-      const { signed, head } = request.body as DamaiProjectSyncPayload;
+      const { signed } = request.body as DamaiProjectSyncPayload;
 
-      expect(signed.timestamp).toBe(head.timestamp);
-      expect(head.signed).toBe(signed.signInfo);
-      expect(head.apiKey).toBe(config.damai.api_key);
-      expect(head.signed).toBe(config.damai.sign);
+      expect(signed.timestamp).toMatch(/\d{13}/);
+      expect(signed.signInfo).toBe(config.damai.sign);
     });
 
     And('展会同步消息中的项目 ID 是默认展会活动的 ID', () => {
@@ -914,12 +910,10 @@ describeFeature(feature, ({
     Then('大麦收到请求签名无误', () => {
       const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
       const body = request.body as DamaiPerformSyncPayload;
-      const { signed, head } = body;
+      const { signed } = body;
 
-      expect(signed.timestamp).toBe(head.timestamp);
-      expect(head.signed).toBe(signed.signInfo);
-      expect(head.apiKey).toBe(config.damai.api_key);
-      expect(head.signed).toBe(config.damai.sign);
+      expect(signed.timestamp).toMatch(/\d{13}/);
+      expect(signed.signInfo).toBe(config.damai.sign);
     });
 
     And('场次同步消息中的项目 ID 是默认展会活动的 ID', () => {
@@ -1081,12 +1075,9 @@ describeFeature(feature, ({
     Then('大麦收到请求签名无误', () => {
       const request = getDamaiRequestArg<DamaiPriceSyncPayload>(featureContext.damaiRequestHandler!);
       const body = request.body as DamaiPriceSyncPayload;
-      const { signed, head } = body;
-
-      expect(signed.timestamp).toBe(head.timestamp);
-      expect(head.signed).toBe(signed.signInfo);
-      expect(head.apiKey).toBe(config.damai.api_key);
-      expect(head.signed).toBe(config.damai.sign);
+      const { signed } = body;
+      expect(signed.timestamp).toMatch(/\d{13}/);
+      expect(signed.signInfo).toBe(config.damai.sign);
     });
 
     And('票种同步消息中的项目 ID 是默认展会活动的 ID', () => {
