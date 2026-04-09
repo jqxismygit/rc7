@@ -71,7 +71,7 @@ export default {
     private_key_path: path.resolve(etc_path, 'mop/private_key.cer'),
   },
   damai: {
-    base_url: 'https://api.damai.cn',
+    base_url: 'https://b2b.damai.cn',
     api_key: '3309712MW9',
     sign: '<--ignore-->',
     api_pwd: '<--ignore-->',
