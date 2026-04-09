@@ -331,6 +331,69 @@ export async function syncDamaiCancelOrderToCr7(
   );
 }
 
+export interface DamaiRefundCallBackBody {
+  daMaiOrderId: string;
+  orderId: string;
+  refundId: string;
+  refundReason: string;
+  refundAmountFen: number;
+}
+
+export interface DamaiRefundApplyRequest {
+  head: {
+    version: string;
+    msgId: string;
+    apiKey: string;
+    apiSecret: string;
+    timestamp: string;
+    signed: string;
+  };
+  bodyRefundApply: {
+    refundInfo: DamaiRefundCallBackBody;
+  };
+}
+
+export interface DamaiRefundApplyResponse {
+  head: {
+    returnCode: string;
+    returnDesc: string;
+  };
+}
+
+export function buildDamaiRefundApplyRequest(
+  refundInfo: DamaiRefundCallBackBody,
+): DamaiRefundApplyRequest {
+  const signature = buildDamaiSignature({
+    apiKey: config.damai.api_key,
+    apiPw: config.damai.api_pwd,
+  });
+
+  return {
+    head: {
+      version: signature.version,
+      msgId: signature.msgId,
+      apiKey: signature.apiKey,
+      apiSecret: signature.apiSecret,
+      timestamp: signature.timestamp,
+      signed: signature.signed,
+    },
+    bodyRefundApply: {
+      refundInfo,
+    },
+  };
+}
+
+export async function syncDamaiRefundApplyToCr7(
+  server: Server,
+  body: DamaiRefundApplyRequest,
+) {
+  return postJSON<DamaiRefundApplyResponse>(
+    server,
+    '/ota/damai/refundApply',
+    { body },
+  );
+}
+
 export async function getDamaiOrderSyncRecords(
   server: Server,
   token: string,

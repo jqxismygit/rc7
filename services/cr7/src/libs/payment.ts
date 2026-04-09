@@ -132,7 +132,34 @@ export class PaymentService extends RC7BaseService {
           optional: true,
         },
       },
-      handler: this.initiateRefund,
+      handler: this.initiateWechatRefund,
+    },
+
+    'payment.refund': {
+      params: {
+        oid: 'string',
+        reason: {
+          type: 'string',
+          optional: true,
+        },
+        payment_method: {
+          type: 'enum',
+          values: ['WECHATPAY', 'DAMAI'],
+        },
+        out_trade_no: {
+          type: 'string',
+        },
+        out_refund_no: {
+          type: 'string',
+        },
+        refund_amount: {
+          type: 'number',
+          integer: true,
+          positive: true,
+          convert: true,
+        },
+      },
+      handler: this.initiatePaymentRefund,
     },
 
     'order.refundsAdmin': {
@@ -265,22 +292,74 @@ export class PaymentService extends RC7BaseService {
     };
   }
 
-  async initiateRefund(
-    ctx: Context<{ oid: string; reason?: string }, { user: UserMeta }>
+  async initiatePaymentRefund(
+    ctx: Context<{
+      oid: string;
+      reason?: string;
+      payment_method: 'WECHATPAY' | 'DAMAI';
+      out_trade_no: string;
+      out_refund_no: string;
+      refund_amount: number;
+    }, {user: UserMeta }>
   ): Promise<Payment.RefundRecord> {
-    const { oid, reason = '用户发起退款' } = ctx.params;
+    const {
+      oid,
+      reason = '用户发起退款',
+      payment_method,
+      out_trade_no,
+      out_refund_no,
+      refund_amount,
+    } = ctx.params;
     const { uid } = ctx.meta.user;
     const schema = await this.getSchema();
+
+    const order = await getOrderRefundInfo(this.pool, schema, oid, uid)
+      .catch(handlePaymentDataError);
+    assertOrderRefundableByStatus(order);
+
+    if (refund_amount !== order.total_amount) {
+      throw new PaymentDataError('Refund amount mismatch', 'ORDER_STATUS_INVALID');
+    }
 
     const dbClient = await this.pool.connect();
     try {
       await dbClient.query('BEGIN');
 
-      const order = await getOrderRefundInfo(dbClient, schema, oid, uid)
+      await createRefundRecord(dbClient, schema, {
+        out_refund_no,
+        order_id: oid,
+        out_trade_no,
+        order_amount: order.total_amount,
+        refund_amount,
+        reason,
+        payment_method,
+      });
+      await setOrderCurrentRefund(dbClient, schema, oid, out_refund_no);
+
+      await dbClient.query('COMMIT');
+    } catch (error) {
+      await dbClient.query('ROLLBACK');
+      return handlePaymentDataError(error);
+    } finally {
+      dbClient.release();
+    }
+
+    return getCurrentRefundRecordByOrderId(this.pool, schema, oid)
+      .catch(handlePaymentDataError);
+  }
+
+  async initiateWechatRefund(
+    ctx: Context<{ oid: string; reason?: string }, { user: UserMeta }>
+  ): Promise<Payment.RefundRecord> {
+    const { oid, reason = '用户发起退款' } = ctx.params;
+    const schema = await this.getSchema();
+
+    try {
+      const order = await getOrderRefundInfo(this.pool, schema, oid, ctx.meta.user.uid)
         .catch(handlePaymentDataError);
       assertOrderRefundableByStatus(order);
 
-      const policies = await getTicketCategoryRefundPoliciesByOrderId(dbClient, schema, oid);
+      const policies = await getTicketCategoryRefundPoliciesByOrderId(this.pool, schema, oid);
       assertOrderRefundableByPolicies(policies, order.session_date, new Date());
 
       if (order.out_trade_no === null) {
@@ -288,15 +367,19 @@ export class PaymentService extends RC7BaseService {
       }
 
       const outRefundNo = randomUUID().replace(/-/g, '');
-      await createRefundRecord(dbClient, schema, {
-        out_refund_no: outRefundNo,
-        order_id: oid,
-        out_trade_no: order.out_trade_no!,
-        order_amount: order.total_amount,
-        refund_amount: order.total_amount,
-        reason,
-      });
-      await setOrderCurrentRefund(dbClient, schema, oid, outRefundNo);
+
+      const refundRecord = await ctx.call(
+        'cr7.payment.refund',
+        {
+          oid,
+          reason,
+          payment_method: 'WECHATPAY',
+          out_trade_no: order.out_trade_no,
+          out_refund_no: outRefundNo,
+          refund_amount: order.total_amount,
+        },
+        { meta: { user: ctx.meta.user } },
+      ) as Payment.RefundRecord;
 
       const wechatpayConfig = await this.getWechatPayConfig();
       const {
@@ -308,16 +391,15 @@ export class PaymentService extends RC7BaseService {
       } = wechatpayConfig;
 
       const refundNotifyUrl = `${callback_base_url}/payment/wechat/callback/refund`;
-
       const privateKey = await this.getWechatPayClientPrimaryKey(client_key_path);
       const requestBody: WechatRefundRequestBody = {
-        out_trade_no: order.out_trade_no!,
-        out_refund_no: outRefundNo,
-        reason,
+        out_trade_no: refundRecord.out_trade_no,
+        out_refund_no: refundRecord.out_refund_no,
+        reason: refundRecord.reason,
         notify_url: refundNotifyUrl,
         amount: {
-          refund: order.total_amount,
-          total: order.total_amount,
+          refund: refundRecord.refund_amount,
+          total: refundRecord.order_amount,
           currency: 'CNY',
         },
       };
@@ -332,23 +414,17 @@ export class PaymentService extends RC7BaseService {
         },
       );
 
-      await updateRefundRecordFromApplyResponse(dbClient, schema, outRefundNo, {
+      await updateRefundRecordFromApplyResponse(this.pool, schema, refundRecord.out_refund_no, {
         refund_id: response.refund_id ?? null,
         refund_status: response.status ?? null,
         refund_channel: response.channel ?? null,
         callback_refund_amount: response.amount?.refund ?? null,
       });
 
-      const updated = await getCurrentRefundRecordByOrderId(dbClient, schema, oid)
+      return getCurrentRefundRecordByOrderId(this.pool, schema, oid)
         .catch(handlePaymentDataError);
-
-      await dbClient.query('COMMIT');
-      return updated;
     } catch (error) {
-      await dbClient.query('ROLLBACK');
       return handlePaymentDataError(error);
-    } finally {
-      dbClient.release();
     }
   }
 

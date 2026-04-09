@@ -26,6 +26,7 @@ import {
   buildDamaiCreateOrderRequest,
   buildDamaiGetETicketInfoRequest,
   buildDamaiPayOrderRequest,
+  buildDamaiRefundApplyRequest,
   DamaiCancelOrderRequest,
   DamaiCancelOrderResponse,
   DamaiCreateOrderBody,
@@ -35,11 +36,14 @@ import {
   DamaiGetETicketInfoResponse,
   DamaiPayOrderRequest,
   DamaiPayOrderResponse,
+  DamaiRefundApplyRequest,
+  DamaiRefundApplyResponse,
   getDamaiOrderSyncRecords,
   syncDamaiGetETicketInfoToCr7,
   syncDamaiCancelOrderToCr7,
   syncDamaiOrderToCr7,
   syncDamaiPayOrderToCr7,
+  syncDamaiRefundApplyToCr7,
   syncExhibitionToDamai,
   syncSessionsToDamai,
   syncTicketsToDamai,
@@ -88,6 +92,11 @@ interface CancelOrderContext {
   cancelOrderResponse: DamaiCancelOrderResponse;
 }
 
+interface RefundApplyContext {
+  refundApplyRequest: DamaiRefundApplyRequest;
+  refundApplyResponse: DamaiRefundApplyResponse;
+}
+
 interface GetETicketContext {
   getETicketRequest: DamaiGetETicketInfoRequest;
   getETicketResponse: DamaiGetETicketInfoResponse;
@@ -120,6 +129,7 @@ interface FeatureContext extends
   Partial<CreateOrderContext>,
   Partial<PayOrderContext>,
   Partial<CancelOrderContext>,
+  Partial<RefundApplyContext>,
   Partial<GetETicketContext>,
   Partial<RedeemContext> {
   broker: ServiceBroker;
@@ -600,6 +610,16 @@ describeFeature(feature, ({
       expect(records![0].response_body).toEqual(cancelOrderResponse);
     });
 
+    And('第 {int} 次查看时，最新的订单同步记录里的请求体为大麦订单退款申请消息的请求体', (_ctx, _checkIndex: number) => {
+      const { records, refundApplyRequest } = featureContext;
+      expect(records![0].request_body).toEqual(refundApplyRequest);
+    });
+
+    And('第 {int} 次查看时，最新的订单同步记录里的响应体为 cr7 返回给大麦的订单退款申请结果', (_ctx, _checkIndex: number) => {
+      const { records, refundApplyResponse } = featureContext;
+      expect(records![0].response_body).toEqual(refundApplyResponse);
+    });
+
     // 支付
     Given('用户在大麦支付了订单 {string}', (_ctx, damaiOrderId: string) => {
       featureContext.payOrderRequest = buildDamaiPayOrderRequest({
@@ -673,6 +693,35 @@ describeFeature(feature, ({
       );
       expect(order.status).toBe('CANCELLED');
       featureContext.order = order;
+    });
+
+    Given('用户在大麦对订单申请了退款', () => {
+      featureContext.refundApplyRequest = buildDamaiRefundApplyRequest({
+        daMaiOrderId: featureContext.orderDraft!.daMaiOrderId,
+        orderId: featureContext.order!.id,
+        refundId: 'damai_refund_id_123',
+        refundReason: '不想看了',
+        refundAmountFen: featureContext.orderDraft!.realAmountOfFen,
+      });
+    });
+
+    When('cr7 收到订单退款申请的消息，可以正常验证签名', async () => {
+      const request = featureContext.refundApplyRequest;
+      expect(request).toBeTruthy();
+
+      featureContext.refundApplyResponse = await syncDamaiRefundApplyToCr7(
+        featureContext.apiServer,
+        request!,
+      );
+
+      expect(verifyDamaiSignature(request!.head.signed, {
+        apiKey: config.damai.api_key,
+        apiPw: config.damai.api_pwd,
+        msgId: request!.head.msgId,
+        timestamp: request!.head.timestamp,
+        version: request!.head.version,
+      })).toBe(true);
+      expect(featureContext.refundApplyResponse?.head.returnCode).toBe('0');
     });
   });
 
@@ -1478,6 +1527,46 @@ describeFeature(feature, ({
         version: request!.head.version,
       })).toBe(true);
       expect(featureContext.cancelOrderResponse?.head.returnCode).toBe('0');
+    });
+  });
+
+  Scenario('用户在大麦申请了退款', (s: StepTest<void>) => {
+    const { Then, And } = s;
+    And('订单退款申请消息中的大麦订单 ID 是 {string}', (_ctx, damaiOrderId: string) => {
+      expect(featureContext.refundApplyRequest!.bodyRefundApply.refundInfo.daMaiOrderId).toBe(damaiOrderId);
+    });
+
+    And('订单退款申请消息中的订单 ID 是 cr7 创建的订单 ID', () => {
+      expect(featureContext.refundApplyRequest!.bodyRefundApply.refundInfo.orderId).toBe(featureContext.order!.id);
+    });
+
+    And('订单退款申请消息中的退款 ID 是 {string}', (_ctx, refundId: string) => {
+      expect(featureContext.refundApplyRequest!.bodyRefundApply.refundInfo.refundId).toBe(refundId);
+    });
+
+    And('订单退款申请消息中的退款原因是 {string}', (_ctx, refundReason: string) => {
+      expect(featureContext.refundApplyRequest!.bodyRefundApply.refundInfo.refundReason).toBe(refundReason);
+    });
+
+    And('订单退款申请消息中的退款金额是 {int} 分', (_ctx, refundAmountFen: number) => {
+      expect(featureContext.refundApplyRequest!.bodyRefundApply.refundInfo.refundAmountFen).toBe(refundAmountFen);
+    });
+
+    Then('cr7 将订单状态更新为已退款', async () => {
+      const order = await getOrderAdmin(
+        featureContext.apiServer,
+        featureContext.order!.id,
+        featureContext.adminToken,
+      );
+      expect(order.status).toBe('REFUNDED');
+      featureContext.order = order;
+    });
+
+    And('cr7 系统只有一个订单, cr7 订单号不变，退款 ID 是 {string}', async (_ctx, refundId: string) => {
+      const { apiServer, adminToken } = featureContext;
+      const order = await getOrderAdmin(apiServer, featureContext.order!.id, adminToken);
+      expect(order.id).toBe(featureContext.order!.id);
+      expect(order.current_refund_out_refund_no).toBe(refundId);
     });
   });
 });

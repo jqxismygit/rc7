@@ -373,6 +373,7 @@ type CreateRefundRecordInput = {
   order_amount: number;
   refund_amount: number;
   reason: string;
+  payment_method: 'WECHATPAY' | 'DAMAI';
 };
 
 type RefundCallbackUpdateInput = {
@@ -498,7 +499,7 @@ export async function createRefundRecord(
       error_message,
       out_trade_no
     )
-    VALUES ($1, $2, 'WECHATPAY', 'REQUESTED', $3, $4, $5, NULL, $6)
+    VALUES ($1, $2, $3, 'REQUESTED', $4, $5, $6, NULL, $7)
     RETURNING
       out_refund_no,
       order_id,
@@ -520,6 +521,7 @@ export async function createRefundRecord(
     [
       input.out_refund_no,
       input.order_id,
+      input.payment_method,
       input.order_amount,
       input.refund_amount,
       input.reason,

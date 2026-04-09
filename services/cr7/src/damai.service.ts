@@ -11,7 +11,6 @@ import {
   updateDamaiOrderSyncRecord,
 } from './data/damai.js';
 import { getExhibitionById, getSessionById } from './data/exhibition.js';
-import { getOrderById } from './data/order.js';
 
 const { MoleculerClientError } = Errors;
 
@@ -166,6 +165,28 @@ type DamaiCancelOrderResponse = {
   };
 };
 
+type DamaiRefundApplyInfo = {
+  daMaiOrderId: string;
+  orderId: string;
+  refundId: string;
+  refundReason: string;
+  refundAmountFen: number;
+};
+
+type DamaiRefundApplyRequest = {
+  head: DamaiHeadPayload;
+  bodyRefundApply: {
+    refundInfo: DamaiRefundApplyInfo;
+  };
+};
+
+type DamaiRefundApplyResponse = {
+  head: {
+    returnCode: string;
+    returnDesc: string;
+  };
+};
+
 type DamaiGetETicketInfoRequest = {
   head: DamaiHeadPayload;
   bodyGetESeatInfo: {
@@ -224,6 +245,7 @@ const DAMAI_TICKET_SALE_STATE_ON_SALE = 1;
 const DAMAI_CREATE_ORDER_URI = '/damai/createOrder';
 const DAMAI_PAY_CALLBACK_URI = '/damai/payCallBack';
 const DAMAI_CANCEL_ORDER_URI = '/damai/cancelOrder';
+const DAMAI_REFUND_APPLY_URI = '/damai/refundApply';
 const DAMAI_PAY_STATUS_SUCCESS = 1;
 const DAMAI_VALIDATE_URI = '/b2b2c/2.0/sync/validate';
 const DAMAI_VALIDATE_STATUS_VALIDATED = 2;
@@ -387,6 +409,24 @@ function buildDamaiCancelOrderSuccess(): DamaiCancelOrderResponse {
   };
 }
 
+function buildDamaiRefundApplyError(returnCode: string, returnDesc: string): DamaiRefundApplyResponse {
+  return {
+    head: {
+      returnCode,
+      returnDesc,
+    },
+  };
+}
+
+function buildDamaiRefundApplySuccess(): DamaiRefundApplyResponse {
+  return {
+    head: {
+      returnCode: '0',
+      returnDesc: '成功',
+    },
+  };
+}
+
 function toDamaiTimestamp(sessionDate: string | Date, time: string): number {
   const label = `${toDateLabel(sessionDate)} ${normalizeTimeLabel(time)}`;
   const parsed = parse(label, 'yyyy-MM-dd HH:mm:ss', new Date());
@@ -494,6 +534,14 @@ class DamaiService extends RC7BaseService {
             cancelOrderInfo: 'object',
           },
           handler: this.cancelOrderFromDamai,
+        },
+        refundApplyFromDamai: {
+          rest: 'POST /refundApply',
+          params: {
+            head: 'object',
+            bodyRefundApply: 'object',
+          },
+          handler: this.refundApplyFromDamai,
         },
         getETicketInfoFromDamai: {
           rest: 'POST /getSeatInfo',
@@ -664,7 +712,9 @@ class DamaiService extends RC7BaseService {
     ctx.meta.$statusCode = 204;
   }
 
-  async finishWithDamaiResponse<T extends DamaiCreateOrderResponse | DamaiPayOrderResponse | DamaiCancelOrderResponse>(
+  async finishWithDamaiResponse<
+    T extends DamaiCreateOrderResponse | DamaiPayOrderResponse | DamaiCancelOrderResponse | DamaiRefundApplyResponse
+  >(
     recordId: string,
     response: T,
     syncStatus: Damai.DamaiOrderSyncStatus = 'FAILED',
@@ -957,7 +1007,10 @@ class DamaiService extends RC7BaseService {
       return this.finishWithDamaiResponse(recordId, buildDamaiCancelOrderError('20001', '参数异常'));
     }
 
-    const order = await getOrderById(this.pool, schema, orderId).catch(() => null);
+    const order = await ctx.call(
+      'cr7.order.getAdmin', { oid: orderId }, { meta: { roles: ['admin'] } }
+    )
+    .then((res) => res as Order.OrderWithItems, () => null);
     if (!order) {
       return this.finishWithDamaiResponse(recordId, buildDamaiCancelOrderError('20040', '取消订单失败 -- 订单不存在'));
     }
@@ -1012,6 +1065,108 @@ class DamaiService extends RC7BaseService {
     }
   }
 
+  async refundApplyFromDamai(
+    ctx: Context<DamaiRefundApplyRequest, Meta>,
+  ): Promise<DamaiRefundApplyResponse> {
+    ctx.meta.$statusCode = 200;
+
+    const payload = ctx.params;
+    const schema = await this.getSchema();
+    const damaiOrderId = payload.bodyRefundApply?.refundInfo?.daMaiOrderId ?? null;
+
+    const { id: recordId } = await createDamaiOrderSyncRecord(this.pool, schema, {
+      damaiOrderId,
+      requestPath: DAMAI_REFUND_APPLY_URI,
+      requestBody: payload,
+      responseBody: null,
+      syncStatus: 'FAILED',
+      orderId: null,
+    });
+
+    if (isValidDamaiHead(payload.head) === false) {
+      return this.finishWithDamaiResponse(recordId, buildDamaiRefundApplyError('20000', '签名错误'));
+    }
+
+    const refundInfo = payload.bodyRefundApply?.refundInfo;
+    const orderId = refundInfo?.orderId;
+    const refundId = refundInfo?.refundId;
+    const refundAmountFen = refundInfo?.refundAmountFen;
+    if (
+      !refundInfo
+      || !refundInfo.daMaiOrderId
+      || !orderId
+      || !refundId
+      || !refundInfo.refundReason
+      || typeof refundAmountFen !== 'number'
+      || refundAmountFen < 0
+    ) {
+      return this.finishWithDamaiResponse(recordId, buildDamaiRefundApplyError('20001', '参数异常'));
+    }
+
+    const order = await ctx.call(
+      'cr7.order.getAdmin', { oid: orderId }, { meta: { roles: ['admin'] } }
+    )
+    .then((res) => res as Order.OrderWithItems, () => null);
+    if (!order) {
+      return this.finishWithDamaiResponse(recordId, buildDamaiRefundApplyError('20050', '退款失败--订单不存在'));
+    }
+
+    if (refundAmountFen !== order.total_amount) {
+      return this.finishWithDamaiResponse(
+        recordId,
+        buildDamaiRefundApplyError('20051', '退款金额不一致'),
+        'FAILED',
+        order.id,
+        order.user_id,
+      );
+    }
+
+    try {
+      await ctx.call(
+        'cr7.payment.refund',
+        {
+          oid: order.id,
+          payment_method: 'DAMAI' as const,
+          out_trade_no: refundInfo.daMaiOrderId,
+          out_refund_no: refundId,
+          reason: refundInfo.refundReason,
+          refund_amount: refundAmountFen,
+        },
+        { meta: { user: { uid: order.user_id } } }
+      );
+
+      await ctx.call('cr7.order.markRefunded', { oid: order.id });
+
+      return this.finishWithDamaiResponse(
+        recordId,
+        buildDamaiRefundApplySuccess(),
+        'SUCCESS',
+        order.id,
+        order.user_id,
+      );
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      if (code === 'ORDER_STATUS_INVALID') {
+        return this.finishWithDamaiResponse(
+          recordId,
+          buildDamaiRefundApplyError('20050', '退款失败--订单状态异常'),
+          'FAILED',
+          order.id,
+          order.user_id,
+        );
+      }
+
+      this.logger.error('处理大麦订单退款申请时发生错误', error);
+      return this.finishWithDamaiResponse(
+        recordId,
+        buildDamaiRefundApplyError('20054', '退款失败--系统异常'),
+        'FAILED',
+        order.id,
+        order.user_id,
+      );
+    }
+  }
+
   async getETicketInfoFromDamai(
     ctx: Context<DamaiGetETicketInfoRequest, Meta>,
   ): Promise<DamaiGetETicketInfoResponse> {
@@ -1028,7 +1183,10 @@ class DamaiService extends RC7BaseService {
     }
 
     const schema = await this.getSchema();
-    const order = await getOrderById(this.pool, schema, orderId).catch(() => null);
+    const order = await ctx.call(
+      'cr7.order.getAdmin', { oid: orderId }, { meta: { roles: ['admin'] } }
+    )
+    .then((res) => res as Order.OrderWithItems, () => null);
     if (!order) {
       return buildDamaiGetETicketInfoError('20030', '订单不存在');
     }
@@ -1091,7 +1249,13 @@ class DamaiService extends RC7BaseService {
       throw new MoleculerClientError(`No daMaiOrderId found for order ${oid}`, 404, 'RECORD_NOT_FOUND');
     }
 
-    const order = await getOrderById(this.pool, schema, oid);
+    const order = await ctx.call(
+      'cr7.order.getAdmin', { oid }, { meta: { roles: ['admin'] } }
+    )
+    .then((res) => res as Order.OrderWithItems, () => null);
+    if (!order) {
+      throw new MoleculerClientError(`No order access context found for order ${oid}`, 404, 'ORDER_NOT_FOUND');
+    }
 
     const validateVoucherRequestList = order.items.flatMap(item =>
       Array.from({ length: item.quantity }, () => ({

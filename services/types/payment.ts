@@ -35,7 +35,7 @@ export type RefundStatus =
 export interface RefundRecord {
   out_refund_no: string;
   order_id: string;
-  payment_method: 'WECHATPAY';
+  payment_method: 'WECHATPAY' | 'DAMAI';
   status: RefundStatus;
   order_amount: number;
   refund_amount: number;
