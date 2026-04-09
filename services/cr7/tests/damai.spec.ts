@@ -250,10 +250,10 @@ function normalizeTimeLabel(time: string): string {
   return time;
 }
 
-function formatDamaiSessionDateTime(sessionDate: string | Date, time: string, pattern: 'HH:mm' | 'HH:mm:ss'): string {
+function formatDamaiSessionDateTime(sessionDate: string | Date, time: string): string {
   const label = `${toDateOnlyLabel(sessionDate)} ${normalizeTimeLabel(time)}`;
   const parsed = parse(label, 'yyyy-MM-dd HH:mm:ss', new Date());
-  return format(parsed, `yyyy-MM-dd ${pattern}`);
+  return format(parsed, `yyyy-MM-dd HH:mm:ss`);
 }
 
 function getDamaiRequestArg<Body = DamaiRequestBody>(
@@ -942,7 +942,7 @@ describeFeature(feature, ({
       const perform = request.body.performs[0];
       const { exhibition } = featureContext;
       const expectedLabel = formatDamaiSessionDateTime(
-        toDateLabel(expectedDate), exhibition.opening_time, 'HH:mm'
+        toDateLabel(expectedDate), exhibition.opening_time
       )
       expect(perform.showTime).toBe(expectedLabel);
     });
@@ -952,7 +952,7 @@ describeFeature(feature, ({
       const perform = request.body.performs[1];
       const { exhibition } = featureContext;
       const expectedLabel = formatDamaiSessionDateTime(
-        toDateLabel(expectedDate), exhibition.opening_time, 'HH:mm'
+        toDateLabel(expectedDate), exhibition.opening_time
       )
       expect(perform.showTime).toBe(expectedLabel);
     });
@@ -987,7 +987,7 @@ describeFeature(feature, ({
       const expectedBySessionId = new Map(
         sessions.map(session => [
           session.id,
-          formatDamaiSessionDateTime(session.session_date, exhibition.last_entry_time, 'HH:mm'),
+          formatDamaiSessionDateTime(session.session_date, exhibition.last_entry_time),
         ]),
       );
 
@@ -1003,7 +1003,7 @@ describeFeature(feature, ({
       const expectedBySessionId = new Map(
         sessions.map(session => [
           session.id,
-          formatDamaiSessionDateTime(session.session_date, exhibition.opening_time, 'HH:mm'),
+          formatDamaiSessionDateTime(session.session_date, exhibition.opening_time),
         ]),
       );
 
@@ -1020,7 +1020,7 @@ describeFeature(feature, ({
       const expectedBySessionId = new Map(
         sessions.map(session => [
           session.id,
-          formatDamaiSessionDateTime(session.session_date, exhibition.closing_time, 'HH:mm'),
+          formatDamaiSessionDateTime(session.session_date, exhibition.closing_time),
         ]),
       );
 
