@@ -56,12 +56,17 @@ describe('Damai api signing', () => {
 	});
 
 	it('damaiPostJson injects signed info into request body', async () => {
-		fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ code: 0 }), {
-			status: 200,
-			headers: {
-				'content-type': 'application/json',
-			},
-		}));
+		fetchMock.mockResolvedValueOnce(
+			new Response(
+				JSON.stringify({ code: '0' }),
+				{
+					status: 200,
+					headers: {
+						'content-type': 'application/json',
+					},
+				}
+			)
+	);
 
 		await damaiPostJson('https://example.com/damai', {
 			sign: outboundSign,
