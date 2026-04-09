@@ -434,35 +434,31 @@ Code block
 
 #### ⽰例:
 
-Code block
 
-```txt
+```json
 1 {
-2 "otProjectId": "184674438436570001",
-3 "stocks": [
-4 {
-5 "otShowId": "1342342342342001",
-6 "otSkuId": "1001",
-7 "inventoryType": 1,
-8 "stock": 1000
-9 },
-10 {
-11 "otShowId": "1342342342342001",
-12 "otSkuId": "1002",
-13 "inventoryType": 1,
-14 "stock": 1000
-15 },
-```
-
-```txt
-16 {
-17 "otShowId": "1342342342342001",
-18 "otSkuId": "1003",
-19 "inventoryType": 1,
-20 "stock": 1000
-21 }
-22 ]
-23 }
+    "otProjectId": "184674438436570001",
+    "stocks": [
+        {
+            "otShowId": "1342342342342001",
+            "otSkuId": "1001",
+            "inventoryType": 1,
+            "stock": 1000
+        },
+        {
+            "otShowId": "1342342342342001",
+            "otSkuId": "1002",
+            "inventoryType": 1,
+            "stock": 1000
+        },
+        {
+            "otShowId": "1342342342342001",
+            "otSkuId": "1003",
+            "inventoryType": 1,
+            "stock": 1000
+        }
+    ]
+}
 ```
 
 ### 2.4.3响应参数列表

@@ -59,6 +59,16 @@ export interface SyncTicketsToMopRequest {
   }>;
 }
 
+export interface SyncStocksToMopRequest {
+  otProjectId: string;
+  stocks: Array<{
+    otShowId: string;
+    otSkuId: string;
+    inventoryType: number;
+    stock: number;
+  }>;
+}
+
 export interface MopOrderCreateRequest {
   myOrderId: string;
   projectCode: string;
@@ -168,6 +178,25 @@ export async function syncTicketsToMop(
   return postJSON<void>(
     server,
     `/exhibition/${eid}/ota/mop/sync/tickets`,
+    {
+      token,
+      body: options,
+    },
+  );
+}
+
+export async function syncStocksToMop(
+  server: Server,
+  token: string,
+  eid: string,
+  options: {
+    sessionDateStart?: string;
+    sessionDateEnd?: string;
+  } = {},
+) {
+  return postJSON<void>(
+    server,
+    `/exhibition/${eid}/ota/mop/sync/stocks`,
     {
       token,
       body: options,

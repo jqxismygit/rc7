@@ -40,7 +40,9 @@ import {
   syncExhibitionToMop,
   syncMopOrderToCr7,
   syncSessionsToMop,
+  syncStocksToMop,
   syncTicketsToMop,
+  SyncStocksToMopRequest,
   SyncTicketsToMopRequest,
   SyncSessionsToMopRequest,
 } from './fixtures/mop.js';
@@ -1254,6 +1256,105 @@ describeFeature(feature, ({
         expect(sku.onSaleTime).toBe(expectedRowOnSaleTime);
         expect(sku.offSaleTime).toBe(expectedRowOffSaleTime);
         expect(sku.inventoryType).toBe(expectedInventoryType);
+      });
+    });
+  });
+
+  Scenario('同步库存信息到猫眼', (s: StepTest<void>) => {
+    const { Given, When, And } = s;
+
+    Given('cr7 将库存信息同步到猫眼, 场次开始时间是从 {string} 到 {string} 的场次', async (
+      _ctx,
+      startDateLabel: string,
+      endDateLabel: string,
+    ) => {
+      await syncStocksToMop(
+        featureContext.apiServer,
+        featureContext.adminToken,
+        featureContext.exhibition.id,
+        {
+          sessionDateStart: toDateLabel(startDateLabel),
+          sessionDateEnd: toDateLabel(endDateLabel),
+        },
+      );
+    });
+
+    When('猫眼收到库存同步消息', () => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      expect(request.uri).toBe('/supply/open/mop/stock/push');
+    });
+
+    And('库存同步消息中的项目 ID 是默认展会活动的 ID', () => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncStocksToMopRequest;
+      expect(body.otProjectId).toBe(featureContext.exhibition.id);
+    });
+
+    And('库存同步消息中有 {int} 个 sku 的库存信息', async (
+      _ctx,
+      count: number,
+      dataTable: Array<Record<string, string>>,
+    ) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncStocksToMopRequest;
+      const { ticketByName, exhibition } = featureContext;
+
+      const sessions = await getSessions(
+        featureContext.apiServer,
+        exhibition.id,
+        featureContext.adminToken,
+      );
+      const sessionsByDate = new Map(
+        sessions.map(session => [toSessionDateLabel(session.session_date), session]),
+      );
+
+      function getColumnValue(row: Record<string, string>, columnName: string): string {
+        const normalizedColumnName = columnName.replace(/\s+/g, '');
+        const matchedColumnName = Object.keys(row).find(
+          key => key.replace(/\s+/g, '') === normalizedColumnName,
+        );
+        expect(matchedColumnName, `列不存在: ${columnName}`).toBeTruthy();
+        return row[matchedColumnName!];
+      }
+
+      function extractQuotedValue(value: string, fieldName: string): string {
+        const match = value.match(/^"(.+)"/);
+        expect(match, `${fieldName} 格式不合法: ${value}`).toBeTruthy();
+        return match![1];
+      }
+
+      function extractValueSuffixInt(value: string, fieldName: string): number {
+        const match = value.match(/(\d+)\s*$/);
+        expect(match, `${fieldName} 格式不合法: ${value}`).toBeTruthy();
+        return Number(match![1]);
+      }
+
+      expect(body.stocks).toHaveLength(count);
+      expect(body.stocks).toHaveLength(dataTable.length);
+      dataTable.forEach((row, index) => {
+        const stock = body.stocks[index];
+
+        const sessionIdValue = getColumnValue(row, '场次 ID');
+        const ticketIdValue = getColumnValue(row, '票种 ID');
+        const inventoryTypeValue = getColumnValue(row, '库存类型');
+        const stockValue = getColumnValue(row, '可售库存数量');
+
+        const sessionRelativeLabel = extractQuotedValue(sessionIdValue, '场次 ID');
+        const sessionDate = toDateLabel(sessionRelativeLabel);
+        const session = sessionsByDate.get(sessionDate);
+        expect(session).toBeTruthy();
+
+        const ticketName = extractQuotedValue(ticketIdValue, '票种 ID');
+        const ticket = ticketByName[ticketName];
+        expect(ticket).toBeTruthy();
+
+        const expectedInventoryType = extractValueSuffixInt(inventoryTypeValue, '库存类型');
+        const expectedStock = Number(stockValue.trim());
+
+        expect(stock.otShowId).toBe(session!.id);
+        expect(stock.otSkuId).toBe(ticket!.id);
+        expect(stock.inventoryType).toBe(expectedInventoryType);
+        expect(stock.stock).toBe(expectedStock);
       });
     });
   });
