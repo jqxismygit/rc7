@@ -19,11 +19,6 @@ interface AccessTokenResponse {
   expires_in: number;
 }
 
-interface PendingTokenResponse {
-  resolve: (value: AccessTokenResponse) => void;
-  reject: (error: unknown) => void;
-}
-
 interface WechatRequest {
   body: unknown;
   headers: Record<string, string>;
@@ -39,27 +34,8 @@ interface FeatureContext {
   accessTokenHandler: WechatAccessTokenHandler;
   mockServer: MockServer;
   baseUrlSpy: MockInstance;
-  pendingResponses: PendingTokenResponse[];
   broker: ServiceBroker;
   accessTokenResult?: { access_token: string; expires_in: number };
-}
-
-function createDeferredResponse(): {
-  promise: Promise<AccessTokenResponse>;
-  deferred: PendingTokenResponse;
-} {
-  let resolve!: (value: AccessTokenResponse) => void;
-  let reject!: (error: unknown) => void;
-
-  const promise = new Promise<AccessTokenResponse>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-
-  return {
-    promise,
-    deferred: { resolve, reject },
-  };
 }
 
 describeFeature(feature, ({
@@ -75,7 +51,7 @@ describeFeature(feature, ({
 
   AfterEachScenario(async () => {
     const {
-      pendingResponses, mockServer, baseUrlSpy,
+      mockServer, baseUrlSpy,
       broker
     } = featureContext;
 
@@ -83,10 +59,6 @@ describeFeature(feature, ({
 
     if (broker) {
       await broker.stop();
-    }
-
-    if (pendingResponses) {
-      pendingResponses.length = 0;
     }
 
     if (mockServer) {
@@ -110,24 +82,11 @@ describeFeature(feature, ({
 
   Background(({ Given }) => {
     Given('微信服务端已准备好', async () => {
-      featureContext.pendingResponses = [];
-
-      const accessTokenHandler = vi.fn(async (request: WechatRequest) => {
-        const { path, query, method } = request;
-        expect(method).toBe('GET');
-        expect(path).toBe('/cgi-bin/token');
-
-        const { appid, secret } = config.wechat;
-        expect(query).toEqual(expect.objectContaining({
-          appid,
-          secret,
-          grant_type: 'client_credential',
-        }));
-
-        const { promise, deferred } = createDeferredResponse();
-        featureContext.pendingResponses.push(deferred);
-        return promise;
-      });
+      const accessTokenHandler = vi
+        .fn<(request: WechatRequest) => Promise<AccessTokenResponse>>()
+        .mockResolvedValueOnce({ access_token: 'access_token_1', expires_in: 7200 })
+        .mockResolvedValueOnce({ access_token: 'access_token_2', expires_in: 7200 })
+        .mockResolvedValue({ access_token: 'access_token_2', expires_in: 7200 });
 
       const mockServer = await mockJSONServer(accessTokenHandler);
       const baseUrlSpy = vi
@@ -168,13 +127,17 @@ describeFeature(feature, ({
       }));
     });
 
-    Then('微信服务端返回 {string}，过期时间为 {int} 秒', (
+    Then('微信服务端返回 {string}，过期时间为 {int} 秒', async (
       _ctx,
       accessToken: string,
       expiresIn: number,
     ) => {
-      const pending = featureContext.pendingResponses.shift();
-      pending?.resolve({ access_token: accessToken, expires_in: expiresIn });
+      const firstCall = featureContext.accessTokenHandler.mock.results[0];
+      expect(firstCall).toBeTruthy();
+      await expect(firstCall!.value).resolves.toEqual({
+        access_token: accessToken,
+        expires_in: expiresIn,
+      });
     });
 
     Then('微信服务端再次返回 {string}，过期时间为 {int} 秒', async (
@@ -182,8 +145,16 @@ describeFeature(feature, ({
       accessToken: string,
       expiresIn: number,
     ) => {
-      const pending = featureContext.pendingResponses.shift();
-      pending?.resolve({ access_token: accessToken, expires_in: expiresIn });
+      await vi.waitFor(() => {
+        expect(featureContext.accessTokenHandler).toHaveBeenCalledTimes(2);
+      });
+
+      const secondCall = featureContext.accessTokenHandler.mock.results[1];
+      expect(secondCall).toBeTruthy();
+      await expect(secondCall!.value).resolves.toEqual({
+        access_token: accessToken,
+        expires_in: expiresIn,
+      });
 
       const { broker } = featureContext;
       const wechatService = broker!.getLocalService('wechat') as WechatService & {
