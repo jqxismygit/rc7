@@ -141,7 +141,7 @@ interface FeatureContext extends
 }
 
 interface DamaiSignedPayload {
-  timestamp: string;
+  timeStamp: string;
   signInfo: string;
 }
 
@@ -827,7 +827,7 @@ describeFeature(feature, ({
       const request = getDamaiRequestArg<DamaiProjectSyncPayload>(featureContext.damaiRequestHandler!);
       const { signed } = request.body as DamaiProjectSyncPayload;
 
-      expect(signed.timestamp).toMatch(/\d{13}/);
+      expect(signed.timeStamp).toMatch(/\d{13}/);
       expect(signed.signInfo).toBe(config.damai.sign);
     });
 
@@ -912,7 +912,7 @@ describeFeature(feature, ({
       const body = request.body as DamaiPerformSyncPayload;
       const { signed } = body;
 
-      expect(signed.timestamp).toMatch(/\d{13}/);
+      expect(signed.timeStamp).toMatch(/\d{13}/);
       expect(signed.signInfo).toBe(config.damai.sign);
     });
 
@@ -1076,7 +1076,7 @@ describeFeature(feature, ({
       const request = getDamaiRequestArg<DamaiPriceSyncPayload>(featureContext.damaiRequestHandler!);
       const body = request.body as DamaiPriceSyncPayload;
       const { signed } = body;
-      expect(signed.timestamp).toMatch(/\d{13}/);
+      expect(signed.timeStamp).toMatch(/\d{13}/);
       expect(signed.signInfo).toBe(config.damai.sign);
     });
 

@@ -80,7 +80,7 @@ describe('Damai api signing', () => {
 		const requestBody = JSON.parse(request.body as string) as {
 			payload: { orderId: string };
 			signed: {
-				timestamp: string;
+				timeStamp: string;
 				signInfo: string;
 			};
 		};
@@ -89,7 +89,7 @@ describe('Damai api signing', () => {
 		expect(requestBody).not.toHaveProperty('head');
 
 		expect(requestBody.signed).toEqual({
-				timestamp: expect.any(String),
+				timeStamp: expect.any(String),
 				signInfo: outboundSign,
 		});
 	});
