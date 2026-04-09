@@ -7,7 +7,7 @@
 
 ## 实现状态
 
-- 已实现：项目同步、场次同步、票种同步
+- 已实现：项目同步、场次同步、票种同步、库存同步
 - 文档先行（待实现）：创建订单回调等 B 类接口
 
 ## 通用协议
@@ -106,6 +106,40 @@
   - `onSaleTime` 使用展会开售日期与开始时间组合，`offSaleTime` 使用展会结束日期与结束时间组合
   - `inventoryType` 固定为共享库存（`1`）
   - OTA 票档类型固定为 `isOta = 1`
+  - 接口本身不返回业务体，成功仅返回 `204`
+
+## 同步库存信息到 MOP
+
+- URL: `/exhibition/:eid/ota/mop/sync/stocks`
+- Method: `POST`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Params:
+  ```ts
+  { eid: string }
+  ```
+- Request Body:
+  ```ts
+  {
+    sessionDateStart?: string; // yyyy-MM-dd
+    sessionDateEnd?: string;   // yyyy-MM-dd
+  }
+  ```
+- Response Status:
+  - `204 No Content`：同步请求发送成功
+  - `400 Bad Request`：场次日期范围非法（`MOP_SESSION_DATE_RANGE_INVALID`）
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：非管理员权限
+  - `404 Not Found`：展览不存在
+- 关键特性：
+  - 仅管理员可执行该接口
+  - 同步请求会推送到 MOP `stock/push` 接口
+  - 支持按场次日期范围筛选同步：`sessionDateStart` 到 `sessionDateEnd`（闭区间）
+  - `otShowId` 使用 CR7 场次 ID，`otSkuId` 使用 CR7 票种 ID
+  - `inventoryType` 固定为共享库存（`1`）
+  - `stock` 取自对应场次下票种的当前可售库存数量
   - 接口本身不返回业务体，成功仅返回 `204`
 
 ## 创建订单回调（猫眼调用 CR7）
