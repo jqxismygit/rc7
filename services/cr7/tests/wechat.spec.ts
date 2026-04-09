@@ -35,9 +35,6 @@ interface WechatRequest {
 type WechatAccessTokenHandler = Mock<(request: WechatRequest) => Promise<AccessTokenResponse>>;
 
 
-interface WechatServiceContext {
-}
-
 interface FeatureContext {
   accessTokenHandler: WechatAccessTokenHandler;
   mockServer: MockServer;
@@ -79,8 +76,7 @@ describeFeature(feature, ({
   AfterEachScenario(async () => {
     const {
       pendingResponses, mockServer, baseUrlSpy,
-      broker,
-      wechatService
+      broker
     } = featureContext;
 
     vi.useRealTimers();
