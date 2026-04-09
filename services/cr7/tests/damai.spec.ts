@@ -2,7 +2,7 @@ import { Server } from 'node:http';
 import config from 'config';
 import { format, isDate, parse, parseISO } from 'date-fns';
 import { ServiceBroker } from 'moleculer';
-import type { MockInstance } from 'vitest';
+import type { Mock, MockInstance } from 'vitest';
 import { expect, vi } from 'vitest';
 import {
   describeFeature,
@@ -10,9 +10,9 @@ import {
   loadFeature,
   StepTest,
 } from '@amiceli/vitest-cucumber';
-import { Damai, Exhibition, Order, User } from '@cr7/types';
+import { Damai, Exhibition, Order, Redeem, User } from '@cr7/types';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
-import { listUsers, prepareAdminToken } from './fixtures/user.js';
+import { listUsers, prepareAdminToken, suUserToken } from './fixtures/user.js';
 import {
   getSessions,
   prepareExhibition,
@@ -40,6 +40,7 @@ import {
   syncSessionsToDamai,
   syncTicketsToDamai,
 } from './fixtures/damai.js';
+import { getOrderRedemption, redeemCode } from './fixtures/redeem.js';
 import { toDateLabel } from './lib/relative-date.js';
 import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
 import { MockServer, mockJSONServer } from './lib/server.js';
@@ -83,16 +84,38 @@ interface GetETicketContext {
   getETicketResponse: DamaiGetETicketInfoResponse;
 }
 
+interface RedeemContext {
+  redemption: Redeem.RedemptionCodeWithOrder;
+}
+
+interface DamaiValidateOrderVoucher {
+  aoDetailId: string;
+  validateStatus: number;
+  validateCount: number;
+  validateTime: string;
+}
+
+interface DamaiValidateOrderPayload {
+  cOrderId: string;
+  vendorOrderId: string;
+  validateVoucherRequestList: DamaiValidateOrderVoucher[];
+  signed: {
+    timestamp: string;
+    signInfo: string;
+  };
+}
+
 interface FeatureContext extends
   ExhibitionContext,
   Partial<SessionSyncContext>,
   Partial<CreateOrderContext>,
   Partial<PayOrderContext>,
-  Partial<GetETicketContext> {
+  Partial<GetETicketContext>,
+  Partial<RedeemContext> {
   broker: ServiceBroker;
   apiServer: Server;
   adminToken: string;
-  damaiRequestHandler?: ReturnType<typeof vi.fn>;
+  damaiRequestHandler?: DamaiRequestHandler;
 }
 
 interface DamaiSignedPayload {
@@ -159,19 +182,26 @@ interface DamaiPriceSyncPayload {
   head: DamaiHeadPayload;
 }
 
-interface DamaiMockRequest {
-  body:
-    | DamaiProjectSyncPayload
-    | DamaiPerformSyncPayload
-    | DamaiPriceSyncPayload
-    | DamaiCreateOrderRequest
-    | DamaiPayOrderRequest
-    | DamaiGetETicketInfoRequest;
+interface DamaiMockRequest<Body = unknown> {
+  body: Body;
   query: Record<string, string>;
   path: string;
   method: string;
   headers: Record<string, string>;
 }
+
+type DamaiRequestBody =
+  | DamaiProjectSyncPayload
+  | DamaiPerformSyncPayload
+  | DamaiPriceSyncPayload
+  | DamaiCreateOrderRequest
+  | DamaiPayOrderRequest
+  | DamaiGetETicketInfoRequest
+  | DamaiValidateOrderPayload;
+
+type DamaiRequestHandler<Body = DamaiRequestBody> = Mock<
+  (request: DamaiMockRequest<Body>) => unknown
+>;
 
 function toDateValue(value: string | Date): Date {
   if (isDate(value)) {
@@ -206,16 +236,18 @@ function formatDamaiSessionDateTime(sessionDate: string | Date, time: string, pa
   return format(parsed, `yyyy-MM-dd ${pattern}`);
 }
 
-function getDamaiRequestArg(mock: ReturnType<typeof vi.fn> | undefined): DamaiMockRequest {
+function getDamaiRequestArg<Body = DamaiRequestBody>(
+  mock: DamaiRequestHandler<Body>
+): DamaiMockRequest<Body> {
   expect(mock).toHaveBeenCalled();
   const [request] = mock!.mock.calls.at(-1) ?? [];
   expect(request).toBeTruthy();
-  return request as DamaiMockRequest;
+  return request as DamaiMockRequest<Body>;
 }
 
-async function setupDamaiMockServer(requestHandler: ReturnType<typeof vi.fn>) {
+async function setupDamaiMockServer(requestHandler: DamaiRequestHandler) {
   return mockJSONServer(async (request) => {
-    await (requestHandler as unknown as (data: unknown) => unknown)(request);
+    await requestHandler(request as DamaiMockRequest<DamaiRequestBody>);
     return { code: '0', desc: '成功' };
   });
 }
@@ -316,34 +348,30 @@ describeFeature(feature, ({
 
     // 同步票
     And('票种同步消息中的第 {int} 个票种的 ID 是 {string} 的 ID', (_ctx, index: number, ticketName: string) => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPriceSyncPayload;
+      const request = getDamaiRequestArg<DamaiPriceSyncPayload>(featureContext.damaiRequestHandler!);
       const ticket = featureContext.ticketByName[ticketName];
 
       expect(ticket).toBeTruthy();
-      expect(body.priceList[index - 1]).toBeTruthy();
-      expect(body.priceList[index - 1].id).toBe(ticket.id);
+      expect(request.body.priceList[index - 1]).toBeTruthy();
+      expect(request.body.priceList[index - 1].id).toBe(ticket.id);
     });
 
     And('票种同步消息中的第 {int} 个票种的名称是 {string}', (_ctx, index: number, ticketName: string) => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPriceSyncPayload;
-      expect(body.priceList[index - 1]).toBeTruthy();
-      expect(body.priceList[index - 1].name).toBe(ticketName);
+      const request = getDamaiRequestArg<DamaiPriceSyncPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.priceList[index - 1]).toBeTruthy();
+      expect(request.body.priceList[index - 1].name).toBe(ticketName);
     });
 
     And('票种同步消息中的第 {int} 个票种的价格是 {int} 分', (_ctx, index: number, priceFen: number) => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPriceSyncPayload;
-      expect(body.priceList[index - 1]).toBeTruthy();
-      expect(body.priceList[index - 1].price).toBe(priceFen);
+      const request = getDamaiRequestArg<DamaiPriceSyncPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.priceList[index - 1]).toBeTruthy();
+      expect(request.body.priceList[index - 1].price).toBe(priceFen);
     });
 
     And('票种同步消息中的第 {int} 个票种的票品状态是可售，值为 {int}', (_ctx, index: number, saleState: number) => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPriceSyncPayload;
-      expect(body.priceList[index - 1]).toBeTruthy();
-      expect(body.priceList[index - 1].saleState).toBe(saleState);
+      const request = getDamaiRequestArg<DamaiPriceSyncPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.priceList[index - 1]).toBeTruthy();
+      expect(request.body.priceList[index - 1].saleState).toBe(saleState);
     });
 
     // 查询库存
@@ -683,13 +711,13 @@ describeFeature(feature, ({
     });
 
     When('大麦收到展会同步消息', () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const request = getDamaiRequestArg<DamaiProjectSyncPayload>(featureContext.damaiRequestHandler!);
       expect(request.path).toBe('/b2b2c/2.0/sync/project');
       expect(request.method).toBe('POST');
     });
 
     Then('大麦收到请求签名无误', () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const request = getDamaiRequestArg<DamaiProjectSyncPayload>(featureContext.damaiRequestHandler!);
       const { signed, head } = request.body as DamaiProjectSyncPayload;
 
       expect(signed.timestamp).toBe(head.timestamp);
@@ -699,48 +727,48 @@ describeFeature(feature, ({
     });
 
     And('展会同步消息中的项目 ID 是默认展会活动的 ID', () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const request = getDamaiRequestArg<DamaiProjectSyncPayload>(featureContext.damaiRequestHandler!);
       const { exhibition } = featureContext;
       const body = request.body as DamaiProjectSyncPayload;
       expect(body.projectInfo.id).toBe(exhibition.id);
     });
 
     And('展会同步消息中的项目名称是默认展会活动的名称', () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const request = getDamaiRequestArg<DamaiProjectSyncPayload>(featureContext.damaiRequestHandler!);
       const { exhibition } = featureContext;
       const body = request.body as DamaiProjectSyncPayload;
       expect(body.projectInfo.name).toBe(exhibition.name);
     });
 
     And('展会同步消息中的座位信息是无座', () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const request = getDamaiRequestArg<DamaiProjectSyncPayload>(featureContext.damaiRequestHandler!);
       const body = request.body as DamaiProjectSyncPayload;
       expect(body.projectInfo.chooseSeatFlag).toBe(false);
     });
 
     And('展会同步消息中的海报 URL 是默认展会活动的封面 URL', () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const request = getDamaiRequestArg<DamaiProjectSyncPayload>(featureContext.damaiRequestHandler!);
       const { exhibition } = featureContext;
       const body = request.body as DamaiProjectSyncPayload;
       expect(body.projectInfo.posters).toBe(exhibition.cover_url ?? null);
     });
 
     And('展会同步消息中的介绍信息是默认展会活动的描述信息', () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const request = getDamaiRequestArg<DamaiProjectSyncPayload>(featureContext.damaiRequestHandler!);
       const { exhibition } = featureContext;
       const body = request.body as DamaiProjectSyncPayload;
       expect(body.projectInfo.introduce).toBe(exhibition.description);
     });
 
     And('展会同步消息中的展馆 ID 是默认展会活动的 ID', () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const request = getDamaiRequestArg<DamaiProjectSyncPayload>(featureContext.damaiRequestHandler!);
       const { exhibition } = featureContext;
       const body = request.body as DamaiProjectSyncPayload;
       expect(body.venueInfo.id).toBe(exhibition.id);
     });
 
     And('展会同步消息中的展馆名称是默认展会活动的展馆名称', () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const request = getDamaiRequestArg<DamaiProjectSyncPayload>(featureContext.damaiRequestHandler!);
       const { exhibition } = featureContext;
       const body = request.body as DamaiProjectSyncPayload;
       expect(body.venueInfo.name).toBe(exhibition.venue_name);
@@ -769,13 +797,13 @@ describeFeature(feature, ({
     });
 
     When('大麦收到场次同步消息', () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
       expect(request.path).toBe('/b2b2c/2.0/sync/perform');
       expect(request.method).toBe('POST');
     });
 
     Then('大麦收到请求签名无误', () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
       const body = request.body as DamaiPerformSyncPayload;
       const { signed, head } = body;
 
@@ -786,33 +814,29 @@ describeFeature(feature, ({
     });
 
     And('场次同步消息中的项目 ID 是默认展会活动的 ID', () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPerformSyncPayload;
-      expect(body.projectId).toBe(featureContext.exhibition.id);
+      const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.projectId).toBe(featureContext.exhibition.id);
     });
 
     And('场次同步消息中有 {int} 个场次信息', (_ctx, count: number) => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPerformSyncPayload;
-      expect(body.performs).toHaveLength(count);
+      const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.performs).toHaveLength(count);
     });
 
     And('场次同步消息中每个场次的 ID 是默认展会活动对应场次的 ID', async () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPerformSyncPayload;
+      const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
       const { apiServer, exhibition, adminToken } = featureContext;
       const sessions = await getSessions(apiServer, exhibition.id, adminToken);
 
       const expectedIds = new Set(sessions.map(session => session.id));
-      for (const perform of body.performs) {
+      for (const perform of request.body.performs) {
         expect(expectedIds.has(perform.id)).toBe(true);
       }
     });
 
     And('场次同步消息中的第 1 个场次的日期是 {string}', (ctx, expectedDate: string) => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPerformSyncPayload;
-      const perform = body.performs[0];
+      const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
+      const perform = request.body.performs[0];
       const { exhibition } = featureContext;
       const expectedLabel = formatDamaiSessionDateTime(
         toDateLabel(expectedDate), exhibition.opening_time, 'HH:mm'
@@ -821,9 +845,8 @@ describeFeature(feature, ({
     });
 
     And('场次同步消息中的第 2 个场次的日期是 {string}', (ctx, expectedDate: string) => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPerformSyncPayload;
-      const perform = body.performs[1];
+      const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
+      const perform = request.body.performs[1];
       const { exhibition } = featureContext;
       const expectedLabel = formatDamaiSessionDateTime(
         toDateLabel(expectedDate), exhibition.opening_time, 'HH:mm'
@@ -832,33 +855,30 @@ describeFeature(feature, ({
     });
 
     And('场次同步消息中每个场次的名称都是展会的日期', async () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPerformSyncPayload;
+      const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
       const { apiServer, exhibition, adminToken } = featureContext;
       const sessions = await getSessions(apiServer, exhibition.id, adminToken);
       const expectedBySessionId = new Map(
         sessions.map(session => [session.id, format(toDateValue(session.session_date), 'yyyy-MM-dd')]),
       );
 
-      body.performs.forEach(perform => {
+      request.body.performs.forEach(perform => {
         expect(perform.performName).toBe(expectedBySessionId.get(perform.id));
       });
     });
 
     And('场次同步消息中每个场次的销售开始时间都是展会创建时间，格式为 {string}', (_ctx, expectedFormat: string) => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPerformSyncPayload;
+      const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
       const { exhibition } = featureContext;
       const expected = format(toDateValue(exhibition.created_at), expectedFormat);
 
-      body.performs.forEach(perform => {
+      request.body.performs.forEach(perform => {
         expect(perform.saleStartTime).toBe(expected);
       });
     });
 
     And('场次同步消息中每个场次的销售结束时间是场次日期的最晚入场时间', async () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPerformSyncPayload;
+      const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
       const { apiServer, exhibition, adminToken } = featureContext;
       const sessions = await getSessions(apiServer, exhibition.id, adminToken);
       const expectedBySessionId = new Map(
@@ -868,14 +888,13 @@ describeFeature(feature, ({
         ]),
       );
 
-      body.performs.forEach(perform => {
+      request.body.performs.forEach(perform => {
         expect(perform.saleEndTime).toBe(expectedBySessionId.get(perform.id));
       });
     });
 
     And('场次同步消息中每个场次的场次演出开始时间是展会场次日期的场次开始时间', async () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPerformSyncPayload;
+      const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
       const { apiServer, exhibition, adminToken } = featureContext;
       const sessions = await getSessions(apiServer, exhibition.id, adminToken);
       const expectedBySessionId = new Map(
@@ -885,14 +904,13 @@ describeFeature(feature, ({
         ]),
       );
 
-      body.performs.forEach(perform => {
+      request.body.performs.forEach(perform => {
         expect(perform.showTime).toBe(expectedBySessionId.get(perform.id));
       });
     });
 
     And('场次同步消息中每个场次的场次演出结束时间是展会场次日期的结束时间', async () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPerformSyncPayload;
+      const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
       const { apiServer, exhibition, adminToken } = featureContext;
       const sessions = await getSessions(apiServer, exhibition.id, adminToken);
 
@@ -903,25 +921,23 @@ describeFeature(feature, ({
         ]),
       );
 
-      body.performs.forEach(perform => {
+      request.body.performs.forEach(perform => {
         expect(perform.endTime).toBe(expectedBySessionId.get(perform.id));
       });
     });
 
     And('场次同步消息中每个场次的场次的取票方式是电子票，值为 {int}', (_ctx, ticketType: number) => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPerformSyncPayload;
+      const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
 
-      body.performs.forEach(perform => {
+      request.body.performs.forEach(perform => {
         expect(perform.ticketTypeAndDeliveryMethod[String(ticketType)]).toEqual([ticketType]);
       });
     });
 
     And('场次的同步消息中每个场次的认证方式都是非实名制，值为 {int}', (_ctx, ruleType: number) => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPerformSyncPayload;
+      const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
 
-      body.performs.forEach(perform => {
+      request.body.performs.forEach(perform => {
         expect(perform.ruleType).toBe(ruleType);
       });
     });
@@ -948,13 +964,13 @@ describeFeature(feature, ({
     });
 
     When('大麦收到票种同步消息', () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const request = getDamaiRequestArg<DamaiPriceSyncPayload>(featureContext.damaiRequestHandler!);
       expect(request.path).toBe('/b2b2c/2.0/sync/price');
       expect(request.method).toBe('POST');
     });
 
     Then('大麦收到请求签名无误', () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
+      const request = getDamaiRequestArg<DamaiPriceSyncPayload>(featureContext.damaiRequestHandler!);
       const body = request.body as DamaiPriceSyncPayload;
       const { signed, head } = body;
 
@@ -965,14 +981,12 @@ describeFeature(feature, ({
     });
 
     And('票种同步消息中的项目 ID 是默认展会活动的 ID', () => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPriceSyncPayload;
-      expect(body.projectId).toBe(featureContext.exhibition.id);
+      const request = getDamaiRequestArg<DamaiPriceSyncPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.projectId).toBe(featureContext.exhibition.id);
     });
 
     And('票种同步消息中的场次 ID 是 {string} 场次的 ID', async (_ctx, sessionDate: string) => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPriceSyncPayload;
+      const request = getDamaiRequestArg<DamaiPriceSyncPayload>(featureContext.damaiRequestHandler!);
       const sessions = await getSessions(
         featureContext.apiServer,
         featureContext.exhibition.id,
@@ -982,13 +996,12 @@ describeFeature(feature, ({
       const session = sessions.find(item => toDateOnlyLabel(item.session_date) === targetDate);
 
       expect(session).toBeTruthy();
-      expect(body.performId).toBe(session?.id);
+      expect(request.body.performId).toBe(session?.id);
     });
 
     And('票种同步消息中有 {int} 个票种信息', (_ctx, count: number) => {
-      const request = getDamaiRequestArg(featureContext.damaiRequestHandler);
-      const body = request.body as DamaiPriceSyncPayload;
-      expect(body.priceList).toHaveLength(count);
+      const request = getDamaiRequestArg<DamaiPriceSyncPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.priceList).toHaveLength(count);
     });
   });
 
@@ -1257,15 +1270,16 @@ describeFeature(feature, ({
     });
 
     And('电子票信息中的二维码为订单的核销码', async () => {
-      const redemption = await featureContext.broker.call('cr7.redemption.getByOrder', {
-        oid: featureContext.order!.id,
-      }, {
-        meta: {
-          user: {
-            uid: featureContext.order!.user_id,
-          },
-        },
-      }) as { code: string };
+      const userToken = await suUserToken(
+        featureContext.apiServer,
+        featureContext.adminToken,
+        featureContext.order!.user_id,
+      );
+      const redemption = await getOrderRedemption(
+        featureContext.apiServer,
+        featureContext.order!.id,
+        userToken,
+      );
 
       featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach(ticket => {
         expect(ticket.qrCode).toBe(redemption.code);
@@ -1280,6 +1294,90 @@ describeFeature(feature, ({
   });
 
   Scenario('用户在核销了订单之后，通知大麦', (s: StepTest<void>) => {
-    const { When, Then, And } = s;
+    const { Given, When, Then, And } = s;
+
+    Given('用户核销了订单', async () => {
+      const { apiServer, adminToken, exhibition, order } = featureContext;
+      const userToken = await suUserToken(
+        apiServer,
+        adminToken,
+        order!.user_id,
+      );
+      const redemption = await getOrderRedemption(
+        apiServer,
+        order!.id,
+        userToken,
+      );
+      await redeemCode(apiServer, exhibition.id, redemption.code, adminToken);
+
+      const redeemedRedemption = await getOrderRedemption(
+        apiServer,
+        order!.id,
+        userToken,
+      );
+      featureContext.redemption = redeemedRedemption;
+    });
+
+    When('cr7 通知大麦订单 {string} 已核销', (_ctx, _damaiOrderId: string) => {
+      const request = getDamaiRequestArg<DamaiValidateOrderPayload>(featureContext.damaiRequestHandler!);
+      expect(request.path).toBe('/b2b2c/2.0/sync/validate');
+      expect(request.method).toBe('POST');
+    });
+
+    Then('cr7 核销码状态更新为已核销', () => {
+      expect(featureContext.redemption?.status).toBe('REDEEMED');
+    });
+
+    Then('大麦收到订单核销通知，可以正常验证签名', () => {
+      const request = getDamaiRequestArg<DamaiValidateOrderPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.signed.signInfo).toBe(config.damai.sign);
+    });
+
+    And('订单核销通知里的第三方订单 ID 是 cr7 创建的订单 ID', () => {
+      const request = getDamaiRequestArg<DamaiValidateOrderPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.vendorOrderId).toBe(featureContext.order!.id);
+    });
+
+    And('订单核销通知里的大麦订单 ID 是 {string}', (_ctx, damaiOrderId: string) => {
+      const request = getDamaiRequestArg<DamaiValidateOrderPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.cOrderId).toBe(damaiOrderId);
+    });
+
+    And('订单核销通知里的核验票单有 {int} 张', (_ctx, count: number) => {
+      const request = getDamaiRequestArg<DamaiValidateOrderPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.validateVoucherRequestList).toHaveLength(count);
+    });
+
+    And('订单核销通知里的核验票单的三方票单号为 cr7 订单 item ID，不是票种 ID', () => {
+      const request = getDamaiRequestArg<DamaiValidateOrderPayload>(featureContext.damaiRequestHandler!);
+      const orderItemIds = new Set(featureContext.order!.items.map(item => item.id));
+      const ticketCategoryIds = new Set(featureContext.order!.items.map(item => item.ticket_category_id));
+      request.body.validateVoucherRequestList.forEach(voucher => {
+        expect(orderItemIds.has(voucher.aoDetailId)).toBe(true);
+        expect(ticketCategoryIds.has(voucher.aoDetailId)).toBe(false);
+      });
+    });
+
+    And('订单核销通知里的核验票单的核销状态都为已验，值为 {int}', (_ctx, status: number) => {
+      const request = getDamaiRequestArg<DamaiValidateOrderPayload>(featureContext.damaiRequestHandler!);
+      request.body.validateVoucherRequestList.forEach(voucher => {
+        expect(voucher.validateStatus).toBe(status);
+      });
+    });
+
+    And('订单核销通知里的核验票的验票次数都为 {int}', (_ctx, count: number) => {
+      const request = getDamaiRequestArg<DamaiValidateOrderPayload>(featureContext.damaiRequestHandler!);
+      request.body.validateVoucherRequestList.forEach(voucher => {
+        expect(voucher.validateCount).toBe(count);
+      });
+    });
+
+    And('订单核销通知里的核验票单的核销时间都为核销码的核销时间，格式为 {string}', (_ctx, expectedFormat: string) => {
+      const request = getDamaiRequestArg<DamaiValidateOrderPayload>(featureContext.damaiRequestHandler!);
+      const expectedTime = format(toDateValue(featureContext.redemption!.redeemed_at!), expectedFormat);
+      request.body.validateVoucherRequestList.forEach(voucher => {
+        expect(voucher.validateTime).toBe(expectedTime);
+      });
+    });
   });
 });

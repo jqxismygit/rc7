@@ -210,6 +210,8 @@ const DAMAI_TICKET_SALE_STATE_ON_SALE = 1;
 const DAMAI_CREATE_ORDER_URI = '/damai/createOrder';
 const DAMAI_PAY_CALLBACK_URI = '/damai/payCallBack';
 const DAMAI_PAY_STATUS_SUCCESS = 1;
+const DAMAI_VALIDATE_URI = '/b2b2c/2.0/sync/validate';
+const DAMAI_VALIDATE_STATUS_VALIDATED = 2;
 const DAMAI_CERT_TYPE_NON_REAL_NAME = 0;
 const DAMAI_QRCODE_TYPE_STATIC = 1;
 
@@ -467,6 +469,12 @@ class DamaiService extends RC7BaseService {
             rid: 'uuid',
           },
           handler: this.getDamaiOrderRecord,
+        },
+        notifyOrderConsumed: {
+          params: {
+            oid: 'string',
+          },
+          handler: this.notifyOrderConsumed,
         },
       },
 
@@ -938,6 +946,53 @@ class DamaiService extends RC7BaseService {
       venueName: exhibition.venue_name,
       showTime: toDamaiTimestamp(session.session_date, exhibition.opening_time),
       eticketInfos,
+    });
+  }
+
+  async notifyOrderConsumed(
+    ctx: Context<{ oid: string; redeemed_at: string }>,
+  ): Promise<void> {
+    const { oid, redeemed_at } = ctx.params;
+    const schema = await this.getSchema();
+
+    const records = await listDamaiOrderSyncRecordsByOrderId(this.pool, schema, oid);
+    const createRecord = records.find(
+      r => r.request_path === DAMAI_CREATE_ORDER_URI && r.sync_status === 'SUCCESS',
+    );
+    if (!createRecord) {
+      throw new MoleculerClientError(`No successful create order record found for order ${oid}`, 404, 'RECORD_NOT_FOUND');
+    }
+
+    const createRequest = createRecord.request_body as DamaiCreateOrderRequest;
+    const daMaiOrderId = createRequest.bodySubmitOrder?.orderInfo?.daMaiOrderId;
+    if (!daMaiOrderId) {
+      throw new MoleculerClientError(`No daMaiOrderId found for order ${oid}`, 404, 'RECORD_NOT_FOUND');
+    }
+
+    const order = await getOrderById(this.pool, schema, oid);
+
+    const validateVoucherRequestList = order.items.flatMap(item =>
+      Array.from({ length: item.quantity }, () => ({
+        aoDetailId: item.id,
+        validateStatus: DAMAI_VALIDATE_STATUS_VALIDATED,
+        validateCount: 1,
+        validateTime: formatDamaiDateTime(redeemed_at),
+      }))
+    );
+
+    const body = {
+      cOrderId: daMaiOrderId,
+      vendorOrderId: oid,
+      validateVoucherRequestList,
+    };
+
+    const syncUrl = new URL(DAMAI_VALIDATE_URI, config.damai.base_url).toString();
+    await damaiPostJson(syncUrl, {
+      apiKey: config.damai.api_key,
+      sign: config.damai.sign,
+      apiPw: config.damai.api_pwd,
+      signTarget: 'signed',
+      body,
     });
   }
 

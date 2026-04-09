@@ -177,6 +177,10 @@ export class RedemptionService extends RC7BaseService {
         await ctx.call('mop.notifyOrderConsumed', { oid: order.id });
       }
 
+      if (order.source === 'DAMAI') {
+        await ctx.call('damai.notifyOrderConsumed', { oid: order.id, redeemed_at: redemption.redeemed_at });
+      }
+
       await dbClient.query('COMMIT');
       return redemption;
     } catch (error) {
