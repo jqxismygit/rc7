@@ -179,6 +179,7 @@ interface DamaiPerform {
   endTime: string;
   tTypeAndDMethod: string;
   ruleType: number;
+  venueJpgImg: string;
 }
 
 interface DamaiPerformSyncPayload {
@@ -1042,6 +1043,14 @@ describeFeature(feature, ({
 
       request.body.performs.forEach(perform => {
         expect(perform.ruleType).toBe(ruleType);
+      });
+    });
+
+    And("场次的同步消息中每个场次的场馆jpg底图都是 {string}", (_ctx, expectedUrl: string) => {
+      const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
+
+      request.body.performs.forEach(perform => {
+        expect(perform.venueJpgImg).toBe(expectedUrl);
       });
     });
   });

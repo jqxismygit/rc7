@@ -56,6 +56,7 @@ type DamaiPerform = {
   endTime: string;
   tTypeAndDMethod: string;
   ruleType: number;
+  venueJpgImg: string;
 };
 
 type DamaiPerformSyncRequest = {
@@ -646,6 +647,7 @@ class DamaiService extends RC7BaseService {
         endTime: formatDamaiSessionDateTime(session.session_date, exhibition.closing_time, 'HH:mm:ss'),
         tTypeAndDMethod: `{${DAMAI_TICKET_TYPE_ELECTRONIC}:[${DAMAI_TICKET_TYPE_ELECTRONIC}]}`,
         ruleType: DAMAI_RULE_TYPE_NON_REAL_NAME,
+        venueJpgImg: 'XXX'
       })),
     };
 
