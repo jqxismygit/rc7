@@ -1033,7 +1033,7 @@ describeFeature(feature, ({
       const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
 
       request.body.performs.forEach(perform => {
-        expect(perform.tTypeAndDMethod[ticketType]).toEqual([ticketType]);
+        expect(perform.tTypeAndDMethod[String(ticketType)]).toEqual([ticketType]);
       });
     });
 
