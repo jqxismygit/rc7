@@ -28,8 +28,17 @@ interface Jscode2SessionSuccess {
   session_key: string;
 }
 
+interface AccessTokenSuccess {
+  access_token: string;
+  expires_in: number;
+}
+
 type Jscode2SessionResponse =
 | Jscode2SessionSuccess
+| WechatErrorResponse;
+
+type AccessTokenResponse =
+| AccessTokenSuccess
 | WechatErrorResponse;
 
 export async function jscode2session(
@@ -47,4 +56,20 @@ export async function jscode2session(
   }
 
   return parsed_res as Jscode2SessionSuccess;
+}
+
+export async function getWechatAccessToken(
+  wechatConfig: WechatConfig
+): Promise<AccessTokenSuccess> {
+  const { base_url, appid, secret } = wechatConfig;
+  const res = await getJSON<AccessTokenResponse>(
+    `${base_url}/cgi-bin/token`,
+    { query: { appid, secret, grant_type: 'client_credential' } }
+  );
+
+  if ('errcode' in res) {
+    throw new WechatError(res);
+  }
+
+  return res;
 }
