@@ -195,9 +195,9 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('wechat user login', (s: StepTest<WechatMockContext & LoginResponseContext & UserProfileContext>) => {
+  Scenario('微信用户登录', (s: StepTest<WechatMockContext & LoginResponseContext & UserProfileContext>) => {
     const { Given, When, Then, context } = s;
-    Given('wechat mini app', async function () {
+    Given('微信小程序服务已经准备好', async function () {
       const mockCode2SessionResponse = vi.fn();
       const mock_wechat_server = await mockWechatServer(mockCode2SessionResponse);
       const { address } = mock_wechat_server;
@@ -206,7 +206,7 @@ describeFeature(feature, ({
     });
 
     When(
-      `wechat user_{int} first open`,
+      '微信 用户_{int} 首次打开小程序',
       async (ctx, user: number) => {
         const { mockCode2SessionResponse } = context;
         const { apiServer } = featureContext;
@@ -232,7 +232,7 @@ describeFeature(feature, ({
       }
     );
 
-    Then('register as a new user', async function () {
+    Then('注册为新用户', async function () {
       const { loginResponse } = context;
       const { apiServer } = featureContext;
       assertLoginResponse(loginResponse);
@@ -243,7 +243,7 @@ describeFeature(feature, ({
       Object.assign(context, { userProfile: profile });
     });
 
-    When(`wechat user_{int} open again`, async function (ctx, user: number) {
+    When(`微信 用户_{int} 再次打开小程序`, async function (ctx, user: number) {
       const { mockCode2SessionResponse } = context;
       const { apiServer } = featureContext;
 
@@ -267,7 +267,7 @@ describeFeature(feature, ({
       Object.assign(ctx, { loginResponse });
     });
 
-    Then('login successfully and get user profile', async function () {
+    Then('登录成功并获取用户信息', async function () {
       const { loginResponse } = context;
       const previousProfile = context.userProfile!;
       const { apiServer } = featureContext;

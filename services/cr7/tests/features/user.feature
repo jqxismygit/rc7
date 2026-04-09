@@ -4,12 +4,12 @@ Feature: user registration and login
   Background:
     Given cr7 服务已启动
 
-  Scenario: wechat user login
-    Given wechat mini app
-     When wechat user_1 first open
-     Then register as a new user
-     When wechat user_1 open again
-     Then login successfully and get user profile
+  Scenario: 微信用户登录
+    Given 微信小程序服务已经准备好
+     When 微信 用户_1 首次打开小程序
+     Then 注册为新用户
+     When 微信 用户_1 再次打开小程序
+     Then 登录成功并获取用户信息
 
   Scenario: 初始化系统管理员账号
     Given 使用 cli 初始化管理员账号，指定手机号 "12345678901"，密码为 "pass_test"
