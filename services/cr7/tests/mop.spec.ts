@@ -1118,11 +1118,19 @@ describeFeature(feature, ({
   Scenario('同步票种信息到猫眼', (s: StepTest<void>) => {
     const { Given, When, And } = s;
 
-    Given('cr7 将票种信息同步到猫眼', async () => {
+    Given('cr7 将票种信息同步到猫眼, 场次开始时间是从 {string} 到 {string} 的场次', async (
+      _ctx,
+      startDateLabel: string,
+      endDateLabel: string,
+    ) => {
       await syncTicketsToMop(
         featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
+        {
+          sessionDateStart: toDateLabel(startDateLabel),
+          sessionDateEnd: toDateLabel(endDateLabel),
+        },
       );
     });
 
@@ -1143,10 +1151,86 @@ describeFeature(feature, ({
       expect(body.isOta).toBe(isOta);
     });
 
-    And('票种同步消息中有 {int} 个票种', (_ctx, count: number) => {
+    And('票种同步消息中有 {int} 个 sku', (_ctx, count: number) => {
       const request = getMopRequestArg(featureContext.mopRequestHandler);
       const body = request.body as SyncTicketsToMopRequest;
       expect(body.skus).toHaveLength(count);
+    });
+
+    And('票种同步消息中的 sku 配置正确', async (
+      _ctx,
+      dataTable: Array<Record<string, string>>,
+    ) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncTicketsToMopRequest;
+      const { ticketByName, exhibition } = featureContext;
+
+      const sessions = await getSessions(
+        featureContext.apiServer,
+        exhibition.id,
+        featureContext.adminToken,
+      );
+      const sessionsByDate = new Map(
+        sessions.map(session => [toSessionDateLabel(session.session_date), session]),
+      );
+
+      function extractQuotedValue(value: string, fieldName: string): string {
+        const match = value.match(/^"(.+)"/);
+        expect(match, `${fieldName} 格式不合法: ${value}`).toBeTruthy();
+        return match![1];
+      }
+
+      function extractValueSuffixInt(value: string, fieldName: string): number {
+        const match = value.match(/(\d+)\s*$/);
+        expect(match, `${fieldName} 格式不合法: ${value}`).toBeTruthy();
+        return Number(match![1]);
+      }
+
+      const expectedOnSaleTime = `${toSessionDateLabel(exhibition.start_date)} ${normalizeTimeLabel(exhibition.opening_time)}`;
+      const expectedOffSaleTime = `${toSessionDateLabel(exhibition.end_date)} ${normalizeTimeLabel(exhibition.closing_time)}`;
+
+      expect(body.skus).toHaveLength(dataTable.length);
+      dataTable.forEach((row, index) => {
+        const sku = body.skus[index];
+
+        const sessionRelativeLabel = extractQuotedValue(row['场次 ID'], '场次 ID');
+        const sessionDate = toDateLabel(sessionRelativeLabel);
+        const session = sessionsByDate.get(sessionDate);
+        expect(session).toBeTruthy();
+
+        const ticketName = extractQuotedValue(row['票种名称'], '票种名称');
+        const ticketNameFromId = extractQuotedValue(row['票种 ID'], '票种 ID');
+        expect(ticketNameFromId).toBe(ticketName);
+
+        const ticket = ticketByName[ticketName];
+        expect(ticket).toBeTruthy();
+
+        const ticketNameFromSkuPrice = extractQuotedValue(row['票面价（元）'], '票面价（元）');
+        expect(ticketNameFromSkuPrice).toBe(ticketName);
+
+        const ticketNameFromSellPrice = extractQuotedValue(row['售卖价（元）'], '售卖价（元）');
+        expect(ticketNameFromSellPrice).toBe(ticketName);
+
+        const expectedStatus = extractValueSuffixInt(row['票种状态'], '票种状态');
+        const expectedInventoryType = extractValueSuffixInt(row['库存模式'], '库存模式');
+
+        const expectedRowOnSaleTime = row['开售时间'] === '展会开售日期和开始时间的组合'
+          ? expectedOnSaleTime
+          : row['开售时间'];
+        const expectedRowOffSaleTime = row['停售时间'] === '展会结束日期和结束时间的组合'
+          ? expectedOffSaleTime
+          : row['停售时间'];
+
+        expect(sku.otShowId).toBe(session!.id);
+        expect(sku.name).toBe(ticket!.name);
+        expect(sku.otSkuId).toBe(ticket!.id);
+        expect(sku.otSkuStatus).toBe(expectedStatus);
+        expect(Number(sku.skuPrice)).toBe(Number((ticket!.price / 100).toFixed(2)));
+        expect(Number(sku.sellPrice)).toBe(Number((ticket!.price / 100).toFixed(2)));
+        expect(sku.onSaleTime).toBe(expectedRowOnSaleTime);
+        expect(sku.offSaleTime).toBe(expectedRowOffSaleTime);
+        expect(sku.inventoryType).toBe(expectedInventoryType);
+      });
     });
   });
 

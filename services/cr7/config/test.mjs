@@ -55,5 +55,7 @@ export default {
     base_url: 'https://1.1.1.1',
     aes_key: '1234567890abcdef',
     supplier: 'TEST_MOP_SUPPLIER',
+    public_key_path: path.resolve(fixtures_path, 'mop/public_key.cer'),
+    private_key_path: path.resolve(fixtures_path, 'mop/private_key.cer'),
   }
 }

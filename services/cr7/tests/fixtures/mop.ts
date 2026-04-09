@@ -47,6 +47,7 @@ export interface SyncTicketsToMopRequest {
   otProjectId: string;
   isOta: number;
   skus: Array<{
+    otShowId: string;
     otSkuId: string;
     otSkuStatus: number;
     name: string;
@@ -158,11 +159,18 @@ export async function syncTicketsToMop(
   server: Server,
   token: string,
   eid: string,
+  options: {
+    sessionDateStart?: string;
+    sessionDateEnd?: string;
+  } = {},
 ) {
   return postJSON<void>(
     server,
     `/exhibition/${eid}/ota/mop/sync/tickets`,
-    { token },
+    {
+      token,
+      body: options,
+    },
   );
 }
 

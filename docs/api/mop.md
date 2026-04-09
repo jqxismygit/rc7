@@ -83,6 +83,13 @@
   ```ts
   { eid: string }
   ```
+- Request Body:
+  ```ts
+  {
+    sessionDateStart?: string; // yyyy-MM-dd
+    sessionDateEnd?: string;   // yyyy-MM-dd
+  }
+  ```
 - Response Status:
   - `204 No Content`：同步请求发送成功
   - `401 Unauthorized`：未认证
@@ -91,6 +98,8 @@
 - 关键特性：
   - 仅管理员可执行该接口
   - 同步请求会推送到 MOP `sku/push` 接口
+  - 支持按场次日期范围筛选同步：`sessionDateStart` 到 `sessionDateEnd`（闭区间）
+  - 每个推送 sku 都包含对应场次 ID（`otShowId`）
   - `otSkuId` 使用 CR7 票种 ID，`name` 使用 CR7 票种名称
   - `otSkuStatus` 固定为有效（`1`）
   - `skuPrice` 与 `sellPrice` 都由 CR7 票价（分）转换为元字符串

@@ -57,6 +57,7 @@ type MopShowSyncRequest = {
 };
 
 type MopSku = {
+  otShowId: string;
   otSkuId: string;
   otSkuStatus: number;
   name: string;
@@ -85,6 +86,7 @@ type MopOrderCreateRequest = {
   projectShowCode: string;
   buyerName: string;
   buyerPhone: string;
+  mobileNoAreaCode: string;
   totalPrice: string;
   needSeat: boolean;
   needRealName: boolean;
@@ -337,6 +339,8 @@ export default class MoeService extends RC7BaseService {
           roles: ['admin'],
           params: {
             eid: 'string',
+            sessionDateStart: { type: 'string', optional: true },
+            sessionDateEnd: { type: 'string', optional: true },
           },
           handler: this.syncTicketsToMop,
         },
@@ -477,20 +481,64 @@ export default class MoeService extends RC7BaseService {
   }
 
   async syncTicketsToMop(
-    ctx: Context<{ eid: string }, UserMeta & { $statusCode?: number }>,
+    ctx: Context<{
+      eid: string;
+      sessionDateStart?: string;
+      sessionDateEnd?: string;
+    }, UserMeta & { $statusCode?: number }>,
   ): Promise<void> {
-    const { eid } = ctx.params;
+    const { eid, sessionDateStart, sessionDateEnd } = ctx.params;
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
       'cr7.exhibition.get', { eid }
+    );
+    const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
+      'cr7.exhibition.getSessions', { eid }
     );
     const ticketCategories = await ctx.call<Exhibition.TicketCategory[], { eid: string }>(
       'cr7.exhibition.getTicketCategories', { eid }
     );
 
+    const sessionDateStartLabel = sessionDateStart ? toDateLabel(sessionDateStart) : null;
+    const sessionDateEndLabel = sessionDateEnd ? toDateLabel(sessionDateEnd) : null;
+
+    if (
+      sessionDateStartLabel !== null
+      && sessionDateEndLabel !== null
+      && sessionDateStartLabel.localeCompare(sessionDateEndLabel) > 0
+    ) {
+      throw new MoleculerClientError(
+        '场次日期范围不合法: 开始日期不能晚于结束日期',
+        400,
+        'MOP_SESSION_DATE_RANGE_INVALID',
+      );
+    }
+
+    const filteredSessions = sessions.filter(session => {
+      const sessionDate = toDateLabel(session.session_date);
+      if (sessionDateStartLabel !== null && sessionDate.localeCompare(sessionDateStartLabel) < 0) {
+        return false;
+      }
+      if (sessionDateEndLabel !== null && sessionDate.localeCompare(sessionDateEndLabel) > 0) {
+        return false;
+      }
+      return true;
+    });
+
+    const sortedSessions = [...filteredSessions].sort((left, right) => {
+      const leftDate = toDateLabel(left.session_date);
+      const rightDate = toDateLabel(right.session_date);
+      const comparedDate = leftDate.localeCompare(rightDate);
+      if (comparedDate !== 0) {
+        return comparedDate;
+      }
+      return left.id.localeCompare(right.id);
+    });
+
     const request: MopSkuSyncRequest = {
       otProjectId: exhibition.id,
       isOta: MOP_SKU_IS_OTA,
-      skus: ticketCategories.map(ticket => ({
+      skus: sortedSessions.flatMap(session => ticketCategories.map(ticket => ({
+        otShowId: session.id,
         otSkuId: ticket.id,
         otSkuStatus: MOP_SKU_STATUS_VALID,
         name: ticket.name,
@@ -499,7 +547,7 @@ export default class MoeService extends RC7BaseService {
         onSaleTime: formatMopDateTime(exhibition.start_date, exhibition.opening_time),
         offSaleTime: formatMopDateTime(exhibition.end_date, exhibition.closing_time),
         inventoryType: MOP_INVENTORY_TYPE_SHARED,
-      })),
+      }))),
     };
 
     const privateKey = await readKey(config.mop.private_key_path);
