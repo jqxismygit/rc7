@@ -110,7 +110,7 @@ function assertLastAPIError(
     }
 ) {
     const { lastError } = context;
-    expect(lastError).toBeTruthy();
+    expect(lastError).toBeDefined();
     return assertAPIError(lastError, options);
 }
 
@@ -118,89 +118,16 @@ describeFeature(feature, ({
     Scenario, BeforeAllScenarios, AfterAllScenarios,
     context: scenarioContext
 }: FeatureDescriibeCallbackParams<ScenarioContext>) => {
-    function requireAdminIdentity(context: AdminIdentityContext) {
-        expect(context.adminCountryCode).toBeTruthy();
-        expect(context.adminPhone).toBeTruthy();
-        expect(context.adminName).toBeTruthy();
-        return {
-            adminCountryCode: context.adminCountryCode!,
-            adminPhone: context.adminPhone!,
-            adminName: context.adminName!,
-        };
-    }
-
-    function requireAdminLoginResponse(
-        context: Pick<AdminLoginContext, 'adminLoginResponse'>,
-    ) {
-        expect(context.adminLoginResponse).toBeTruthy();
-        return context.adminLoginResponse!;
-    }
-
-    function requireNewPasswordLoginResponse(
-        context: Pick<AdminLoginContext, 'newPasswordLoginResponse'>,
-    ) {
-        expect(context.newPasswordLoginResponse).toBeTruthy();
-        return context.newPasswordLoginResponse!;
-    }
-
-    function requireUserProfile(context: UserProfileContext) {
-        expect(context.userProfile).toBeTruthy();
-        return context.userProfile!;
-    }
-
-    function requireAdminProfile(context: AdminProfileContext) {
-        expect(context.adminProfile).toBeTruthy();
-        return context.adminProfile!;
-    }
-
-    function requireAdminInitialPassword(context: AdminPasswordContext) {
-        expect(context.adminInitialPassword).toBeTruthy();
-        return context.adminInitialPassword!;
-    }
-
-    function requireOperatorAdminToken(context: OperatorAdminContext) {
-        expect(context.adminToken).toBeTruthy();
-        return context.adminToken!;
-    }
-
-    function requireOperatorUserProfile(context: OperatorUserContext) {
-        expect(context.userProfile).toBeTruthy();
-        return context.userProfile!;
-    }
-
-    function requireGrantRoleResponse(context: GrantRoleResultContext) {
-        expect(context.grantRoleResponse).toBeTruthy();
-        return context.grantRoleResponse!;
-    }
-
-    function requireUserListResponse(
-        context: Pick<UserListContext, 'userListResponse'>,
-    ) {
-        expect(context.userListResponse).toBeTruthy();
-        return context.userListResponse!;
-    }
-
-    function requireSearchedUserListResponse(
-        context: Pick<UserListContext, 'searchedUserListResponse'>,
-    ) {
-        expect(context.searchedUserListResponse).toBeTruthy();
-        return context.searchedUserListResponse!;
-    }
-
-    function requirePagedUserListResponse(
-        context: Pick<UserListContext, 'pagedUserListResponse'>,
-    ) {
-        expect(context.pagedUserListResponse).toBeTruthy();
-        return context.pagedUserListResponse!;
-    }
-
     async function loginAdmin(
         context: AdminIdentityContext & AdminLoginContext,
         password: string,
         targetKey: 'adminLoginResponse' | 'newPasswordLoginResponse' = 'adminLoginResponse',
     ) {
         const { apiServer } = scenarioContext.fixtures.values;
-        const { adminCountryCode, adminPhone } = requireAdminIdentity(context);
+        expect(context.adminCountryCode).toBeDefined();
+        expect(context.adminPhone).toBeDefined();
+        const adminCountryCode = context.adminCountryCode!;
+        const adminPhone = context.adminPhone!;
         const loginResponse = await passwordLogin(
             apiServer,
             adminCountryCode,
@@ -266,7 +193,6 @@ describeFeature(feature, ({
             const { loginResponse } = context;
             const { values: { apiServer } } = scenarioContext.fixtures;
             assertLoginResponse(loginResponse);
-            expect(loginResponse).toBeTruthy();
             const { token } = loginResponse!;
             const profile = await getUserProfile(apiServer, token);
             assertUserProfile(profile);
@@ -300,11 +226,11 @@ describeFeature(feature, ({
 
         Then('login successfully and get user profile', async function () {
             const { loginResponse } = context;
-            const previousProfile = requireUserProfile(context);
+            expect(context.userProfile).toBeDefined();
+            const previousProfile = context.userProfile!;
             const { values: { apiServer } } = scenarioContext.fixtures;
 
             assertLoginResponse(loginResponse);
-            expect(loginResponse).toBeTruthy();
             const { token } = loginResponse!;
             const profile = await getUserProfile(apiServer, token);
             assertUserProfile(profile);
@@ -330,15 +256,17 @@ describeFeature(feature, ({
         });
 
         Then('管理员账号创建成功', () => {
-            expect(requireAdminProfile(context)).toBeTruthy();
+            expect(context.adminProfile).toBeDefined();
         });
 
         And('管理员账号的手机号为 {string} {string}', (ctx, countryCode: string, phone: string) => {
-            expect(requireAdminProfile(context).phone).toBe(`${countryCode} ${phone}`);
+            expect(context.adminProfile).toBeDefined();
+            expect(context.adminProfile!.phone).toBe(`${countryCode} ${phone}`);
         });
 
         And('管理员的用户名默认为 "system admin"', () => {
-            expect(requireAdminProfile(context).name).toBe('system admin');
+            expect(context.adminProfile).toBeDefined();
+            expect(context.adminProfile!.name).toBe('system admin');
         });
     });
 
@@ -358,13 +286,20 @@ describeFeature(feature, ({
 
         When('管理员账号 {string} 登录', async (ctx, name: string) => {
             expect(context.adminName).toBe(name);
-            await loginAdmin(context, requireAdminInitialPassword(context));
+            expect(context.adminInitialPassword).toBeDefined();
+            await loginAdmin(context, context.adminInitialPassword!);
         });
 
         Then('登录成功并获取管理员用户信息', async () => {
             const { apiServer } = scenarioContext.fixtures.values;
-            const loginResponse = requireAdminLoginResponse(context);
-            const { adminCountryCode, adminPhone, adminName } = requireAdminIdentity(context);
+            expect(context.adminLoginResponse).toBeDefined();
+            const loginResponse = context.adminLoginResponse!;
+            expect(context.adminCountryCode).toBeDefined();
+            expect(context.adminPhone).toBeDefined();
+            expect(context.adminName).toBeDefined();
+            const adminCountryCode = context.adminCountryCode!;
+            const adminPhone = context.adminPhone!;
+            const adminName = context.adminName!;
             const profile = await getUserProfile(apiServer, loginResponse.token);
             assertUserProfile(profile);
             expect(profile.name).toBe(adminName);
@@ -402,10 +337,12 @@ describeFeature(feature, ({
             expect(context.adminName).toBe(name);
             Object.assign(context, { adminUpdatedPassword: newPassword });
             const { apiServer } = scenarioContext.fixtures.values;
+            expect(context.adminLoginResponse).toBeDefined();
+            expect(context.adminInitialPassword).toBeDefined();
             const passwordChangeResponse = await changePassword(
                 apiServer,
-                requireAdminLoginResponse(context).token,
-                requireAdminInitialPassword(context),
+                context.adminLoginResponse!.token,
+                context.adminInitialPassword!,
                 newPassword,
             );
             Object.assign(context, { passwordChangeResponse });
@@ -419,9 +356,15 @@ describeFeature(feature, ({
             expect(context.adminName).toBe(name);
             await loginAdmin(context, newPassword, 'newPasswordLoginResponse');
             const { apiServer } = scenarioContext.fixtures.values;
-            const profile = await getUserProfile(apiServer, requireNewPasswordLoginResponse(context).token);
+            expect(context.newPasswordLoginResponse).toBeDefined();
+            const profile = await getUserProfile(apiServer, context.newPasswordLoginResponse!.token);
             assertUserProfile(profile);
-            const { adminCountryCode, adminPhone, adminName } = requireAdminIdentity(context);
+            expect(context.adminCountryCode).toBeDefined();
+            expect(context.adminPhone).toBeDefined();
+            expect(context.adminName).toBeDefined();
+            const adminCountryCode = context.adminCountryCode!;
+            const adminPhone = context.adminPhone!;
+            const adminName = context.adminName!;
             expect(profile.name).toBe(adminName);
             expect(profile.phone).toBe(`${adminCountryCode} ${adminPhone}`);
             expect(profile.openid).toBeNull();
@@ -432,7 +375,10 @@ describeFeature(feature, ({
             expect(context.adminName).toBe(name);
             const { apiServer } = scenarioContext.fixtures.values;
             try {
-                const { adminCountryCode, adminPhone } = requireAdminIdentity(context);
+                expect(context.adminCountryCode).toBeDefined();
+                expect(context.adminPhone).toBeDefined();
+                const adminCountryCode = context.adminCountryCode!;
+                const adminPhone = context.adminPhone!;
                 await passwordLogin(apiServer, adminCountryCode, adminPhone, oldPassword);
             } catch (error) {
                 rememberError(context, error);
@@ -466,10 +412,12 @@ describeFeature(feature, ({
 
         When('管理员账号 {string} 将用户 {string} 设置成运营人员', async () => {
             const { apiServer } = scenarioContext.fixtures.values;
+            expect(context.adminToken).toBeDefined();
+            expect(context.userProfile).toBeDefined();
             const grantRoleResponse = await grantRoleToUser(
                 apiServer,
-                requireOperatorAdminToken(context),
-                requireOperatorUserProfile(context).id,
+                context.adminToken!,
+                context.userProfile!.id,
                 'OPERATOR',
             );
             Object.assign(context, { grantRoleResponse });
@@ -477,7 +425,8 @@ describeFeature(feature, ({
 
         Then('用户 {string} 的角色包含 {string}', (_ctx, userName: string, roleLabel: string) => {
             expect(roleLabel).toBe('operator');
-            expect(requireGrantRoleResponse(context).role_names).toContain('OPERATOR');
+            expect(context.grantRoleResponse).toBeDefined();
+            expect(context.grantRoleResponse!.role_names).toContain('OPERATOR');
         });
     });
 
@@ -506,36 +455,41 @@ describeFeature(feature, ({
             When('管理员账号 {string} 获取用户列表', async (ctx, name: string) => {
                 expect(context.adminName).toBe(name);
                 const { apiServer } = scenarioContext.fixtures.values;
+                expect(context.adminLoginResponse).toBeDefined();
                 const userListResponse = await listUsers(
                     apiServer,
-                    requireAdminLoginResponse(context).token,
+                    context.adminLoginResponse!.token,
                     { page: 1, limit: 20 },
                 );
                 Object.assign(context, { userListResponse });
             });
 
             Then('用户列表分页信息为 page {int}、limit {int}', (_ctx, page: number, limit: number) => {
-                const response = requireUserListResponse(context);
+                expect(context.userListResponse).toBeDefined();
+                const response = context.userListResponse!;
                 expect(response.page).toBe(page);
                 expect(response.limit).toBe(limit);
                 expect(response.total).toBeGreaterThan(0);
             });
 
             Then('分页查询返回 page {int}、limit {int}', (_ctx, page: number, limit: number) => {
-                const response = requirePagedUserListResponse(context);
+                expect(context.pagedUserListResponse).toBeDefined();
+                const response = context.pagedUserListResponse!;
                 expect(response.page).toBe(page);
                 expect(response.limit).toBe(limit);
                 expect(response.total).toBeGreaterThan(0);
             });
 
             Then('获取成功，用户列表包含用户 {string}', (_ctx, userName: string) => {
-                const userList = requireUserListResponse(context).users;
+                expect(context.userListResponse).toBeDefined();
+                const userList = context.userListResponse!.users;
                 expect(userList.length).toBeGreaterThan(0);
                 expect(userList.some(user => user.name === userName)).toBe(true);
             });
 
             And('{string} 的手机号为 {string} {string}', (_ctx, userName: string, countryCode: string, phone: string) => {
-                const userList = requireUserListResponse(context).users;
+                expect(context.userListResponse).toBeDefined();
+                const userList = context.userListResponse!.users;
                 expect(
                     userList.some(
                         item => item.name === userName && item.phone === `${countryCode} ${phone}`,
@@ -545,39 +499,44 @@ describeFeature(feature, ({
 
             When('管理员用手机号 {string} 搜索用户列表', async (ctx, phone: string) => {
                 const { apiServer } = scenarioContext.fixtures.values;
+                expect(context.adminLoginResponse).toBeDefined();
                 const searchedUserListResponse = await listUsers(
                     apiServer,
-                    requireAdminLoginResponse(context).token,
+                    context.adminLoginResponse!.token,
                     { phone },
                 );
                 Object.assign(context, { searchedUserListResponse });
             });
 
             Then('搜索成功，用户列表包含用户 {string}', (_ctx, userName: string) => {
-                const userList = requireSearchedUserListResponse(context).users;
+                expect(context.searchedUserListResponse).toBeDefined();
+                const userList = context.searchedUserListResponse!.users;
                 expect(userList.length).toBeGreaterThan(0);
                 expect(userList.some(user => user.name === userName)).toBe(true);
             });
 
             And('搜索结果中 {string} 的手机号为 {string} {string}', (_ctx, userName: string, countryCode: string, phone: string) => {
-                const userList = requireSearchedUserListResponse(context).users;
+                expect(context.searchedUserListResponse).toBeDefined();
+                const userList = context.searchedUserListResponse!.users;
                 const user = userList.find(item => item.name === userName);
-                expect(user).toBeTruthy();
+                expect(user).toBeDefined();
                 expect(user?.phone).toBe(`${countryCode} ${phone}`);
             });
 
             When('管理员按 page {int}、limit {int} 获取用户列表', async (_ctx, page: number, limit: number) => {
                 const { apiServer } = scenarioContext.fixtures.values;
+                expect(context.adminLoginResponse).toBeDefined();
                 const pagedUserListResponse = await listUsers(
                     apiServer,
-                    requireAdminLoginResponse(context).token,
+                    context.adminLoginResponse!.token,
                     { page, limit },
                 );
                 Object.assign(context, { pagedUserListResponse, userListResponse: pagedUserListResponse });
             });
 
             And('分页结果数量不超过 {int}', (_ctx, maxSize: number) => {
-                const userList = requirePagedUserListResponse(context).users;
+                expect(context.pagedUserListResponse).toBeDefined();
+                const userList = context.pagedUserListResponse!.users;
                 expect(userList.length).toBeLessThanOrEqual(maxSize);
             });
         }
