@@ -54,7 +54,7 @@ type DamaiPerform = {
   saleEndTime: string;
   showTime: string;
   endTime: string;
-  ticketTypeAndDeliveryMethod: Record<string, number[]>;
+  tTypeAndDeliveryMethod: Record<number, number[]>;
   ruleType: number;
 };
 
@@ -644,7 +644,7 @@ class DamaiService extends RC7BaseService {
         saleEndTime: formatDamaiSessionDateTime(session.session_date, exhibition.last_entry_time, 'HH:mm'),
         showTime: formatDamaiSessionDateTime(session.session_date, exhibition.opening_time, 'HH:mm'),
         endTime: formatDamaiSessionDateTime(session.session_date, exhibition.closing_time, 'HH:mm'),
-        ticketTypeAndDeliveryMethod: {
+        tTypeAndDeliveryMethod: {
           [DAMAI_TICKET_TYPE_ELECTRONIC]: [DAMAI_TICKET_TYPE_ELECTRONIC],
         },
         ruleType: DAMAI_RULE_TYPE_NON_REAL_NAME,
