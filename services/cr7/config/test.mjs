@@ -58,5 +58,7 @@ export default {
   },
   damai: {
     base_url: 'https://1.1.1.1',
+    public_key_path: path.resolve(fixtures_path, 'mop/public_key.cer'),
+    private_key_path: path.resolve(fixtures_path, 'mop/private_key.cer'),
   }
 }
