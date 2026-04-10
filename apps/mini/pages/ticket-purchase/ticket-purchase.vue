@@ -233,13 +233,13 @@
           <text class="total-value">¥{{ totalPrice * 0.01 }}</text>
         </view>
         <view class="purchase-bottom-bar">
-          <button
-            class="btn-gold pay-btn"
+          <wechat-phone-auth-button
+            custom-class="btn-gold pay-btn"
             :disabled="!selectedTicket"
-            @click="handlePurchase"
+            @authorized-click="handlePayButtonClick"
           >
             立即支付
-          </button>
+          </wechat-phone-auth-button>
         </view>
       </view>
     </view>
@@ -258,11 +258,13 @@ import persistStorage from "@/utils/persistStorage.js";
 import request from "@/utils/request.js";
 import { getNavBarInsetPx } from "@/utils/navBar.js";
 import Cr7NavBar from "@/components/cr7-nav-bar/cr7-nav-bar.vue";
+import WechatPhoneAuthButton from "@/components/wechat-phone-auth-button/wechat-phone-auth-button.vue";
 import dayjs from "dayjs";
 
 export default {
   components: {
     Cr7NavBar,
+    WechatPhoneAuthButton,
   },
 
   data() {
@@ -689,6 +691,10 @@ export default {
       if (code === 404) return "展览或场次不存在";
       if (code === 400) return "参数错误，请重新选择";
       return "创建订单失败";
+    },
+
+    async handlePayButtonClick() {
+      await this.handlePurchase();
     },
 
     async handlePurchase() {
@@ -1230,7 +1236,8 @@ export default {
   justify-content: center;
 }
 
-.pay-btn {
+.pay-btn,
+.purchase-bottom-bar :deep(button.pay-btn) {
   width: 518rpx;
   height: 98rpx;
   font-size: 30rpx;
@@ -1238,7 +1245,8 @@ export default {
   color: $cr7-black;
 }
 
-.pay-btn[disabled] {
+.pay-btn[disabled],
+.purchase-bottom-bar :deep(button.pay-btn[disabled]) {
   opacity: 0.4;
 }
 </style>

@@ -65,6 +65,17 @@ export async function fetchProfile() {
   return profileRes;
 }
 
+/**
+ * 微信手机号授权绑定（需登录态）
+ * 后端接口：POST /user/phone/wechat  { code }
+ */
+export async function bindWechatPhone(code) {
+  if (!code) {
+    throw new Error("手机号授权失败：未获取到 code");
+  }
+  await request.post("/user/phone/wechat", { code });
+}
+
 // // // 认证与登录相关 mock 服务
 // import { mockUser, mockEmployee } from "@/utils/mockData.js";
 
