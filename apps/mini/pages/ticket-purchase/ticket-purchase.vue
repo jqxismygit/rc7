@@ -456,7 +456,7 @@ export default {
   methods: {
     showCloseForChip(chip) {
       if (!chip || chip.disabled) return false;
-      return this.activeDateKey === chip.key;
+      return chip.key === "all" && this.activeDateKey === "all";
     },
 
     applyDefaultEventAndTickets(options) {
@@ -953,6 +953,7 @@ export default {
   flex-shrink: 0;
   padding: 0 14rpx;
   overflow: visible;
+  z-index: 1;
 }
 
 .date-chip-close {
@@ -984,7 +985,6 @@ export default {
   width: 24rpx;
   height: 24rpx;
   flex-shrink: 0;
-  margin-right: 9rpx;
 }
 
 .chip-main {
@@ -1004,6 +1004,7 @@ export default {
 
 .date-chip.active {
   border-color: $cr7-gold;
+  z-index: 3;
 }
 
 .date-chip.disabled {
