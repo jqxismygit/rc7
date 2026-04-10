@@ -49,6 +49,7 @@ type MopShow = {
   startTime: string;
   endTime: string;
   showType: number;
+  offSaleTime: string;
   fetchTicketWay: number[];
   maxBuyLimitPerOrder: number;
 };
@@ -496,6 +497,7 @@ export default class MoeService extends RC7BaseService {
         otShowStatus: MOP_SHOW_STATUS_VALID,
         startTime: formatMopDateTime(session.session_date, exhibition.opening_time),
         endTime: formatMopDateTime(session.session_date, exhibition.closing_time),
+        offSaleTime: formatMopDateTime(session.session_date, exhibition.last_entry_time),
         showType: MOP_SHOW_TYPE_SINGLE,
         fetchTicketWay: [MOP_FETCH_TICKET_WAY_E_TICKET],
         maxBuyLimitPerOrder: MOP_SHOW_MAX_BUY_LIMIT_PER_ORDER,
