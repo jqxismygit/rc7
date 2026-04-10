@@ -1,6 +1,7 @@
 Feature: 对接携程 OTA
 
   Background:
+    Given cr7 服务已启动
     Given 系统管理员已经创建并登录
     Given 用户 "Alice" 已注册并登录
     Given 默认核销展览活动已创建，开始时间为 "今天"，结束时间为 "2天后"

@@ -7,8 +7,7 @@ import {
 import { expect, vi } from 'vitest';
 import type { MockInstance } from 'vitest';
 import { Exhibition, Xiecheng } from '@cr7/types';
-import { FixturesResult, useFixtures } from './lib/fixtures.js';
-import { services_fixtures } from './fixtures/services.js';
+import { prepareAPIServer, prepareServices, services_fixtures } from './fixtures/services.js';
 import { getUserProfile, prepareAdminToken, registerUser } from './fixtures/user.js';
 import {
   getSessions,
@@ -26,6 +25,9 @@ import { assertAPIError } from './lib/api.js';
 import { mockJSONServer, MockServer } from './lib/server.js';
 import { toDateLabel } from './lib/relative-date.js';
 import { decryptXieChengBody } from '../src/libs/xiecheng.js';
+import { ServiceBroker } from 'moleculer';
+import { Server } from 'node:http';
+import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
 
 const schema = 'test_xiecheng';
 const services = ['api', 'user', 'cr7', 'xiecheng'];
@@ -35,7 +37,8 @@ const feature = await loadFeature('tests/features/xiecheng.feature');
 type TicketByName = Record<string, Exhibition.TicketCategory>;
 
 interface FeatureContext {
-  fixtures: FixturesResult<typeof services_fixtures, 'apiServer' | 'broker'>;
+  broker: ServiceBroker;
+  apiServer: Server;
   adminToken: string;
   userToken: string;
   exhibition: Exhibition.Exhibition;
@@ -161,7 +164,7 @@ async function executePendingSync(
   try {
     if (pending.serviceName === 'DatePriceModify') {
       scenarioContext.syncLog = await syncTicketPriceToXiecheng(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         ticket.id,
@@ -169,7 +172,7 @@ async function executePendingSync(
       );
     } else {
       scenarioContext.syncLog = await syncTicketInventoryToXiecheng(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         ticket.id,
@@ -187,49 +190,61 @@ async function executePendingSync(
 describeFeature(feature, ({
   BeforeAllScenarios,
   AfterAllScenarios,
+  AfterEachScenario,
   Background,
   Scenario,
   context: featureContext,
 }) => {
+
   BeforeAllScenarios(async () => {
     vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
-    featureContext.fixtures = await useFixtures(
-      { ...services_fixtures, schema, services },
-      ['apiServer', 'broker'],
-    );
+    await bootstrap();
+    const broker = await prepareServices(services);
+    await broker.start();
+    featureContext.broker = broker;
+    featureContext.apiServer = await prepareAPIServer(broker);
     featureContext.ticketByName = {};
   });
 
   AfterAllScenarios(async () => {
+    for (const server of openedMockServers) {
+      await server.close();
+    }
+    await featureContext.broker.stop();
+  });
+
+  AfterEachScenario(async () => {
+    await dropSchema({ schema });
     for (const spy of openedBaseUrlSpies) {
       spy.mockRestore();
     }
-    for (const server of openedMockServers) {
-      try {
-        await server.close();
-      } catch {
-        // Ignore already-closed mock server.
+
+    for (const [key] of Object.entries(featureContext)) {
+      if (['broker', 'apiServer'].includes(key)) {
+        continue;
       }
+      Object.assign(featureContext, { [key]: undefined });
     }
-    await featureContext.fixtures.close();
-    vi.restoreAllMocks();
   });
 
   Background(({ Given, And }) => {
+    Given('cr7 服务已启动', async () => {
+      await migrate({ schema });
+    });
+
     Given('系统管理员已经创建并登录', async () => {
-      const { apiServer } = featureContext.fixtures.values;
+      const { apiServer } = featureContext;
       featureContext.adminToken = await prepareAdminToken(apiServer, schema);
     });
 
     Given('用户 {string} 已注册并登录', async (_ctx, userName: string) => {
-      const { apiServer } = featureContext.fixtures.values;
+      const { apiServer } = featureContext;
       featureContext.userToken = await registerUser(apiServer, `${userName}_${Date.now()}`);
       await getUserProfile(apiServer, featureContext.userToken);
     });
 
     Given('默认核销展览活动已创建，开始时间为 {string}，结束时间为 {string}', async (_ctx, startDate: string, endDate: string) => {
-      const { adminToken, fixtures } = featureContext;
-      const { apiServer } = fixtures.values;
+      const { adminToken, apiServer } = featureContext;
       featureContext.exhibition = await prepareExhibition(apiServer, adminToken, {
         name: `XC_${Date.now()}`,
         description: 'xiecheng integration test exhibition',
@@ -242,7 +257,7 @@ describeFeature(feature, ({
 
     Given('展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天', async (_ctx, ticketName: string, admittance: number) => {
       const ticket = await prepareTicketCategory(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         {
@@ -262,7 +277,7 @@ describeFeature(feature, ({
     Given('展会添加票种 "单人票", 准入人数为 1, 有效期为场次当天', async () => {
       const ticketName = '单人票';
       const ticket = await prepareTicketCategory(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         {
@@ -283,7 +298,7 @@ describeFeature(feature, ({
       const ticket = featureContext.ticketByName[ticketName];
       expect(ticket).toBeTruthy();
       await updateTicketCategoryMaxInventory(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         ticket.id,
@@ -296,7 +311,7 @@ describeFeature(feature, ({
       const ticket = featureContext.ticketByName[ticketName];
       expect(ticket).toBeTruthy();
       await updateTicketCategoryMaxInventory(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         ticket.id,
@@ -313,7 +328,7 @@ describeFeature(feature, ({
       const ticket = featureContext.ticketByName[ticketName];
       expect(ticket).toBeTruthy();
       const updated = await bindTicketXiechengOptionId(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         ticket.id,
@@ -339,7 +354,7 @@ describeFeature(feature, ({
       const ticket = featureContext.ticketByName[ticketName];
       expect(ticket).toBeTruthy();
       const updated = await bindTicketXiechengOptionId(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         ticket.id,
@@ -428,7 +443,7 @@ describeFeature(feature, ({
     Given('{string} 的携程编号是 {string}', async (_ctx, ticketName: string, otaOptionId: string) => {
       const ticket = featureContext.ticketByName[ticketName];
       const updated = await bindTicketXiechengOptionId(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         ticket.id,
@@ -450,7 +465,7 @@ describeFeature(feature, ({
     Then('管理员可以查看 {string} 的携程价格同步记录', async (_ctx, ticketName: string) => {
       const ticket = featureContext.ticketByName[ticketName];
       context.syncLogs = await listTicketXiechengSyncLogs(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         ticket.id,
@@ -515,7 +530,7 @@ describeFeature(feature, ({
       resetScenarioContext(context);
       const ticket = featureContext.ticketByName[ticketName];
       const updated = await bindTicketXiechengOptionId(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         ticket.id,
@@ -561,7 +576,7 @@ describeFeature(feature, ({
     Given('{string} 的携程编号是 {string}', async (_ctx, ticketName: string, otaOptionId: string) => {
       const ticket = featureContext.ticketByName[ticketName];
       const updated = await bindTicketXiechengOptionId(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         ticket.id,
@@ -649,7 +664,7 @@ describeFeature(feature, ({
     Given('{string} 的携程编号是 {string}', async (_ctx, ticketName: string, otaOptionId: string) => {
       const ticket = featureContext.ticketByName[ticketName];
       const updated = await bindTicketXiechengOptionId(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         ticket.id,
@@ -703,7 +718,7 @@ describeFeature(feature, ({
     Given('{string} 的携程编号是 {string}', async (_ctx, ticketName: string, otaOptionId: string) => {
       const ticket = featureContext.ticketByName[ticketName];
       const updated = await bindTicketXiechengOptionId(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         ticket.id,
@@ -725,7 +740,7 @@ describeFeature(feature, ({
     Then('管理员可以查看 {string} 的携程库存同步记录', async (_ctx, ticketName: string) => {
       const ticket = featureContext.ticketByName[ticketName];
       context.syncLogs = await listTicketXiechengSyncLogs(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         ticket.id,
@@ -782,7 +797,7 @@ describeFeature(feature, ({
       resetScenarioContext(context);
       const ticket = featureContext.ticketByName[ticketName];
       const updated = await bindTicketXiechengOptionId(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         ticket.id,
@@ -824,7 +839,7 @@ describeFeature(feature, ({
       resetScenarioContext(context);
       const ticket = featureContext.ticketByName[ticketName];
       const updated = await bindTicketXiechengOptionId(
-        featureContext.fixtures.values.apiServer,
+        featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
         ticket.id,
