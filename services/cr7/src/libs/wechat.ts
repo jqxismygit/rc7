@@ -1,4 +1,4 @@
-import { getJSON } from "./fetch-utils.js";
+import { getJSON, postJSON } from "./fetch-utils.js";
 
 interface WechatConfig {
   base_url: string;
@@ -33,12 +33,28 @@ interface AccessTokenSuccess {
   expires_in: number;
 }
 
+interface PhoneInfo {
+  phoneNumber: string;
+  purePhoneNumber: string;
+  countryCode: string;
+}
+
+interface GetUserPhoneNumberSuccess {
+  errcode: 0;
+  errmsg: 'ok';
+  phone_info: PhoneInfo;
+}
+
 type Jscode2SessionResponse =
 | Jscode2SessionSuccess
 | WechatErrorResponse;
 
 type AccessTokenResponse =
 | AccessTokenSuccess
+| WechatErrorResponse;
+
+type GetUserPhoneNumberResponse =
+| GetUserPhoneNumberSuccess
 | WechatErrorResponse;
 
 export async function jscode2session(
@@ -62,14 +78,40 @@ export async function getWechatAccessToken(
   wechatConfig: WechatConfig
 ): Promise<AccessTokenSuccess> {
   const { base_url, appid, secret } = wechatConfig;
-  const res = await getJSON<AccessTokenResponse>(
+  const raw = await getJSON<AccessTokenResponse | string>(
     `${base_url}/cgi-bin/token`,
     { query: { appid, secret, grant_type: 'client_credential' } }
   );
+
+  const res = (typeof raw === 'string'
+    ? JSON.parse(raw)
+    : raw) as AccessTokenResponse;
 
   if ('errcode' in res) {
     throw new WechatError(res);
   }
 
   return res;
+}
+
+export async function getWechatUserPhoneNumber(
+  wechatConfig: WechatConfig,
+  access_token: string,
+  code: string,
+): Promise<PhoneInfo> {
+  const { base_url } = wechatConfig;
+  const raw = await postJSON<GetUserPhoneNumberResponse | string>(
+    `${base_url}/wxa/business/getuserphonenumber?access_token=${access_token}`,
+    { body: { code } }
+  );
+
+  const res = (typeof raw === 'string'
+    ? JSON.parse(raw)
+    : raw) as GetUserPhoneNumberResponse;
+
+  if ('errcode' in res && res.errcode !== 0) {
+    throw new WechatError(res);
+  }
+
+  return (res as GetUserPhoneNumberSuccess).phone_info;
 }

@@ -16,6 +16,18 @@ export async function wechatMiniLogin(
   );
 }
 
+export async function wechatBindPhone(
+  server: Server,
+  token: string,
+  code: string,
+) {
+  return postJSON<null>(
+    server,
+    '/user/phone/wechat',
+    { token, body: { code } }
+  );
+}
+
 export function getUserProfile(server: Server, token: string) {
   return getJSON<User.Profile>(server, '/user/profile', { token });
 }

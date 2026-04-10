@@ -216,6 +216,34 @@ export async function upsertUserByPhone(
   return user.uid;
 }
 
+export async function bindPhoneToUser(
+  client: DBClient,
+  schema: string,
+  uid: string,
+  country_code: string,
+  phone: string,
+) {
+  try {
+    const { rows: [user] } = await client.query<{ uid: string }>(
+      `INSERT INTO ${schema}.user_phone (uid, country_code, phone)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (uid) DO UPDATE SET
+        country_code = EXCLUDED.country_code,
+        phone = EXCLUDED.phone,
+        updated_at = NOW()
+      RETURNING uid`,
+      [uid, country_code, phone],
+    );
+
+    return user.uid;
+  } catch (error) {
+    if ((error as { code?: string }).code === '23505') {
+      throw new UserDataError('Phone already exists', 'PHONE_ALREADY_EXISTS');
+    }
+    throw error;
+  }
+}
+
 export async function upsertUserByDamaiId(
   client: DBClient,
   schema: string,

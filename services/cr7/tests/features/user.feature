@@ -1,15 +1,23 @@
 
 Feature: user registration and login
-
   Background:
     Given cr7 服务已启动
 
   Scenario: 微信用户登录
-    Given 微信小程序服务已经准备好
      When 微信 用户_1 首次打开小程序
      Then 注册为新用户
      When 微信 用户_1 再次打开小程序
      Then 登录成功并获取用户信息
+
+  Scenario: 微信用户绑定手机号
+     When 微信 用户_1 打开小程序
+     Then 注册为新用户
+     When 用户点击手机号授权, 国家码为 "86"，手机号为 "12345678901"
+     Then 微信服务端返回用户的手机号信息
+     Then 微信用户已经与手机号绑定
+     When 微信 用户_1 再次打开小程序
+     Then 登录成功并获取用户信息
+      And 获取到的用户信息包含手机号，国家码为 "86"，手机号为 "12345678901"
 
   Scenario: 初始化系统管理员账号
     Given 使用 cli 初始化管理员账号，指定手机号 "12345678901"，密码为 "pass_test"

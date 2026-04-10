@@ -92,12 +92,13 @@ const routes = [
   ),
   routeConfig(
     '/user',
-    ['user.profile', 'user.password_update', 'user.su'],
+    ['user.profile', 'user.password_update', 'user.su', 'user.wechat_bind_phone'],
     {
       aliases: {
         'GET /profile': 'user.profile',
         'PUT /password': 'user.password_update',
-        'POST /su': 'user.su'
+        'POST /su': 'user.su',
+        'POST /phone/wechat': 'user.wechat_bind_phone',
       }
     }
   ),

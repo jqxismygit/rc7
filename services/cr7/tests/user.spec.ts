@@ -19,6 +19,7 @@ import {
   passwordLogin,
   prepareAdminUser,
   registerUser,
+  wechatBindPhone,
   wechatMiniLogin
 } from './fixtures/user.js';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
@@ -28,23 +29,18 @@ import { ServiceBroker } from 'moleculer';
 import { Server } from 'node:http';
 
 const schema = 'test_wechat';
-const services = ['api', 'user'];
+const services = ['api', 'user', 'wechat'];
 
 const feature = await loadFeature('./tests/features/user.feature');
 
 type LoginResponse = { token: string };
 
-type WechatMockContext = TestContext & {
-  mockCode2SessionResponse: Mock;
-  mock_wechat_server: MockServer;
-};
-
 type LoginResponseContext = {
-  loginResponse?: LoginResponse;
+  loginResponse: LoginResponse;
 };
 
 type UserProfileContext = {
-  userProfile?: User.Profile;
+  userProfile: User.Profile;
 };
 
 type AdminIdentityContext = TestContext & {
@@ -99,6 +95,7 @@ interface FeatureContext {
   broker: ServiceBroker;
   apiServer: Server;
   adminToken: string;
+  mockWechatReqHandler: Mock;
 }
 
 function rememberError(context: ErrorContext, error: unknown) {
@@ -152,37 +149,56 @@ describeFeature(feature, ({
   BeforeAllScenarios(async () => {
     vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
     await bootstrap();
+
+    const mockWechatReqHandler = vi.fn()
+    .mockImplementationOnce(async ({ path }) => {
+      if (path === '/cgi-bin/token') {
+        return {
+          access_token: 'default_test_token',
+          expires_in: 7200,
+        };
+      }
+
+      return Promise.reject(
+        new Error(`Unexpected request to mock wechat server with path: ${path}`)
+      );
+    });
+
+    const mock_wechat_server = await mockWechatServer(mockWechatReqHandler);
+
+    const wechatServerSpy = vi
+    .spyOn(config.wechat, 'base_url', 'get')
+    .mockReturnValue(mock_wechat_server.address);
+
+    await migrate({ schema });
     const broker = await prepareServices(services);
     await broker.start();
     featureContext.broker = broker;
     featureContext.apiServer = await prepareAPIServer(broker);
+    featureContext.mockWechatReqHandler = mockWechatReqHandler;
+
+    openedSpies.push(wechatServerSpy);
+    openedMockServers.push(mock_wechat_server);
   });
 
   AfterAllScenarios(async () => {
     const { broker } = featureContext;
-    if (broker) {
-      await broker.stop();
-    }
-    vi.restoreAllMocks();
-  });
+    await broker.stop();
 
-  AfterEachScenario(async () => {
-    await dropSchema({ schema });
     while (openedMockServers.length > 0) {
       const server = openedMockServers.pop();
       if (server) {
         server.close();
       }
     }
+  });
 
-    while (openedSpies.length > 0) {
-      const spy = openedSpies.pop();
-      if (spy) {
-        spy.mockRestore();
-      }
-    }
+  AfterEachScenario(async () => {
+    await dropSchema({ schema });
+
+    featureContext.mockWechatReqHandler.mockReset();
     for (const [key] of Object.entries(featureContext)) {
-      if (['broker', 'apiServer'].includes(key)) {
+      if (['broker', 'apiServer', 'mockWechatReqHandler'].includes(key)) {
         continue;
       }
       Object.assign(featureContext, { [key]: undefined });
@@ -193,42 +209,34 @@ describeFeature(feature, ({
     Given('cr7 服务已启动', async () => {
       await migrate({ schema });
     });
-  });
+  })
 
-  Scenario('微信用户登录', (s: StepTest<WechatMockContext & LoginResponseContext & UserProfileContext>) => {
-    const { Given, When, Then, context } = s;
-    Given('微信小程序服务已经准备好', async function () {
-      const mockCode2SessionResponse = vi.fn();
-      const mock_wechat_server = await mockWechatServer(mockCode2SessionResponse);
-      const { address } = mock_wechat_server;
-      vi.spyOn(config.wechat, 'base_url', 'get').mockReturnValue(address);
-      Object.assign(context, { mockCode2SessionResponse, mock_wechat_server });
-    });
-
+  Scenario('微信用户登录', (s: StepTest<
+    LoginResponseContext
+    & UserProfileContext
+  >) => {
+    const { When, Then, context } = s;
     When(
       '微信 用户_{int} 首次打开小程序',
-      async (ctx, user: number) => {
-        const { mockCode2SessionResponse } = context;
-        const { apiServer } = featureContext;
-
-        const code2SessionResponse = {
+      async (_ctx, user: number) => {
+        const { apiServer, mockWechatReqHandler } = featureContext;
+        mockWechatReqHandler.mockResolvedValue({
           openid: `openid_${user}`,
           session_key: `session_key_${user}`,
-        };
-        mockCode2SessionResponse.mockResolvedValue(code2SessionResponse);
-
-        const code = `code_${user}`;
-        const loginResponse = await wechatMiniLogin(apiServer, code);
-
-        const { appid, secret, } = config.wechat;
-        expect(mockCode2SessionResponse).toHaveBeenCalledWith({
-          body: null,
-          query: expect.objectContaining({
-            appid, secret, js_code: code, grant_type: 'authorization_code'
-          })
         });
 
-        Object.assign(context, { loginResponse });
+        const code = `code_${user}`;
+        context.loginResponse = await wechatMiniLogin(apiServer, code);
+
+        const { appid, secret, } = config.wechat;
+        expect(mockWechatReqHandler).toHaveBeenCalledWith(
+          expect.objectContaining({
+            body: null,
+            query: expect.objectContaining({
+              appid, secret, js_code: code, grant_type: 'authorization_code'
+            })
+          })
+        );
       }
     );
 
@@ -243,28 +251,26 @@ describeFeature(feature, ({
       Object.assign(context, { userProfile: profile });
     });
 
-    When(`微信 用户_{int} 再次打开小程序`, async function (ctx, user: number) {
-      const { mockCode2SessionResponse } = context;
-      const { apiServer } = featureContext;
+    When(`微信 用户_{int} 再次打开小程序`, async function (_ctx, user: number) {
+      const { apiServer, mockWechatReqHandler } = featureContext;
 
-      const code2SessionResponse = {
+      mockWechatReqHandler.mockResolvedValue({
         openid: `openid_${user}`,
         session_key: `session_key_${user}_new`,
-      };
-      mockCode2SessionResponse.mockResolvedValue(code2SessionResponse);
+      });
 
       const code = `code_${user}_again`;
       const loginResponse = await wechatMiniLogin(apiServer, code);
 
       const { appid, secret } = config.wechat;
-      expect(mockCode2SessionResponse).toHaveBeenCalledWith({
+      expect(mockWechatReqHandler).toHaveBeenCalledWith(expect.objectContaining({
         body: null,
         query: expect.objectContaining({
           appid, secret, js_code: code, grant_type: 'authorization_code'
         })
-      });
+      }));
 
-      Object.assign(ctx, { loginResponse });
+      context.loginResponse = loginResponse;
     });
 
     Then('登录成功并获取用户信息', async function () {
@@ -281,6 +287,96 @@ describeFeature(feature, ({
     });
   });
 
+  Scenario('微信用户绑定手机号', (s: StepTest<
+    LoginResponseContext
+    & UserProfileContext
+    & { phoneBindCode: string; countryCode: string; }
+  >) => {
+    const { When, Then, And, Given, context } = s;
+
+    When('微信 用户_{int} 打开小程序', async (_ctx, user: number) => {
+      const { apiServer, mockWechatReqHandler } = featureContext;
+      await vi.waitFor(() => {
+        expect(mockWechatReqHandler).toHaveBeenCalledTimes(0);
+      });
+      mockWechatReqHandler.mockResolvedValue({
+        openid: `openid_${user}`,
+        session_key: `session_key_${user}`,
+      });
+      const code = `code_${user}`;
+      const loginResponse = await wechatMiniLogin(apiServer, code);
+      assertLoginResponse(loginResponse);
+      context.loginResponse = loginResponse;
+    });
+
+    Then('注册为新用户', async () => {
+      const { apiServer } = featureContext;
+      const { loginResponse } = context;
+      const profile = await getUserProfile(apiServer, loginResponse!.token);
+      assertUserProfile(profile);
+      Object.assign(context, { userProfile: profile });
+    });
+
+    When('用户点击手机号授权, 国家码为 {string}，手机号为 {string}', async (_ctx, countryCode: string, phone: string) => {
+      const { apiServer, mockWechatReqHandler } = featureContext;
+      const { loginResponse } = context;
+      const phoneBindCode = 'phone_bind_code_1';
+
+      mockWechatReqHandler.mockResolvedValueOnce({
+        errcode: 0,
+        errmsg: 'ok',
+        phone_info: {
+          phoneNumber: phone,
+          purePhoneNumber: phone,
+          countryCode: countryCode,
+        },
+      });
+      await wechatBindPhone(apiServer, loginResponse!.token, phoneBindCode);
+
+      context.phoneBindCode = phoneBindCode;
+    });
+
+  Then('微信服务端返回用户的手机号信息', async () => {
+      const { mockWechatReqHandler } = featureContext;
+      await vi.waitFor(() => {
+        expect(mockWechatReqHandler).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    Then('微信用户已经与手机号绑定', async () => {
+      const { apiServer } = featureContext;
+      const profile = await getUserProfile(apiServer, context.loginResponse!.token);
+      context.userProfile = profile;
+    });
+
+    When(`微信 用户_{int} 再次打开小程序`, async (_ctx, user: number) => {
+      const { apiServer, mockWechatReqHandler } = featureContext;
+      const code = `code_${user}_again`;
+      mockWechatReqHandler.mockResolvedValue({
+        openid: `openid_${user}`,
+        session_key: `session_key_${user}_new`,
+      });
+      const loginResponse = await wechatMiniLogin(apiServer, code);
+      assertLoginResponse(loginResponse);
+      context.loginResponse = loginResponse;
+    });
+
+    Then('登录成功并获取用户信息', async () => {
+      const { apiServer } = featureContext;
+      const profile = await getUserProfile(apiServer, context.loginResponse!.token);
+      assertUserProfile(profile);
+      context.userProfile = profile;
+    });
+
+    And('获取到的用户信息包含手机号，国家码为 {string}，手机号为 {string}', (
+      _ctx,
+      countryCode: string,
+      phone: string,
+    ) => {
+      expect(context.userProfile!.phone).toBe(`+${countryCode} ${phone}`);
+    });
+  });
+
   Scenario('初始化系统管理员账号', (s: StepTest<AdminIdentityContext & AdminPasswordContext & AdminProfileContext>) => {
     const { Given, Then, And, context } = s;
 
@@ -294,7 +390,7 @@ describeFeature(feature, ({
 
       const { apiServer } = featureContext;
       const { profile: adminProfile } = await prepareAdminUser(apiServer, schema, phone);
-      Object.assign(context, { adminProfile });
+      context.adminProfile = adminProfile;
     });
 
     Then('管理员账号创建成功', () => {
