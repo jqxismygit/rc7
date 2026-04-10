@@ -132,7 +132,7 @@ type DamaiCreateOrderResponse = {
 
 type DamaiPayOrderRequest = {
   head: DamaiHeadPayload;
-  bodyPayOrder: {
+  bodyPayCallBack: {
     orderInfo: {
       daMaiOrderId: string;
     };
@@ -388,7 +388,7 @@ function buildDamaiPayOrderError(returnCode: string, returnDesc: string): DamaiP
 
 function buildDamaiPayOrderSuccess(input: {
   orderId: string;
-  daMaiOrderId: string;
+  damaiOrderId: string;
 }): DamaiPayOrderResponse {
   return {
     head: {
@@ -398,7 +398,7 @@ function buildDamaiPayOrderSuccess(input: {
     body: {
       orderPayInfo: {
         thirdOrderId: input.orderId,
-        daMaiOrderId: input.daMaiOrderId,
+        daMaiOrderId: input.damaiOrderId,
         payStatus: DAMAI_PAY_STATUS_SUCCESS,
       },
     },
@@ -587,7 +587,7 @@ class DamaiService extends RC7BaseService {
           rest: 'POST /payCallBack',
           params: {
             head: damaiHeadParamsSchema,
-            bodyPayOrder: {
+            bodyPayCallBack: {
               type: 'object',
               props: {
                 orderInfo: {
@@ -996,8 +996,9 @@ class DamaiService extends RC7BaseService {
     const payload = ctx.params;
     const schema = await this.getSchema();
 
+    const damaiOrderId = payload.bodyPayCallBack.orderInfo.daMaiOrderId;
     const { id: recordId } = await createDamaiOrderSyncRecord(this.pool, schema, {
-      damaiOrderId: payload.bodyPayOrder?.orderInfo?.daMaiOrderId ?? null,
+      damaiOrderId,
       requestPath: DAMAI_PAY_CALLBACK_URI,
       requestBody: payload,
       responseBody: null,
@@ -1009,15 +1010,11 @@ class DamaiService extends RC7BaseService {
       return this.finishWithDamaiResponse(recordId, buildDamaiPayOrderError('20000', '签名错误'));
     }
 
-    const daMaiOrderId = payload.bodyPayOrder?.orderInfo?.daMaiOrderId;
-    if (!daMaiOrderId) {
-      return this.finishWithDamaiResponse(recordId, buildDamaiPayOrderError('20001', '参数异常'));
-    }
 
     const firstSuccessRecord = await getFirstSuccessfulDamaiOrderSyncRecordByDamaiOrderId(
       this.pool,
       schema,
-      daMaiOrderId,
+      damaiOrderId,
     );
 
     if (firstSuccessRecord?.order_id == null || firstSuccessRecord.user_id == null) {
@@ -1034,7 +1031,7 @@ class DamaiService extends RC7BaseService {
         recordId,
         buildDamaiPayOrderSuccess({
           orderId: firstSuccessRecord.order_id,
-          daMaiOrderId,
+          damaiOrderId,
         }),
         'SUCCESS',
         firstSuccessRecord.order_id,

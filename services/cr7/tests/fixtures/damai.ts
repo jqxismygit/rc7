@@ -78,7 +78,7 @@ export interface DamaiPayOrderRequest {
     timestamp: string;
     signed: string;
   };
-  bodyPayOrder: {
+  bodyPayCallBack: {
     orderInfo: DamaiPayOrderBody;
   };
 }
@@ -243,7 +243,7 @@ export function buildDamaiPayOrderRequest(orderInfo: DamaiPayOrderBody): DamaiPa
       timestamp: signature.timestamp,
       signed: signature.signed,
     },
-    bodyPayOrder: {
+    bodyPayCallBack: {
       orderInfo,
     },
   };
