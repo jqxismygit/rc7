@@ -978,8 +978,8 @@ class DamaiService extends RC7BaseService {
         userId,
       );
     } catch (error) {
-      const code = (error as { code?: string }).code;
-      if (code === 'INVENTORY_NOT_ENOUGH') {
+      const type = (error as { type?: string }).type;
+      if (type === 'INVENTORY_NOT_ENOUGH') {
         return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20010', '库存不足'));
       }
 
@@ -1038,13 +1038,13 @@ class DamaiService extends RC7BaseService {
         firstSuccessRecord.user_id,
       );
     } catch (error) {
-      const code = (error as { code?: string }).code;
+      const type = (error as { type?: string }).type;
 
-      if (code === 'ORDER_NOT_FOUND') {
+      if (type === 'ORDER_NOT_FOUND') {
         return this.finishWithDamaiResponse(recordId, buildDamaiPayOrderError('20020', '订单不存在'));
       }
 
-      if (code === 'ORDER_STATUS_INVALID') {
+      if (type === 'ORDER_STATUS_INVALID') {
         return this.finishWithDamaiResponse(recordId, buildDamaiPayOrderError('20021', '订单状态异常'));
       }
 
@@ -1115,8 +1115,8 @@ class DamaiService extends RC7BaseService {
         order.user_id,
       );
     } catch (error) {
-      const code = (error as { code?: string }).code;
-      if (code === 'ORDER_STATUS_INVALID') {
+      const type = (error as { type?: string }).type;
+      if (type === 'ORDER_STATUS_INVALID') {
         return this.finishWithDamaiResponse(
           recordId,
           buildDamaiCancelOrderError('20040', '取消订单失败 -- 订单状态异常'),
@@ -1229,8 +1229,8 @@ class DamaiService extends RC7BaseService {
         order.user_id,
       );
     } catch (error) {
-      const code = (error as { code?: string }).code;
-      if (code === 'ORDER_STATUS_INVALID') {
+      const type = (error as { type?: string }).type;
+      if (type === 'ORDER_STATUS_INVALID') {
         return this.finishWithDamaiResponse(
           recordId,
           buildDamaiRefundApplyError('20050', '退款失败--订单状态异常'),
