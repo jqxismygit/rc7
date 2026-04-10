@@ -9,12 +9,12 @@ import { isSameDay } from 'date-fns';
 import { Exhibition, Order, Payment, Redeem, User } from '@cr7/types';
 import { expect, vi } from 'vitest';
 import type { ServiceBroker } from 'moleculer';
-import type { Pool } from 'pg';
 import { FixturesResult, useFixtures } from './lib/fixtures.js';
 import { assertAPIError } from './lib/api.js';
 import { Text2Date, toDateLabel } from './lib/relative-date.js';
 import { services_fixtures } from './fixtures/services.js';
-import { registerUser, getUserProfile, prepareAdminToken } from './fixtures/user.js';
+import { prepareAdminToken } from './fixtures/user.js';
+import { setupWechatFixture, WechatFixture } from './fixtures/wechat.js';
 import {
   getSessions,
   prepareExhibition,
@@ -36,7 +36,7 @@ import { getOrder } from './fixtures/order.js';
 import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 
 const schema = 'test_redeem';
-const services = ['api', 'user', 'cr7'];
+const services = ['api', 'user', 'wechat', 'cr7'];
 
 const feature = await loadFeature('tests/features/redeem.feature');
 
@@ -62,10 +62,6 @@ type ErrorContext = {
   lastError: unknown;
 };
 
-type ServiceWithPool = {
-  pool: Pick<Pool, 'query'>;
-};
-
 interface DefaultUserContext {
   adminToken: string;
   userToken: string;
@@ -77,6 +73,7 @@ interface DefaultUserContext {
 
 interface FeatureContext extends DefaultUserContext, ExhibitionContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer' | 'broker'>;
+  wechatFixture: WechatFixture;
 }
 
 function getSessionByDate(
@@ -162,6 +159,7 @@ describeFeature(feature, ({
 }: FeatureDescriibeCallbackParams<FeatureContext>) => {
   BeforeAllScenarios(async () => {
     vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
+    const wechatFixture = await setupWechatFixture();
     const fixtures = await useFixtures(
       { ...services_fixtures, schema, services },
       ['apiServer', 'broker'],
@@ -169,11 +167,13 @@ describeFeature(feature, ({
 
 
     featureContext.fixtures = fixtures;
+    featureContext.wechatFixture = wechatFixture;
     featureContext.usersByName = {};
   });
 
   AfterAllScenarios(async () => {
     await featureContext.fixtures.close();
+    await featureContext.wechatFixture.close();
   });
 
   Background(({ Given, And }) => {
@@ -182,19 +182,19 @@ describeFeature(feature, ({
       featureContext.adminToken = await prepareAdminToken(apiServer, schema);;
     });
 
-    Given('用户 {string} 已注册并登录', async (_ctx, userName: string) => {
+    Given('用户 {string} 已注册并登录，已绑定手机号', async (_ctx, userName: string) => {
       const { apiServer } = featureContext.fixtures.values;
-      const token = await registerUser(apiServer, `${userName}_${Date.now()}`);
-      const profile = await getUserProfile(apiServer, token);
+      const { token, profile } = await featureContext.wechatFixture
+        .registerAndBindPhone(apiServer, `${userName}_${Date.now()}`);
       featureContext.userToken = token;
       featureContext.userProfile = profile;
       featureContext.usersByName[userName] = { token, profile };
     });
 
-    Given('{string} 已注册并登录', async (_ctx, userName: string) => {
+    Given('{string} 已注册并登录，已绑定手机号', async (_ctx, userName: string) => {
       const { apiServer } = featureContext.fixtures.values;
-      const token = await registerUser(apiServer, `${userName}_${Date.now()}`);
-      const profile = await getUserProfile(apiServer, token);
+      const { token, profile } = await featureContext.wechatFixture
+        .registerAndBindPhone(apiServer, `${userName}_${Date.now()}`);
       featureContext.operatorToken = token;
       featureContext.operatorProfile = profile;
       featureContext.usersByName[userName] = { token, profile };

@@ -2,7 +2,7 @@ Feature: 微信支付订单
 
   Background:
     Given 微信支付已配置完成
-    Given 微信用户 "wechat_user_1" 已注册并登录
+    Given 微信用户 "wechat_user_1" 已注册并登录，已绑定手机号
     Given 用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "成人票"
 
 

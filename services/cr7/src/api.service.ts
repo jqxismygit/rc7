@@ -154,10 +154,10 @@ const routes = [
   ),
   routeConfig(
     '/exhibition/:eid/sessions/:sid/orders',
-    ['cr7.order.create'],
+    ['cr7.order.createWithWechatPay'],
     {
       aliases: {
-        'POST /': 'cr7.order.create'
+        'POST /': 'cr7.order.createWithWechatPay'
       }
     }
   ),

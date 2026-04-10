@@ -28,6 +28,27 @@
   - 首次登录自动创建 `users` 与 `user_wechat` 记录
   - 已存在的微信身份再次登录时复用同一用户
 
+## 微信绑定手机号
+
+- URL: `/user/phone/wechat`
+- Method: `POST`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Body:
+  ```ts
+  { code: string }
+  ```
+- Response Status:
+  - `204 No Content`：绑定成功
+  - `401 Unauthorized`：未认证
+  - `409 Conflict`：手机号已被其他用户绑定
+
+- 说明：
+  - 使用微信手机号授权 `code` 向微信服务端换取手机号信息
+  - 绑定成功后，`GET /user/profile` 中的 `phone` 将返回完整格式，例如 `+86 12345678901`
+
 ## 手机号密码登录
 
 - URL: `/user/login/password`

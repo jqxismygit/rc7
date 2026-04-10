@@ -12,7 +12,8 @@ import { FixturesResult, useFixtures } from './lib/fixtures.js';
 import { assertAPIError } from './lib/api.js';
 import { toDateLabel } from './lib/relative-date.js';
 import { services_fixtures } from './fixtures/services.js';
-import { prepareAdminToken, registerUser } from './fixtures/user.js';
+import { prepareAdminToken } from './fixtures/user.js';
+import { setupWechatFixture, WechatFixture } from './fixtures/wechat.js';
 import { MockServer, mockJSONServer } from './lib/server.js';
 import {
   prepareExhibitionSessionTicket,
@@ -39,7 +40,7 @@ import { getSessionTickets } from './fixtures/inventory.js';
 import { random_text } from './lib/random.js';
 
 const schema = 'test_wechatpay';
-const services = ['api', 'user', 'cr7'];
+const services = ['api', 'user', 'wechat', 'cr7'];
 
 type ExhibitionContext = {
   exhibition?: Exhibition.Exhibition;
@@ -96,6 +97,7 @@ interface ScenarioContext extends ExhibitionContext, OrderContext, InventoryCont
   adminToken: string;
   userToken: string;
   userOpenid: string;
+  wechatFixture: WechatFixture;
   wechatPayMockServer?: MockServer;
   wechatPayRequestHandler?: Mock;
 }
@@ -111,11 +113,12 @@ describeFeature(feature, ({
 }: FeatureDescriibeCallbackParams<ScenarioContext>) => {
   BeforeAllScenarios(async () => {
     vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
+    const wechatFixture = await setupWechatFixture();
     const fixtures = await useFixtures(
       { ...services_fixtures, schema, services },
       ['apiServer', 'broker'],
     );
-    Object.assign(scenarioContext, { fixtures });
+    Object.assign(scenarioContext, { fixtures, wechatFixture });
   });
 
   AfterAllScenarios(async () => {
@@ -123,6 +126,7 @@ describeFeature(feature, ({
       await scenarioContext.wechatPayMockServer.close();
     }
     await scenarioContext.fixtures.close();
+    await scenarioContext.wechatFixture.close();
   });
 
   function requireExhibitionContext(
@@ -300,11 +304,11 @@ describeFeature(feature, ({
       Object.assign(scenarioContext, { wechatPayMockServer: mockServer });
     });
 
-    Given('微信用户 "wechat_user_1" 已注册并登录', async () => {
+    Given('微信用户 "wechat_user_1" 已注册并登录，已绑定手机号', async () => {
       const { apiServer } = scenarioContext.fixtures.values;
       const userName = `wechat_user_1_${random_text(6)}`;
-      const token = await registerUser(apiServer, userName);
-      const openid = `openid_${userName}`;
+      const { token, openid } = await scenarioContext.wechatFixture
+        .registerAndBindPhone(apiServer, userName);
       Object.assign(scenarioContext, { userToken: token, userOpenid: openid });
     });
 

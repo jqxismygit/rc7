@@ -31,6 +31,15 @@ export class OrderService extends RC7BaseService {
   };
 
   actions_order: ServiceSchema['actions'] = {
+    'order.createWithWechatPay': {
+      rest: 'POST /:eid/sessions/:sid/orders',
+      params: {
+        eid: 'string',
+        sid: 'string',
+        items: 'array',
+      },
+      handler: this.createWechatPayOrder,
+    },
     'order.create': {
       rest: 'POST /:eid/sessions/:sid/orders',
       params: {
@@ -38,18 +47,13 @@ export class OrderService extends RC7BaseService {
           type: 'string',
           optional: true,
         },
-        user_id: {
-          type: 'string',
-          optional: true,
-        },
+        user_id: 'string',
         eid: 'string',
         sid: 'string',
         items: 'array',
         source: {
           type: 'enum',
-          values: ['DIRECT', 'CTRIP', 'MOP', 'DAMAI'],
-          optional: true,
-          default: 'DIRECT',
+          values: ['CTRIP', 'MOP', 'DAMAI'],
         },
       },
       handler: this.createOrder,
@@ -191,24 +195,37 @@ export class OrderService extends RC7BaseService {
 
   };
 
-  async createOrder(
+  async createWechatPayOrder(
     ctx: Context<{
-      id?: string;
-      user_id?: string;
       eid: string;
       sid: string;
       items: Order.CreateOrderItem[];
-      source?: Order.OrderSource;
-    }, { user?: UserMeta }>
+    }, { user: UserMeta }>
   ) {
-    const { id, user_id: inputUserId, eid, sid, items, source = 'DIRECT' } = ctx.params;
-    const authUserId = ctx.meta.user?.uid;
+    const { uid } = ctx.meta.user;
+    const profile = await ctx.call<{ phone: string | null }>('user.profile');
 
-    if (authUserId && inputUserId && inputUserId !== authUserId) {
-      throw new MoleculerClientError('Insufficient permissions', 403, 'FORBIDDEN_ACCESS');
+    if (!profile.phone) {
+      throw new MoleculerClientError('请先绑定手机号', 409, 'PHONE_NOT_BOUND');
     }
 
-    const user_id = inputUserId ?? authUserId;
+    const { eid, sid, items } = ctx.params;
+    return this.createOrderWithTransaction({
+      user_id: uid, eid, sid, items, source: 'DIRECT'
+    });
+  }
+
+  async createOrder(
+    ctx: Context<{
+      id?: string;
+      user_id: string;
+      eid: string;
+      sid: string;
+      items: Order.CreateOrderItem[];
+      source: Order.OrderSource;
+    }>
+  ) {
+    const { id, user_id, eid, sid, items, source } = ctx.params;
     if (!user_id) {
       throw new MoleculerClientError('Missing user_id', 400, 'USER_ID_REQUIRED');
     }
