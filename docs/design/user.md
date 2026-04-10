@@ -30,6 +30,8 @@
 核心字段：
 - `id: UUID`
 - `name: string`
+- `avatar: string | null`
+- `profile: Record<string, unknown>`
 - `created_at`
 - `updated_at`
 
@@ -37,6 +39,8 @@
 - 无论用户从微信登录，还是通过用户名密码登录，最终都归属于同一条 `users` 记录。
 - `users` 主表不存手机号，手机号独立到 `user_phone` 表，与其他认证方式保持对称。
 - `users` 主表也不存 `role`，角色通过独立表维护。
+- `avatar` 用于保存用户头像 URL，未设置时为 `null`。
+- `profile` 用于保存扩展资料，使用对象结构承载性别、年龄等可扩展字段。
 - 后续若微信用户补绑密码，不新建用户，只新增对应认证记录。
 
 ### 2.2 角色
@@ -114,6 +118,8 @@
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT GEN_RANDOM_UUID(),
   name VARCHAR(255) NOT NULL,
+  avatar VARCHAR(1024),
+  profile JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

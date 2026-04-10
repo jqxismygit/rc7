@@ -1,0 +1,3 @@
+ALTER TABLE users
+ADD COLUMN avatar VARCHAR(1024),
+ADD COLUMN profile JSONB NOT NULL DEFAULT '{}'::jsonb;

@@ -57,6 +57,8 @@ export async function getUserProfile(
     `SELECT
       u.id,
       u.name,
+      u.avatar,
+      COALESCE(u.profile, '{}'::jsonb) AS profile,
       ud.damai_user_id,
       uw.openid,
       CASE
@@ -120,6 +122,8 @@ export async function listUserProfiles(
     `SELECT
       u.id,
       u.name,
+      u.avatar,
+      COALESCE(u.profile, '{}'::jsonb) AS profile,
       ud.damai_user_id,
       uw.openid,
       CASE
@@ -406,4 +410,42 @@ export async function updatePassword(
   }
 
   throw new UserDataError('Password mismatch', 'PASSWORD_MISMATCH');
+}
+
+export async function updateUserProfile(
+  client: DBClient,
+  schema: string,
+  uid: string,
+  input: {
+    name?: string;
+    avatar?: string;
+    profile?: Record<string, unknown>;
+  },
+) {
+  const { name, avatar, profile } = input;
+
+  const { rows: updatedRows } = await client.query<{ id: string }>(
+    `UPDATE ${schema}.users
+    SET
+      name = COALESCE($2, name),
+      avatar = COALESCE($3, avatar),
+      profile = CASE
+        WHEN $4::jsonb IS NULL THEN profile
+        ELSE COALESCE(profile, '{}'::jsonb) || $4::jsonb
+      END,
+      updated_at = CASE
+        WHEN $2::text IS NULL
+          AND $3::text IS NULL
+          AND $4::jsonb IS NULL
+        THEN updated_at
+        ELSE NOW()
+      END
+    WHERE id = $1
+    RETURNING id`,
+    [uid, name ?? null, avatar ?? null, profile ? JSON.stringify(profile) : null],
+  );
+
+  if (updatedRows.length === 0) {
+    throw new UserDataError('User not found', 'USER_NOT_FOUND');
+  }
 }

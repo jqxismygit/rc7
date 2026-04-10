@@ -16,6 +16,7 @@ import {
   assignRoleToUser,
   upsertUserByDamaiId,
   upsertUserByPhone,
+  updateUserProfile,
 } from './data/user.js';
 import { handleUserError } from './libs/errors.js';
 
@@ -81,6 +82,25 @@ export default class UserService extends Service {
         profile: {
           rest: 'GET /profile',
           handler: this.profile
+        },
+
+        profile_update: {
+          rest: 'PUT /profile',
+          params: {
+            name: {
+              type: 'string',
+              optional: true,
+            },
+            avatar: {
+              type: 'string',
+              optional: true,
+            },
+            profile: {
+              type: 'object',
+              optional: true,
+            },
+          },
+          handler: this.profile_update,
         },
 
         roles: this.getRoleNames,
@@ -226,6 +246,27 @@ export default class UserService extends Service {
       .then(res => res, handleUserError);
 
     return profile;
+  }
+
+  async profile_update(
+    ctx: Context<{
+      name?: string;
+      avatar?: string;
+      profile?: Record<string, unknown>;
+    }, { user: UserMeta; $statusCode?: number }>,
+  ) {
+    const { uid } = ctx.meta.user;
+    const schema = await this.getSchema();
+    const { name, avatar, profile } = ctx.params;
+
+    await updateUserProfile(this.pool, schema, uid, {
+      name,
+      avatar,
+      profile,
+    }).catch(handleUserError);
+
+    ctx.meta.$statusCode = 204;
+    return null;
   }
 
   async password_login(

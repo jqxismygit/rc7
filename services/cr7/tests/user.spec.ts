@@ -19,6 +19,7 @@ import {
   passwordLogin,
   prepareAdminUser,
   registerUser,
+  updateUserProfile,
   wechatBindPhone,
   wechatMiniLogin
 } from './fixtures/user.js';
@@ -37,10 +38,14 @@ type LoginResponse = { token: string };
 
 type LoginResponseContext = {
   loginResponse: LoginResponse;
+  userProfile: User.Profile;
 };
 
-type UserProfileContext = {
-  userProfile: User.Profile;
+type UpdateProfileContext = {
+  newName: string;
+  newAvatar: string;
+  newProfile: Record<string, string | number>;
+  updateProfileResponse: null;
 };
 
 type AdminIdentityContext = TestContext & {
@@ -91,7 +96,8 @@ type UserListContext = {
   pagedUserListResponse?: User.UserListResult;
 };
 
-interface FeatureContext {
+interface FeatureContext extends
+  Partial<LoginResponseContext> {
   broker: ServiceBroker;
   apiServer: Server;
   adminToken: string;
@@ -122,6 +128,7 @@ describeFeature(feature, ({
   BeforeAllScenarios,
   AfterAllScenarios,
   AfterEachScenario,
+  defineSteps,
   Background,
   context: featureContext
 }: FeatureDescriibeCallbackParams<FeatureContext>) => {
@@ -205,20 +212,10 @@ describeFeature(feature, ({
     }
   });
 
-  Background(({ Given }) => {
-    Given('cr7 服务已启动', async () => {
-      await migrate({ schema });
-    });
-  })
-
-  Scenario('微信用户登录', (s: StepTest<
-    LoginResponseContext
-    & UserProfileContext
-  >) => {
-    const { When, Then, context } = s;
+  defineSteps(({ When, Then }) => {
     When(
-      '微信 用户_{int} 首次打开小程序',
-      async (_ctx, user: number) => {
+      '微信用户 {string} 首次打开小程序',
+      async (_ctx, user: string) => {
         const { apiServer, mockWechatReqHandler } = featureContext;
         mockWechatReqHandler.mockResolvedValue({
           openid: `openid_${user}`,
@@ -226,7 +223,7 @@ describeFeature(feature, ({
         });
 
         const code = `code_${user}`;
-        context.loginResponse = await wechatMiniLogin(apiServer, code);
+        featureContext.loginResponse = await wechatMiniLogin(apiServer, code);
 
         const { appid, secret, } = config.wechat;
         expect(mockWechatReqHandler).toHaveBeenCalledWith(
@@ -241,17 +238,33 @@ describeFeature(feature, ({
     );
 
     Then('注册为新用户', async function () {
-      const { loginResponse } = context;
-      const { apiServer } = featureContext;
+      const { apiServer, loginResponse } = featureContext;
       assertLoginResponse(loginResponse);
       const { token } = loginResponse!;
       const profile = await getUserProfile(apiServer, token);
       assertUserProfile(profile);
 
-      Object.assign(context, { userProfile: profile });
+      featureContext.userProfile = profile;
     });
 
-    When(`微信 用户_{int} 再次打开小程序`, async function (_ctx, user: number) {
+    When('用户获取新的个人信息', async () => {
+      const { apiServer, loginResponse } = featureContext;
+      const profile = await getUserProfile(apiServer, loginResponse!.token);
+      assertUserProfile(profile);
+      featureContext.userProfile = profile;
+    });
+  });
+
+  Background(({ Given }) => {
+    Given('cr7 服务已启动', async () => {
+      await migrate({ schema });
+    });
+  })
+
+  Scenario('微信用户登录', (s: StepTest<LoginResponseContext>) => {
+    const { When, Then, context } = s;
+
+    When(`微信用户 {string} 再次打开小程序`, async function (_ctx, user: string) {
       const { apiServer, mockWechatReqHandler } = featureContext;
 
       mockWechatReqHandler.mockResolvedValue({
@@ -275,51 +288,83 @@ describeFeature(feature, ({
 
     Then('登录成功并获取用户信息', async function () {
       const { loginResponse } = context;
-      const previousProfile = context.userProfile!;
-      const { apiServer } = featureContext;
+      const { apiServer, userProfile: previousProfile } = featureContext;
 
       assertLoginResponse(loginResponse);
       const { token } = loginResponse!;
       const profile = await getUserProfile(apiServer, token);
       assertUserProfile(profile);
 
-      expect(profile.openid).toBe(previousProfile.openid);
+      expect(profile.openid).toBe(previousProfile!.openid);
+    });
+  });
+
+  Scenario('用户更新个人信息', (s: StepTest<
+    LoginResponseContext
+    & UpdateProfileContext
+  >) => {
+    const { Given, When, Then, And, context } = s;
+
+    Given('用户新名称为 {string}', (_ctx, name: string) => {
+      context.newName = name;
+    });
+
+    And('用户新的头像 {string}', (_ctx, avatar: string) => {
+      context.newAvatar = avatar;
+    });
+
+    And('用户新的 profile 中有 {string}，值为 {string}', (_ctx, key: string, value: string) => {
+      context.newProfile = context.newProfile ?? {};
+      context.newProfile[key] = value;
+    });
+
+    And('用户新的 profile 中有 {string}，值为 {int}', (_ctx, key: string, value: number) => {
+      context.newProfile = context.newProfile ?? {};
+      context.newProfile[key] = value;
+    });
+
+    When('用户更新个人信息', async () => {
+      const { apiServer, loginResponse } = featureContext;
+      const response = await updateUserProfile(
+        apiServer, loginResponse!.token,
+        {
+          name: context.newName,
+          avatar: context.newAvatar,
+          profile: context.newProfile,
+        }
+      );
+      context.updateProfileResponse = response;
+    });
+
+    Then('用户信息更新成功', () => {
+      expect(context.updateProfileResponse).toBeNull();
+    });
+
+    Then('用户信息名称为 {string}', (_ctx, expectedName: string) => {
+      expect(featureContext.userProfile!.name).toBe(expectedName);
+    });
+
+    And('用户信息头像为 {string}', (_ctx, expectedAvatar: string) => {
+      expect(featureContext.userProfile!.avatar).toBe(expectedAvatar);
+    });
+
+    And('用户信息 profile 中 {string} 的值为 {string}', (_ctx, key: string, expectedValue: string) => {
+      expect(featureContext.userProfile!.profile[key]).toBe(expectedValue);
+    });
+
+    And('用户信息 profile 中 {string} 的值为 {int}', (_ctx, key: string, expectedValue: number) => {
+      expect(featureContext.userProfile!.profile[key]).toBe(expectedValue);
     });
   });
 
   Scenario('微信用户绑定手机号', (s: StepTest<
     LoginResponseContext
-    & UserProfileContext
     & { phoneBindCode: string; countryCode: string; }
   >) => {
     const { When, Then, And, Given, context } = s;
 
-    When('微信 用户_{int} 打开小程序', async (_ctx, user: number) => {
-      const { apiServer, mockWechatReqHandler } = featureContext;
-      await vi.waitFor(() => {
-        expect(mockWechatReqHandler).toHaveBeenCalledTimes(0);
-      });
-      mockWechatReqHandler.mockResolvedValue({
-        openid: `openid_${user}`,
-        session_key: `session_key_${user}`,
-      });
-      const code = `code_${user}`;
-      const loginResponse = await wechatMiniLogin(apiServer, code);
-      assertLoginResponse(loginResponse);
-      context.loginResponse = loginResponse;
-    });
-
-    Then('注册为新用户', async () => {
-      const { apiServer } = featureContext;
-      const { loginResponse } = context;
-      const profile = await getUserProfile(apiServer, loginResponse!.token);
-      assertUserProfile(profile);
-      Object.assign(context, { userProfile: profile });
-    });
-
     When('用户点击手机号授权, 国家码为 {string}，手机号为 {string}', async (_ctx, countryCode: string, phone: string) => {
-      const { apiServer, mockWechatReqHandler } = featureContext;
-      const { loginResponse } = context;
+      const { apiServer, mockWechatReqHandler, loginResponse } = featureContext;
       const phoneBindCode = 'phone_bind_code_1';
 
       mockWechatReqHandler.mockResolvedValueOnce({
@@ -344,27 +389,8 @@ describeFeature(feature, ({
     });
 
     Then('微信用户已经与手机号绑定', async () => {
-      const { apiServer } = featureContext;
-      const profile = await getUserProfile(apiServer, context.loginResponse!.token);
-      context.userProfile = profile;
-    });
-
-    When(`微信 用户_{int} 再次打开小程序`, async (_ctx, user: number) => {
-      const { apiServer, mockWechatReqHandler } = featureContext;
-      const code = `code_${user}_again`;
-      mockWechatReqHandler.mockResolvedValue({
-        openid: `openid_${user}`,
-        session_key: `session_key_${user}_new`,
-      });
-      const loginResponse = await wechatMiniLogin(apiServer, code);
-      assertLoginResponse(loginResponse);
-      context.loginResponse = loginResponse;
-    });
-
-    Then('登录成功并获取用户信息', async () => {
-      const { apiServer } = featureContext;
-      const profile = await getUserProfile(apiServer, context.loginResponse!.token);
-      assertUserProfile(profile);
+      const { apiServer, loginResponse } = featureContext;
+      const profile = await getUserProfile(apiServer, loginResponse!.token);
       context.userProfile = profile;
     });
 

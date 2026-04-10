@@ -32,6 +32,21 @@ export function getUserProfile(server: Server, token: string) {
   return getJSON<User.Profile>(server, '/user/profile', { token });
 }
 
+export function updateUserProfile(
+  server: Server,
+  token: string,
+  payload: {
+    name?: string;
+    avatar?: string;
+    profile?: Record<string, unknown>;
+  },
+) {
+  return putJSON<null>(server, '/user/profile', {
+    token,
+    body: payload,
+  });
+}
+
 export function listUsers(
   server: Server,
   token: string,
@@ -106,6 +121,8 @@ export function assertUserProfile(profile: unknown) {
   expect(profile).toBeTypeOf('object');
   const userProfile = profile as User.Profile;
   expect(userProfile.id).toEqual(expect.any(String));
+  expect(profile).toHaveProperty('avatar', expect.toBeOneOf([expect.any(String), null]));
+  expect(profile).toHaveProperty('profile', expect.any(Object));
   expect(profile).toHaveProperty('damai_user_id', expect.toBeOneOf([expect.any(String), null]));
   if (userProfile.phone !== null) {
     expect(userProfile.phone).toBeTypeOf('string');

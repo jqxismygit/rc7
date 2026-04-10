@@ -4,19 +4,33 @@ Feature: user registration and login
     Given cr7 服务已启动
 
   Scenario: 微信用户登录
-     When 微信 用户_1 首次打开小程序
+     When 微信用户 "wechat_mp_user" 首次打开小程序
      Then 注册为新用户
-     When 微信 用户_1 再次打开小程序
+     When 微信用户 "wechat_mp_user" 再次打开小程序
      Then 登录成功并获取用户信息
 
+  Scenario: 用户更新个人信息
+    When 微信用户 "wechat_mp_user" 首次打开小程序
+    Then 注册为新用户
+
+   Given 用户新名称为 "新昵称"
+     And 用户新的头像 "https://example.com/new-avatar.jpg"
+     And 用户新的 profile 中有 "性别"，值为 "男"
+     And 用户新的 profile 中有 "年龄"，值为 30
+    When 用户更新个人信息
+    Then 用户信息更新成功
+    When 用户获取新的个人信息
+    Then 用户信息名称为 "新昵称"
+     And 用户信息头像为 "https://example.com/new-avatar.jpg"
+     And 用户信息 profile 中 "性别" 的值为 "男"
+     And 用户信息 profile 中 "年龄" 的值为 30
+
   Scenario: 微信用户绑定手机号
-     When 微信 用户_1 打开小程序
+     When 微信用户 "wechat_mp_user" 首次打开小程序
      Then 注册为新用户
      When 用户点击手机号授权, 国家码为 "86"，手机号为 "12345678901"
      Then 微信服务端返回用户的手机号信息
      Then 微信用户已经与手机号绑定
-     When 微信 用户_1 再次打开小程序
-     Then 登录成功并获取用户信息
       And 获取到的用户信息包含手机号，国家码为 "86"，手机号为 "12345678901"
 
   Scenario: 初始化系统管理员账号

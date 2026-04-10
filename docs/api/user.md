@@ -105,10 +105,35 @@
 
 - 说明：
   - 手机号密码登录与微信登录共享同一套 `users` 主表
+  - `avatar` 未设置时返回 `null`
+  - `profile` 始终返回对象，未设置时返回空对象
   - `damai_user_id` 对未绑定大麦账号的用户为 `null`
   - `openid` 对未绑定微信的用户为 `null`
   - `phone` 对未绑定手机号的用户为 `null`，绑定后返回完整格式如 `+86 12345678901`
   - `auth_methods` 返回当前用户已绑定的认证方式列表，如 `['DAMAI', 'WECHAT_MINI', 'PASSWORD']`
+
+## 更新当前用户信息
+
+- URL: `/user/profile`
+- Method: `PUT`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Body:
+  ```ts
+  Partial<Pick<User.Profile, 'name' | 'avatar' | 'profile'>>
+  ```
+- Response Status:
+  - `204 No Content`：更新成功
+  - `400 Bad Request`：参数不合法
+  - `401 Unauthorized`：未认证
+
+- 说明：
+  - 仅更新当前登录用户自身资料
+  - `name`、`avatar` 为可选字段，未传则保持原值
+  - `profile` 为可选对象，传入时按 key 合并到现有资料，不会清空未传入字段
+  - 更新后可通过 `GET /user/profile` 读取最新资料
 
 ## 为用户授予角色
 

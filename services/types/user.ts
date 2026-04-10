@@ -8,6 +8,10 @@ export interface Role {
 export interface Profile {
   id: string;
   name: string;
+  /** 未设置头像时为 null */
+  avatar: string | null;
+  /** 用户扩展资料，默认空对象 */
+  profile: Record<string, unknown>;
   /** 未绑定大麦时为 null */
   damai_user_id?: string | null;
   /** 拼合格式如 "+86 12345678901"，未绑定时为 null */
