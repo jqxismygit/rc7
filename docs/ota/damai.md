@@ -187,7 +187,7 @@ Java
 1 {
 2 "signed " : {
 3 "signInfo" : "消息签名",
-4 "timestamp" : "时间戳"
+4 "timeStamp" : "时间戳"
 5 }
 6 }
 
@@ -253,7 +253,7 @@ Java
         "id": "2549337712832"
     },
     "signed": {
-        "timestamp": "1631757264606",
+        "timeStamp": "1631757264606",
         "signInfo": "请使用申请的签名"
     }
 }
@@ -307,7 +307,7 @@ Java
     ]
 },
 "signed": {
-    "timestamp": "1631757264606",
+    "timeStamp": "1631757264606",
     "signInfo": "请使用申请的签名"
 },
 "projectId": "349337712877"
@@ -341,7 +341,7 @@ Java
 {
     "performId": "3",
     "signed": {
-        "timestamp": "1631757264606",
+        "timeStamp": "1631757264606",
         "signInfo": "请使用申请的签名"
     },
     "packages": [
@@ -448,7 +448,7 @@ Java
     ],
     "projectId": "88232",
     "signed": {
-        "timestamp": "173175726460336",
+        "timeStamp": "173175726460336",
         "signInfo": "Zxx="
     }
 }
@@ -496,7 +496,7 @@ Java
     ],
     "venueId": "349337712877",
     "signed": {
-        "timestamp": "1631757264606",
+        "timeStamp": "1631757264606",
         "signInfo": "请使用申请的签名"
     },
     "projectId": "349337712877",
@@ -574,7 +574,7 @@ Java
 {
     "performId": "3",
     "signed": {
-        "timestamp": "1631757264606",
+        "timeStamp": "1631757264606",
         "signInfo": "请使用申请的签名"
     },
     "projectId": "349337712877",
@@ -636,14 +636,14 @@ Java
         "msgId": "消息ID",
         "apiKey": "API钥匙",
         "apiSecret": "API密钥",
-        "timestamp": "消息发送时间戳",
+        "timeStamp": "消息发送时间戳",
         "signed": "消息签名"
     }
 }
 
 
 
-<table border=1 style='margin: auto; word-wrap: break-word;'><tr><td style='text-align: center; word-wrap: break-word;'>元素名称</td><td style='text-align: center; word-wrap: break-word;'>类型</td><td style='text-align: center; word-wrap: break-word;'>是否必填</td><td style='text-align: center; word-wrap: break-word;'>描述</td><td style='text-align: center; word-wrap: break-word;'>说明</td></tr><tr><td style='text-align: center; word-wrap: break-word;'>apiKey</td><td style='text-align: center; word-wrap: break-word;'>String</td><td style='text-align: center; word-wrap: break-word;'>Y</td><td style='text-align: center; word-wrap: break-word;'>Api钥匙</td><td style='text-align: center; word-wrap: break-word;'></td></tr><tr><td style='text-align: center; word-wrap: break-word;'>apiSecret</td><td style='text-align: center; word-wrap: break-word;'>String</td><td style='text-align: center; word-wrap: break-word;'>Y</td><td style='text-align: center; word-wrap: break-word;'>请求体</td><td style='text-align: center; word-wrap: break-word;'></td></tr><tr><td style='text-align: center; word-wrap: break-word;'>timestamp</td><td style='text-align: center; word-wrap: break-word;'>String</td><td style='text-align: center; word-wrap: break-word;'>Y</td><td style='text-align: center; word-wrap: break-word;'>时间戳</td><td style='text-align: center; word-wrap: break-word;'>毫秒</td></tr><tr><td style='text-align: center; word-wrap: break-word;'>msgId</td><td style='text-align: center; word-wrap: break-word;'>String</td><td style='text-align: center; word-wrap: break-word;'>Y</td><td style='text-align: center; word-wrap: break-word;'>消息Id</td><td style='text-align: center; word-wrap: break-word;'>请求消息唯一ID</td></tr><tr><td style='text-align: center; word-wrap: break-word;'>version</td><td style='text-align: center; word-wrap: break-word;'>String</td><td style='text-align: center; word-wrap: break-word;'>Y</td><td style='text-align: center; word-wrap: break-word;'>版本号</td><td style='text-align: center; word-wrap: break-word;'>如：1.0</td></tr><tr><td style='text-align: center; word-wrap: break-word;'>signed</td><td style='text-align: center; word-wrap: break-word;'>String</td><td style='text-align: center; word-wrap: break-word;'>Y</td><td style='text-align: center; word-wrap: break-word;'>消息签名</td><td style='text-align: center; word-wrap: break-word;'>见消息签名规则</td></tr></table>
+<table border=1 style='margin: auto; word-wrap: break-word;'><tr><td style='text-align: center; word-wrap: break-word;'>元素名称</td><td style='text-align: center; word-wrap: break-word;'>类型</td><td style='text-align: center; word-wrap: break-word;'>是否必填</td><td style='text-align: center; word-wrap: break-word;'>描述</td><td style='text-align: center; word-wrap: break-word;'>说明</td></tr><tr><td style='text-align: center; word-wrap: break-word;'>apiKey</td><td style='text-align: center; word-wrap: break-word;'>String</td><td style='text-align: center; word-wrap: break-word;'>Y</td><td style='text-align: center; word-wrap: break-word;'>Api钥匙</td><td style='text-align: center; word-wrap: break-word;'></td></tr><tr><td style='text-align: center; word-wrap: break-word;'>apiSecret</td><td style='text-align: center; word-wrap: break-word;'>String</td><td style='text-align: center; word-wrap: break-word;'>Y</td><td style='text-align: center; word-wrap: break-word;'>请求体</td><td style='text-align: center; word-wrap: break-word;'></td></tr><tr><td style='text-align: center; word-wrap: break-word;'>timeStamp</td><td style='text-align: center; word-wrap: break-word;'>String</td><td style='text-align: center; word-wrap: break-word;'>Y</td><td style='text-align: center; word-wrap: break-word;'>时间戳</td><td style='text-align: center; word-wrap: break-word;'>毫秒</td></tr><tr><td style='text-align: center; word-wrap: break-word;'>msgId</td><td style='text-align: center; word-wrap: break-word;'>String</td><td style='text-align: center; word-wrap: break-word;'>Y</td><td style='text-align: center; word-wrap: break-word;'>消息Id</td><td style='text-align: center; word-wrap: break-word;'>请求消息唯一ID</td></tr><tr><td style='text-align: center; word-wrap: break-word;'>version</td><td style='text-align: center; word-wrap: break-word;'>String</td><td style='text-align: center; word-wrap: break-word;'>Y</td><td style='text-align: center; word-wrap: break-word;'>版本号</td><td style='text-align: center; word-wrap: break-word;'>如：1.0</td></tr><tr><td style='text-align: center; word-wrap: break-word;'>signed</td><td style='text-align: center; word-wrap: break-word;'>String</td><td style='text-align: center; word-wrap: break-word;'>Y</td><td style='text-align: center; word-wrap: break-word;'>消息签名</td><td style='text-align: center; word-wrap: break-word;'>见消息签名规则</td></tr></table>
 
 
 
@@ -651,7 +651,7 @@ Java
 
 ##### 消息签名规则
 
-signed=MD5(version=version值+&+msgID=msgID值+&+apiKey=apiKey值+&+apiSecret=API密钥值+&+timestamp=时间戳值).toupperCase()
+signed=MD5(version=version值+&+msgID=msgID值+&+apiKey=apiKey值+&+apiSecret=API密钥值+&+timeStamp=时间戳值).toupperCase()
 API密钥(apiSecret)=MD5(apiKey+apiPw)
 
 签名生成demo见附录
@@ -759,7 +759,7 @@ API密钥(apiSecret)=MD5(apiKey+apiPw)
         "apiSecret": "9333C6B484EE98AF23500D9620A9FE1D",
         "msgId": "1677647220299",
         "signed": "818515D53D4A8163025156EC8605AB56",
-        "timestamp": "1677647220299",
+        "timeStamp": "1677647220299",
         "version": "1.0.0"
     }
 }
@@ -833,7 +833,7 @@ API密钥(apiSecret)=MD5(apiKey+apiPw)
         "apiSecret": "xxxx",
         "msgId": "1685430689762",
         "signed": "xxx",
-        "timestamp": "1685430689762",
+        "timeStamp": "1685430689762",
         "version": "1.0.0"
     }
 }
@@ -900,7 +900,7 @@ API密钥(apiSecret)=MD5(apiKey+apiPw)
         "apiSecret": "secretkey",
         "msgId": "msgId",
         "signed": "signXXXXXXXXXXXX",
-        "timestamp": "1682058632087",
+        "timeStamp": "1682058632087",
         "version": "1.0"
     }
 }
@@ -976,7 +976,7 @@ API密钥(apiSecret)=MD5(apiKey+apiPw)
         "apiSecret": "secretkey",
         "msgId": "msgId",
         "signed": "signXXXXXXXXXXXX",
-        "timestamp": "1682061180867",
+        "timeStamp": "1682061180867",
         "version": "1.0"
     }
 }
@@ -1113,7 +1113,7 @@ a. 在大麦场景中，由于存在预存款、月结等多模式，并且大�
 ]
 },
 "signed": {
-    "timestamp": "1631757264606",
+    "timeStamp": "1631757264606",
     "signInfo": "请使用申请的签名"
 }
 }
@@ -1143,7 +1143,7 @@ Java
 1  {
 2  "signed": {
 3    "signInfo": "消息签名",
-4    "timestamp": "时间戳"
+4    "timeStamp": "时间戳"
 5  }
 6  }
 
@@ -1192,7 +1192,7 @@ Java
 
 {
     "signed": {
-        "timestamp": "1631757264606",
+        "timeStamp": "1631757264606",
         "signInfo": "请使用申请的签名"
     },
     "cOrderId": "大麦订单号",
@@ -1269,7 +1269,7 @@ Java
         "apiSecret": "secretkey",
         "msgId": "msgId",
         "signed": "signXXXXXXXXXXXX",
-        "timestamp": "1682058632087",
+        "timeStamp": "1682058632087",
         "version": "1.0"
     }
 }
@@ -1314,7 +1314,7 @@ JSON
 
 {
     "signed": {
-        "timestamp": "1631757264606",
+        "timeStamp": "1631757264606",
         "signInfo": "请使用申请的签名"
     },
     "daMaiOrderId": "大麦订单号",
@@ -1339,7 +1339,7 @@ private static String version = "version=";
 private static String msgID = "msgID=";
 private static String apiKey = "apiKey=";
 private static String apiSecret = "apiSecret=";
-private static String timestamp = "timestamp=";
+private static String timeStamp = "timeStamp=";
 private static String DEFAULT_OPT = "&";
 
 private String getSinged(
@@ -1350,7 +1350,7 @@ private String getSinged(
     sb.append(msgID).append(timeSmp).append(DEFAULT_OPT);
     sb.append(apiKey).append(apiKey).append(DEFAULT_OPT);
     sb.append(apiSecret).append(secret).append(DEFAULT_OPT);
-    sb.append(timestamp).append(timeSmp);
+    sb.append(timeStamp).append(timeSmp);
     return MD5.crypt(sb.toString()).toUpperCase();
 }
 

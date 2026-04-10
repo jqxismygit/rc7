@@ -20,13 +20,13 @@ import {
 } from '../src/libs/damai.js';
 
 describe('Damai api signing', () => {
+  const version = '1.0.0';
   const apiKey = 'qmyihai60s';
   const apiSecret = '9333C6B484EE98AF23500D9620A9FE1D';
 	const outboundSign = 'OUTBOUND_SIGN_FROM_CONFIG';
   const msgId = '1677647220299';
   const timestamp = '1677647220299';
-  const version = '1.0.0';
-  const expectedSignature = 'F7F168480C29E0D1C461CFC2F23F2F29';
+  const expectedSignature = '818515D53D4A8163025156EC8605AB56';
 
 	it('build signature with doc sample fields', () => {
 		const result = buildDamaiSignature({

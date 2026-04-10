@@ -86,7 +86,7 @@ export function buildDamaiSignature(options: DamaiSignatureOptions) {
     `msgID=${msgId}`,
     `apiKey=${apiKey}`,
     `apiSecret=${apiSecret}`,
-    `timestamp=${timestamp}`,
+    `timeStamp=${timestamp}`,
   ].join('&');
 	const signed = md5UpperCase(message);
 
