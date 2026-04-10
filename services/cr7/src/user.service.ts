@@ -1,7 +1,11 @@
 import { Context, Errors, Service, ServiceBroker } from 'moleculer';
 import { Pool } from 'pg';
-import { jscode2session } from './libs/wechat.js';
 import {
+  getWechatUserPhoneNumber,
+  jscode2session,
+} from './libs/wechat.js';
+import {
+  bindPhoneToUser,
   createOrUpdateUser,
   getUserProfile,
   listUserProfiles,
@@ -41,6 +45,14 @@ export default class UserService extends Service {
             code: 'string'
           },
           handler: this.wechat_mini_login
+        },
+
+        wechat_bind_phone: {
+          rest: 'POST /phone/wechat',
+          params: {
+            code: 'string',
+          },
+          handler: this.wechat_bind_phone,
         },
 
         password_login: {
@@ -172,6 +184,37 @@ export default class UserService extends Service {
     const user = await createOrUpdateUser(client, schema, appid, openid, session_key);
 
     return { token: { uid: user.id } };
+  }
+
+  async wechat_bind_phone(
+    ctx: Context<{ code: string }, { user: UserMeta; $statusCode?: number }>
+  ) {
+    const { code } = ctx.params;
+    const { uid } = ctx.meta.user;
+    const schema = await this.getSchema();
+    const wechatConfig = await this.getWechatConfig();
+
+    const { access_token } = await ctx.call<{ access_token: string }>('wechat.access_token');
+    const phoneInfo = await getWechatUserPhoneNumber(
+      wechatConfig,
+      access_token,
+      code,
+    );
+
+    const country_code = phoneInfo.countryCode.startsWith('+')
+      ? phoneInfo.countryCode
+      : `+${phoneInfo.countryCode}`;
+
+    await bindPhoneToUser(
+      this.pool,
+      schema,
+      uid,
+      country_code,
+      phoneInfo.purePhoneNumber,
+    ).catch(handleUserError);
+
+    ctx.meta.$statusCode = 204;
+    return null;
   }
 
   async profile(ctx: Context<void, { user: UserMeta }>) {

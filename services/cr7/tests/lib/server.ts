@@ -85,8 +85,12 @@ export async function mockJSONServer(
 }
 
 export async function mockWechatServer(
-  mockCode2SessionResponse: (data: {
-    body: unknown; query: Record<string, string>
+  wechatResponse: (data: {
+    body: unknown;
+    query: Record<string, string>;
+    path: string;
+    method: string;
+    headers: Record<string, string>;
   }) => unknown
 ): Promise<MockServer> {
   return mockServer((req, res) => {
@@ -103,7 +107,13 @@ export async function mockWechatServer(
 
       try {
         const jsonBody = body_data ? JSON.parse(body_data) : null;
-        const response = await mockCode2SessionResponse({ body: jsonBody, query });
+        const response = await wechatResponse({
+          body: jsonBody,
+          query,
+          path: url.pathname,
+          method: req.method ?? 'GET',
+          headers: req.headers as Record<string, string>,
+        });
         res.writeHead(200, { 'content-type': 'text/plain' });
         const resBody = typeof response === 'string'
           ? response

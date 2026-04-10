@@ -17,6 +17,11 @@ interface DamaiPostJSONOptions extends Omit<RequestInit, 'method' | 'body'> {
 	timestamp?: string;
 }
 
+interface ResponseHead {
+	code: string;
+	desc: string;
+}
+
 
 class DamaiAPIError extends Error {
 	status: number;
@@ -140,6 +145,10 @@ export async function damaiPostJson<Res = unknown>(
 
 	const responseBody = await parseResponseBody(res);
 	if (res.ok === false) {
+		throw new DamaiAPIError(res.status, url, 'POST', responseBody);
+	}
+
+	if ((responseBody as ResponseHead)?.code !== "0") {
 		throw new DamaiAPIError(res.status, url, 'POST', responseBody);
 	}
 

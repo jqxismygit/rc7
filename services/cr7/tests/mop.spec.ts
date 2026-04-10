@@ -1440,8 +1440,7 @@ describeFeature(feature, ({
   Scenario('用户在猫眼查看订单详情', () => {});
 
   Scenario('用户在猫眼支付了订单', (s: StepTest<void>) => {
-    const { Given, When, Then, And } = s;
-
+    const { When, Then, And } = s;
 
     And('订单支付结果的猫眼订单 ID 是 {string}', async (_ctx, myOrderId: string) => {
       expect(featureContext.mopTicketBody!.myOrderId).toBe(myOrderId);
@@ -1542,7 +1541,7 @@ describeFeature(feature, ({
   });
 
   Scenario('用户在核销了订单之后，通知猫眼', (s: StepTest<void>) => {
-    const { When, Then, And } = s;
+    const { When, Then } = s;
 
     When('用户核销了订单', async () => {
       const { apiServer, adminToken, exhibition, orderRedemption } = featureContext;

@@ -54,8 +54,9 @@ type DamaiPerform = {
   saleEndTime: string;
   showTime: string;
   endTime: string;
-  ticketTypeAndDeliveryMethod: Record<string, number[]>;
+  tTypeAndDMethod: string;
   ruleType: number;
+  venueJpgImg: string;
 };
 
 type DamaiPerformSyncRequest = {
@@ -641,13 +642,12 @@ class DamaiService extends RC7BaseService {
         performName: formatDamaiDate(session.session_date),
         status: DAMAI_PERFORM_STATUS_ENABLED,
         saleStartTime: formatDamaiDateTime(exhibition.created_at),
-        saleEndTime: formatDamaiSessionDateTime(session.session_date, exhibition.last_entry_time, 'HH:mm'),
-        showTime: formatDamaiSessionDateTime(session.session_date, exhibition.opening_time, 'HH:mm'),
-        endTime: formatDamaiSessionDateTime(session.session_date, exhibition.closing_time, 'HH:mm'),
-        ticketTypeAndDeliveryMethod: {
-          [DAMAI_TICKET_TYPE_ELECTRONIC]: [DAMAI_TICKET_TYPE_ELECTRONIC],
-        },
+        saleEndTime: formatDamaiSessionDateTime(session.session_date, exhibition.last_entry_time, 'HH:mm:ss'),
+        showTime: formatDamaiSessionDateTime(session.session_date, exhibition.opening_time, 'HH:mm:ss'),
+        endTime: formatDamaiSessionDateTime(session.session_date, exhibition.closing_time, 'HH:mm:ss'),
+        tTypeAndDMethod: `{${DAMAI_TICKET_TYPE_ELECTRONIC}:[${DAMAI_TICKET_TYPE_ELECTRONIC}]}`,
         ruleType: DAMAI_RULE_TYPE_NON_REAL_NAME,
+        venueJpgImg: 'XXX'
       })),
     };
 
