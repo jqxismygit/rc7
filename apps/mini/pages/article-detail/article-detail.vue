@@ -25,7 +25,23 @@
         <text v-if="article.topic && article.topic.title" class="topic-line">{{
           article.topic.title
         }}</text> -->
-        <rich-text :nodes="htmlNodes" class="article-rich-text" />
+        <block v-for="block in contentBlocks" :key="block.key">
+          <rich-text
+            v-if="block.type === 'html'"
+            :nodes="block.html"
+            class="article-rich-text"
+          />
+          <video
+            v-else
+            class="article-inline-video"
+            :src="block.src"
+            :poster="block.poster"
+            controls
+            show-center-play-btn
+            enable-progress-gesture
+            object-fit="contain"
+          />
+        </block>
       </view>
       <view class="safe-bottom safe-area-bottom" />
     </scroll-view>
@@ -55,9 +71,12 @@ export default {
       return this.article?.title || "文章";
     },
     /** 微信 rich-text：nodes 可为 HTML 字符串（基础库 2.7+） */
-    htmlNodes() {
+    rawContent() {
       const c = this.article?.content;
       return typeof c === "string" && c.trim() ? c : "<p></p>";
+    },
+    contentBlocks() {
+      return splitArticleContent(this.rawContent);
     },
   },
   onLoad(options) {
@@ -91,6 +110,77 @@ export default {
     },
   },
 };
+
+function splitArticleContent(html) {
+  if (!html || typeof html !== "string") {
+    return [{ key: "html-0", type: "html", html: "<p></p>" }];
+  }
+
+  const blocks = [];
+  const videoRegex =
+    /<div[^>]*>\s*<video\b[\s\S]*?<\/video>\s*<\/div>|<video\b[\s\S]*?<\/video>/gi;
+  let lastIndex = 0;
+  let matchIndex = 0;
+  let match;
+
+  while ((match = videoRegex.exec(html)) !== null) {
+    const before = html.slice(lastIndex, match.index);
+    if (before.trim()) {
+      blocks.push({
+        key: `html-${matchIndex}`,
+        type: "html",
+        html: before,
+      });
+    }
+
+    const videoHtml = match[0];
+    const src =
+      extractVideoAttr(videoHtml, "src") || extractVideoSourceSrc(videoHtml);
+
+    if (src) {
+      blocks.push({
+        key: `video-${matchIndex}`,
+        type: "video",
+        src,
+        poster: extractVideoAttr(videoHtml, "poster") || "",
+      });
+    } else {
+      blocks.push({
+        key: `html-fallback-${matchIndex}`,
+        type: "html",
+        html: videoHtml,
+      });
+    }
+
+    lastIndex = match.index + videoHtml.length;
+    matchIndex += 1;
+  }
+
+  const tail = html.slice(lastIndex);
+  if (tail.trim()) {
+    blocks.push({
+      key: `html-tail-${matchIndex}`,
+      type: "html",
+      html: tail,
+    });
+  }
+
+  return blocks.length
+    ? blocks
+    : [{ key: "html-0", type: "html", html: "<p></p>" }];
+}
+
+function extractVideoAttr(videoHtml, attr) {
+  const matched = videoHtml.match(
+    new RegExp(`${attr}\\s*=\\s*["']([^"']+)["']`, "i"),
+  );
+  return matched?.[1] || "";
+}
+
+function extractVideoSourceSrc(videoHtml) {
+  const matched = videoHtml.match(/<source\b[^>]*src\s*=\s*["']([^"']+)["']/i);
+  return matched?.[1] || "";
+}
 </script>
 
 <style lang="scss" scoped>
@@ -118,7 +208,7 @@ export default {
 }
 
 .article-body {
-  padding: 24rpx 30rpx 40rpx;
+  padding: 30rpx 30rpx 40rpx;
 }
 
 .cover {
@@ -165,6 +255,14 @@ export default {
   white-space: normal !important;
   word-break: break-word !important;
   overflow-wrap: anywhere;
+}
+
+.article-inline-video {
+  display: block;
+  width: 100%;
+  border-radius: 16rpx;
+  background: #000;
+  margin: 24rpx 0;
 }
 
 .safe-bottom {

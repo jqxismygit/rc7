@@ -1,4 +1,18 @@
+import type { User as UserTypes } from "@cr7/types";
 import { request } from "@/utils/request";
+
+export type UserListQuery = {
+  phone?: string;
+  page?: number;
+  limit?: number;
+};
+
+export const listUsersApi = async (
+  params: UserListQuery,
+): Promise<UserTypes.UserListResult> => {
+  const res = await request.get("/users", { params });
+  return res as unknown as UserTypes.UserListResult;
+};
 
 export type UserProfile = {
   id: string;

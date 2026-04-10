@@ -101,13 +101,43 @@ export async function reorderTopicArticlesApi(
  * 管理员上传图片：请求体为文件二进制流（非 multipart），与 services 测试 fixtures 一致。
  * 返回图片 URL（多为 `/assets/<uuid>.webp` 形式，依服务端 base_url 而定）。
  */
+export type UploadedAssetUrl = { url: string };
+
 export async function uploadTopicImageApi(
   file: File | Blob,
-): Promise<TopicTypes.UploadedImage> {
+): Promise<UploadedAssetUrl> {
   const raw = await request.post("/assets/images", file, {
     headers: {
       "Content-Type": topicImageContentType(file),
     },
   });
-  return raw as unknown as TopicTypes.UploadedImage;
+  return raw as unknown as UploadedAssetUrl;
+}
+
+/** 与后端 stream 上传一致：POST /assets/videos，Content-Type 为具体 video/* */
+export function assetsVideoContentType(file: File | Blob): string {
+  const t = file.type?.trim() ?? "";
+  if (t.startsWith("video/")) {
+    return t;
+  }
+  if (file instanceof File) {
+    const n = file.name.toLowerCase();
+    if (n.endsWith(".mp4")) return "video/mp4";
+    if (n.endsWith(".webm")) return "video/webm";
+    if (n.endsWith(".mov")) return "video/quicktime";
+    if (n.endsWith(".m4v")) return "video/x-m4v";
+  }
+  return "video/mp4";
+}
+
+/** 管理员上传视频：请求体为文件二进制流，返回 `{ url }` */
+export async function uploadAssetsVideoApi(
+  file: File | Blob,
+): Promise<UploadedAssetUrl> {
+  const raw = await request.post("/assets/videos", file, {
+    headers: {
+      "Content-Type": assetsVideoContentType(file),
+    },
+  });
+  return raw as unknown as UploadedAssetUrl;
 }

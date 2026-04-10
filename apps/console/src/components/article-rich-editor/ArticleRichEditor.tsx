@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Editor, Toolbar } from "@wangeditor/editor-for-react";
 import type { IDomEditor, IEditorConfig, IToolbarConfig } from "@wangeditor/editor";
 import { message } from "antd";
-import { uploadTopicImageApi } from "@/apis/topic";
+import { uploadAssetsVideoApi, uploadTopicImageApi } from "@/apis/topic";
+import { normalizeArticleEditorHtml } from "@/utils/article-html";
 import { pickApiErrorMessage } from "@/utils/pick-api-error";
 
 export type ArticleRichEditorProps = {
@@ -24,6 +25,10 @@ export function ArticleRichEditor({
   editorKey = "article-editor",
 }: ArticleRichEditorProps) {
   const [editor, setEditor] = useState<IDomEditor | null>(null);
+  const normalizedValue = useMemo(
+    () => normalizeArticleEditorHtml(value || ""),
+    [value],
+  );
 
   const editorConfig: Partial<IEditorConfig> = useMemo(
     () => ({
@@ -45,6 +50,21 @@ export function ArticleRichEditor({
             }
           },
         },
+        uploadVideo: {
+          maxFileSize: 200 * 1024 * 1024,
+          allowedFileTypes: ["video/*"],
+          async customUpload(
+            file: File,
+            insertFn: (url: string, poster?: string) => void,
+          ) {
+            try {
+              const res = await uploadAssetsVideoApi(file);
+              insertFn(res.url, "");
+            } catch (e) {
+              message.error(pickApiErrorMessage(e) || "视频上传失败");
+            }
+          },
+        },
       },
     }),
     [disabled],
@@ -52,13 +72,7 @@ export function ArticleRichEditor({
 
   const toolbarConfig: Partial<IToolbarConfig> = useMemo(
     () => ({
-      excludeKeys: [
-        "group-video",
-        "todo",
-        "codeBlock",
-        "insertTable",
-        "fullScreen",
-      ],
+      excludeKeys: ["todo", "codeBlock", "insertTable", "fullScreen"],
     }),
     [],
   );
@@ -66,10 +80,10 @@ export function ArticleRichEditor({
   useEffect(() => {
     if (editor == null || editor.isDestroyed) return;
     const cur = editor.getHtml();
-    if (value !== cur) {
-      editor.setHtml(value || "<p><br></p>");
+    if (normalizedValue !== cur) {
+      editor.setHtml(normalizedValue || "<p><br></p>");
     }
-  }, [value, editor]);
+  }, [normalizedValue, editor]);
 
   return (
     <div
@@ -88,7 +102,7 @@ export function ArticleRichEditor({
       <Editor
         key={editorKey}
         defaultConfig={editorConfig}
-        value={value}
+        value={normalizedValue}
         onCreated={setEditor}
         onChange={(ed) => onChange?.(ed.getHtml())}
         mode="default"
