@@ -81,6 +81,7 @@
 
 <script>
 import { useUserStore } from "@/stores/user";
+import { fetchProfile, updateProfile } from "@/services/auth";
 
 export default {
   data() {
@@ -112,9 +113,13 @@ export default {
     initForm() {
       const userStore = useUserStore();
       const userInfo = userStore.profile || {};
+      const profileExtra =
+        userInfo.profile && typeof userInfo.profile === "object"
+          ? userInfo.profile
+          : {};
       this.form.avatar = userInfo.avatar || "";
-      this.form.nickname = userInfo.nickname || "";
-      this.form.email = userInfo.email || "";
+      this.form.nickname = userInfo.nickname || userInfo.name || "";
+      this.form.email = userInfo.email || profileExtra.email || "";
       this.form.phone = userInfo.phone || "";
     },
 
@@ -308,13 +313,24 @@ export default {
       try {
         const userStore = useUserStore();
         const userInfo = userStore.profile || {};
-        const newUserInfo = {
-          ...userInfo,
-          avatar: this.form.avatar || userInfo.avatar,
-          nickname: this.form.nickname,
-          email: this.form.email,
+
+        const nextProfile = {
+          ...(userInfo.profile && typeof userInfo.profile === "object"
+            ? userInfo.profile
+            : {}),
+          email: this.form.email || "",
         };
-        userStore.setProfile(newUserInfo);
+
+        const payload = {
+          name: this.form.nickname,
+          avatar: this.form.avatar || "",
+          profile: nextProfile,
+        };
+
+        await updateProfile(payload);
+        const latest = await fetchProfile();
+        userStore.setProfile(latest);
+
         uni.showToast({
           title: "已保存",
           icon: "success",
