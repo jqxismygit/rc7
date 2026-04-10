@@ -341,7 +341,7 @@ export default {
     },
 
     totalPrice() {
-      if (!this.selectedTicket) return 199;
+      if (!this.selectedTicket) return 0;
       return this.selectedTicket.price * this.quantity;
     },
 
