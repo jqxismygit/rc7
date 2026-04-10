@@ -256,7 +256,6 @@ const DAMAI_QRCODE_TYPE_STATIC = 1;
 
 const damaiHeadParamsSchema = {
   type: 'object',
-  strict: true,
   props: {
     version: 'string|min:1',
     msgId: 'string|min:1',
@@ -532,11 +531,9 @@ class DamaiService extends RC7BaseService {
             head: damaiHeadParamsSchema,
             bodySubmitOrder: {
               type: 'object',
-              strict: true,
               props: {
                 orderInfo: {
                   type: 'object',
-                  strict: true,
                   props: {
                     daMaiOrderId: 'string|min:1',
                     projectId: 'string|min:1',
@@ -547,7 +544,6 @@ class DamaiService extends RC7BaseService {
                       min: 1,
                       items: {
                         type: 'object',
-                        strict: true,
                         props: {
                           priceId: 'string|min:1',
                           subOrderId: 'string|min:1',
@@ -561,7 +557,6 @@ class DamaiService extends RC7BaseService {
                       min: 1,
                       items: {
                         type: 'object',
-                        strict: true,
                         props: {
                           priceId: 'string|min:1',
                           num: { type: 'number', integer: true, positive: true, convert: true },
@@ -572,7 +567,6 @@ class DamaiService extends RC7BaseService {
                     },
                     userInfo: {
                       type: 'object',
-                      strict: true,
                       props: {
                         userId: 'string|min:1',
                         name: { type: 'string', optional: true, empty: false },
@@ -595,11 +589,9 @@ class DamaiService extends RC7BaseService {
             head: damaiHeadParamsSchema,
             bodyPayOrder: {
               type: 'object',
-              strict: true,
               props: {
                 orderInfo: {
                   type: 'object',
-                  strict: true,
                   props: {
                     daMaiOrderId: 'string|min:1',
                   },
@@ -615,7 +607,6 @@ class DamaiService extends RC7BaseService {
             head: damaiHeadParamsSchema,
             cancelOrderInfo: {
               type: 'object',
-              strict: true,
               props: {
                 orderId: 'string|min:1',
               },
@@ -629,11 +620,9 @@ class DamaiService extends RC7BaseService {
             head: damaiHeadParamsSchema,
             bodyRefundApply: {
               type: 'object',
-              strict: true,
               props: {
                 refundInfo: {
                   type: 'object',
-                  strict: true,
                   props: {
                     daMaiOrderId: 'string|min:1',
                     orderId: 'string|min:1',
@@ -653,7 +642,6 @@ class DamaiService extends RC7BaseService {
             head: damaiHeadParamsSchema,
             bodyGetESeatInfo: {
               type: 'object',
-              strict: true,
               props: {
                 daMaiUserId: { type: 'string', optional: true, empty: false },
                 orderId: 'string|min:1',
