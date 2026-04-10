@@ -37,6 +37,7 @@ export interface SyncSessionsToMopRequest {
     otShowStatus: number;
     startTime: string;
     endTime: string;
+    offSaleTime: string;
     showType: number;
     fetchTicketWay: number[];
     maxBuyLimitPerOrder: number;

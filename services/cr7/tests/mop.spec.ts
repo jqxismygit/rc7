@@ -1006,8 +1006,8 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('同步场次信息到猫眼', (s: StepTest<void>) => {
-    const { Given, When, And } = s;
+  Scenario('同步场次信息到猫眼', (s: StepTest<{ sessions: Exhibition.Session[] }>) => {
+    const { Given, When, And, context } = s;
 
     Given('cr7 将场次信息同步到猫眼', async () => {
       await syncSessionsToMop(
@@ -1028,10 +1028,15 @@ describeFeature(feature, ({
       expect(body.otProjectId).toBe(featureContext.exhibition.id);
     });
 
-    And('场次同步消息中有 {int} 个场次', (_ctx, count: number) => {
+    And('场次同步消息中有 {int} 个场次', async (_ctx, count: number) => {
       const request = getMopRequestArg(featureContext.mopRequestHandler);
       const body = request.body as SyncSessionsToMopRequest;
       expect(body.shows).toHaveLength(count);
+      context.sessions = await getSessions(
+        featureContext.apiServer,
+        featureContext.exhibition.id,
+        featureContext.adminToken,
+      );
     });
 
     And('场次同步消息中的首个场次日期与展会开始日期一致', () => {
@@ -1053,12 +1058,7 @@ describeFeature(feature, ({
     And('场次同步消息中每个场次的 ID 是 cr7 场次 ID', async () => {
       const request = getMopRequestArg(featureContext.mopRequestHandler);
       const body = request.body as SyncSessionsToMopRequest;
-      const sessions = await getSessions(
-        featureContext.apiServer,
-        featureContext.exhibition.id,
-        featureContext.adminToken,
-      );
-      const expectedIds = sessions.map(session => session.id).sort();
+      const expectedIds = context.sessions.map(session => session.id).sort();
       const actualIds = body.shows.map(show => show.otShowId).sort();
       expect(actualIds).toEqual(expectedIds);
     });
@@ -1074,14 +1074,9 @@ describeFeature(feature, ({
     And('场次同步消息中每个场次的开始时间是 cr7 场次的日期和开始时间的组合', async () => {
       const request = getMopRequestArg(featureContext.mopRequestHandler);
       const body = request.body as SyncSessionsToMopRequest;
-      const sessions = await getSessions(
-        featureContext.apiServer,
-        featureContext.exhibition.id,
-        featureContext.adminToken,
-      );
       const expectedTime = normalizeTimeLabel(featureContext.exhibition.opening_time);
       const expectedBySessionId = new Map(
-        sessions.map(session => [
+        context.sessions.map(session => [
           session.id,
           `${toSessionDateLabel(session.session_date)} ${expectedTime}`,
         ])
@@ -1112,6 +1107,23 @@ describeFeature(feature, ({
       body.shows.forEach(show => {
         expect(show.endTime).toMatch(DATETIME_LABEL_RE);
         expect(show.endTime).toBe(expectedBySessionId.get(show.otShowId));
+      });
+    });
+
+    And('场次同步消息中每个场次的停售时间是 cr7 场次的日期和停止入场时间的组合', async () => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncSessionsToMopRequest;
+      const expectedTime = normalizeTimeLabel(featureContext.exhibition.last_entry_time);
+      const expectedBySessionId = new Map(
+        context.sessions.map(session => [
+          session.id,
+          `${toSessionDateLabel(session.session_date)} ${expectedTime}`,
+        ])
+      );
+
+      body.shows.forEach(show => {
+        expect(show.offSaleTime).toMatch(DATETIME_LABEL_RE);
+        expect(show.offSaleTime).toBe(expectedBySessionId.get(show.otShowId));
       });
     });
 
