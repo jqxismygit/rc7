@@ -254,6 +254,19 @@ const DAMAI_VALIDATE_STATUS_VALIDATED = 2;
 const DAMAI_CERT_TYPE_NON_REAL_NAME = 0;
 const DAMAI_QRCODE_TYPE_STATIC = 1;
 
+const damaiHeadParamsSchema = {
+  type: 'object',
+  strict: true,
+  props: {
+    version: 'string|min:1',
+    msgId: 'string|min:1',
+    apiKey: 'string|min:1',
+    apiSecret: 'string|min:1',
+    timestamp: 'string|min:1',
+    signed: 'string|min:1',
+  },
+};
+
 function toDateValue(value: string | Date): Date {
   if (isDate(value)) {
     return value;
@@ -516,40 +529,136 @@ class DamaiService extends RC7BaseService {
         createOrderFromDamai: {
           rest: 'POST /createOrder',
           params: {
-            head: 'object',
-            bodySubmitOrder: 'object',
+            head: damaiHeadParamsSchema,
+            bodySubmitOrder: {
+              type: 'object',
+              strict: true,
+              props: {
+                orderInfo: {
+                  type: 'object',
+                  strict: true,
+                  props: {
+                    daMaiOrderId: 'string|min:1',
+                    projectId: 'string|min:1',
+                    performId: 'string|min:1',
+                    hasSeat: 'boolean',
+                    commodityInfoList: {
+                      type: 'array',
+                      min: 1,
+                      items: {
+                        type: 'object',
+                        strict: true,
+                        props: {
+                          priceId: 'string|min:1',
+                          subOrderId: 'string|min:1',
+                          seatId: { type: 'string', optional: true, empty: false },
+                          packageId: { type: 'string', optional: true, empty: false },
+                        },
+                      },
+                    },
+                    priceInfo: {
+                      type: 'array',
+                      min: 1,
+                      items: {
+                        type: 'object',
+                        strict: true,
+                        props: {
+                          priceId: 'string|min:1',
+                          num: { type: 'number', integer: true, positive: true, convert: true },
+                          price: { type: 'number', integer: true, min: 0 },
+                          type: { type: 'number', integer: true, optional: true },
+                        },
+                      },
+                    },
+                    userInfo: {
+                      type: 'object',
+                      strict: true,
+                      props: {
+                        userId: 'string|min:1',
+                        name: { type: 'string', optional: true, empty: false },
+                        mobile: { type: 'string', optional: true, empty: false },
+                      },
+                    },
+                    totalAmountFen: { type: 'number', integer: true, min: 0 },
+                    realAmountOfFen: { type: 'number', integer: true, min: 0 },
+                    expressFee: { type: 'number', integer: true, min: 0, optional: true },
+                  },
+                },
+              },
+            },
           },
           handler: this.createOrderFromDamai,
         },
         payOrderFromDamai: {
           rest: 'POST /payCallBack',
           params: {
-            head: 'object',
-            bodyPayOrder: 'object',
+            head: damaiHeadParamsSchema,
+            bodyPayOrder: {
+              type: 'object',
+              strict: true,
+              props: {
+                orderInfo: {
+                  type: 'object',
+                  strict: true,
+                  props: {
+                    daMaiOrderId: 'string|min:1',
+                  },
+                },
+              },
+            },
           },
           handler: this.payOrderFromDamai,
         },
         cancelOrderFromDamai: {
           rest: 'POST /cancelOrder',
           params: {
-            head: 'object',
-            cancelOrderInfo: 'object',
+            head: damaiHeadParamsSchema,
+            cancelOrderInfo: {
+              type: 'object',
+              strict: true,
+              props: {
+                orderId: 'string|min:1',
+              },
+            },
           },
           handler: this.cancelOrderFromDamai,
         },
         refundApplyFromDamai: {
           rest: 'POST /refundApply',
           params: {
-            head: 'object',
-            bodyRefundApply: 'object',
+            head: damaiHeadParamsSchema,
+            bodyRefundApply: {
+              type: 'object',
+              strict: true,
+              props: {
+                refundInfo: {
+                  type: 'object',
+                  strict: true,
+                  props: {
+                    daMaiOrderId: 'string|min:1',
+                    orderId: 'string|min:1',
+                    refundId: 'string|min:1',
+                    refundReason: 'string|min:1',
+                    refundAmountFen: { type: 'number', integer: true, min: 0 },
+                  },
+                },
+              },
+            },
           },
           handler: this.refundApplyFromDamai,
         },
         getETicketInfoFromDamai: {
           rest: 'POST /getSeatInfo',
           params: {
-            head: 'object',
-            bodyGetESeatInfo: 'object',
+            head: damaiHeadParamsSchema,
+            bodyGetESeatInfo: {
+              type: 'object',
+              strict: true,
+              props: {
+                daMaiUserId: { type: 'string', optional: true, empty: false },
+                orderId: 'string|min:1',
+              },
+            },
           },
           handler: this.getETicketInfoFromDamai,
         },
@@ -564,6 +673,7 @@ class DamaiService extends RC7BaseService {
         notifyOrderConsumed: {
           params: {
             oid: 'string',
+            redeemed_at: { type: 'date', convert: true },
           },
           handler: this.notifyOrderConsumed,
         },
@@ -756,22 +866,7 @@ class DamaiService extends RC7BaseService {
       userInfo,
       totalAmountFen,
       realAmountOfFen,
-    } = payload.bodySubmitOrder?.orderInfo ?? {} as DamaiValidatedCreateOrderInfo;
-
-    if (
-      !daMaiOrderId ||
-      !projectId ||
-      !performId ||
-      !userInfo?.userId ||
-      !Array.isArray(commodityInfoList) ||
-      commodityInfoList.length === 0 ||
-      !Array.isArray(priceInfo) ||
-      priceInfo.length === 0 ||
-      typeof totalAmountFen !== 'number' ||
-      typeof realAmountOfFen !== 'number'
-    ) {
-      return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20001', '参数异常'));
-    }
+    } = payload.bodySubmitOrder.orderInfo as DamaiValidatedCreateOrderInfo;
 
     const firstSuccessRecord = await getFirstSuccessfulDamaiOrderSyncRecordByDamaiOrderId(
       this.pool,
