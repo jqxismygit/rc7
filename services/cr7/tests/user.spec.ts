@@ -142,12 +142,6 @@ describeFeature(feature, ({
     }
   });
 
-  function getRegisteredUserProfile(userName: string): User.Profile {
-    const profile = featureContext.registeredUsersByName?.[userName];
-    expect(profile).toBeDefined();
-    return profile!;
-  }
-
   defineSteps(({ Given, When, Then, And }) => {
     When(
       '微信用户 {string} 首次打开小程序',
@@ -205,8 +199,8 @@ describeFeature(feature, ({
     });
 
     Given('管理员账号将用户 {string} 设置成运营人员', async (ctx, userName: string) => {
-      const { apiServer, adminToken } = featureContext;
-      const userProfile = getRegisteredUserProfile(userName);
+      const { apiServer, adminToken, registeredUsersByName } = featureContext;
+      const userProfile = registeredUsersByName?.[userName]!;
       const roleId = await getRoleIdByName(apiServer, adminToken, 'OPERATOR');
       await grantRoleToUser(apiServer, adminToken, userProfile.id, roleId);
     });
@@ -237,8 +231,8 @@ describeFeature(feature, ({
     When(
       '用户 {string} 第 {number} 次查看个人的角色列表',
       async (_ctx: unknown, userName: string, count: number) => {
-      const { apiServer, adminToken } = featureContext;
-      const targetProfile = getRegisteredUserProfile(userName);
+      const { apiServer, adminToken, registeredUsersByName } = featureContext;
+      const targetProfile = registeredUsersByName?.[userName]!;
       const suToken = await suUserToken(apiServer, adminToken, targetProfile.id);
 
       featureContext.roleViewCountByUser = featureContext.roleViewCountByUser ?? {};
@@ -618,8 +612,8 @@ describeFeature(feature, ({
       const { When } = s;
 
       When('管理员账号将用户 {string} 设置成运营人员', async (_ctx, userName: string) => {
-        const { apiServer, adminToken } = featureContext;
-        const userProfile = getRegisteredUserProfile(userName);
+        const { apiServer, adminToken, registeredUsersByName } = featureContext;
+        const userProfile = registeredUsersByName?.[userName]!;
         const roleId = await getRoleIdByName(apiServer, adminToken, 'OPERATOR');
         await grantRoleToUser(
           apiServer, adminToken, userProfile!.id, roleId,
@@ -752,8 +746,8 @@ describeFeature(feature, ({
       const { When, Then } = s;
 
       const grantRoleStep = async (_ctx: unknown, roleName: string, userName: string) => {
-        const { apiServer, adminToken } = featureContext;
-        const userProfile = getRegisteredUserProfile(userName);
+        const { apiServer, adminToken, registeredUsersByName } = featureContext;
+        const userProfile = registeredUsersByName?.[userName]!;
         const roleId = await getRoleIdByName(apiServer, adminToken, roleName);
         await grantRoleToUser(apiServer, adminToken, userProfile.id, roleId);
       };
@@ -764,8 +758,8 @@ describeFeature(feature, ({
       });
 
       const grantedAssertStep = async (_ctx: unknown, roleName: string, userName: string) => {
-        const { apiServer, adminToken } = featureContext;
-        const userProfile = getRegisteredUserProfile(userName);
+        const { apiServer, adminToken, registeredUsersByName } = featureContext;
+        const userProfile = registeredUsersByName?.[userName]!;
         const suToken = await suUserToken(apiServer, adminToken, userProfile.id);
         const userRoles = await getCurrentUserRoles(apiServer, suToken);
         expect(userRoles.roles.some(role => role.name === roleName)).toBe(true);
@@ -777,15 +771,15 @@ describeFeature(feature, ({
       });
 
       When('管理员将角色 {string} 从用户 {string} 收回', async (_ctx, roleName: string, userName: string) => {
-        const { apiServer, adminToken } = featureContext;
-        const userProfile = getRegisteredUserProfile(userName);
+        const { apiServer, adminToken, registeredUsersByName } = featureContext;
+        const userProfile = registeredUsersByName?.[userName]!;
         const roleId = await getRoleIdByName(apiServer, adminToken, roleName);
         await revokeRoleFromUser(apiServer, adminToken, userProfile.id, roleId);
       });
 
       Then('角色 {string} 已成功从用户 {string} 收回', async (_ctx, roleName: string, userName: string) => {
-        const { apiServer, adminToken } = featureContext;
-        const userProfile = getRegisteredUserProfile(userName);
+        const { apiServer, adminToken, registeredUsersByName } = featureContext;
+        const userProfile = registeredUsersByName?.[userName]!;
         const suToken = await suUserToken(apiServer, adminToken, userProfile.id);
         const userRoles = await getCurrentUserRoles(apiServer, suToken);
         expect(userRoles.roles.some(role => role.name === roleName)).toBe(false);
@@ -840,12 +834,14 @@ describeFeature(feature, ({
       });
 
       Then('用户列表获取成功，用户列表包含用户 {string}', (ctx, userName: string) => {
-        const targetProfile = getRegisteredUserProfile(userName);
+        const { registeredUsersByName } = featureContext;
+        const targetProfile = registeredUsersByName?.[userName]!;
         expect(context.userList.users.some(user => user.id === targetProfile.id)).toBe(true);
       });
 
       And('用户列表获取成功，用户列表不包含用户 {string}', (ctx, userName: string) => {
-        const targetProfile = getRegisteredUserProfile(userName);
+        const { registeredUsersByName } = featureContext;
+        const targetProfile = registeredUsersByName?.[userName]!;
         expect(context.userList.users.some(user => user.id === targetProfile.id)).toBe(false);
       });
     }
