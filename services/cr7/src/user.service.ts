@@ -12,8 +12,8 @@ import {
   getUserRoles,
   loginByPhonePassword,
   updatePassword,
-  getRoleIdByName,
   assignRoleToUser,
+  revokeRoleFromUser,
   listRoles,
   createRole,
   deleteRoleById,
@@ -108,7 +108,7 @@ export default class UserService extends Service {
 
         roles: {
           rest: 'GET /roles',
-          handler: this.getRoleNames,
+          handler: this.getUserRoles,
         },
 
         grant_role: {
@@ -116,9 +116,19 @@ export default class UserService extends Service {
           roles: ['admin'],
           params: {
             uid: 'uuid',
-            role_name: 'string',
+            role_id: 'uuid',
           },
           handler: this.grant_role,
+        },
+
+        revoke_role: {
+          rest: 'DELETE /:uid/roles/:role_id',
+          roles: ['admin'],
+          params: {
+            uid: 'uuid',
+            role_id: 'uuid',
+          },
+          handler: this.revoke_role,
         },
 
         list_roles: {
@@ -351,13 +361,13 @@ export default class UserService extends Service {
     return null;
   }
 
-  async getRoleNames(ctx: Context<void, { user: UserMeta }>) {
+  async getUserRoles(ctx: Context<void, { user: UserMeta }>) {
     const { uid } = ctx.meta.user;
     const client = this.pool;
     const schema = await this.getSchema();
 
     const roles = await getUserRoles(client, schema, uid);
-    return roles.map(role => role.name);
+    return roles;
   }
 
   async getSchema() {
@@ -371,18 +381,37 @@ export default class UserService extends Service {
   }
 
   async grant_role(
-    ctx: Context<{ uid: string; role_name: string }, { user: UserMeta }>
+    ctx: Context<{ uid: string; role_id: string }, { user: UserMeta }>
   ) {
-    const { uid, role_name } = ctx.params;
+    const { uid, role_id } = ctx.params;
     const schema = await this.getSchema();
 
-    const roleId = await getRoleIdByName(this.pool, schema, role_name)
-      .catch(handleUserError);
-
-    await assignRoleToUser(this.pool, schema, uid, roleId);
+    await assignRoleToUser(this.pool, schema, uid, role_id);
 
     const roles = await getUserRoles(this.pool, schema, uid);
-    return { role_names: roles.map(role => role.name) };
+    return { roles };
+  }
+
+  async revoke_role(
+    ctx: Context<{ uid: string; role_id: string }, { user: UserMeta }>
+  ) {
+    const { uid, role_id } = ctx.params;
+    const schema = await this.getSchema();
+
+    const roleList = await listRoles(this.pool, schema);
+    const targetRole = roleList.find(role => role.id === role_id);
+    if (targetRole === undefined) {
+      throw new MoleculerClientError('角色不存在', 404, 'ROLE_NOT_FOUND');
+    }
+
+    if (targetRole.is_builtin === true && uid === ctx.meta.user.uid) {
+      throw new MoleculerClientError('内置角色不能删除', 400, 'BUILTIN_ROLE_CANNOT_DELETE');
+    }
+
+    await revokeRoleFromUser(this.pool, schema, uid, role_id);
+
+    const roles = await getUserRoles(this.pool, schema, uid);
+    return { roles };
   }
 
   async list(

@@ -53,8 +53,8 @@ Feature: user registration and login
     Given 用户 "Alice" 已注册并登录
 
      When 管理员账号将用户 "Alice" 设置成运营人员
-     Then 用户 "Alice" 查看个人的角色列表
-      And 用户 "Alice" 的角色列表包含 "OPERATOR"
+     When 用户 "Alice" 第 1 次查看个人的角色列表
+      And 用户 "Alice" 的角色列表包含 "OPERATOR"，是系统内置角色，权限为空
 
   Scenario: 管理员可以查看用户列表
     Given 管理员账号已登录，手机号为 "12345678901"
@@ -82,3 +82,38 @@ Feature: user registration and login
 
      When 管理员删除内置角色 "OPERATOR"
      Then 删除内置角色 "OPERATOR" 失败，返回错误提示内置角色不能删除
+
+  Scenario: 将角色授予用户
+    Given 管理员账号创建并登录
+    Given 用户 "Bob" 已注册并登录
+
+    Given 新角色 "Content manager"，描述为 "内容管理", 权限包含 "CONTENT_MANAGE"
+    Given 新角色 "Customer service"，描述为 "客服", 权限包含 "CUSTOMER_SERVICE"
+     When 管理员创建新角色
+
+     When 管理员将角色 "Content manager" 授予用户 "Bob"
+     Then 角色 "Content manager" 已成功授予用户 "Bob"
+     When 用户 "Bob" 第 1 次查看个人的角色列表
+      And 用户 "Bob" 的角色列表有 1 个，包含 "Content manager"，不是内置角色，权限包含 "CONTENT_MANAGE"
+
+     When 管理员将角色 "Customer service" 授予用户 "Bob"
+     Then 角色 "Customer service" 已成功授予用户 "Bob"
+     When 用户 "Bob" 第 2 次查看个人的角色列表
+      And 用户 "Bob" 的角色列表有 2 个，包含 "Customer service"，不是内置角色，权限包含 "CUSTOMER_SERVICE"
+      And 用户 "Bob" 的角色列表同时包含 "Content manager"，不是内置角色，权限包含 "CONTENT_MANAGE"
+
+     When 管理员将角色 "Content manager" 从用户 "Bob" 收回
+     Then 角色 "Content manager" 已成功从用户 "Bob" 收回
+     When 用户 "Bob" 第 3 次查看个人的角色列表
+      And 用户 "Bob" 的角色列表有 1 个，包含 "Customer service"，不是内置角色，权限包含 "CUSTOMER_SERVICE"
+      And 用户 "Bob" 的角色列表不包含 "Content manager"
+
+  Scenario: 管理员不能删除自己的管理员角色
+    Given 管理员账号创建并登录
+
+     When 管理员删除内置角色 "ADMIN"
+     Then 删除内置角色 "ADMIN" 失败，返回错误提示内置角色不能删除
+
+     When 管理员为自己收回管理员角色 "ADMIN"
+     Then 收回管理员角色 "ADMIN" 失败，返回错误提示内置角色不能删除
+

@@ -415,13 +415,34 @@ export async function assignRoleToUser(
   );
 }
 
+export async function revokeRoleFromUser(
+  client: DBClient,
+  schema: string,
+  uid: string,
+  roleId: string,
+) {
+  await client.query(
+    `DELETE FROM ${schema}.user_roles
+    WHERE uid = $1
+      AND role_id = $2`,
+    [uid, roleId],
+  );
+}
+
 export async function getUserRoles(
   client: DBClient,
   schema: string,
   uid: string,
 ) {
-  const { rows } = await client.query<{ id: string; name: string }>(
-    `SELECT r.id, r.name
+  const { rows } = await client.query<{
+    id: string;
+    name: string;
+    permissions: string[];
+  }>(
+    `SELECT
+      r.id,
+      r.name,
+      r.permissions
     FROM ${schema}.user_roles ur
     JOIN ${schema}.roles r ON ur.role_id = r.id
     WHERE ur.uid = $1`,

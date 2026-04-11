@@ -3,6 +3,7 @@ export type AuthMethodType = 'DAMAI' | 'WECHAT_MINI' | 'PASSWORD';
 export interface Role {
   id: string;
   name: string;
+  permissions: string[];
 }
 
 export interface Profile {

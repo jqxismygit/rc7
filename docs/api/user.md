@@ -166,15 +166,15 @@
   ```
 - Response Body:
   ```ts
-  string[]
+  User.Role[]
   ```
 - Response Status:
   - `200 OK`：查询成功
   - `401 Unauthorized`：未认证
 
 - 说明：
-  - 仅返回当前登录用户自身的角色名称列表
-  - 返回值中的角色名使用大写，例如 `['ADMIN', 'OPERATOR']`
+  - 仅返回当前登录用户自身的角色列表
+  - 每个角色包含 `id`、`name` 和 `permissions`
   - 未授予任何角色时返回空数组
 
 ## 为用户授予角色
@@ -206,8 +206,36 @@
 
 - 说明：
   - 仅管理员（ADMIN 角色）可执行此操作
-  - 返回用户授予后的全部角色
+  - 返回用户授予后的全部角色列表（含权限）
   - 同一用户同一角色重复授予时幂等
+
+## 为用户收回角色
+
+- URL: `/users/:uid/roles/:role_id`
+- Method: `DELETE`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Params:
+  ```ts
+  { uid: string; role_id: User.Role['id'] }
+  ```
+- Response Body:
+  ```ts
+  { roles: User.Role[] }
+  ```
+- Response Status:
+  - `200 OK`：收回成功
+  - `400 Bad Request`：不允许收回自己的 `ADMIN` 角色
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：无权限（仅管理员可执行）
+  - `404 Not Found`：角色不存在
+
+- 说明：
+  - 仅管理员（ADMIN 角色）可执行此操作
+  - 返回用户收回后的全部角色列表（含权限）
+  - 收回不存在的用户-角色关系时幂等（保持当前角色集合不变）
 
 ## 管理员查看角色列表
 

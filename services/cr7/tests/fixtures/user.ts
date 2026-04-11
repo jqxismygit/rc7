@@ -33,7 +33,7 @@ export function getUserProfile(server: Server, token: string) {
 }
 
 export function getCurrentUserRoles(server: Server, token: string) {
-  return getJSON<string[]>(server, '/user/roles', { token });
+  return getJSON<User.Role[]>(server, '/user/roles', { token });
 }
 
 export function updateUserProfile(
@@ -218,7 +218,8 @@ export async function prepareOperatorUser(
 ): Promise<{ token: string; profile: User.Profile }> {
   const token = await registerUser(apiServer, userName);
   const profile = await getUserProfile(apiServer, token);
-  await grantRoleToUser(apiServer, adminToken, profile.id, 'OPERATOR');
+  const operatorRoleId = await getRoleIdByName(apiServer, adminToken, 'OPERATOR');
+  await grantRoleToUser(apiServer, adminToken, profile.id, operatorRoleId);
   return { token, profile };
 }
 
@@ -264,14 +265,40 @@ export async function grantRoleToUser(
   server: Server,
   token: string,
   uid: string,
-  roleName: string,
+  roleId: string,
 ) {
-  return postJSON<{ role_names: string[] }>(
+  return postJSON<{ roles: User.Role[] }>(
     server,
     `/users/${uid}/roles`,
     {
       token,
-      body: { role_name: roleName },
+      body: { role_id: roleId },
     }
   );
+}
+
+export async function revokeRoleFromUser(
+  server: Server,
+  token: string,
+  uid: string,
+  roleId: string,
+) {
+  return deleteJSON<{ roles: User.Role[] }>(
+    server,
+    `/users/${uid}/roles/${roleId}`,
+    {
+      token,
+    }
+  );
+}
+
+export async function getRoleIdByName(
+  server: Server,
+  token: string,
+  roleName: string,
+) {
+  const roleList = await listRoles(server, token);
+  const role = roleList.find(item => item.name === roleName);
+  expect(role).toBeDefined();
+  return role!.id;
 }

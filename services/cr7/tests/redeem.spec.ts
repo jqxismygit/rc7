@@ -26,7 +26,10 @@ import {
   isValidRedemptionCodeLuhn,
   redeemCode,
 } from './fixtures/redeem.js';
-import { grantRoleToUser as grantRoleToUserAPI } from './fixtures/user.js';
+import {
+  grantRoleToUser as grantRoleToUserAPI,
+  getRoleIdByName as getRoleIdByNameAPI,
+} from './fixtures/user.js';
 import {
   markOrderAsPaidForTest,
   requestRefundWithMock,
@@ -204,11 +207,16 @@ describeFeature(feature, ({
       expect(roleLabel).toBe('运营');
       const user = featureContext.usersByName[userName];
       expect(user).toBeTruthy();
+      const operatorRoleId = await getRoleIdByNameAPI(
+        featureContext.fixtures.values.apiServer,
+        featureContext.adminToken,
+        'OPERATOR',
+      );
       await grantRoleToUserAPI(
         featureContext.fixtures.values.apiServer,
         featureContext.adminToken,
         user.profile.id,
-        'OPERATOR',
+        operatorRoleId,
       );
     });
 
