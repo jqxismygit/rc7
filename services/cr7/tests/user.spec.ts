@@ -206,7 +206,7 @@ describeFeature(feature, ({
 
     Given('管理员账号将用户 {string} 设置成运营人员', async (ctx, userName: string) => {
       const { apiServer, adminToken } = featureContext;
-      const userProfile = getRegisteredUserProfile(ctx, userName);
+      const userProfile = getRegisteredUserProfile(userName);
       const roleId = await getRoleIdByName(apiServer, adminToken, 'OPERATOR');
       await grantRoleToUser(apiServer, adminToken, userProfile.id, roleId);
     });
@@ -840,12 +840,12 @@ describeFeature(feature, ({
       });
 
       Then('用户列表获取成功，用户列表包含用户 {string}', (ctx, userName: string) => {
-        const targetProfile = getRegisteredUserProfile(ctx, userName);
+        const targetProfile = getRegisteredUserProfile(userName);
         expect(context.userList.users.some(user => user.id === targetProfile.id)).toBe(true);
       });
 
       And('用户列表获取成功，用户列表不包含用户 {string}', (ctx, userName: string) => {
-        const targetProfile = getRegisteredUserProfile(ctx, userName);
+        const targetProfile = getRegisteredUserProfile(userName);
         expect(context.userList.users.some(user => user.id === targetProfile.id)).toBe(false);
       });
     }
