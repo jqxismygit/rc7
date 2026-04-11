@@ -162,13 +162,9 @@ type MopResponseEnvelope = {
 
 type MopRequestHeaders = Record<string, string | string[] | undefined>;
 
-type MopSignValidationResult =
-  | { ok: true }
-  | { ok: false; response: MopResponseEnvelope };
+type MopSignValidationResult = { ok: true } | { ok: false; response: MopResponseEnvelope };
 
-type MopDecryptResult<T> =
-  | { ok: true; body: T }
-  | { ok: false; response: MopResponseEnvelope };
+type MopDecryptResult<T> = { ok: true; body: T } | { ok: false; response: MopResponseEnvelope };
 
 const MOP_PROJECT_CATEGORY_LEISURE_EXHIBITION = {
   label: '休闲展览',
@@ -192,7 +188,6 @@ const MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_CANCEL = 0;
 const MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_REFUND = 1;
 const MOP_SEAT_TYPE_NONE = 1;
 const MOP_NEED_REAL_NAME_NO = 0;
-
 
 const MOP_ORDER_STATUS = {
   INITIAL: 0,
@@ -250,11 +245,11 @@ async function getCityMeta(cityName: string) {
     throw new MoleculerClientError(`暂不支持同步城市: ${cityName}`, 400, 'MOP_CITY_NOT_SUPPORTED');
   }
 
-  return city;
+  throw new MoleculerClientError(`暂不支持同步城市: ${cityName}`, 400, 'MOP_CITY_NOT_SUPPORTED');
 }
 
 async function readKey(path: string) {
-  return readFile(path, 'utf-8').then(content => content.trim());
+  return readFile(path, 'utf-8').then((content) => content.trim());
 }
 
 function normalizeTimeLabel(time: string): string {
@@ -288,7 +283,7 @@ function formatMopDateTime(sessionDate: string | Date, time: string): string {
     throw new MoleculerClientError(
       `场次时间格式不合法: ${dateTimeLabel}`,
       400,
-      'MOP_SESSION_DATETIME_INVALID',
+      'MOP_SESSION_DATETIME_INVALID'
     );
   }
 
@@ -308,10 +303,7 @@ function toMopCountryCode(mobileNoAreaCode: string | null | undefined): string {
   return trimmed.startsWith('+') ? trimmed : `+${trimmed}`;
 }
 
-function getHeaderValue(
-  headers: MopRequestHeaders,
-  key: string,
-): string | null {
+function getHeaderValue(headers: MopRequestHeaders, key: string): string | null {
   const value = headers[key];
   if (value === undefined) {
     return null;
@@ -429,11 +421,12 @@ export default class MoeService extends RC7BaseService {
   }
 
   async syncExhibitionToMop(
-    ctx: Context<{ eid: string }, UserMeta & { $statusCode?: number }>,
+    ctx: Context<{ eid: string }, UserMeta & { $statusCode?: number }>
   ): Promise<void> {
     const { eid } = ctx.params;
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
-      'cr7.exhibition.get', { eid }
+      'cr7.exhibition.get',
+      { eid }
     );
 
     const cityMeta = await getCityMeta(exhibition.city);
@@ -467,14 +460,16 @@ export default class MoeService extends RC7BaseService {
   }
 
   async syncSessionsToMop(
-    ctx: Context<{ eid: string }, UserMeta & { $statusCode?: number }>,
+    ctx: Context<{ eid: string }, UserMeta & { $statusCode?: number }>
   ): Promise<void> {
     const { eid } = ctx.params;
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
-      'cr7.exhibition.get', { eid }
+      'cr7.exhibition.get',
+      { eid }
     );
     const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
-      'cr7.exhibition.getSessions', { eid }
+      'cr7.exhibition.getSessions',
+      { eid }
     );
     const sortedSessions = [...sessions].sort((left, right) => {
       const leftDate = toDateLabel(left.session_date);
@@ -484,7 +479,7 @@ export default class MoeService extends RC7BaseService {
 
     const request: MopShowSyncRequest = {
       otProjectId: exhibition.id,
-      shows: sortedSessions.map(session => ({
+      shows: sortedSessions.map((session) => ({
         otShowId: session.id,
         otShowStatus: MOP_SHOW_STATUS_VALID,
         startTime: formatMopDateTime(session.session_date, exhibition.opening_time),
@@ -513,39 +508,45 @@ export default class MoeService extends RC7BaseService {
   }
 
   async syncTicketsToMop(
-    ctx: Context<{
-      eid: string;
-      sessionDateStart?: string;
-      sessionDateEnd?: string;
-    }, UserMeta & { $statusCode?: number }>,
+    ctx: Context<
+      {
+        eid: string;
+        sessionDateStart?: string;
+        sessionDateEnd?: string;
+      },
+      UserMeta & { $statusCode?: number }
+    >
   ): Promise<void> {
     const { eid, sessionDateStart, sessionDateEnd } = ctx.params;
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
-      'cr7.exhibition.get', { eid }
+      'cr7.exhibition.get',
+      { eid }
     );
     const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
-      'cr7.exhibition.getSessions', { eid }
+      'cr7.exhibition.getSessions',
+      { eid }
     );
     const ticketCategories = await ctx.call<Exhibition.TicketCategory[], { eid: string }>(
-      'cr7.exhibition.getTicketCategories', { eid }
+      'cr7.exhibition.getTicketCategories',
+      { eid }
     );
 
     const sessionDateStartLabel = sessionDateStart ? toDateLabel(sessionDateStart) : null;
     const sessionDateEndLabel = sessionDateEnd ? toDateLabel(sessionDateEnd) : null;
 
     if (
-      sessionDateStartLabel !== null
-      && sessionDateEndLabel !== null
-      && sessionDateStartLabel.localeCompare(sessionDateEndLabel) > 0
+      sessionDateStartLabel !== null &&
+      sessionDateEndLabel !== null &&
+      sessionDateStartLabel.localeCompare(sessionDateEndLabel) > 0
     ) {
       throw new MoleculerClientError(
         '场次日期范围不合法: 开始日期不能晚于结束日期',
         400,
-        'MOP_SESSION_DATE_RANGE_INVALID',
+        'MOP_SESSION_DATE_RANGE_INVALID'
       );
     }
 
-    const filteredSessions = sessions.filter(session => {
+    const filteredSessions = sessions.filter((session) => {
       const sessionDate = toDateLabel(session.session_date);
       if (sessionDateStartLabel !== null && sessionDate.localeCompare(sessionDateStartLabel) < 0) {
         return false;
@@ -569,17 +570,19 @@ export default class MoeService extends RC7BaseService {
     const request: MopSkuSyncRequest = {
       otProjectId: exhibition.id,
       isOta: MOP_SKU_IS_OTA,
-      skus: sortedSessions.flatMap(session => ticketCategories.map(ticket => ({
-        otShowId: session.id,
-        otSkuId: ticket.id,
-        otSkuStatus: MOP_SKU_STATUS_VALID,
-        name: ticket.name,
-        skuPrice: toYuanString(ticket.price),
-        sellPrice: toYuanString(ticket.price),
-        onSaleTime: formatMopDateTime(exhibition.start_date, exhibition.opening_time),
-        offSaleTime: formatMopDateTime(exhibition.end_date, exhibition.closing_time),
-        inventoryType: MOP_INVENTORY_TYPE_SHARED,
-      }))),
+      skus: sortedSessions.flatMap((session) =>
+        ticketCategories.map((ticket) => ({
+          otShowId: session.id,
+          otSkuId: ticket.id,
+          otSkuStatus: MOP_SKU_STATUS_VALID,
+          name: ticket.name,
+          skuPrice: toYuanString(ticket.price),
+          sellPrice: toYuanString(ticket.price),
+          onSaleTime: formatMopDateTime(exhibition.start_date, exhibition.opening_time),
+          offSaleTime: formatMopDateTime(exhibition.end_date, exhibition.closing_time),
+          inventoryType: MOP_INVENTORY_TYPE_SHARED,
+        }))
+      ),
     };
 
     const privateKey = await readKey(config.mop.private_key_path);
@@ -599,11 +602,14 @@ export default class MoeService extends RC7BaseService {
   }
 
   async syncStocksToMop(
-    ctx: Context<{
-      eid: string;
-      sessionDateStart?: string;
-      sessionDateEnd?: string;
-    }, UserMeta & { $statusCode?: number }>,
+    ctx: Context<
+      {
+        eid: string;
+        sessionDateStart?: string;
+        sessionDateEnd?: string;
+      },
+      UserMeta & { $statusCode?: number }
+    >
   ): Promise<void> {
     const { eid, sessionDateStart, sessionDateEnd } = ctx.params;
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
@@ -623,18 +629,18 @@ export default class MoeService extends RC7BaseService {
     const sessionDateEndLabel = sessionDateEnd ? toDateLabel(sessionDateEnd) : null;
 
     if (
-      sessionDateStartLabel !== null
-      && sessionDateEndLabel !== null
-      && sessionDateStartLabel.localeCompare(sessionDateEndLabel) > 0
+      sessionDateStartLabel !== null &&
+      sessionDateEndLabel !== null &&
+      sessionDateStartLabel.localeCompare(sessionDateEndLabel) > 0
     ) {
       throw new MoleculerClientError(
         '场次日期范围不合法: 开始日期不能晚于结束日期',
         400,
-        'MOP_SESSION_DATE_RANGE_INVALID',
+        'MOP_SESSION_DATE_RANGE_INVALID'
       );
     }
 
-    const filteredSessions = sessions.filter(session => {
+    const filteredSessions = sessions.filter((session) => {
       const sessionDate = toDateLabel(session.session_date);
       if (sessionDateStartLabel !== null && sessionDate.localeCompare(sessionDateStartLabel) < 0) {
         return false;
@@ -661,12 +667,9 @@ export default class MoeService extends RC7BaseService {
       const sessionTickets = await ctx.call<
         Inventory.SessionTicketsInventory[],
         { eid: string; sid: string }
-      >(
-        'cr7.exhibition.getSessionTickets',
-        { eid, sid: session.id },
-      );
+      >('cr7.exhibition.getSessionTickets', { eid, sid: session.id });
 
-      const stockByTicketId = new Map(sessionTickets.map(ticket => [ticket.id, ticket.quantity]));
+      const stockByTicketId = new Map(sessionTickets.map((ticket) => [ticket.id, ticket.quantity]));
       for (const ticketCategory of ticketCategories) {
         stocks.push({
           otShowId: session.id,
@@ -701,7 +704,7 @@ export default class MoeService extends RC7BaseService {
   async buildMopResponse(
     code: number,
     msg: string,
-    body: unknown = null,
+    body: unknown = null
   ): Promise<MopResponseEnvelope> {
     const privateKey = await readKey(config.mop.private_key_path);
     const timestamp = format(new Date(), 'yyyy-MM-dd HH:mm:ss');
@@ -712,15 +715,13 @@ export default class MoeService extends RC7BaseService {
       msg,
       timestamp,
       sign,
-      encryptData: body === null
-        ? null
-        : encryptMopData(JSON.stringify(body), config.mop.aes_key),
+      encryptData: body === null ? null : encryptMopData(JSON.stringify(body), config.mop.aes_key),
     };
   }
 
   async validateMopSign(
     headers: MopRequestHeaders,
-    signUri: string,
+    signUri: string
   ): Promise<MopSignValidationResult> {
     const supplier = getHeaderValue(headers, 'supplier');
     const timestamp = getHeaderValue(headers, 'timestamp');
@@ -781,7 +782,7 @@ export default class MoeService extends RC7BaseService {
     body: unknown = null,
     syncStatus: Mop.MopOrderSyncStatus = 'FAILED',
     orderId: string | null = null,
-    userId: string | null = null,
+    userId: string | null = null
   ) {
     const schema = await this.getSchema();
     const response = await this.buildMopResponse(code, msg, body);
@@ -804,7 +805,7 @@ export default class MoeService extends RC7BaseService {
         headers?: Record<string, string | string[]>;
         $statusCode?: number;
       }
-    >,
+    >
   ): Promise<MopResponseEnvelope> {
     ctx.meta.$statusCode = 200;
 
@@ -815,7 +816,7 @@ export default class MoeService extends RC7BaseService {
     }
 
     const decryptResult = await this.decryptMopRequestBody<MopOrderCreateRequest>(
-      ctx.params.encryptData,
+      ctx.params.encryptData
     );
     if (decryptResult.ok === false) {
       return decryptResult.response;
@@ -859,17 +860,21 @@ export default class MoeService extends RC7BaseService {
     const firstSuccessRecord = await getFirstSuccessfulMopOrderSyncRecordByMyOrderId(
       this.pool,
       schema,
-      myOrderId,
+      myOrderId
     );
 
-    const order = (firstSuccessRecord?.order_id ?? null) === null
-      ? null
-      : await ctx.call<Order.OrderWithItems, { oid: string }>(
-        'cr7.order.get',
-        { oid: firstSuccessRecord!.order_id! },
-       { meta: { user: { uid: firstSuccessRecord?.user_id } } }
-      )
-      .then(res => res, (error) => (console.error('Error fetching order:', error), null));
+    const order =
+      (firstSuccessRecord?.order_id ?? null) === null
+        ? null
+        : await ctx
+            .call<
+              Order.OrderWithItems,
+              { oid: string }
+            >('cr7.order.get', { oid: firstSuccessRecord!.order_id! }, { meta: { user: { uid: firstSuccessRecord?.user_id } } })
+            .then(
+              (res) => res,
+              (error) => (console.error('Error fetching order:', error), null)
+            );
 
     if (order !== null) {
       const responseBody: MopOrderCreateResponse = {
@@ -879,16 +884,22 @@ export default class MoeService extends RC7BaseService {
       };
 
       return this.finishWithMopResponse(
-        recordId, 10000, '成功',
-        responseBody, 'SUCCESS',
-        order.id, order.user_id
+        recordId,
+        10000,
+        '成功',
+        responseBody,
+        'SUCCESS',
+        order.id,
+        order.user_id
       );
     }
 
-    const exhibition = await ctx.call<Exhibition.Exhibition | null, { eid: string }>(
-      'cr7.exhibition.get',
-      { eid: projectCode },
-    ).catch(() => null);
+    const exhibition = await ctx
+      .call<
+        Exhibition.Exhibition | null,
+        { eid: string }
+      >('cr7.exhibition.get', { eid: projectCode })
+      .catch(() => null);
 
     if (!exhibition) {
       return this.finishWithMopResponse(recordId, 30003, '项目状态异常');
@@ -896,9 +907,9 @@ export default class MoeService extends RC7BaseService {
 
     const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
       'cr7.exhibition.getSessions',
-      { eid: projectCode },
+      { eid: projectCode }
     );
-    const session = sessions.find(item => item.id === projectShowCode) ?? null;
+    const session = sessions.find((item) => item.id === projectShowCode) ?? null;
 
     if (!session) {
       return this.finishWithMopResponse(recordId, 30004, '场次状态异常');
@@ -906,9 +917,9 @@ export default class MoeService extends RC7BaseService {
 
     const ticketCategories = await ctx.call<Exhibition.TicketCategory[], { eid: string }>(
       'cr7.exhibition.getTicketCategories',
-      { eid: projectCode },
+      { eid: projectCode }
     );
-    const ticketById = new Map(ticketCategories.map(ticket => [ticket.id, ticket]));
+    const ticketById = new Map(ticketCategories.map((ticket) => [ticket.id, ticket]));
 
     const totalPriceFromItems = ticketInfo.reduce((sum, item) => sum + Number(item.ticketPrice), 0);
     if (Number(totalPrice).toFixed(2) !== totalPriceFromItems.toFixed(2)) {
@@ -936,17 +947,20 @@ export default class MoeService extends RC7BaseService {
         country_code: toMopCountryCode(mobileNoAreaCode),
         phone: buyerPhone,
         name: buyerName,
-      },
+      }
     );
 
     try {
-      const order = await ctx.call<Order.OrderWithItems, {
-        eid: string;
-        sid: string;
-        items: Order.CreateOrderItem[];
-        source: Order.OrderSource;
-        user_id: string;
-      }>('cr7.order.create', {
+      const order = await ctx.call<
+        Order.OrderWithItems,
+        {
+          eid: string;
+          sid: string;
+          items: Order.CreateOrderItem[];
+          source: Order.OrderSource;
+          user_id: string;
+        }
+      >('cr7.order.create', {
         eid: projectCode,
         sid: projectShowCode,
         items: Array.from(itemCountBySku.entries()).map(([ticket_category_id, quantity]) => ({
@@ -964,8 +978,13 @@ export default class MoeService extends RC7BaseService {
       };
 
       return this.finishWithMopResponse(
-        recordId, 10000, '成功', responseBody, 'SUCCESS',
-        order.id, userId
+        recordId,
+        10000,
+        '成功',
+        responseBody,
+        'SUCCESS',
+        order.id,
+        userId
       );
     } catch (error) {
       const errorCode = (error as { code?: string })?.code;
@@ -985,7 +1004,7 @@ export default class MoeService extends RC7BaseService {
         headers?: Record<string, string | string[]>;
         $statusCode?: number;
       }
-    >,
+    >
   ): Promise<MopResponseEnvelope> {
     ctx.meta.$statusCode = 200;
 
@@ -996,7 +1015,7 @@ export default class MoeService extends RC7BaseService {
     }
 
     const decryptResult = await this.decryptMopRequestBody<MopOrderQueryRequest>(
-      ctx.params.encryptData,
+      ctx.params.encryptData
     );
     if (decryptResult.ok === false) {
       return decryptResult.response;
@@ -1011,7 +1030,7 @@ export default class MoeService extends RC7BaseService {
     const firstSuccessRecord = await getFirstSuccessfulMopOrderSyncRecordByMyOrderId(
       this.pool,
       schema,
-      myOrderId,
+      myOrderId
     );
 
     if (firstSuccessRecord?.order_id == null || firstSuccessRecord.user_id == null) {
@@ -1024,11 +1043,15 @@ export default class MoeService extends RC7BaseService {
       { meta: { user: { uid: firstSuccessRecord.user_id } } }
     );
 
-    const redemption = await ctx.call<Redeem.RedemptionCodeWithOrder, { oid: string }>(
-      'cr7.redemption.getByOrder',
-      { oid: firstSuccessRecord.order_id },
-      { meta: { user: { uid: firstSuccessRecord.user_id } } },
-    ).then(res => res, () => null);
+    const redemption = await ctx
+      .call<
+        Redeem.RedemptionCodeWithOrder,
+        { oid: string }
+      >('cr7.redemption.getByOrder', { oid: firstSuccessRecord.order_id }, { meta: { user: { uid: firstSuccessRecord.user_id } } })
+      .then(
+        (res) => res,
+        () => null
+      );
 
     const isConsumed = redemption?.status === 'REDEEMED';
     const orderConsumeStatus = isConsumed
@@ -1044,7 +1067,7 @@ export default class MoeService extends RC7BaseService {
       orderStatus: toMopOrderStatus(order.status),
       orderRefundStatus: toMopRefundStatus(order.status),
       orderConsumeStatus,
-      ticketInfo: requestBody.ticketInfo.map(item => ({
+      ticketInfo: requestBody.ticketInfo.map((item) => ({
         myTicketId: item.myTicketId,
         channelTicketId: item.skuId,
         ticketConsumeStatus: orderConsumeStatus,
@@ -1063,7 +1086,7 @@ export default class MoeService extends RC7BaseService {
         headers?: Record<string, string | string[]>;
         $statusCode?: number;
       }
-    >,
+    >
   ): Promise<MopResponseEnvelope> {
     ctx.meta.$statusCode = 200;
 
@@ -1074,7 +1097,7 @@ export default class MoeService extends RC7BaseService {
     }
 
     const decryptResult = await this.decryptMopRequestBody<MopTicketConfirmationRequest>(
-      ctx.params.encryptData,
+      ctx.params.encryptData
     );
     if (decryptResult.ok === false) {
       return decryptResult.response;
@@ -1100,17 +1123,16 @@ export default class MoeService extends RC7BaseService {
     const firstSuccessRecord = await getFirstSuccessfulMopOrderSyncRecordByMyOrderId(
       this.pool,
       schema,
-      myOrderId,
+      myOrderId
     );
 
     if (firstSuccessRecord?.order_id == null || firstSuccessRecord.user_id == null) {
       return this.finishWithMopResponse(recordId, 10001, '参数异常');
     }
 
-    await ctx.call<{ paid_at: Date }, { oid: string }>(
-      'cr7.order.markPaid',
-      { oid: firstSuccessRecord.order_id },
-    );
+    await ctx.call<{ paid_at: Date }, { oid: string }>('cr7.order.markPaid', {
+      oid: firstSuccessRecord.order_id,
+    });
 
     const order = await ctx.call<Order.OrderWithItems, { oid: string }>(
       'cr7.order.get',
@@ -1118,11 +1140,15 @@ export default class MoeService extends RC7BaseService {
       { meta: { user: { uid: firstSuccessRecord.user_id } } }
     );
 
-    const redemption = await ctx.call<Redeem.RedemptionCodeWithOrder, { oid: string }>(
-      'cr7.redemption.getByOrder',
-      { oid: firstSuccessRecord.order_id },
-      { meta: { user: { uid: firstSuccessRecord.user_id } } },
-    ).then(res => res, () => null);
+    const redemption = await ctx
+      .call<
+        Redeem.RedemptionCodeWithOrder,
+        { oid: string }
+      >('cr7.redemption.getByOrder', { oid: firstSuccessRecord.order_id }, { meta: { user: { uid: firstSuccessRecord.user_id } } })
+      .then(
+        (res) => res,
+        () => null
+      );
     const redeemCode = redemption?.code ?? null;
 
     const requestBody = firstSuccessRecord.request_body as MopOrderCreateRequest;
@@ -1131,7 +1157,7 @@ export default class MoeService extends RC7BaseService {
       fetchCode: null,
       fetchQrCode: null,
       orderStatus: toMopOrderStatus(order.status),
-      ticketInfo: requestBody.ticketInfo.map(item => ({
+      ticketInfo: requestBody.ticketInfo.map((item) => ({
         myTicketId: item.myTicketId,
         channelTicketId: item.skuId,
         checkCode: redeemCode,
@@ -1146,7 +1172,7 @@ export default class MoeService extends RC7BaseService {
       responseBody,
       'SUCCESS',
       order.id,
-      firstSuccessRecord.user_id,
+      firstSuccessRecord.user_id
     );
   }
 
@@ -1157,7 +1183,7 @@ export default class MoeService extends RC7BaseService {
         headers?: Record<string, string | string[]>;
         $statusCode?: number;
       }
-    >,
+    >
   ): Promise<MopResponseEnvelope> {
     ctx.meta.$statusCode = 200;
 
@@ -1168,7 +1194,7 @@ export default class MoeService extends RC7BaseService {
     }
 
     const decryptResult = await this.decryptMopRequestBody<MopOrderStatusChangeRequest>(
-      ctx.params.encryptData,
+      ctx.params.encryptData
     );
     if (decryptResult.ok === false) {
       return decryptResult.response;
@@ -1177,11 +1203,10 @@ export default class MoeService extends RC7BaseService {
     const requestBody = decryptResult.body;
     const schema = await this.getSchema();
     const { myOrderId, bizType } = requestBody;
-    if (!myOrderId
-      || (
-        bizType !== MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_CANCEL
-        && bizType !== MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_REFUND
-      )
+    if (
+      !myOrderId ||
+      (bizType !== MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_CANCEL &&
+        bizType !== MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_REFUND)
     ) {
       return this.buildMopResponse(10001, '参数异常');
     }
@@ -1198,7 +1223,7 @@ export default class MoeService extends RC7BaseService {
     const firstSuccessRecord = await getFirstSuccessfulMopOrderSyncRecordByMyOrderId(
       this.pool,
       schema,
-      myOrderId,
+      myOrderId
     );
 
     if (firstSuccessRecord?.order_id == null || firstSuccessRecord.user_id == null) {
@@ -1210,21 +1235,15 @@ export default class MoeService extends RC7BaseService {
         await ctx.call(
           'cr7.order.cancel',
           { oid: firstSuccessRecord.order_id },
-          { meta: { user: { uid: firstSuccessRecord.user_id } } },
+          { meta: { user: { uid: firstSuccessRecord.user_id } } }
         );
       } else if (bizType === MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_REFUND) {
-        await ctx.call(
-          'cr7.order.markRefunded',
-          { oid: firstSuccessRecord.order_id },
-        );
+        await ctx.call('cr7.order.markRefunded', { oid: firstSuccessRecord.order_id });
       }
       ctx.meta.$statusCode = 200;
     } catch (error) {
       this.logger.error('处理 MOP 订单状态变更通知时发生错误', error);
-      return this.finishWithMopResponse(
-        recordId, 10099,
-        (error as Error).message || '系统异常'
-      );
+      return this.finishWithMopResponse(recordId, 10099, (error as Error).message || '系统异常');
     }
 
     return this.finishWithMopResponse(
@@ -1234,12 +1253,12 @@ export default class MoeService extends RC7BaseService {
       null,
       'SUCCESS',
       firstSuccessRecord.order_id,
-      firstSuccessRecord.user_id,
+      firstSuccessRecord.user_id
     );
   }
 
   async getMopOrderRecord(
-    ctx: Context<{ rid: string }, UserMeta>,
+    ctx: Context<{ rid: string }, UserMeta>
   ): Promise<Mop.MopOrderSyncRecord[]> {
     const { rid } = ctx.params;
     const schema = await this.getSchema();
@@ -1247,9 +1266,7 @@ export default class MoeService extends RC7BaseService {
     return listMopOrderSyncRecordsByOrderId(this.pool, schema, rid);
   }
 
-  async notifyOrderConsumed(
-    ctx: Context<{ oid: string }>,
-  ): Promise<void> {
+  async notifyOrderConsumed(ctx: Context<{ oid: string }>): Promise<void> {
     const { oid } = ctx.params;
     const schema = await this.getSchema();
 
@@ -1265,7 +1282,7 @@ export default class MoeService extends RC7BaseService {
     const requestBody = record.request_body as MopOrderCreateRequest;
     const consumeBody = {
       myOrderId: record.my_order_id,
-      ticketInfo: requestBody.ticketInfo.map(t => t.myTicketId),
+      ticketInfo: requestBody.ticketInfo.map((t) => t.myTicketId),
     };
 
     const privateKey = await readKey(config.mop.private_key_path);

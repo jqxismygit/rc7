@@ -15,8 +15,8 @@ import {
   Breadcrumb,
   Button,
   Card,
+  Cascader,
   Form,
-  Input,
   Modal,
   Radio,
   Space,
@@ -52,7 +52,16 @@ import {
 } from "@/apis/exhibition";
 import { uploadTopicImageApi } from "@/apis/topic";
 import { useTableQuery } from "@/hooks/use-table-query";
+import {
+  useSyncExhibitionToDamai,
+  useSyncExhibitionToMaoyan,
+} from "@/hooks/use-sync";
 import { formatDateTime, formatSessionDateTime } from "@/utils/format-datetime";
+import {
+  CHINA_REGION_CASCADER_OPTIONS,
+  getCascaderValuePathByLeafCode,
+  getRegionLabelByLeafCode,
+} from "@/utils/china-region-cascader";
 import dayjs, { type Dayjs } from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import "./exhibition.less";
@@ -76,11 +85,14 @@ function formatDayjsLike(value: unknown, fmt: string) {
 /** 新建弹窗表单：区间字段在提交时再拆成接口所需的独立字符串 */
 type ExhibitionCreateFormValues = Omit<
   CreateExhibitionInput,
-  "start_date" | "end_date" | "opening_time" | "closing_time"
+  "start_date" | "end_date" | "opening_time" | "closing_time" | "city"
 > & {
   date_range?: [unknown, unknown] | null;
   session_time_range?: [unknown, unknown] | null;
   cover_url?: string;
+  /** 省市区级联，提交时取末级六位码写入 city */
+  city_cascader?: string[];
+  venue_name: string;
 };
 
 const initialCreateValues: Partial<ExhibitionCreateFormValues> = {
@@ -88,6 +100,7 @@ const initialCreateValues: Partial<ExhibitionCreateFormValues> = {
   name: "",
   description: "",
   cover_url: "",
+  venue_name: "",
 };
 
 type ExhibitionEditFormValues = {
@@ -96,6 +109,8 @@ type ExhibitionEditFormValues = {
   opening_time: Dayjs;
   closing_time: Dayjs;
   last_entry_time: Dayjs;
+  city_cascader?: string[];
+  venue_name: string;
   location: string;
   cover_url?: string;
 };
@@ -267,8 +282,11 @@ const ExhibitionPage = () => {
   const [otaSyncOpen, setOtaSyncOpen] = useState(false);
   const [otaSyncRow, setOtaSyncRow] =
     useState<ExhibitionTypes.Exhibition | null>(null);
-  const [otaPlatform, setOtaPlatform] = useState<OtaPlatform>("ctrip");
-  const [ctripExternalId, setCtripExternalId] = useState("");
+  const [otaPlatform, setOtaPlatform] = useState<OtaPlatform>("maoyan");
+  const { sync: syncToMaoyan, syncing: maoyanOtaSyncing } =
+    useSyncExhibitionToMaoyan();
+  const { sync: syncToDamai, syncing: damaiOtaSyncing } =
+    useSyncExhibitionToDamai();
   const editingExhibitIdRef = useRef<string | null>(null);
   const { proTablePagination, rowIndexBase, getListParams } = useTableQuery({
     defaultPageSize: 10,
@@ -307,25 +325,31 @@ const ExhibitionPage = () => {
 
   const openOtaSyncForRow = useCallback((row: ExhibitionTypes.Exhibition) => {
     setOtaSyncRow(row);
-    setOtaPlatform("ctrip");
-    setCtripExternalId("");
+    setOtaPlatform("maoyan");
     setOtaSyncOpen(true);
   }, []);
 
   const closeOtaSyncModal = useCallback(() => {
     setOtaSyncOpen(false);
     setOtaSyncRow(null);
-    setOtaPlatform("ctrip");
-    setCtripExternalId("");
+    setOtaPlatform("maoyan");
   }, []);
 
-  const handleOtaSyncOk = useCallback(() => {
-    if (otaPlatform === "ctrip" && !ctripExternalId.trim()) {
-      message.warning("同步至携程时请填写活动 ID");
+  const handleOtaSyncOk = useCallback(async () => {
+    if (!otaSyncRow) return;
+    const eid = otaSyncRow.id;
+    if (otaPlatform === "ctrip") {
+      message.warning("携程不支持从此处同步");
       return;
     }
-    // closeOtaSyncModal();
-  }, [closeOtaSyncModal, ctripExternalId, otaPlatform]);
+    if (otaPlatform === "maoyan") {
+      await syncToMaoyan(eid);
+      return;
+    }
+    if (otaPlatform === "damai") {
+      await syncToDamai(eid);
+    }
+  }, [otaSyncRow, otaPlatform, syncToMaoyan, syncToDamai]);
 
   /** 弹窗挂载后再写入表单，避免 setFieldsValue 早于 Form 渲染导致校验失败、保存无反应 */
   useEffect(() => {
@@ -342,6 +366,9 @@ const ExhibitionPage = () => {
       last_entry_time: parseExhibitionTime(
         editingRow.last_entry_time as string | null | undefined,
       ),
+      city_cascader:
+        getCascaderValuePathByLeafCode(editingRow.city) ?? [],
+      venue_name: editingRow.venue_name ?? "",
       location: editingRow.location,
       cover_url: editingRow.cover_url ?? "",
     });
@@ -387,6 +414,31 @@ const ExhibitionPage = () => {
           >
             {row.description}
           </Typography.Text>
+        ),
+      },
+      {
+        title: "城市",
+        dataIndex: "city",
+        search: false,
+        width: 220,
+        ellipsis: true,
+        render: (_, row) => (
+          <Typography.Text
+            type="secondary"
+            ellipsis={{ tooltip: getRegionLabelByLeafCode(row.city) }}
+          >
+            {getRegionLabelByLeafCode(row.city)}
+          </Typography.Text>
+        ),
+      },
+      {
+        title: "场馆",
+        dataIndex: "venue_name",
+        search: false,
+        width: 140,
+        ellipsis: true,
+        render: (t) => (
+          <Typography.Text type="secondary">{t ?? "—"}</Typography.Text>
         ),
       },
       {
@@ -492,13 +544,21 @@ const ExhibitionPage = () => {
   );
 
   async function handleCreateModalFinish(values: ExhibitionCreateFormValues) {
-    const { date_range, session_time_range, ...rest } = values;
+    const { date_range, session_time_range, city_cascader, ...rest } = values;
     if (!date_range?.[0] || !date_range?.[1]) {
       message.error("请选择展期");
       return false;
     }
     if (!session_time_range?.[0] || !session_time_range?.[1]) {
       message.error("请选择开闭场时间");
+      return false;
+    }
+    const leaf =
+      city_cascader && city_cascader.length > 0
+        ? city_cascader[city_cascader.length - 1]
+        : "";
+    if (!leaf || !/^\d{6}$/.test(String(leaf))) {
+      message.error("请选择完整的省 / 市 / 区（须选到区县）");
       return false;
     }
     const start_date = String(formatDayjsLike(date_range[0], "YYYY-MM-DD"));
@@ -514,6 +574,7 @@ const ExhibitionPage = () => {
       : undefined;
     return handleCreate({
       ...rest,
+      city: String(leaf),
       cover_url,
       start_date,
       end_date,
@@ -559,12 +620,22 @@ const ExhibitionPage = () => {
     }
     try {
       setEditSubmitting(true);
+      const leaf =
+        values.city_cascader && values.city_cascader.length > 0
+          ? values.city_cascader[values.city_cascader.length - 1]
+          : "";
+      if (!leaf || !/^\d{6}$/.test(String(leaf))) {
+        message.error("请选择完整的省 / 市 / 区（须选到区县）");
+        return false;
+      }
       await updateExhibitionApi(eid, {
         name: values.name.trim(),
         description: values.description.trim(),
         opening_time: formatEditTimeField(values.opening_time),
         closing_time: formatEditTimeField(values.closing_time),
         last_entry_time: formatEditTimeField(values.last_entry_time),
+        city: String(leaf),
+        venue_name: values.venue_name.trim(),
         location: values.location.trim(),
         cover_url: values.cover_url?.trim() ? values.cover_url.trim() : null,
       });
@@ -609,10 +680,10 @@ const ExhibitionPage = () => {
               展览列表数据来自接口分页查询（limit / offset），每页最多 100 条。
             </li>
             <li>
-              点击「新建展会」在弹窗中填写名称、描述、可选封面、展期、开闭场时间及地点后提交创建。
+              点击「新建展会」在弹窗中填写名称、描述、所在地区（省市区）、场馆名称、可选封面、展期、开闭场时间及地点后提交创建。
             </li>
             <li>
-              展会基本信息（含封面）可在列表行「编辑」弹窗中修改；展期仅在创建时设定。
+              展会基本信息（含封面、所在地区、场馆）可在列表行「编辑」弹窗中修改；展期仅在创建时设定。
             </li>
             <li>
               日期与时间字段需与后端约定格式一致（日期 YYYY-MM-DD，时间
@@ -707,7 +778,7 @@ const ExhibitionPage = () => {
           resetButtonProps: { children: "重置" },
         }}
         onFinish={handleCreateModalFinish}
-        width={560}
+        width={640}
         layout="vertical"
       >
         <ProFormText
@@ -721,6 +792,32 @@ const ExhibitionPage = () => {
           label="展会描述"
           placeholder="请输入展会描述"
           rules={[{ required: true, message: "请输入展会描述" }]}
+        />
+        <Form.Item
+          name="city_cascader"
+          label="所在地区"
+          rules={[{ required: true, message: "请选择省 / 市 / 区" }]}
+        >
+          <Cascader
+            options={CHINA_REGION_CASCADER_OPTIONS}
+            placeholder="请选择省 / 市 / 区（须选到区县）"
+            showSearch={{
+              filter: (inputValue, path) =>
+                path.some((option) =>
+                  String(option.label)
+                    .toLowerCase()
+                    .includes(inputValue.toLowerCase()),
+                ),
+            }}
+            changeOnSelect={false}
+            style={{ width: "100%" }}
+          />
+        </Form.Item>
+        <ProFormText
+          name="venue_name"
+          label="场馆名称"
+          placeholder="请输入场馆名称"
+          rules={[{ required: true, message: "请输入场馆名称" }]}
         />
         <ProFormText
           name="cover_url"
@@ -843,6 +940,32 @@ const ExhibitionPage = () => {
           fieldProps={{ format: "HH:mm:ss", style: { width: "100%" } }}
           rules={[{ required: true, message: "请选择最晚入场时间" }]}
         />
+        <Form.Item
+          name="city_cascader"
+          label="所在地区"
+          rules={[{ required: true, message: "请选择省 / 市 / 区" }]}
+        >
+          <Cascader
+            options={CHINA_REGION_CASCADER_OPTIONS}
+            placeholder="请选择省 / 市 / 区（须选到区县）"
+            showSearch={{
+              filter: (inputValue, path) =>
+                path.some((option) =>
+                  String(option.label)
+                    .toLowerCase()
+                    .includes(inputValue.toLowerCase()),
+                ),
+            }}
+            changeOnSelect={false}
+            style={{ width: "100%" }}
+          />
+        </Form.Item>
+        <ProFormText
+          name="venue_name"
+          label="场馆名称"
+          placeholder="请输入场馆名称"
+          rules={[{ required: true, message: "请输入场馆名称" }]}
+        />
         <ProFormText
           name="location"
           label="地点"
@@ -876,13 +999,11 @@ const ExhibitionPage = () => {
         open={otaSyncOpen}
         onCancel={closeOtaSyncModal}
         onOk={handleOtaSyncOk}
+        confirmLoading={maoyanOtaSyncing || damaiOtaSyncing}
         okText="确定同步"
         cancelText="取消"
         destroyOnClose
         maskClosable={false}
-        okButtonProps={{
-          disabled: otaPlatform === "ctrip" && !ctripExternalId.trim(),
-        }}
       >
         <Typography.Paragraph type="secondary" style={{ marginBottom: 16 }}>
           当前展会：{otaSyncRow?.name ?? "—"}
@@ -898,39 +1019,13 @@ const ExhibitionPage = () => {
           onChange={(e) => setOtaPlatform(e.target.value as OtaPlatform)}
         >
           <Space direction="vertical">
-            <Radio value="ctrip">携程</Radio>
             <Radio value="maoyan">猫眼</Radio>
             <Radio value="damai">大麦</Radio>
+            <Radio value="ctrip" disabled>
+              携程（携程不支持，请移步携程后台处理）
+            </Radio>
           </Space>
         </Radio.Group>
-        {otaPlatform === "ctrip" ? (
-          <div style={{ marginTop: 16 }}>
-            <Typography.Text
-              style={{
-                display: "block",
-                marginBottom: 8,
-                color: token.colorText,
-              }}
-            >
-              <Typography.Text type="danger" style={{ marginRight: 4 }}>
-                *
-              </Typography.Text>
-              携程活动 ID
-              <Typography.Text
-                type="secondary"
-                style={{ marginLeft: 8, fontSize: token.fontSizeSM }}
-              >
-                （必填，未填写无法同步至携程）
-              </Typography.Text>
-            </Typography.Text>
-            <Input
-              placeholder="请输入携程侧活动 ID"
-              value={ctripExternalId}
-              onChange={(e) => setCtripExternalId(e.target.value)}
-              allowClear
-            />
-          </div>
-        ) : null}
       </Modal>
     </div>
   );

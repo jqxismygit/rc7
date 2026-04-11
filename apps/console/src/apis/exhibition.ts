@@ -140,3 +140,17 @@ export async function updateTicketCategoryInventoryMaxApi(
     { quantity },
   );
 }
+
+/** 同步展览项目到猫眼（MOP），响应 204 */
+export async function syncExhibitionToMopApi(eid: string): Promise<void> {
+  await request.post(
+    `/exhibition/${encodeURIComponent(eid)}/ota/mop/sync`,
+  );
+}
+
+/** 同步展览项目到大麦，响应 204 */
+export async function syncExhibitionToDamaiApi(eid: string): Promise<void> {
+  await request.post(
+    `/exhibition/${encodeURIComponent(eid)}/ota/damai/sync`,
+  );
+}
