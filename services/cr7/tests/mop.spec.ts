@@ -21,7 +21,7 @@ import {
 } from './fixtures/exhibition.js';
 import { getSessionTickets, updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 import { redeemCode } from './fixtures/redeem.js';
-import { CITY_META_BY_NAME } from '@/libs/city.js';
+import { getCityMetaByName, getCityMetaById } from '@/libs/city.js';
 import {
   MopEncryptedResponse,
   getMopOrderSyncRecords,
@@ -861,12 +861,12 @@ describeFeature(feature, ({
     });
 
     And('默认展会活动的城市是 {string}', async (_ctx, cityName: string) => {
-      const city = CITY_META_BY_NAME[cityName];
+      const city = getCityMetaByName(cityName);
       expect(city).toBeTruthy();
       const { apiServer, adminToken, exhibition } = featureContext;
       featureContext.exhibition = await updateExhibition(
         apiServer, adminToken!,
-        exhibition.id, { city: cityName },
+        exhibition.id, { city: city?.id },
       );
     });
 
@@ -913,22 +913,22 @@ describeFeature(feature, ({
 
     And('展会同步消息中的城市 ID 是展会所在城市的 ID', () => {
       const { exhibition, mopRequestHandler } = featureContext;
-      const city = CITY_META_BY_NAME[exhibition.city];
+      const city = getCityMetaById(exhibition.city);
       expect(city).toBeTruthy();
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
         body: expect.objectContaining({
-          cityId: city.id,
+          cityId: city?.id,
         }),
       }));
     });
 
     And('展会同步消息中的城市名称是展会所在城市的名称', () => {
       const { exhibition, mopRequestHandler } = featureContext;
-      const city = CITY_META_BY_NAME[exhibition.city];
+      const city = getCityMetaById(exhibition.city);
       expect(city).toBeTruthy();
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
         body: expect.objectContaining({
-          cityName: city.name,
+          cityName: city?.name,
         }),
       }));
     });

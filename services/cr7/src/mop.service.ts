@@ -4,7 +4,7 @@ import { format, isDate, parse, parseISO } from 'date-fns';
 import { Context, Errors, ServiceBroker } from 'moleculer';
 import { Exhibition, Inventory, Mop, Order, Redeem } from '@cr7/types';
 import { RC7BaseService } from './libs/cr7.base.js';
-import { getCityMetaByName } from './libs/city.js';
+import { getCityMetaById } from './libs/city.js';
 import {
   createMopOrderSyncRecord,
   getFirstSuccessfulMopOrderSyncRecordByMyOrderId,
@@ -245,7 +245,7 @@ function toMopRefundStatus(status: Order.OrderStatus): number {
 }
 
 function getCityMeta(cityName: string) {
-  const city = getCityMetaByName(cityName);
+  const city = getCityMetaById(cityName);
   if (!city) {
     throw new MoleculerClientError(`暂不支持同步城市: ${cityName}`, 400, 'MOP_CITY_NOT_SUPPORTED');
   }

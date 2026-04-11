@@ -382,3 +382,15 @@ export function getCityMetaByName(cityName: string): CityMeta | null {
 
   return CITY_META_BY_NAME[normalized] ?? null;
 }
+
+const CITY_META_BY_ID: Record<string, CityMeta> = CITY_OFFICIAL_LIST.reduce(
+  (acc, [name, id]) => {
+    acc[id] = { id, name };
+    return acc;
+  },
+  {} as Record<string, CityMeta>,
+);
+
+export function getCityMetaById(cityId: string): CityMeta | null {
+  return CITY_META_BY_ID[cityId] ?? null;
+}
