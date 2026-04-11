@@ -5,7 +5,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "vitest",
+    "test": "pnpm run build && vitest",
     "dev": "moleculer-runner --hot --config ./dist/moleculer.config.js ./dist/*.service.js",
     "start": "moleculer-runner --config ./dist/moleculer.config.js ./dist/*.service.js",
     "build": "tsc -b",
