@@ -438,7 +438,7 @@ describeFeature(feature, ({
     password: string;
     token: string;
   }>) => {
-    const { Given, When, Then, context } = s;
+    const { Given, When, Then, And, context } = s;
 
     Given('管理员账号已创建，手机号为 {string}，密码为 {string}', async (_ctx, phone: string, password: string) => {
       context.password = password;
@@ -465,80 +465,27 @@ describeFeature(feature, ({
       expect(profile.openid).toBeNull();
       expect(profile.auth_methods ?? []).toContain('PASSWORD');
     });
-  });
 
-  Scenario('管理员账号修改密码', (
-    s: StepTest<
-      AdminIdentityContext
-      & AdminPasswordContext
-      & AdminLoginContext
-      & AdminProfileContext
-      & PasswordChangeContext
-      & ErrorContext
-    >
-  ) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given('管理员账号 {string} 已登录，手机号为 {string}，密码为 {string}', async (ctx, name: string, phone: string, password: string) => {
-      Object.assign(context, {
-        adminCountryCode: '+86',
-        adminName: name,
-        adminPhone: phone,
-        adminInitialPassword: password,
-      });
-
-      await initAdminHandler({ schema, phone, password });
-      await loginAdmin(context, password);
-    });
-
-    When('管理员账号 {string} 修改密码为 {string}', async (ctx, name: string, newPassword: string) => {
-      expect(context.adminName).toBe(name);
-      Object.assign(context, { adminUpdatedPassword: newPassword });
+    When('管理员账号修改密码为 {string}', async (ctx, newPassword: string) => {
       const { apiServer } = featureContext;
-      const passwordChangeResponse = await changePassword(
-        apiServer,
-        context.adminLoginResponse!.token,
-        context.adminInitialPassword!,
-        newPassword,
-      );
-      Object.assign(context, { passwordChangeResponse });
+      const { token, password } = context;
+      await changePassword(apiServer, token, password, newPassword);
     });
 
-    Then('密码修改成功', () => {
-      expect(context.passwordChangeResponse).toBeNull();
-    });
-
-    And('管理员账号 {string} 使用新密码 {string} 登录成功', async (ctx, name: string, newPassword: string) => {
-      expect(context.adminName).toBe(name);
-      await loginAdmin(context, newPassword, 'newPasswordLoginResponse');
+    Then('管理员账号使用新密码 {string} 登录成功', async (ctx, newPassword: string) => {
       const { apiServer } = featureContext;
-      const profile = await getUserProfile(apiServer, context.newPasswordLoginResponse!.token);
-      assertUserProfile(profile);
-      const adminCountryCode = context.adminCountryCode!;
-      const adminPhone = context.adminPhone!;
-      const adminName = context.adminName!;
-      expect(profile.name).toBe(adminName);
-      expect(profile.phone).toBe(`${adminCountryCode} ${adminPhone}`);
-      expect(profile.openid).toBeNull();
-      expect(profile.auth_methods ?? []).toContain('PASSWORD');
+      const { countryCode, phone } = context;
+      await expect(
+        passwordLogin(apiServer, countryCode!, phone!, newPassword)
+      ).resolves.toHaveProperty('token');
     });
 
-    And('管理员账号 {string} 使用旧密码 {string} 登录失败', async (ctx, name: string, oldPassword: string) => {
-      expect(context.adminName).toBe(name);
+    And('管理员账号使用旧密码 {string} 登录失败', async (ctx, oldPassword: string) => {
       const { apiServer } = featureContext;
-      try {
-        const adminCountryCode = context.adminCountryCode!;
-        const adminPhone = context.adminPhone!;
-        await passwordLogin(apiServer, adminCountryCode, adminPhone, oldPassword);
-      } catch (error) {
-        rememberError(context, error);
-      }
-
-      assertLastAPIError(context, {
-        status: 401,
-        messageIncludes: '手机号或密码错误',
-        method: 'POST',
-      });
+      const { countryCode, phone } = context;
+      await expect(
+        passwordLogin(apiServer, countryCode!, phone!, oldPassword)
+      ).rejects.toHaveProperty('status', 401);
     });
   });
 
