@@ -410,7 +410,12 @@ export default class XiechengService extends RC7BaseService {
     });
 
     if (status === 'FAILURE') {
-      throw new MoleculerClientError('携程库存同步失败', 502, 'XIECHENG_SYNC_FAILED');
+      const message = (syncResponse as { result_message?: string }).result_message;
+      throw new MoleculerClientError(
+        message ?? '携程库存同步失败',
+        502,
+        'XIECHENG_SYNC_FAILED'
+      );
     }
 
     return log;
@@ -447,7 +452,7 @@ export default class XiechengService extends RC7BaseService {
       sequenceId: params.sequence_id,
       ticketCategoryId: params.ticket_category_id,
       serviceName: params.service_name,
-      otaOptionId: params.ota_option_id,
+      otaOptionId: params.ota_option_id ?? null,
       syncItems: params.sync_items,
       syncResponse: params.sync_response,
       status: params.status,

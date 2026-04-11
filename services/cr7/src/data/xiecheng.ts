@@ -28,7 +28,7 @@ export async function createXcSyncLog(
     sequenceId?: string;
     ticketCategoryId: string;
     serviceName: Xiecheng.XcServiceName;
-    otaOptionId?: string;
+    otaOptionId?: string | null;
     syncItems: Xiecheng.XcSyncItem[];
     syncResponse: unknown;
     status: Xiecheng.XcSyncStatus;
