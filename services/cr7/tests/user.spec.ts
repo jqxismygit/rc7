@@ -41,13 +41,6 @@ type LoginResponseContext = {
   userProfile: User.Profile;
 };
 
-type UpdateProfileContext = {
-  newName: string;
-  newAvatar: string;
-  newProfile: Record<string, string | number>;
-  updateProfileResponse: null;
-};
-
 type AdminIdentityContext = TestContext & {
   adminCountryCode?: string;
   adminPhone?: string;
@@ -158,7 +151,7 @@ describeFeature(feature, ({
     }
   });
 
-  defineSteps(({ Given, When, Then }) => {
+  defineSteps(({ When, Then }) => {
     When(
       '微信用户 {string} 首次打开小程序',
       async (_ctx, user: string) => {
@@ -246,10 +239,12 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('用户更新个人信息', (s: StepTest<
-    LoginResponseContext
-    & UpdateProfileContext
-  >) => {
+  Scenario('用户更新个人信息', (s: StepTest<{
+    newName: string;
+    newAvatar: string;
+    newProfile: Record<string, string | number>;
+    updateProfileResponse: null;
+  }>) => {
     const { Given, When, Then, And, context } = s;
 
     Given('用户新名称为 {string}', (_ctx, name: string) => {
@@ -304,13 +299,15 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('微信用户绑定手机号', (s: StepTest<
-    LoginResponseContext
-    & { phoneBindCode: string; countryCode: string; }
-  >) => {
-    const { When, Then, And, Given, context } = s;
+  Scenario('微信用户绑定手机号', (s: StepTest<{
+    phoneBindCode: string; countryCode: string;
+    userProfile: User.Profile;
+  }>) => {
+    const { When, Then, And, context } = s;
 
-    When('用户点击手机号授权, 国家码为 {string}，手机号为 {string}', async (_ctx, countryCode: string, phone: string) => {
+    When(
+      '用户点击手机号授权, 国家码为 {string}，手机号为 {string}',
+      async (_ctx, countryCode: string, phone: string) => {
       const { apiServer, mockWechatReqHandler, loginResponse } = featureContext;
       const phoneBindCode = 'phone_bind_code_1';
 
