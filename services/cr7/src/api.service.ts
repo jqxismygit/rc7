@@ -93,6 +93,7 @@ const routes = [
   routeConfig(
     '/user',
     [
+      'user.roles',
       'user.profile',
       'user.profile_update',
       'user.password_update',
@@ -101,6 +102,7 @@ const routes = [
     ],
     {
       aliases: {
+        'GET /roles': 'user.roles',
         'GET /profile': 'user.profile',
         'PUT /profile': 'user.profile_update',
         'PUT /password': 'user.password_update',

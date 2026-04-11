@@ -13,12 +13,14 @@ import {
   assertLoginResponse,
   assertUserProfile,
   changePassword,
+  getCurrentUserRoles,
   listUsers,
   grantRoleToUser,
   getUserProfile,
   passwordLogin,
   prepareAdminUser,
   registerUser,
+  suUserToken,
   updateUserProfile,
   wechatBindPhone,
   wechatMiniLogin,
@@ -408,9 +410,9 @@ describeFeature(feature, ({
     '管理员可以将其他用户设置成运营人员',
     (s: StepTest<{
       userProfile: User.Profile;
-      userRoles: { role_names: string[] };
+      userRoles: string[];
     }>) => {
-      const { Given, When, Then, context } = s;
+      const { Given, When, Then, And, context } = s;
 
       Given('用户 {string} 已注册并登录', async (ctx, userName: string) => {
         const { apiServer } = featureContext;
@@ -422,14 +424,20 @@ describeFeature(feature, ({
       When('管理员账号将用户 {string} 设置成运营人员', async () => {
         const { apiServer, adminToken } = featureContext;
         const { userProfile } = context;
-        const grantRoleResponse = await grantRoleToUser(
+        await grantRoleToUser(
           apiServer, adminToken, userProfile!.id, 'OPERATOR',
         );
-        context.userRoles = grantRoleResponse;
       });
 
-      Then('用户 {string} 的角色包含 {string}', (_ctx, userName: string, roleLabel: string) => {
-        expect(context.userRoles!.role_names).toContain(roleLabel.toUpperCase());
+      Then('用户 {string} 查看个人的角色列表', async (_ctx, _userName: string) => {
+        const { apiServer, adminToken } = featureContext;
+        const { userProfile } = context;
+        const suToken = await suUserToken(apiServer, adminToken, userProfile!.id);
+        context.userRoles = await getCurrentUserRoles(apiServer, suToken);
+      });
+
+      And('用户 {string} 的角色列表包含 {string}', (_ctx, _userName: string, roleLabel: string) => {
+        expect(context.userRoles).toContain(roleLabel.toUpperCase());
       });
     });
 

@@ -32,6 +32,10 @@ export function getUserProfile(server: Server, token: string) {
   return getJSON<User.Profile>(server, '/user/profile', { token });
 }
 
+export function getCurrentUserRoles(server: Server, token: string) {
+  return getJSON<string[]>(server, '/user/roles', { token });
+}
+
 export function updateUserProfile(
   server: Server,
   token: string,
