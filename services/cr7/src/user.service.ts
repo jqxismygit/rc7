@@ -17,6 +17,7 @@ import {
   listRoles,
   createRole,
   deleteRoleById,
+  createUserByPhonePassword,
   upsertUserByDamaiId,
   upsertUserByPhone,
   updateUserProfile,
@@ -186,6 +187,22 @@ export default class UserService extends Service {
             },
           },
           handler: this.list,
+        },
+
+        create_user: {
+          rest: 'POST /',
+          roles: ['admin'],
+          params: {
+            name: 'string',
+            country_code: {
+              type: 'string',
+              optional: true,
+              default: '+86',
+            },
+            phone: 'string',
+            password: 'string',
+          },
+          handler: this.create_user,
         },
 
         su: {
@@ -401,6 +418,39 @@ export default class UserService extends Service {
       { phone, damai_user_id, page, limit }
     );
     return users;
+  }
+
+  async create_user(
+    ctx: Context<
+      {
+        name: string;
+        country_code?: string;
+        phone: string;
+        password: string;
+      },
+      { $statusCode?: number }
+    >,
+  ) {
+    const schema = await this.getSchema();
+    const {
+      name,
+      country_code = '+86',
+      phone,
+      password,
+    } = ctx.params;
+
+    const uid = await createUserByPhonePassword(this.pool, schema, {
+      name,
+      country_code,
+      phone,
+      password,
+    }).catch(handleUserError);
+
+    const userProfile = await getUserProfile(this.pool, schema, uid)
+      .then(res => res, handleUserError);
+
+    ctx.meta.$statusCode = 201;
+    return userProfile;
   }
 
   async list_roles() {

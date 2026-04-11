@@ -222,6 +222,52 @@ export async function upsertUserByPhone(
   return user.uid;
 }
 
+export async function createUserByPhonePassword(
+  client: DBClient,
+  schema: string,
+  input: {
+    name: string;
+    country_code: string;
+    phone: string;
+    password: string;
+  },
+) {
+  const { name, country_code, phone, password } = input;
+
+  try {
+    const { rows: [user] } = await client.query<{ uid: string }>(
+      `WITH created_user AS (
+        INSERT INTO ${schema}.users (name)
+        VALUES ($1)
+        RETURNING id
+      ),
+      bind_phone AS (
+        INSERT INTO ${schema}.user_phone (uid, country_code, phone)
+        SELECT id, $2, $3
+        FROM created_user
+        RETURNING uid
+      ),
+      create_password AS (
+        INSERT INTO ${schema}.user_password (uid, pass_hash)
+        SELECT uid, CRYPT($4, GEN_SALT('bf'))
+        FROM bind_phone
+        RETURNING uid
+      )
+      SELECT uid FROM create_password
+      LIMIT 1`,
+      [name, country_code, phone, password],
+    );
+
+    return user.uid;
+  } catch (error) {
+    if ((error as { code?: string }).code === '23505') {
+      throw new UserDataError('Phone already exists', 'PHONE_ALREADY_EXISTS');
+    }
+
+    throw error;
+  }
+}
+
 export async function bindPhoneToUser(
   client: DBClient,
   schema: string,

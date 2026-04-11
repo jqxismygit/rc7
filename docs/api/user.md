@@ -279,6 +279,36 @@
   - 仅管理员（ADMIN 角色）可执行此操作
   - 角色删除后，其对应用户-角色关系会被级联删除
 
+## 管理员添加新用户
+
+- URL: `/users`
+- Method: `POST`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Body:
+  ```ts
+  Pick<User.Profile, 'name'>
+    & Pick<User.PhoneBinding, 'phone'>
+    & { country_code?: User.PhoneBinding['country_code']; password: string }
+  ```
+- Response Body:
+  ```ts
+  User.Profile
+  ```
+- Response Status:
+  - `201 Created`：创建成功
+  - `400 Bad Request`：参数无效
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：无权限（仅管理员可执行）
+  - `409 Conflict`：手机号已存在
+
+- 说明：
+  - 仅管理员（ADMIN 角色）可执行此操作
+  - 创建时会同时写入 `users`、`user_phone`、`user_password`
+  - 默认 `country_code` 为 `+86`
+
 ## 管理员查看用户列表
 
 - URL: `/users`
