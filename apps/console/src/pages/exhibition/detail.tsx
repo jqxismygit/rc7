@@ -35,6 +35,7 @@ import {
   PlusOutlined,
   SyncOutlined,
 } from "@ant-design/icons";
+import type { RangePickerProps } from "antd/es/date-picker";
 import {
   ModalForm,
   ProFormDigit,
@@ -188,6 +189,36 @@ export default function ExhibitionDetailPage() {
     if (!start.isValid() || !end.isValid()) return null;
     return { start, end };
   }, [data?.start_date, data?.end_date]);
+
+  /** 同步可选下界：不早于今天、不早于展期开始；若展期已结束则无可用区间 */
+  const otaSyncEffectiveBounds = useMemo(() => {
+    if (!otaExhibitionDateBounds) return null;
+    const today = dayjs().startOf("day");
+    const { start: exStart, end: exEnd } = otaExhibitionDateBounds;
+    const minStart = today.isBefore(exStart, "day") ? exStart : today;
+    if (minStart.isAfter(exEnd, "day")) return null;
+    return { exStart, exEnd, minStart };
+  }, [otaExhibitionDateBounds]);
+
+  const otaSyncRangeDisabledDate = useMemo<
+    NonNullable<RangePickerProps["disabledDate"]>
+  >(() => {
+    return (current, info) => {
+      if (!otaSyncEffectiveBounds || !current) return false;
+      const { exStart, exEnd, minStart } = otaSyncEffectiveBounds;
+      if (
+        current.isBefore(exStart, "day") ||
+        current.isAfter(exEnd, "day")
+      ) {
+        return true;
+      }
+      const from = info?.from;
+      if (from) {
+        return current.isBefore(from, "day");
+      }
+      return current.isBefore(minStart, "day");
+    };
+  }, [otaSyncEffectiveBounds]);
 
   const loadDetail = useCallback(async () => {
     if (!eid) {
@@ -824,6 +855,12 @@ export default function ExhibitionDetailPage() {
         title="同步场次到 OTA"
         width={640}
         open={otaSyncModalOpen}
+        afterOpenChange={(open) => {
+          if (open && otaSyncEffectiveBounds) {
+            const { exEnd, minStart } = otaSyncEffectiveBounds;
+            setOtaSyncDateRange([minStart, exEnd]);
+          }
+        }}
         onCancel={() => setOtaSyncModalOpen(false)}
         confirmLoading={
           (otaSyncPlatform === "maoyan" && maoyanInfoSyncing) ||
@@ -981,19 +1018,13 @@ export default function ExhibitionDetailPage() {
           </Typography.Text>
           <DatePicker.RangePicker
             value={otaSyncDateRange}
-            disabled={!otaExhibitionDateBounds}
+            disabled={!otaSyncEffectiveBounds}
             onChange={(v) =>
               setOtaSyncDateRange(v && v[0] && v[1] ? [v[0], v[1]] : null)
             }
             format="YYYY-MM-DD"
             style={{ width: "100%", maxWidth: 360 }}
-            disabledDate={(current) => {
-              if (!otaExhibitionDateBounds || !current) return false;
-              return (
-                current.isBefore(otaExhibitionDateBounds.start, "day") ||
-                current.isAfter(otaExhibitionDateBounds.end, "day")
-              );
-            }}
+            disabledDate={otaSyncRangeDisabledDate}
             placeholder={["开始日期", "结束日期"]}
           />
           {otaExhibitionDateBounds ? (
@@ -1001,9 +1032,19 @@ export default function ExhibitionDetailPage() {
               type="secondary"
               style={{ marginTop: 8, marginBottom: 0, fontSize: 12 }}
             >
-              可选范围与展期一致：
-              {otaExhibitionDateBounds.start.format("YYYY-MM-DD")} ~{" "}
-              {otaExhibitionDateBounds.end.format("YYYY-MM-DD")}
+              {otaSyncEffectiveBounds ? (
+                <>
+                  须在展期{" "}
+                  {otaExhibitionDateBounds.start.format("YYYY-MM-DD")} ~{" "}
+                  {otaExhibitionDateBounds.end.format("YYYY-MM-DD")}{" "}
+                  内；开始日期不早于今天（默认开始为今天，若尚未开展则为展期首日）。
+                </>
+              ) : (
+                <>
+                  展期已结束或不可选（{otaExhibitionDateBounds.start.format("YYYY-MM-DD")}{" "}
+                  ~ {otaExhibitionDateBounds.end.format("YYYY-MM-DD")}），无法选择同步日期。
+                </>
+              )}
             </Typography.Paragraph>
           ) : null}
         </div>
