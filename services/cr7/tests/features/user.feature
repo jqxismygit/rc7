@@ -124,3 +124,12 @@ Feature: user registration and login
      When 管理员为自己收回管理员角色 "ADMIN"
      Then 收回管理员角色 "ADMIN" 失败，返回错误提示内置角色不能删除
 
+  Scenario: 使用角色过滤用户列表
+    Given 管理员账号创建并登录
+    Given 用户 "Alice" 已注册并登录
+    Given 用户 "Bob" 已注册并登录
+    Given 管理员账号将用户 "Alice" 设置成运营人员
+
+     When 管理员账号获取用户列表，角色过滤为 "OPERATOR"
+     Then 用户列表获取成功，用户列表包含用户 "Alice"
+      And 用户列表获取成功，用户列表不包含用户 "Bob"

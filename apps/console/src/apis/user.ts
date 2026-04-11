@@ -3,6 +3,7 @@ import { request } from "@/utils/request";
 
 export type UserListQuery = {
   phone?: string;
+  role_id?: string;
   page?: number;
   limit?: number;
 };
