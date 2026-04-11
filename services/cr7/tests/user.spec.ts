@@ -163,7 +163,7 @@ describeFeature(feature, ({
       featureContext.userProfile = profile;
     });
 
-    Given('管理员账号已登录', async () => {
+    Given('管理员账号创建并登录', async () => {
       const { apiServer } = featureContext;
       featureContext.adminToken = await prepareAdminToken(apiServer, schema);
     });

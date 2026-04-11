@@ -49,7 +49,7 @@ Feature: user registration and login
       And 管理员账号使用旧密码 "pass_test" 登录失败
 
   Scenario: 管理员可以将其他用户设置成运营人员
-    Given 管理员账号已登录
+    Given 管理员账号创建并登录
     Given 用户 "Alice" 已注册并登录
      When 管理员账号将用户 "Alice" 设置成运营人员
      Then 用户 "Alice" 的角色包含 "operator"
