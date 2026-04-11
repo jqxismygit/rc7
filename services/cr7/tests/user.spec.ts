@@ -222,6 +222,13 @@ describeFeature(feature, ({
       featureContext.registeredUsersByName[userName] = profile;
     });
 
+    Given('管理员账号将用户 {string} 设置成运营人员', async (ctx, userName: string) => {
+      const { apiServer, adminToken } = featureContext;
+      const userProfile = getRegisteredUserProfile(ctx, userName);
+      const roleId = await getRoleIdByName(apiServer, adminToken, 'OPERATOR');
+      await grantRoleToUser(apiServer, adminToken, userProfile.id, roleId);
+    });
+
     Given(
       '新角色 {string}，描述为 {string}, 权限包含 {string}',
       (ctx, name: string, description: string, permission: string) => {
@@ -861,6 +868,31 @@ describeFeature(feature, ({
           method: 'DELETE',
           messageIncludes: '内置角色不能删除',
         });
+      });
+    }
+  );
+
+  Scenario(
+    '使用角色过滤用户列表',
+    (s: StepTest<{
+      userList: User.UserListResult;
+    }>) => {
+      const { When, Then, And, context } = s;
+
+      When('管理员账号获取用户列表，角色过滤为 {string}', async (_ctx, roleName: string) => {
+        const { apiServer, adminToken } = featureContext;
+        const roleId = await getRoleIdByName(apiServer, adminToken, roleName);
+        context.userList = await listUsers(apiServer, adminToken, { role_id: roleId });
+      });
+
+      Then('用户列表获取成功，用户列表包含用户 {string}', (ctx, userName: string) => {
+        const targetProfile = getRegisteredUserProfile(ctx, userName);
+        expect(context.userList.users.some(user => user.id === targetProfile.id)).toBe(true);
+      });
+
+      And('用户列表获取成功，用户列表不包含用户 {string}', (ctx, userName: string) => {
+        const targetProfile = getRegisteredUserProfile(ctx, userName);
+        expect(context.userList.users.some(user => user.id === targetProfile.id)).toBe(false);
       });
     }
   );
