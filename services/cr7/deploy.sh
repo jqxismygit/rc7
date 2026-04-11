@@ -26,6 +26,10 @@ rsync -aPR "services/cr7/dist/api.service.js"                             "$SERV
 rsync -aP --delete --delete-excluded --include="**/*.js" --exclude="*.*" \
     "services/cr7/dist/"                             "$SERVER:services/cr7/dist/"
 
+echo "deploy static files...";
+rsync -aP --delete \
+    "services/cr7/static/"                             "$SERVER:services/cr7/static/"
+
 echo "deploy server service file...";
 rsync -aPR  services/cr7/config/default.mjs                               "$SERVER:";
 rsync -aPR  services/cr7/db                                               "$SERVER:" --delete;
