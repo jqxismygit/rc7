@@ -67,6 +67,22 @@ export function listUsers(
   });
 }
 
+export function adminCreateUser(
+  server: Server,
+  token: string,
+  payload: {
+    name: string;
+    country_code?: string;
+    phone: string;
+    password: string;
+  },
+) {
+  return postJSON<User.Profile>(server, '/users', {
+    token,
+    body: payload,
+  });
+}
+
 export type ManagedRole = {
   id: string;
   name: string;

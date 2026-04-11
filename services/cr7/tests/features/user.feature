@@ -33,6 +33,13 @@ Feature: user registration and login
      Then 微信用户已经与手机号绑定
       And 获取到的用户信息包含手机号，国家码为 "86"，手机号为 "12345678901"
 
+  Scenario: 管理员添加新用户
+    Given 管理员账号创建并登录
+
+    Given 管理员新增用户 "Bob", 手机号为 "19876543210"，密码为 "user_pass_test"
+     When 新用户使用手机号 "19876543210" 和密码 "user_pass_test" 登录
+     Then 新用户信息包含手机号，国家码为 "86"，手机号为 "19876543210"，用户名为 "Bob"
+
   Scenario: 初始化系统管理员账号
     Given 使用 cli 初始化管理员账号，指定手机号 "12345678901"，密码为 "pass_test"
      Then 管理员账号创建成功

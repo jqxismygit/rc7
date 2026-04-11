@@ -10,6 +10,7 @@ import { User } from '@cr7/types';
 import { handler as initAdminHandler } from "@/scripts/user/init-admin.js";
 import { mockWechatServer, MockServer } from './lib/server.js';
 import {
+  adminCreateUser,
   assertLoginResponse,
   assertUserProfile,
   changePassword,
@@ -516,6 +517,55 @@ describeFeature(feature, ({
     ) => {
       expect(context.userProfile!.phone).toBe(`+${countryCode} ${phone}`);
     });
+  });
+
+  Scenario('管理员添加新用户', (s: StepTest<{
+    createdUser: User.Profile;
+    newUserToken: string;
+    newUserProfile: User.Profile;
+  }>) => {
+    const { Given, When, Then, context } = s;
+
+    Given(
+      '管理员新增用户 {string}, 手机号为 {string}，密码为 {string}',
+      async (_ctx, name: string, phone: string, password: string) => {
+        const { apiServer, adminToken } = featureContext;
+        const user = await adminCreateUser(apiServer, adminToken, {
+          name,
+          phone,
+          password,
+        });
+
+        context.createdUser = user;
+      });
+
+    When(
+      '新用户使用手机号 {string} 和密码 {string} 登录',
+      async (_ctx, phone: string, password: string) => {
+        const { apiServer } = featureContext;
+        const { token } = await passwordLogin(apiServer, '+86', phone, password);
+        context.newUserToken = token;
+      },
+    );
+
+    Then(
+      '新用户信息包含手机号，国家码为 {string}，手机号为 {string}，用户名为 {string}',
+      async (_ctx, countryCode: string, phone: string, name: string) => {
+        const { apiServer } = featureContext;
+        const userProfile = await getUserProfile(apiServer, context.newUserToken);
+        context.newUserProfile = userProfile;
+
+        assertUserProfile(context.createdUser);
+        expect(context.createdUser.name).toBe(name);
+        expect(context.createdUser.phone).toBe(`+${countryCode} ${phone}`);
+        expect(context.createdUser.auth_methods ?? []).toContain('PASSWORD');
+
+        assertUserProfile(context.newUserProfile);
+        expect(context.newUserProfile.name).toBe(name);
+        expect(context.newUserProfile.phone).toBe(`+${countryCode} ${phone}`);
+        expect(context.newUserProfile.auth_methods ?? []).toContain('PASSWORD');
+      },
+    );
   });
 
   Scenario('初始化系统管理员账号', (s: StepTest<{
