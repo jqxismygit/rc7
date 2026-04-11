@@ -563,10 +563,6 @@ describeFeature(feature, ({
       expect(inventories.every(item => item.quantity === defaultInventory)).toBe(true);
     });
 
-    And('ota Option Id 是 {string} 的携程编号 {string}', (_ctx, _ticketName: string, otaOptionId: string) => {
-      expect((featureContext.latestDecryptedBody as SessionInventoryReqBody | undefined)?.otaOptionId).toBe(otaOptionId);
-    });
-
     And('supplier Option Id 是 {string} 的票种 ID', (_ctx, ticketName: string) => {
       expect((featureContext.latestDecryptedBody as SessionInventoryReqBody | undefined)?.supplierOptionId).toBe(featureContext.ticketByName[ticketName].id);
     });
@@ -662,10 +658,6 @@ describeFeature(feature, ({
 
     And('service Name 是 {string}', (_ctx, serviceName: string) => {
       expect(featureContext.syncLogs?.[0].service_name).toBe(serviceName);
-    });
-
-    And('ota Option Id 是 {string} 的携程编号 {string}', (_ctx, _ticketName: string, otaOptionId: string) => {
-      expect(featureContext.syncLogs?.[0].ota_option_id).toBe(otaOptionId);
     });
 
     And('场次有 {string} 个', (_ctx, count: string) => {

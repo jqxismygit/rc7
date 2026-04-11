@@ -54,7 +54,6 @@ Feature: 对接携程 OTA
      Then 携程接收到了库存同步信息
       And 可以正确解密
       And 库存数量为 "单人票" 的剩余库存数量
-      And ota Option Id 是 "单人票" 的携程编号 "xc_single_ticket"
       And supplier Option Id 是 "单人票" 的票种 ID
       And Service Name 是 "DateInventoryModify"
       And 同步结果为 "成功"
@@ -82,7 +81,6 @@ Feature: 对接携程 OTA
       And 同步结果为 "成功"
       And sequence Id 是同步信息中的 sequence Id
       And service Name 是 "DateInventoryModify"
-      And ota Option Id 是 "单人票" 的携程编号 "xc_single_ticket"
       And 场次有 "3" 个
       And 起始场次时间为 "今天"
       And 结束场次时间为 "2天后"

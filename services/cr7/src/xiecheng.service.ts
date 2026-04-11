@@ -345,10 +345,6 @@ export default class XiechengService extends RC7BaseService {
     }
 
     const ticket = await ctx.call('cr7.exhibition.getTicket', { eid, tid }) as Exhibition.TicketCategory;
-    if (!ticket.ota_xc_option_id) {
-      handleXiechengError(new XiechengDataError('Ticket category has no xiecheng option id', 'TICKET_CATEGORY_NOT_BOUND'));
-    }
-
     const sessionInventory = await ctx.call(
       'cr7.exhibition.listSessionInventoryByTicketAndDateRange',
       { eid, tid, start_session_date: startSessionDate, end_session_date: endSessionDate },
