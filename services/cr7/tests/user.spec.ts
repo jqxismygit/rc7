@@ -56,15 +56,6 @@ type ManagedRoleDraft = {
   permissions: string[];
 };
 
-type SharedScenarioState = {
-  usersByName?: Record<string, User.Profile>;
-  stagedRoles?: ManagedRoleDraft[];
-  roleViewCountByUser?: Record<string, number>;
-  lastCheckedUserName?: string;
-  lastCheckedUserRoles?: User.Role[];
-  deleteBuiltinRoleError?: unknown;
-};
-
 interface FeatureContext extends
   Partial<LoginResponseContext> {
   broker: ServiceBroker;
@@ -151,13 +142,8 @@ describeFeature(feature, ({
     }
   });
 
-  function getSharedState(ctx: unknown): SharedScenarioState {
-    return ctx as SharedScenarioState;
-  }
-
-  function getRegisteredUserProfile(ctx: unknown, userName: string): User.Profile {
-    const state = getSharedState(ctx);
-    const profile = state.usersByName?.[userName] ?? featureContext.registeredUsersByName?.[userName];
+  function getRegisteredUserProfile(userName: string): User.Profile {
+    const profile = featureContext.registeredUsersByName?.[userName];
     expect(profile).toBeDefined();
     return profile!;
   }
@@ -209,14 +195,10 @@ describeFeature(feature, ({
       featureContext.adminToken = await prepareAdminToken(apiServer, schema);
     });
 
-    Given('用户 {string} 已注册并登录', async (ctx, userName: string) => {
+    Given('用户 {string} 已注册并登录', async (_ctx, userName: string) => {
       const { apiServer } = featureContext;
       const token = await registerUser(apiServer, userName);
       const profile = await getUserProfile(apiServer, token);
-
-      const state = getSharedState(ctx);
-      state.usersByName = state.usersByName ?? {};
-      state.usersByName[userName] = profile;
 
       featureContext.registeredUsersByName = featureContext.registeredUsersByName ?? {};
       featureContext.registeredUsersByName[userName] = profile;
@@ -224,15 +206,7 @@ describeFeature(feature, ({
 
     Given(
       '新角色 {string}，描述为 {string}, 权限包含 {string}',
-      (ctx, name: string, description: string, permission: string) => {
-        const state = getSharedState(ctx);
-        state.stagedRoles = state.stagedRoles ?? [];
-        state.stagedRoles.push({
-          name,
-          description,
-          permissions: [permission],
-        });
-
+      (_ctx, name: string, description: string, permission: string) => {
         featureContext.stagedRoles = featureContext.stagedRoles ?? [];
         featureContext.stagedRoles.push({
           name,
@@ -242,10 +216,9 @@ describeFeature(feature, ({
       },
     );
 
-    When('管理员创建新角色', async (ctx: unknown) => {
+    When('管理员创建新角色', async () => {
       const { apiServer, adminToken } = featureContext;
-      const state = getSharedState(ctx);
-      const stagedRoles = state.stagedRoles ?? featureContext.stagedRoles ?? [];
+      const stagedRoles = featureContext.stagedRoles ?? [];
       for (const role of stagedRoles) {
         await createRole(apiServer, adminToken, role);
       }
@@ -256,35 +229,26 @@ describeFeature(feature, ({
 
     When(
       '用户 {string} 第 {number} 次查看个人的角色列表',
-      async (ctx: unknown, userName: string, count: number) => {
+      async (_ctx: unknown, userName: string, count: number) => {
       const { apiServer, adminToken } = featureContext;
-      const targetProfile = getRegisteredUserProfile(ctx, userName);
+      const targetProfile = getRegisteredUserProfile(userName);
       const suToken = await suUserToken(apiServer, adminToken, targetProfile.id);
-      const state = getSharedState(ctx);
 
-      state.roleViewCountByUser = state.roleViewCountByUser ?? {};
       featureContext.roleViewCountByUser = featureContext.roleViewCountByUser ?? {};
-      const previousCount = featureContext.roleViewCountByUser[userName]
-        ?? state.roleViewCountByUser[userName]
-        ?? 0;
+      const previousCount = featureContext.roleViewCountByUser[userName] ?? 0;
       const currentCount = previousCount + 1;
-      state.roleViewCountByUser[userName] = currentCount;
       featureContext.roleViewCountByUser[userName] = currentCount;
 
       expect(currentCount).toBe(count);
-      state.lastCheckedUserName = userName;
-      state.lastCheckedUserRoles = (await getCurrentUserRoles(apiServer, suToken)).roles;
       featureContext.lastCheckedUserName = userName;
-      featureContext.lastCheckedUserRoles = state.lastCheckedUserRoles;
+      featureContext.lastCheckedUserRoles = (await getCurrentUserRoles(apiServer, suToken)).roles;
     });
 
     And(
       '用户 {string} 的角色列表有 {number} 个，包含 {string}，不是内置角色，权限包含 {string}',
-      async (ctx, userName: string, count: number, roleName: string, permission: string) => {
+      async (_ctx, userName: string, count: number, roleName: string, permission: string) => {
         const { apiServer, adminToken } = featureContext;
-        const state = getSharedState(ctx);
-        const lastCheckedUserName = state.lastCheckedUserName ?? featureContext.lastCheckedUserName;
-        const lastCheckedUserRoles = state.lastCheckedUserRoles ?? featureContext.lastCheckedUserRoles;
+        const { lastCheckedUserName, lastCheckedUserRoles } = featureContext;
         expect(lastCheckedUserName).toBe(userName);
         expect(lastCheckedUserRoles).toHaveLength(count);
         expect(lastCheckedUserRoles!.some(role => role.name === roleName)).toBe(true);
@@ -299,11 +263,9 @@ describeFeature(feature, ({
 
     And(
       '用户 {string} 的角色列表同时包含 {string}，不是内置角色，权限包含 {string}',
-      async (ctx, userName: string, roleName: string, permission: string) => {
+      async (_ctx, userName: string, roleName: string, permission: string) => {
         const { apiServer, adminToken } = featureContext;
-        const state = getSharedState(ctx);
-        const lastCheckedUserName = state.lastCheckedUserName ?? featureContext.lastCheckedUserName;
-        const lastCheckedUserRoles = state.lastCheckedUserRoles ?? featureContext.lastCheckedUserRoles;
+        const { lastCheckedUserName, lastCheckedUserRoles } = featureContext;
         expect(lastCheckedUserName).toBe(userName);
         expect(lastCheckedUserRoles!.some(role => role.name === roleName)).toBe(true);
 
@@ -317,11 +279,9 @@ describeFeature(feature, ({
 
     And(
       '用户 {string} 的角色列表包含 {string}，是系统内置角色，权限为空',
-      async (ctx, userName: string, roleName: string) => {
+      async (_ctx, userName: string, roleName: string) => {
         const { apiServer, adminToken } = featureContext;
-        const state = getSharedState(ctx);
-        const lastCheckedUserName = state.lastCheckedUserName ?? featureContext.lastCheckedUserName;
-        const lastCheckedUserRoles = state.lastCheckedUserRoles ?? featureContext.lastCheckedUserRoles;
+        const { lastCheckedUserName, lastCheckedUserRoles } = featureContext;
         expect(lastCheckedUserName).toBe(userName);
         expect(lastCheckedUserRoles!.some(role => role.name === roleName)).toBe(true);
 
@@ -333,33 +293,27 @@ describeFeature(feature, ({
       },
     );
 
-    And('用户 {string} 的角色列表不包含 {string}', (ctx, userName: string, roleName: string) => {
-      const state = getSharedState(ctx);
-      const lastCheckedUserName = state.lastCheckedUserName ?? featureContext.lastCheckedUserName;
-      const lastCheckedUserRoles = state.lastCheckedUserRoles ?? featureContext.lastCheckedUserRoles;
+    And('用户 {string} 的角色列表不包含 {string}', (_ctx, userName: string, roleName: string) => {
+      const { lastCheckedUserName, lastCheckedUserRoles } = featureContext;
       expect(lastCheckedUserName).toBe(userName);
       expect(lastCheckedUserRoles!.some(role => role.name === roleName)).toBe(false);
     });
 
-    When('管理员删除内置角色 {string}', async (ctx, roleName: string) => {
+    When('管理员删除内置角色 {string}', async (_ctx, roleName: string) => {
       const { apiServer, adminToken } = featureContext;
       const roleList = await listRoles(apiServer, adminToken);
       const targetRole = roleList.find(role => role.name === roleName);
 
       expect(targetRole).toBeDefined();
-      const state = getSharedState(ctx);
-      state.deleteBuiltinRoleError = await deleteRole(apiServer, adminToken, targetRole!.id)
+      featureContext.deleteBuiltinRoleError = await deleteRole(apiServer, adminToken, targetRole!.id)
         .catch(error => error);
-      featureContext.deleteBuiltinRoleError = state.deleteBuiltinRoleError;
     });
 
     Then('删除内置角色 {string} 失败，返回错误提示内置角色不能删除', (
-      ctx,
+      _ctx,
       _roleName: string,
     ) => {
-      const state = getSharedState(ctx);
-      const deleteBuiltinRoleError = state.deleteBuiltinRoleError ?? featureContext.deleteBuiltinRoleError;
-      assertAPIError(deleteBuiltinRoleError, {
+      assertAPIError(featureContext.deleteBuiltinRoleError, {
         status: 400,
         method: 'DELETE',
         messageIncludes: '内置角色不能删除',
@@ -653,12 +607,12 @@ describeFeature(feature, ({
 
   Scenario(
     '管理员可以将其他用户设置成运营人员',
-    (s: StepTest<SharedScenarioState>) => {
+    (s: StepTest<{}>) => {
       const { When } = s;
 
-      When('管理员账号将用户 {string} 设置成运营人员', async (ctx, userName: string) => {
+      When('管理员账号将用户 {string} 设置成运营人员', async (_ctx, userName: string) => {
         const { apiServer, adminToken } = featureContext;
-        const userProfile = getRegisteredUserProfile(ctx, userName);
+        const userProfile = getRegisteredUserProfile(userName);
         const roleId = await getRoleIdByName(apiServer, adminToken, 'OPERATOR');
         await grantRoleToUser(
           apiServer, adminToken, userProfile!.id, roleId,
@@ -787,44 +741,44 @@ describeFeature(feature, ({
 
   Scenario(
     '将角色授予用户',
-    (s: StepTest<SharedScenarioState>) => {
+    (s: StepTest<{}>) => {
       const { When, Then } = s;
 
-      const grantRoleStep = async (ctx: unknown, roleName: string, userName: string) => {
+      const grantRoleStep = async (_ctx: unknown, roleName: string, userName: string) => {
         const { apiServer, adminToken } = featureContext;
-        const userProfile = getRegisteredUserProfile(ctx, userName);
+        const userProfile = getRegisteredUserProfile(userName);
         const roleId = await getRoleIdByName(apiServer, adminToken, roleName);
         await grantRoleToUser(apiServer, adminToken, userProfile.id, roleId);
       };
 
       When('管理员将角色 {string} 授予用户 {string}', grantRoleStep);
-      When('管理员将角色 "Customer service" 授予用户 "Bob"', async (ctx: unknown) => {
-        await grantRoleStep(ctx, 'Customer service', 'Bob');
+      When('管理员将角色 "Customer service" 授予用户 "Bob"', async (_ctx: unknown) => {
+        await grantRoleStep(_ctx, 'Customer service', 'Bob');
       });
 
-      const grantedAssertStep = async (ctx: unknown, roleName: string, userName: string) => {
+      const grantedAssertStep = async (_ctx: unknown, roleName: string, userName: string) => {
         const { apiServer, adminToken } = featureContext;
-        const userProfile = getRegisteredUserProfile(ctx, userName);
+        const userProfile = getRegisteredUserProfile(userName);
         const suToken = await suUserToken(apiServer, adminToken, userProfile.id);
         const userRoles = await getCurrentUserRoles(apiServer, suToken);
         expect(userRoles.roles.some(role => role.name === roleName)).toBe(true);
       };
 
       Then('角色 {string} 已成功授予用户 {string}', grantedAssertStep);
-      Then('角色 "Customer service" 已成功授予用户 "Bob"', async (ctx: unknown) => {
-        await grantedAssertStep(ctx, 'Customer service', 'Bob');
+      Then('角色 "Customer service" 已成功授予用户 "Bob"', async (_ctx: unknown) => {
+        await grantedAssertStep(_ctx, 'Customer service', 'Bob');
       });
 
-      When('管理员将角色 {string} 从用户 {string} 收回', async (ctx, roleName: string, userName: string) => {
+      When('管理员将角色 {string} 从用户 {string} 收回', async (_ctx, roleName: string, userName: string) => {
         const { apiServer, adminToken } = featureContext;
-        const userProfile = getRegisteredUserProfile(ctx, userName);
+        const userProfile = getRegisteredUserProfile(userName);
         const roleId = await getRoleIdByName(apiServer, adminToken, roleName);
         await revokeRoleFromUser(apiServer, adminToken, userProfile.id, roleId);
       });
 
-      Then('角色 {string} 已成功从用户 {string} 收回', async (ctx, roleName: string, userName: string) => {
+      Then('角色 {string} 已成功从用户 {string} 收回', async (_ctx, roleName: string, userName: string) => {
         const { apiServer, adminToken } = featureContext;
-        const userProfile = getRegisteredUserProfile(ctx, userName);
+        const userProfile = getRegisteredUserProfile(userName);
         const suToken = await suUserToken(apiServer, adminToken, userProfile.id);
         const userRoles = await getCurrentUserRoles(apiServer, suToken);
         expect(userRoles.roles.some(role => role.name === roleName)).toBe(false);
