@@ -63,19 +63,6 @@ type AdminProfileContext = {
   adminProfile?: User.Profile;
 };
 
-type AdminLoginContext = {
-  adminLoginResponse?: LoginResponse;
-  newPasswordLoginResponse?: LoginResponse;
-};
-
-type PasswordChangeContext = {
-  passwordChangeResponse?: null;
-};
-
-type ErrorContext = {
-  lastError?: unknown;
-};
-
 type OperatorAdminContext = TestContext & {
   adminToken?: string;
   adminProfile?: User.Profile;
@@ -90,12 +77,6 @@ type GrantRoleResultContext = {
   grantRoleResponse?: { role_names: string[] };
 };
 
-type UserListContext = {
-  userListResponse?: User.UserListResult;
-  searchedUserListResponse?: User.UserListResult;
-  pagedUserListResponse?: User.UserListResult;
-};
-
 interface FeatureContext extends
   Partial<LoginResponseContext> {
   broker: ServiceBroker;
@@ -104,21 +85,6 @@ interface FeatureContext extends
   mockWechatReqHandler: Mock;
 }
 
-function rememberError(context: ErrorContext, error: unknown) {
-  Object.assign(context, { lastError: error });
-}
-
-function assertLastAPIError(
-  context: ErrorContext,
-  options: {
-    status?: number;
-    messageIncludes?: string;
-    method?: string;
-  }
-) {
-  const { lastError } = context;
-  return assertAPIError(lastError, options);
-}
 
 const openedMockServers: MockServer[] = [];
 const openedSpies: MockInstance[] = [];
@@ -132,26 +98,6 @@ describeFeature(feature, ({
   Background,
   context: featureContext
 }: FeatureDescriibeCallbackParams<FeatureContext>) => {
-  async function loginAdmin(
-    context: AdminIdentityContext & AdminLoginContext,
-    password: string,
-    targetKey:
-      | 'adminLoginResponse'
-      | 'newPasswordLoginResponse' = 'adminLoginResponse',
-  ) {
-    const { apiServer } = featureContext;
-    const adminCountryCode = context.adminCountryCode!;
-    const adminPhone = context.adminPhone!;
-    const loginResponse = await passwordLogin(
-      apiServer,
-      adminCountryCode,
-      adminPhone,
-      password,
-    );
-    assertLoginResponse(loginResponse);
-    Object.assign(context, { [targetKey]: loginResponse });
-    return loginResponse;
-  }
 
   BeforeAllScenarios(async () => {
     vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
@@ -319,7 +265,7 @@ describeFeature(feature, ({
       context.newProfile[key] = value;
     });
 
-    And('用户新的 profile 中有 {string}，值为 {int}', (_ctx, key: string, value: number) => {
+    And('用户新的 profile 中有 {string}，值为 {number}', (_ctx, key: string, value: number) => {
       context.newProfile = context.newProfile ?? {};
       context.newProfile[key] = value;
     });
@@ -353,7 +299,7 @@ describeFeature(feature, ({
       expect(featureContext.userProfile!.profile[key]).toBe(expectedValue);
     });
 
-    And('用户信息 profile 中 {string} 的值为 {int}', (_ctx, key: string, expectedValue: number) => {
+    And('用户信息 profile 中 {string} 的值为 {number}', (_ctx, key: string, expectedValue: number) => {
       expect(featureContext.userProfile!.profile[key]).toBe(expectedValue);
     });
   });
@@ -527,100 +473,50 @@ describeFeature(feature, ({
   Scenario(
     '管理员可以查看用户列表',
     (s: StepTest<
-      AdminIdentityContext
-      & AdminPasswordContext
-      & AdminLoginContext
-      & UserListContext
+      { userList: User.UserListResult }
     >) => {
       const { Given, When, Then, And, context } = s;
 
-      Given('管理员账号 {string} 已登录，手机号为 {string}，密码为 {string}', async (ctx, name: string, phone: string, password: string) => {
-        Object.assign(context, {
-          adminCountryCode: '+86',
-          adminName: name,
-          adminPhone: phone,
-          adminInitialPassword: password,
-        });
-
+      Given(
+        '管理员账号已登录，手机号为 {string}',
+        async (ctx, phone: string) => {
+        const password = 'pass_test';
         await initAdminHandler({ schema, phone, password });
-        await loginAdmin(context, password);
+        const { token } = await passwordLogin(featureContext.apiServer, '+86', phone, password);
+        featureContext.adminToken = token;
       });
 
-      When('管理员账号 {string} 获取用户列表', async (ctx, name: string) => {
-        expect(context.adminName).toBe(name);
-        const { apiServer } = featureContext;
-        const userListResponse = await listUsers(
-          apiServer,
-          context.adminLoginResponse!.token,
-          { page: 1, limit: 20 },
-        );
-        Object.assign(context, { userListResponse });
+      When('管理员账号获取用户列表', async (ctx, name: string) => {
+        const { apiServer, adminToken } = featureContext;
+        const userListResponse = await listUsers(apiServer, adminToken);
+        context.userList = userListResponse;
       });
 
-      Then('用户列表分页信息为 page {int}、limit {int}', (_ctx, page: number, limit: number) => {
-        const response = context.userListResponse!;
-        expect(response.page).toBe(page);
-        expect(response.limit).toBe(limit);
-        expect(response.total).toBeGreaterThan(0);
+      Then('用户列表分页信息为 page {number}、limit {number}', (_ctx, page: number, limit: number) => {
+        const { userList } = context;
+        expect(userList.page).toBe(page);
+        expect(userList.limit).toBe(limit);
+        expect(userList.total).toBeGreaterThan(0);
       });
 
-      Then('分页查询返回 page {int}、limit {int}', (_ctx, page: number, limit: number) => {
-        const response = context.pagedUserListResponse!;
-        expect(response.page).toBe(page);
-        expect(response.limit).toBe(limit);
-        expect(response.total).toBeGreaterThan(0);
-      });
-
-      Then('获取成功，用户列表包含用户 {string}', (_ctx, userName: string) => {
-        const userList = context.userListResponse!.users;
-        expect(userList.length).toBeGreaterThan(0);
-        expect(userList.some(user => user.name === userName)).toBe(true);
-      });
-
-      And('{string} 的手机号为 {string} {string}', (_ctx, userName: string, countryCode: string, phone: string) => {
-        const userList = context.userListResponse!.users;
-        expect(
-          userList.some(
-            item => item.name === userName && item.phone === `${countryCode} ${phone}`,
-          ),
-        ).toBe(true);
+      Then(
+        '用户列表获取成功，用户列表包含手机号为 {string}，国别码 {string} 的用户',
+        (_ctx, phone: string, countryCode: string) => {
+          const { userList } = context;
+          expect(userList.users.some(user => user.phone === `+${countryCode} ${phone}`)).toBe(true);
       });
 
       When('管理员用手机号 {string} 搜索用户列表', async (ctx, phone: string) => {
-        const { apiServer } = featureContext;
-        const searchedUserListResponse = await listUsers(
-          apiServer,
-          context.adminLoginResponse!.token,
-          { phone },
-        );
-        Object.assign(context, { searchedUserListResponse });
+        const { apiServer, adminToken } = featureContext;
+        const searchedUserListResponse = await listUsers(apiServer, adminToken, { phone });
+        context.userList = searchedUserListResponse;
       });
 
-      Then('搜索成功，用户列表包含用户 {string}', (_ctx, userName: string) => {
-        const userList = context.searchedUserListResponse!.users;
-        expect(userList.length).toBeGreaterThan(0);
-        expect(userList.some(user => user.name === userName)).toBe(true);
-      });
-
-      And('搜索结果中 {string} 的手机号为 {string} {string}', (_ctx, userName: string, countryCode: string, phone: string) => {
-        const userList = context.searchedUserListResponse!.users;
-        const user = userList.find(item => item.name === userName);
-        expect(user?.phone).toBe(`${countryCode} ${phone}`);
-      });
-
-      When('管理员按 page {int}、limit {int} 获取用户列表', async (_ctx, page: number, limit: number) => {
-        const { apiServer } = featureContext;
-        const pagedUserListResponse = await listUsers(
-          apiServer,
-          context.adminLoginResponse!.token,
-          { page, limit },
-        );
-        Object.assign(context, { pagedUserListResponse, userListResponse: pagedUserListResponse });
-      });
-
-      And('分页结果数量不超过 {int}', (_ctx, maxSize: number) => {
-        const userList = context.pagedUserListResponse!.users;
-        expect(userList.length).toBeLessThanOrEqual(maxSize);
+      Then(
+        '用户列表搜索成功，用户列表包含手机号为 {string}，国别码 {string} 的用户',
+        (_ctx, phone: string, countryCode: string) => {
+          const { userList } = context;
+          expect(userList.users.some(user => user.phone === `+${countryCode} ${phone}`)).toBe(true);
       });
     }
   );

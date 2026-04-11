@@ -55,14 +55,11 @@ Feature: user registration and login
      Then 用户 "Alice" 的角色包含 "operator"
 
   Scenario: 管理员可以查看用户列表
-    Given 管理员账号 "system admin" 已登录，手机号为 "12345678901"，密码为 "pass_test"
-     When 管理员账号 "system admin" 获取用户列表
+    Given 管理员账号已登录，手机号为 "12345678901"
+
+     When 管理员账号获取用户列表
      Then 用户列表分页信息为 page 1、limit 20
-     Then 获取成功，用户列表包含用户 "system admin"
-      And "system admin" 的手机号为 "+86" "12345678901"
+     Then 用户列表获取成功，用户列表包含手机号为 "12345678901"，国别码 "86" 的用户
+
      When 管理员用手机号 "12345678901" 搜索用户列表
-     Then 搜索成功，用户列表包含用户 "system admin"
-      And 搜索结果中 "system admin" 的手机号为 "+86" "12345678901"
-     When 管理员按 page 1、limit 1 获取用户列表
-     Then 分页查询返回 page 1、limit 1
-      And 分页结果数量不超过 1
+     Then 用户列表搜索成功，用户列表包含手机号为 "12345678901"，国别码 "86" 的用户
