@@ -12,18 +12,29 @@ import {
   Button,
   Calendar,
   Card,
+  Checkbox,
+  DatePicker,
   Descriptions,
   Empty,
   Flex,
   Image,
+  Modal,
+  Radio,
   Segmented,
+  Space,
   Spin,
   Table,
+  Tooltip,
   Typography,
   message,
   theme,
 } from "antd";
-import { HomeOutlined, PlusOutlined } from "@ant-design/icons";
+import {
+  HomeOutlined,
+  InfoCircleOutlined,
+  PlusOutlined,
+  SyncOutlined,
+} from "@ant-design/icons";
 import {
   ModalForm,
   ProFormDigit,
@@ -49,6 +60,10 @@ type ExhibitionDetailData = ExhibitionTypes.Exhibition & {
   sessions?: ExhibitionTypes.Session[];
   ticket_categories?: ExhibitionTypes.TicketCategory[];
 };
+
+/** 同步到 OTA 弹窗：平台与同步项（暂未对接 API） */
+type OtaSyncPlatform = "maoyan" | "damai" | "ctrip";
+type OtaSyncScope = "sessions" | "tickets" | "price";
 
 const REFUND_POLICY_OPTIONS: {
   label: string;
@@ -122,6 +137,22 @@ export default function ExhibitionDetailPage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null,
   );
+
+  const [otaSyncModalOpen, setOtaSyncModalOpen] = useState(false);
+  const [otaSyncPlatform, setOtaSyncPlatform] =
+    useState<OtaSyncPlatform>("maoyan");
+  const [otaSyncScopes, setOtaSyncScopes] = useState<OtaSyncScope[]>([]);
+  const [otaSyncDateRange, setOtaSyncDateRange] = useState<
+    [Dayjs, Dayjs] | null
+  >(null);
+
+  const otaExhibitionDateBounds = useMemo(() => {
+    if (!data?.start_date || !data?.end_date) return null;
+    const start = dayjs(data.start_date).startOf("day");
+    const end = dayjs(data.end_date).startOf("day");
+    if (!start.isValid() || !end.isValid()) return null;
+    return { start, end };
+  }, [data?.start_date, data?.end_date]);
 
   const loadDetail = useCallback(async () => {
     if (!eid) {
@@ -495,9 +526,41 @@ export default function ExhibitionDetailPage() {
           <Empty description={error} />
         ) : data ? (
           <>
-            <Typography.Title level={4} style={{ marginTop: 0 }}>
-              {data.name}
-            </Typography.Title>
+            <div
+              style={{
+                display: "flex",
+                gap: token.marginSM,
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: token.marginMD,
+              }}
+            >
+              <Typography.Title
+                level={4}
+                style={{ marginTop: 0, marginBottom: 0 }}
+              >
+                {data.name}
+              </Typography.Title>
+              <Button
+                type="primary"
+                icon={<SyncOutlined />}
+                onClick={() => {
+                  setOtaSyncModalOpen(true);
+                  setOtaSyncPlatform("maoyan");
+                  setOtaSyncScopes([]);
+                  if (data?.start_date && data?.end_date) {
+                    setOtaSyncDateRange([
+                      dayjs(data.start_date).startOf("day"),
+                      dayjs(data.end_date).startOf("day"),
+                    ]);
+                  } else {
+                    setOtaSyncDateRange(null);
+                  }
+                }}
+              >
+                批量同步到OTA
+              </Button>
+            </div>
             <Descriptions
               column={{ xs: 1, sm: 1, md: 2 }}
               bordered
@@ -568,13 +631,15 @@ export default function ExhibitionDetailPage() {
             variant="borderless"
             title="票种列表"
             extra={
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => openAddTicketModal()}
-              >
-                添加票种
-              </Button>
+              <div style={{ display: "flex", gap: token.marginSM }}>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => openAddTicketModal()}
+                >
+                  添加票种
+                </Button>
+              </div>
             }
             style={{
               marginTop: token.marginMD,
@@ -719,6 +784,134 @@ export default function ExhibitionDetailPage() {
           </Card>
         </>
       ) : null}
+
+      <Modal
+        title="同步场次到 OTA"
+        width={640}
+        open={otaSyncModalOpen}
+        onCancel={() => setOtaSyncModalOpen(false)}
+        onOk={() => {
+          if (otaSyncScopes.length === 0) {
+            message.warning("请至少选择一项同步内容");
+            return;
+          }
+          if (
+            !otaSyncDateRange?.[0]?.isValid() ||
+            !otaSyncDateRange?.[1]?.isValid()
+          ) {
+            message.warning("请选择同步日期范围");
+            return;
+          }
+          message.info("同步接口暂未对接，请稍后在版本中接入");
+          setOtaSyncModalOpen(false);
+        }}
+        okText="确定"
+        cancelText="取消"
+        destroyOnClose
+        maskClosable={false}
+      >
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 16 }}>
+          当前展会：{data?.name ?? "—"}
+        </Typography.Paragraph>
+        <Flex gap={token.marginLG} wrap="wrap" align="flex-start">
+          <div style={{ flex: "1 1 220px", minWidth: 200 }}>
+            <Typography.Text
+              type="secondary"
+              style={{ display: "block", marginBottom: 8 }}
+            >
+              同步目标（单选）
+            </Typography.Text>
+            <Radio.Group
+              value={otaSyncPlatform}
+              onChange={(e) => {
+                const v = e.target.value as OtaSyncPlatform;
+                setOtaSyncPlatform(v);
+                if (v === "ctrip") {
+                  setOtaSyncScopes((prev) =>
+                    prev.filter((s) => s !== "tickets"),
+                  );
+                }
+              }}
+            >
+              <Space direction="vertical">
+                <Radio value="maoyan">猫眼</Radio>
+                <Radio value="damai">大麦</Radio>
+                <Radio value="ctrip">携程</Radio>
+              </Space>
+            </Radio.Group>
+          </div>
+          <div style={{ flex: "1 1 220px", minWidth: 200 }}>
+            <Typography.Text
+              type="secondary"
+              style={{ display: "block", marginBottom: 8 }}
+            >
+              同步内容（可多选）
+            </Typography.Text>
+            <Checkbox.Group
+              value={otaSyncScopes}
+              onChange={(v) => setOtaSyncScopes(v as OtaSyncScope[])}
+            >
+              <Space direction="vertical" size="small">
+                <Checkbox value="sessions">场次</Checkbox>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <Checkbox
+                    value="tickets"
+                    disabled={otaSyncPlatform === "ctrip"}
+                  >
+                    票种
+                  </Checkbox>
+                  {otaSyncPlatform === "ctrip" ? (
+                    <Tooltip title="移步携程后台创建票种">
+                      <InfoCircleOutlined
+                        style={{
+                          color: token.colorTextSecondary,
+                          cursor: "default",
+                        }}
+                      />
+                    </Tooltip>
+                  ) : null}
+                </div>
+                <Checkbox value="price">价格</Checkbox>
+              </Space>
+            </Checkbox.Group>
+          </div>
+        </Flex>
+        <div style={{ marginTop: token.marginMD }}>
+          <Typography.Text
+            type="secondary"
+            style={{ display: "block", marginBottom: 8 }}
+          >
+            同步日期
+          </Typography.Text>
+          <DatePicker.RangePicker
+            value={otaSyncDateRange}
+            disabled={!otaExhibitionDateBounds}
+            onChange={(v) =>
+              setOtaSyncDateRange(v && v[0] && v[1] ? [v[0], v[1]] : null)
+            }
+            format="YYYY-MM-DD"
+            style={{ width: "100%", maxWidth: 360 }}
+            disabledDate={(current) => {
+              if (!otaExhibitionDateBounds || !current) return false;
+              return (
+                current.isBefore(otaExhibitionDateBounds.start, "day") ||
+                current.isAfter(otaExhibitionDateBounds.end, "day")
+              );
+            }}
+            placeholder={["开始日期", "结束日期"]}
+          />
+          {otaExhibitionDateBounds ? (
+            <Typography.Paragraph
+              type="secondary"
+              style={{ marginTop: 8, marginBottom: 0, fontSize: 12 }}
+            >
+              可选范围与展期一致：
+              {otaExhibitionDateBounds.start.format("YYYY-MM-DD")} ~{" "}
+              {otaExhibitionDateBounds.end.format("YYYY-MM-DD")}
+            </Typography.Paragraph>
+          ) : null}
+        </div>
+      </Modal>
 
       <ModalForm<{ quantity: number }>
         title={ticketInvData ? `设置库存 · ${ticketInvData.name}` : "设置库存"}
