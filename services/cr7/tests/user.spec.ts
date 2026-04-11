@@ -494,7 +494,7 @@ describeFeature(feature, ({
     (s: StepTest<OperatorAdminContext & OperatorUserContext & GrantRoleResultContext>) => {
       const { Given, When, Then, context } = s;
 
-      Given('管理员账号 {string} 已登录', async (ctx, adminName: string) => {
+      Given('管理员账号已登录', async (ctx, adminName: string) => {
         const { apiServer } = featureContext;
         const { token, profile } = await prepareAdminUser(apiServer, schema, `admin_${adminName}`);
         Object.assign(context, { adminToken: token, adminProfile: profile });
@@ -507,7 +507,7 @@ describeFeature(feature, ({
         Object.assign(context, { userToken: token, userProfile: profile });
       });
 
-      When('管理员账号 {string} 将用户 {string} 设置成运营人员', async () => {
+      When('管理员账号将用户 {string} 设置成运营人员', async () => {
         const { apiServer } = featureContext;
         const grantRoleResponse = await grantRoleToUser(
           apiServer,
