@@ -25,6 +25,14 @@ export function handleUserError(error: unknown): never {
     throw new MoleculerClientError('角色不存在', 404, 'ROLE_NOT_FOUND');
   }
 
+  if (error.code === 'ROLE_ALREADY_EXISTS') {
+    throw new MoleculerClientError('角色已存在', 409, 'ROLE_ALREADY_EXISTS');
+  }
+
+  if (error.code === 'BUILTIN_ROLE_CANNOT_DELETE') {
+    throw new MoleculerClientError('内置角色不能删除', 400, 'BUILTIN_ROLE_CANNOT_DELETE');
+  }
+
   if (error.code === 'PHONE_ALREADY_EXISTS') {
     throw new MoleculerClientError('手机号已存在', 409, 'PHONE_ALREADY_EXISTS');
   }

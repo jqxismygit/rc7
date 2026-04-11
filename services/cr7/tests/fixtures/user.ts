@@ -1,5 +1,5 @@
 import { Server } from "http";
-import { getJSON, postJSON, putJSON } from "../lib/api.js";
+import { deleteJSON, getJSON, postJSON, putJSON } from "../lib/api.js";
 import { User } from "@cr7/types";
 import { expect, vi } from "vitest";
 import { mockWechatServer } from "../lib/server.js";
@@ -60,6 +60,46 @@ export function listUsers(
   return getJSON<User.UserListResult>(server, '/users', {
     token,
     query,
+  });
+}
+
+export type ManagedRole = {
+  id: string;
+  name: string;
+  description: string;
+  permissions: string[];
+  is_builtin: boolean;
+};
+
+export function listRoles(
+  server: Server,
+  token: string,
+) {
+  return getJSON<ManagedRole[]>(server, '/users/roles', { token });
+}
+
+export function createRole(
+  server: Server,
+  token: string,
+  payload: {
+    name: string;
+    description?: string;
+    permissions?: string[];
+  },
+) {
+  return postJSON<ManagedRole>(server, '/users/roles', {
+    token,
+    body: payload,
+  });
+}
+
+export function deleteRole(
+  server: Server,
+  token: string,
+  roleId: string,
+) {
+  return deleteJSON<null>(server, `/users/roles/${roleId}`, {
+    token,
   });
 }
 

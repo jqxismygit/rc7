@@ -111,11 +111,17 @@ const routes = [
   ),
   routeConfig(
     '/users',
-    ['user.grant_role', 'user.list'],
+    [
+      'user.grant_role', 'user.list',
+      'user.list_roles', 'user.create_role', 'user.delete_role'
+    ],
     {
       aliases: {
         'GET /': 'user.list',
-        'POST /:uid/roles': 'user.grant_role'
+        'POST /:uid/roles': 'user.grant_role',
+        'GET /roles': 'user.list_roles',
+        'POST /roles': 'user.create_role',
+        'DELETE /roles/:role_id': 'user.delete_role',
       }
     }
   ),

@@ -170,23 +170,94 @@
   ```
 - Request Body:
   ```ts
-  { role_name: string }
+  { role_id: User.Role['id'] }
   ```
 - Response Body:
   ```ts
-  { role_names: string[] }
+  { roles: User.Role[] }
   ```
 - Response Status:
   - `200 OK`：授予成功
-  - `400 Bad Request`：角色不存在或参数无效
+  - `400 Bad Request`：参数无效
   - `401 Unauthorized`：未认证
   - `403 Forbidden`：无权限（仅管理员可执行）
+  - `404 Not Found`：角色不存在
   - `404 Not Found`：用户不存在
 
 - 说明：
   - 仅管理员（ADMIN 角色）可执行此操作
-  - 返回用户授予后的全部角色名称
+  - 返回用户授予后的全部角色
   - 同一用户同一角色重复授予时幂等
+
+## 管理员查看角色列表
+
+- URL: `/users/roles`
+- Method: `GET`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Response Body:
+  ```ts
+  User.Role[]
+  ```
+- Response Status:
+  - `200 OK`：查询成功
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：无权限（仅管理员可执行）
+
+- 说明：
+  - 返回系统角色全集，按角色名称升序
+
+## 管理员创建角色
+
+- URL: `/users/roles`
+- Method: `POST`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Body:
+  ```ts
+  Omit<User.Role, 'id'>
+  ```
+- Response Body:
+  ```ts
+  User.Role
+  ```
+- Response Status:
+  - `200 OK`：创建成功
+  - `400 Bad Request`：参数无效
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：无权限（仅管理员可执行）
+  - `409 Conflict`：角色冲突（如角色名已存在）
+
+- 说明：
+  - 仅管理员（ADMIN 角色）可执行此操作
+  - 创建后返回完整角色对象
+
+## 管理员删除角色
+
+- URL: `/users/roles/:role_id`
+- Method: `DELETE`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Params:
+  ```ts
+  { role_id: User.Role['id'] }
+  ```
+- Response Status:
+  - `204 No Content`：删除成功
+  - `400 Bad Request`：内置角色不允许删除
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：无权限（仅管理员可执行）
+  - `404 Not Found`：角色不存在
+
+- 说明：
+  - 仅管理员（ADMIN 角色）可执行此操作
+  - 角色删除后，其对应用户-角色关系会被级联删除
 
 ## 管理员查看用户列表
 

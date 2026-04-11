@@ -13,7 +13,10 @@ import {
   assertLoginResponse,
   assertUserProfile,
   changePassword,
+  createRole,
+  deleteRole,
   listUsers,
+  listRoles,
   grantRoleToUser,
   getUserProfile,
   passwordLogin,
@@ -24,6 +27,7 @@ import {
   wechatMiniLogin,
   prepareAdminToken
 } from './fixtures/user.js';
+import { assertAPIError } from './lib/api.js';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
 import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
 import { ServiceBroker } from 'moleculer';
@@ -480,6 +484,122 @@ describeFeature(feature, ({
         (_ctx, phone: string, countryCode: string) => {
           const { userList } = context;
           expect(userList.users.some(user => user.phone === `+${countryCode} ${phone}`)).toBe(true);
+      });
+    }
+  );
+
+  Scenario(
+    '系统角色管理',
+    (s: StepTest<{
+      roleList: {
+        id: string;
+        name: string;
+        description: string;
+        permissions: string[];
+        is_builtin: boolean;
+      }[];
+      newRole: {
+        name: string;
+        description: string;
+        permissions: string[];
+      };
+      deleteBuiltinRoleError: unknown;
+    }>) => {
+      const { Given, When, Then, context } = s;
+
+      Given('用户 {string} 已注册并登录', async (_ctx, userName: string) => {
+        const { apiServer } = featureContext;
+        const token = await registerUser(apiServer, userName);
+        const profile = await getUserProfile(apiServer, token);
+        assertUserProfile(profile);
+      });
+
+      Given(
+        '新角色 {string}，描述为 {string}, 权限包含 {string}',
+        (_ctx, name: string, description: string, permission: string) => {
+          context.newRole = {
+            name,
+            description,
+            permissions: [permission],
+          };
+      });
+
+      When('管理员获取角色列表', async () => {
+        const { apiServer, adminToken } = featureContext;
+        const roleList = await listRoles(apiServer, adminToken);
+        context.roleList = roleList;
+      });
+
+      Then('角色列表包含 {string} 和 {string} 角色，都为系统内置角色', (
+        _ctx,
+        roleA: string,
+        roleB: string,
+      ) => {
+        const { roleList } = context;
+        const builtinA = roleList.find(role => role.name === roleA);
+        const builtinB = roleList.find(role => role.name === roleB);
+
+        expect(builtinA).toBeDefined();
+        expect(builtinA!.is_builtin).toBe(true);
+        expect(builtinB).toBeDefined();
+        expect(builtinB!.is_builtin).toBe(true);
+      });
+
+      When('管理员创建新角色', async () => {
+        const { apiServer, adminToken } = featureContext;
+        await createRole(apiServer, adminToken, context.newRole);
+      });
+
+      Then('角色 {string} 创建成功，并且在角色列表中, 权限包含 {string}', async (
+        _ctx,
+        roleName: string,
+        permission: string,
+      ) => {
+        const { apiServer, adminToken } = featureContext;
+        context.roleList = await listRoles(apiServer, adminToken);
+        const createdRole = context.roleList.find(role => role.name === roleName);
+        expect(createdRole).toBeDefined();
+        expect(createdRole!.permissions).toContain(permission);
+        expect(createdRole!.is_builtin).toBe(false);
+      });
+
+      When('管理员删除角色 {string}', async (_ctx, roleName: string) => {
+        const { apiServer, adminToken } = featureContext;
+        const roleList = await listRoles(apiServer, adminToken);
+        const targetRole = roleList.find(role => role.name === roleName);
+
+        expect(targetRole).toBeDefined();
+        await deleteRole(apiServer, adminToken, targetRole!.id);
+      });
+
+      Then('角色 {string} 删除成功，并且不在角色列表中', async (
+        _ctx,
+        roleName: string,
+      ) => {
+        const { apiServer, adminToken } = featureContext;
+        context.roleList = await listRoles(apiServer, adminToken);
+        expect(context.roleList.some(role => role.name === roleName)).toBe(false);
+      });
+
+      When('管理员删除内置角色 {string}', async (_ctx, roleName: string) => {
+        const { apiServer, adminToken } = featureContext;
+        const roleList = await listRoles(apiServer, adminToken);
+        const targetRole = roleList.find(role => role.name === roleName);
+
+        expect(targetRole).toBeDefined();
+        context.deleteBuiltinRoleError = await deleteRole(apiServer, adminToken, targetRole!.id)
+          .catch(error => error);
+      });
+
+      Then('删除内置角色 {string} 失败，返回错误提示内置角色不能删除', (
+        _ctx,
+        _roleName: string,
+      ) => {
+        assertAPIError(context.deleteBuiltinRoleError, {
+          status: 400,
+          method: 'DELETE',
+          messageIncludes: '内置角色不能删除',
+        });
       });
     }
   );

@@ -14,6 +14,9 @@ import {
   updatePassword,
   getRoleIdByName,
   assignRoleToUser,
+  listRoles,
+  createRole,
+  deleteRoleById,
   upsertUserByDamaiId,
   upsertUserByPhone,
   updateUserProfile,
@@ -113,6 +116,41 @@ export default class UserService extends Service {
             role_name: 'string',
           },
           handler: this.grant_role,
+        },
+
+        list_roles: {
+          rest: 'GET /roles',
+          roles: ['admin'],
+          handler: this.list_roles,
+        },
+
+        create_role: {
+          rest: 'POST /roles',
+          roles: ['admin'],
+          params: {
+            name: 'string',
+            description: {
+              type: 'string',
+              optional: true,
+              default: '',
+            },
+            permissions: {
+              type: 'array',
+              items: 'string',
+              optional: true,
+              default: [],
+            },
+          },
+          handler: this.create_role,
+        },
+
+        delete_role: {
+          rest: 'DELETE /roles/:role_id',
+          roles: ['admin'],
+          params: {
+            role_id: 'uuid',
+          },
+          handler: this.delete_role,
         },
 
         list: {
@@ -360,6 +398,36 @@ export default class UserService extends Service {
       { phone, damai_user_id, page, limit }
     );
     return users;
+  }
+
+  async list_roles() {
+    const schema = await this.getSchema();
+    return listRoles(this.pool, schema);
+  }
+
+  async create_role(
+    ctx: Context<{ name: string; description?: string; permissions?: string[] }>
+  ) {
+    const schema = await this.getSchema();
+    const { name, description, permissions } = ctx.params;
+
+    return createRole(this.pool, schema, {
+      name,
+      description,
+      permissions,
+    }).catch(handleUserError);
+  }
+
+  async delete_role(
+    ctx: Context<{ role_id: string }, { $statusCode?: number }>
+  ) {
+    const schema = await this.getSchema();
+    const { role_id } = ctx.params;
+
+    await deleteRoleById(this.pool, schema, role_id).catch(handleUserError);
+
+    ctx.meta.$statusCode = 204;
+    return null;
   }
 
   async findOrCreateByPhone(

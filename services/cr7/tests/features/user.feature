@@ -63,3 +63,20 @@ Feature: user registration and login
 
      When 管理员用手机号 "12345678901" 搜索用户列表
      Then 用户列表搜索成功，用户列表包含手机号为 "12345678901"，国别码 "86" 的用户
+
+  Scenario: 系统角色管理
+    Given 管理员账号创建并登录
+    Given 用户 "Bob" 已注册并登录
+
+     When 管理员获取角色列表
+     Then 角色列表包含 "ADMIN" 和 "OPERATOR" 角色，都为系统内置角色
+
+    Given 新角色 "TEST_ROLE"，描述为 "测试角色", 权限包含 "USER_MANAGE"
+     When 管理员创建新角色
+     Then 角色 "TEST_ROLE" 创建成功，并且在角色列表中, 权限包含 "USER_MANAGE"
+
+     When 管理员删除角色 "TEST_ROLE"
+     Then 角色 "TEST_ROLE" 删除成功，并且不在角色列表中
+
+     When 管理员删除内置角色 "OPERATOR"
+     Then 删除内置角色 "OPERATOR" 失败，返回错误提示内置角色不能删除

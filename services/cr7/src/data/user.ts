@@ -5,6 +5,8 @@ type DBClient = Pool | PoolClient | Client;
 export type USER_DATA_ERROR_CODES =
 | 'USER_NOT_FOUND'
 | 'ROLE_NOT_FOUND'
+| 'ROLE_ALREADY_EXISTS'
+| 'BUILTIN_ROLE_CANNOT_DELETE'
 | 'PHONE_ALREADY_EXISTS'
 | 'INVALID_PHONE_OR_PASSWORD'
 | 'USER_PASSWORD_NOT_FOUND'
@@ -297,6 +299,106 @@ export async function getRoleIdByName(
   }
 
   return roleId;
+}
+
+export async function listRoles(
+  client: DBClient,
+  schema: string,
+) {
+  const { rows } = await client.query<{
+    id: string;
+    name: string;
+    description: string;
+    permissions: string[];
+    is_builtin: boolean;
+  }>(
+    `SELECT
+      id,
+      name,
+      description,
+      permissions,
+      is_builtin
+    FROM ${schema}.roles
+    ORDER BY name ASC`
+  );
+
+  return rows;
+}
+
+export async function createRole(
+  client: DBClient,
+  schema: string,
+  input: {
+    name: string;
+    description?: string;
+    permissions?: string[];
+  },
+) {
+  const {
+    name,
+    description = '',
+    permissions = [],
+  } = input;
+
+  try {
+    const { rows: [role] } = await client.query<{
+      id: string;
+      name: string;
+      description: string;
+      permissions: string[];
+      is_builtin: boolean;
+    }>(
+      `INSERT INTO ${schema}.roles (name, description, permissions)
+      VALUES ($1, $2, $3::text[])
+      RETURNING
+        id,
+        name,
+        description,
+        permissions,
+        is_builtin`,
+      [name, description, permissions],
+    );
+
+    return role;
+  } catch (error) {
+    if ((error as { code?: string }).code === '23505') {
+      throw new UserDataError('Role already exists', 'ROLE_ALREADY_EXISTS');
+    }
+
+    throw error;
+  }
+}
+
+export async function deleteRoleById(
+  client: DBClient,
+  schema: string,
+  roleId: string,
+) {
+  const { rows: roleRows } = await client.query<{
+    id: string;
+    is_builtin: boolean;
+  }>(
+    `SELECT id, is_builtin
+    FROM ${schema}.roles
+    WHERE id = $1
+    LIMIT 1`,
+    [roleId],
+  );
+
+  const role = roleRows[0] ?? null;
+  if (role === null) {
+    throw new UserDataError('Role not found', 'ROLE_NOT_FOUND');
+  }
+
+  if (role.is_builtin === true) {
+    throw new UserDataError('Builtin role cannot delete', 'BUILTIN_ROLE_CANNOT_DELETE');
+  }
+
+  await client.query(
+    `DELETE FROM ${schema}.roles
+    WHERE id = $1`,
+    [role.id],
+  );
 }
 
 export async function assignRoleToUser(
