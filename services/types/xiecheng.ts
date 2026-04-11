@@ -11,8 +11,8 @@ export type XcSyncStatus = 'SUCCESS' | 'FAILURE';
 
 export interface XcPriceSyncItem {
   date: string;
-  sale_price: string;
-  cost_price: string;
+  sale_price: number;
+  cost_price: number;
 }
 
 export interface XcInventorySyncItem {

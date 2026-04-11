@@ -215,7 +215,7 @@ describeFeature(feature, ({
     });
 
     Given(
-      '展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天, 价格是 {int} 元',
+      '展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天, 价格是 {number} 元',
       async (_ctx, ticketName: string, admittance: number, price: number) => {
       const ticket = await prepareTicketCategory(
         featureContext.apiServer,
@@ -445,8 +445,8 @@ describeFeature(feature, ({
     });
 
     And(
-      '售价为 {string} 元, 成本价为 {string} 元',
-      (_ctx, salePrice: string, costPrice: string) => {
+      '售价为 {number} 元, 成本价为 {number} 元',
+      (_ctx, salePrice: number, costPrice: number) => {
       for (const price of context.decryptedBody.prices) {
         expect(price.salePrice).toEqual(salePrice);
         expect(price.costPrice).toEqual(costPrice);
@@ -518,8 +518,8 @@ describeFeature(feature, ({
       expect(items.at(-1)?.date).toBe(toDateLabel(dateLabel));
     });
 
-    And('售价为 {string} 元, 成本价为 {string} 元', (_ctx, salePrice: string, costPrice: string) => {
-      const item = (featureContext.syncLogs?.[0].sync_items as Array<{ sale_price: string; cost_price: string }>)[0];
+    And('售价为 {number} 元, 成本价为 {number} 元', (_ctx, salePrice: number, costPrice: number) => {
+      const item = (featureContext.syncLogs?.[0].sync_items as Array<{ sale_price: number; cost_price: number }>)[0];
       expect(item.sale_price).toEqual(salePrice);
       expect(item.cost_price).toEqual(costPrice);
     });

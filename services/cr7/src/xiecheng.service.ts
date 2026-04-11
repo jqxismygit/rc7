@@ -78,8 +78,8 @@ function assertSyncDateRange(
   }
 }
 
-function toYuan(cents: number): string {
-  return (cents / 100).toFixed(2);
+function toYuan(cents: number): number {
+  return parseFloat((cents / 100).toFixed(2));
 }
 
 function toXcOrderStatus(status: Order.OrderStatus): number {
