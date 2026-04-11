@@ -16,7 +16,6 @@ import {
   Empty,
   Flex,
   Image,
-  Modal,
   Segmented,
   Spin,
   Table,
@@ -111,13 +110,6 @@ export default function ExhibitionDetailPage() {
     close: closeTicketInvModal,
   } = useModal<ExhibitionTypes.TicketCategory>();
 
-  const {
-    visible: sessionInvVisible,
-    data: sessionInvData,
-    open: openSessionInvModal,
-    close: closeSessionInvModal,
-  } = useModal<ExhibitionTypes.Session>();
-
   const [ticketSubmitting, setTicketSubmitting] = useState(false);
   const [ticketInvSubmitting, setTicketInvSubmitting] = useState(false);
   const [sessionInvLoading, setSessionInvLoading] = useState(false);
@@ -156,22 +148,22 @@ export default function ExhibitionDetailPage() {
     void loadDetail();
   }, [loadDetail]);
 
-  /** 场次库存弹窗打开后拉取列表 */
+  /** 当前选中场次变更时拉取该场次库存 */
   useEffect(() => {
-    if (!sessionInvVisible || !sessionInvData || !eid) {
-      if (!sessionInvVisible) {
-        setSessionInvRows([]);
-        setSessionInvLoading(false);
-      }
+    if (!eid || !selectedSessionId) {
+      setSessionInvRows([]);
+      setSessionInvLoading(false);
       return;
     }
-    const session = sessionInvData;
     let cancelled = false;
     setSessionInvLoading(true);
     setSessionInvRows([]);
     (async () => {
       try {
-        const rows = await listExhibitionSessionTicketsApi(eid, session.id);
+        const rows = await listExhibitionSessionTicketsApi(
+          eid,
+          selectedSessionId,
+        );
         if (!cancelled) setSessionInvRows(rows);
       } catch (err) {
         if (!cancelled) {
@@ -186,19 +178,9 @@ export default function ExhibitionDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [sessionInvVisible, sessionInvData, eid]);
+  }, [eid, selectedSessionId, data]);
 
-  const openSessionInventory = useCallback(
-    (session: ExhibitionTypes.Session) => {
-      openSessionInvModal(session);
-    },
-    [openSessionInvModal],
-  );
-
-  const sessions = useMemo(
-    () => data?.sessions ?? [],
-    [data?.sessions],
-  );
+  const sessions = useMemo(() => data?.sessions ?? [], [data?.sessions]);
 
   const sessionsByDate = useMemo(() => {
     const map = new Map<string, ExhibitionTypes.Session[]>();
@@ -210,8 +192,7 @@ export default function ExhibitionDetailPage() {
     }
     for (const arr of map.values()) {
       arr.sort(
-        (a, b) =>
-          dayjs(a.created_at).valueOf() - dayjs(b.created_at).valueOf(),
+        (a, b) => dayjs(a.created_at).valueOf() - dayjs(b.created_at).valueOf(),
       );
     }
     return map;
@@ -255,9 +236,7 @@ export default function ExhibitionDetailPage() {
   /** 展期与场次并集，避免场次落在展期外时无法在日历中选到 */
   const exhibitionDateRange = useMemo((): [Dayjs, Dayjs] | undefined => {
     if (!data) return undefined;
-    let start = data.start_date
-      ? dayjs(data.start_date).startOf("day")
-      : null;
+    let start = data.start_date ? dayjs(data.start_date).startOf("day") : null;
     let end = data.end_date ? dayjs(data.end_date).endOf("day") : null;
     for (const s of sessions) {
       const d = dayjs(s.session_date);
@@ -705,30 +684,31 @@ export default function ExhibitionDetailPage() {
                             {selectedSession.id}
                           </Typography.Text>
                         </Descriptions.Item>
-                        <Descriptions.Item label="创建时间">
-                          {formatDateTime(selectedSession.created_at)}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="更新时间">
-                          {formatDateTime(selectedSession.updated_at)}
-                        </Descriptions.Item>
                       </Descriptions>
                       <Typography.Title
                         level={5}
                         style={{ marginTop: token.marginLG, marginBottom: 12 }}
                       >
-                        配置
+                        库存
                       </Typography.Title>
-                      <Button
-                        type="primary"
-                        onClick={() =>
-                          openSessionInventory(selectedSession)
-                        }
-                      >
-                        查看库存
-                      </Button>
+                      <Spin spinning={sessionInvLoading}>
+                        <Table<InventoryTypes.SessionTicketsInventory>
+                          className="exhibition-detail-session-inventory-table"
+                          rowKey="id"
+                          size="small"
+                          columns={inventoryColumns}
+                          dataSource={sessionInvRows}
+                          pagination={false}
+                          locale={{
+                            emptyText: sessionInvLoading
+                              ? "加载中…"
+                              : "暂无票种或库存数据",
+                          }}
+                          scroll={{ x: "max-content" }}
+                        />
+                      </Spin>
                     </>
-                  ) : selectedDay &&
-                    sessionsOnSelectedDay.length === 0 ? (
+                  ) : selectedDay && sessionsOnSelectedDay.length === 0 ? (
                     <Empty description="该日暂无场次" />
                   ) : (
                     <Empty description="请在左侧日历中选择有场次的日期" />
@@ -739,38 +719,6 @@ export default function ExhibitionDetailPage() {
           </Card>
         </>
       ) : null}
-
-      <Modal
-        title={
-          sessionInvData
-            ? `场次库存 · ${dayjs(sessionInvData.session_date).format("YYYY-MM-DD")}`
-            : "场次库存"
-        }
-        open={sessionInvVisible}
-        onCancel={closeSessionInvModal}
-        footer={null}
-        width={880}
-        destroyOnClose
-        maskClosable={false}
-      >
-        <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
-          展示该场次下各票种的库存数量（接口：GET
-          /exhibition/:eid/sessions/:sid/tickets）。
-        </Typography.Paragraph>
-        <Spin spinning={sessionInvLoading}>
-          <Table<InventoryTypes.SessionTicketsInventory>
-            rowKey="id"
-            size="small"
-            columns={inventoryColumns}
-            dataSource={sessionInvRows}
-            pagination={false}
-            locale={{
-              emptyText: sessionInvLoading ? "加载中…" : "暂无票种或库存数据",
-            }}
-            scroll={{ x: "max-content" }}
-          />
-        </Spin>
-      </Modal>
 
       <ModalForm<{ quantity: number }>
         title={ticketInvData ? `设置库存 · ${ticketInvData.name}` : "设置库存"}
