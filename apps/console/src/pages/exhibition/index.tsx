@@ -16,6 +16,9 @@ import {
   Button,
   Card,
   Form,
+  Input,
+  Modal,
+  Radio,
   Space,
   Typography,
   Upload,
@@ -28,6 +31,7 @@ import {
   EyeOutlined,
   HomeOutlined,
   PlusOutlined,
+  SyncOutlined,
   UploadOutlined,
 } from "@ant-design/icons";
 import type { ActionType, ProColumns } from "@ant-design/pro-components";
@@ -54,6 +58,9 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 import "./exhibition.less";
 
 dayjs.extend(customParseFormat);
+
+/** OTA 同步目标（仅 UI，后续对接接口） */
+type OtaPlatform = "ctrip" | "maoyan" | "damai";
 
 type DayjsLike = {
   format: (fmt: string) => string;
@@ -257,6 +264,11 @@ const ExhibitionPage = () => {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editCoverFiles, setEditCoverFiles] = useState<UploadFile[]>([]);
   const [editCoverUploading, setEditCoverUploading] = useState(false);
+  const [otaSyncOpen, setOtaSyncOpen] = useState(false);
+  const [otaSyncRow, setOtaSyncRow] =
+    useState<ExhibitionTypes.Exhibition | null>(null);
+  const [otaPlatform, setOtaPlatform] = useState<OtaPlatform>("ctrip");
+  const [ctripExternalId, setCtripExternalId] = useState("");
   const editingExhibitIdRef = useRef<string | null>(null);
   const { proTablePagination, rowIndexBase, getListParams } = useTableQuery({
     defaultPageSize: 10,
@@ -292,6 +304,28 @@ const ExhibitionPage = () => {
     setEditingRow(row);
     setEditOpen(true);
   }, []);
+
+  const openOtaSyncForRow = useCallback((row: ExhibitionTypes.Exhibition) => {
+    setOtaSyncRow(row);
+    setOtaPlatform("ctrip");
+    setCtripExternalId("");
+    setOtaSyncOpen(true);
+  }, []);
+
+  const closeOtaSyncModal = useCallback(() => {
+    setOtaSyncOpen(false);
+    setOtaSyncRow(null);
+    setOtaPlatform("ctrip");
+    setCtripExternalId("");
+  }, []);
+
+  const handleOtaSyncOk = useCallback(() => {
+    if (otaPlatform === "ctrip" && !ctripExternalId.trim()) {
+      message.warning("同步至携程时请填写活动 ID");
+      return;
+    }
+    // closeOtaSyncModal();
+  }, [closeOtaSyncModal, ctripExternalId, otaPlatform]);
 
   /** 弹窗挂载后再写入表单，避免 setFieldsValue 早于 Form 渲染导致校验失败、保存无反应 */
   useEffect(() => {
@@ -394,17 +428,17 @@ const ExhibitionPage = () => {
         width: 160,
         render: (t) => <Typography.Text type="secondary">{t}</Typography.Text>,
       },
-      {
-        title: "创建时间",
-        dataIndex: "created_at",
-        search: false,
-        width: 170,
-        render: (_, row) => (
-          <Typography.Text type="secondary">
-            {formatDateTime(row.created_at)}
-          </Typography.Text>
-        ),
-      },
+      // {
+      //   title: "创建时间",
+      //   dataIndex: "created_at",
+      //   search: false,
+      //   width: 170,
+      //   render: (_, row) => (
+      //     <Typography.Text type="secondary">
+      //       {formatDateTime(row.created_at)}
+      //     </Typography.Text>
+      //   ),
+      // },
       {
         title: "操作",
         key: "option",
@@ -434,6 +468,15 @@ const ExhibitionPage = () => {
             <Button
               type="link"
               size="small"
+              icon={<SyncOutlined />}
+              style={{ padding: 0, height: "auto" }}
+              onClick={() => openOtaSyncForRow(row)}
+            >
+              同步到OTA
+            </Button>
+            <Button
+              type="link"
+              size="small"
               danger
               icon={<DeleteOutlined />}
               style={{ padding: 0, height: "auto" }}
@@ -445,7 +488,7 @@ const ExhibitionPage = () => {
         ),
       },
     ],
-    [rowIndexBase, navigate, openEditForRow],
+    [rowIndexBase, navigate, openEditForRow, openOtaSyncForRow],
   );
 
   async function handleCreateModalFinish(values: ExhibitionCreateFormValues) {
@@ -827,6 +870,68 @@ const ExhibitionPage = () => {
           </Upload>
         </div>
       </ModalForm>
+
+      <Modal
+        title="同步到 OTA"
+        open={otaSyncOpen}
+        onCancel={closeOtaSyncModal}
+        onOk={handleOtaSyncOk}
+        okText="确定同步"
+        cancelText="取消"
+        destroyOnClose
+        maskClosable={false}
+        okButtonProps={{
+          disabled: otaPlatform === "ctrip" && !ctripExternalId.trim(),
+        }}
+      >
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 16 }}>
+          当前展会：{otaSyncRow?.name ?? "—"}
+        </Typography.Paragraph>
+        <Typography.Text
+          type="secondary"
+          style={{ display: "block", marginBottom: 8 }}
+        >
+          同步目标（单次仅可选一家）
+        </Typography.Text>
+        <Radio.Group
+          value={otaPlatform}
+          onChange={(e) => setOtaPlatform(e.target.value as OtaPlatform)}
+        >
+          <Space direction="vertical">
+            <Radio value="ctrip">携程</Radio>
+            <Radio value="maoyan">猫眼</Radio>
+            <Radio value="damai">大麦</Radio>
+          </Space>
+        </Radio.Group>
+        {otaPlatform === "ctrip" ? (
+          <div style={{ marginTop: 16 }}>
+            <Typography.Text
+              style={{
+                display: "block",
+                marginBottom: 8,
+                color: token.colorText,
+              }}
+            >
+              <Typography.Text type="danger" style={{ marginRight: 4 }}>
+                *
+              </Typography.Text>
+              携程活动 ID
+              <Typography.Text
+                type="secondary"
+                style={{ marginLeft: 8, fontSize: token.fontSizeSM }}
+              >
+                （必填，未填写无法同步至携程）
+              </Typography.Text>
+            </Typography.Text>
+            <Input
+              placeholder="请输入携程侧活动 ID"
+              value={ctripExternalId}
+              onChange={(e) => setCtripExternalId(e.target.value)}
+              allowClear
+            />
+          </div>
+        ) : null}
+      </Modal>
     </div>
   );
 };
