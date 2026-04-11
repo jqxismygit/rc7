@@ -214,6 +214,28 @@ describeFeature(feature, ({
       featureContext.xiechengReqHandler = xiechengReqHandler;
     });
 
+    Given(
+      '展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天, 价格是 {int} 元',
+      async (_ctx, ticketName: string, admittance: number, price: number) => {
+      const ticket = await prepareTicketCategory(
+        featureContext.apiServer,
+        featureContext.adminToken,
+        featureContext.exhibition.id,
+        {
+          name: ticketName,
+          price: price * 100,
+          admittance,
+          valid_duration_days: 1,
+          refund_policy: 'NON_REFUNDABLE',
+        },
+      );
+
+      featureContext.ticketByName = {
+        ...featureContext.ticketByName,
+        [ticketName]: ticket,
+      };
+    });
+
     And('{string} 库存为 {int}', async (_ctx, ticketName: string, quantity: number) => {
       const ticket = featureContext.ticketByName[ticketName];
       expect(ticket).toBeTruthy();
@@ -362,47 +384,6 @@ describeFeature(feature, ({
       featureContext.sessions = await getSessions(apiServer, featureContext.exhibition.id, adminToken);
       featureContext.ticketByName = {};
     });
-
-    Given('展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天', async (_ctx, ticketName: string, admittance: number) => {
-      const ticket = await prepareTicketCategory(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        {
-          name: ticketName,
-          admittance,
-          valid_duration_days: 1,
-          refund_policy: 'NON_REFUNDABLE',
-        },
-      );
-
-      featureContext.ticketByName = {
-        ...featureContext.ticketByName,
-        [ticketName]: ticket,
-      };
-    });
-
-    Given('展会添加票种 "单人票", 准入人数为 1, 有效期为场次当天', async () => {
-      const ticketName = '单人票';
-      const ticket = await prepareTicketCategory(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        {
-          name: ticketName,
-          admittance: 1,
-          valid_duration_days: 1,
-          refund_policy: 'NON_REFUNDABLE',
-        },
-      );
-
-      featureContext.ticketByName = {
-        ...featureContext.ticketByName,
-        [ticketName]: ticket,
-      };
-    });
-
-
   });
 
   Scenario('管理员绑定门票到携程', (s: StepTest<XiechengScenarioContext>) => {
@@ -454,27 +435,22 @@ describeFeature(feature, ({
     });
 
     And('同步的场次起始时间为 {string}', (_ctx, dateLabel: string) => {
-      const prices = context.decryptedBody.prices ?? [];
+      const prices = context.decryptedBody.prices;
       expect(prices[0].date).toBe(toDateLabel(dateLabel));
     });
 
     And('同步的场次结束时间为 {string}', (_ctx, dateLabel: string) => {
-      const prices = context.decryptedBody.prices ?? [];
+      const prices = context.decryptedBody.prices;
       expect(prices.at(-1)?.date).toBe(toDateLabel(dateLabel));
     });
 
-    And('场次中的售价为 {string} 的价格', (_ctx, ticketName: string) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      const expected = Number((ticket.price / 100).toFixed(2));
-      const prices = context.decryptedBody.prices ?? [];
-      expect(prices.every(item => item.salePrice === expected)).toBe(true);
-    });
-
-    And('场次中的成本价为 {string} 的价格', (_ctx, ticketName: string) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      const expected = Number((ticket.price / 100).toFixed(2));
-      const prices = context.decryptedBody.prices ?? [];
-      expect(prices.every(item => item.costPrice === expected)).toBe(true);
+    And(
+      '售价为 {string} 元, 成本价为 {string} 元',
+      (_ctx, salePrice: string, costPrice: string) => {
+      for (const price of context.decryptedBody.prices) {
+        expect(price.salePrice).toEqual(salePrice);
+        expect(price.costPrice).toEqual(costPrice);
+      }
     });
 
     And('supplier Option Id 是 {string} 的票种 ID', (_ctx, ticketName: string) => {
@@ -542,16 +518,10 @@ describeFeature(feature, ({
       expect(items.at(-1)?.date).toBe(toDateLabel(dateLabel));
     });
 
-    And('售价为 {string} 的价格', (_ctx, ticketName: string) => {
-      const expected = Number((featureContext.ticketByName[ticketName].price / 100).toFixed(2));
-      const items = featureContext.syncLogs?.[0].sync_items as Array<{ sale_price: number }>;
-      expect(items.every(item => item.sale_price === expected)).toBe(true);
-    });
-
-    And('成本价为 {string} 的价格', (_ctx, ticketName: string) => {
-      const expected = Number((featureContext.ticketByName[ticketName].price / 100).toFixed(2));
-      const items = featureContext.syncLogs?.[0].sync_items as Array<{ cost_price: number }>;
-      expect(items.every(item => item.cost_price === expected)).toBe(true);
+    And('售价为 {string} 元, 成本价为 {string} 元', (_ctx, salePrice: string, costPrice: string) => {
+      const item = (featureContext.syncLogs?.[0].sync_items as Array<{ sale_price: string; cost_price: string }>)[0];
+      expect(item.sale_price).toEqual(salePrice);
+      expect(item.cost_price).toEqual(costPrice);
     });
   });
 

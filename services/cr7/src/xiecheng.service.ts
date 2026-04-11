@@ -78,8 +78,8 @@ function assertSyncDateRange(
   }
 }
 
-function toYuan(cents: number): number {
-  return Number((cents / 100).toFixed(2));
+function toYuan(cents: number): string {
+  return (cents / 100).toFixed(2);
 }
 
 function toXcOrderStatus(status: Order.OrderStatus): number {
@@ -313,7 +313,7 @@ export default class XiechengService extends RC7BaseService {
       sequence_id: sequenceId,
       ticket_category_id: ticket.id,
       service_name: 'DatePriceModify',
-      ota_option_id: ticket.ota_xc_option_id,
+      ota_option_id: ticket.ota_xc_option_id ?? null,
       sync_items: syncItems,
       sync_response: syncResponse,
       status,
@@ -443,7 +443,7 @@ export default class XiechengService extends RC7BaseService {
     sequence_id?: string;
     ticket_category_id: string;
     service_name: 'DatePriceModify' | 'DateInventoryModify';
-    ota_option_id?: string;
+    ota_option_id: string | null;
     sync_items: Xiecheng.XcSyncItem[];
     sync_response?: unknown;
     status: 'SUCCESS' | 'FAILURE';
