@@ -51,6 +51,7 @@ import {
   type CreateTicketCategoryInput,
 } from "@/apis/exhibition";
 import { useModal } from "@/hooks/use-modal";
+import { useSyncInfoToDamai, useSyncInfoToMaoyan } from "@/hooks/use-sync";
 import { formatDateTime } from "@/utils/format-datetime";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
@@ -61,9 +62,39 @@ type ExhibitionDetailData = ExhibitionTypes.Exhibition & {
   ticket_categories?: ExhibitionTypes.TicketCategory[];
 };
 
-/** 同步到 OTA 弹窗：平台与同步项（暂未对接 API） */
+/** 同步到 OTA 弹窗：平台与同步项 */
 type OtaSyncPlatform = "maoyan" | "damai" | "ctrip";
-type OtaSyncScope = "sessions" | "tickets" | "price";
+type OtaSyncScope = "sessions" | "tickets" | "price" | "inventory";
+
+/** 猫眼 / 大麦：固定同步项展示（不可编辑，仅说明实际同步范围与顺序） */
+type OtaFixedSyncPlatform = "maoyan" | "damai";
+
+const OTA_SYNC_FIXED_CONTENT: Record<
+  OtaFixedSyncPlatform,
+  {
+    rows: { label: string; checked: boolean }[];
+    hint: string;
+  }
+> = {
+  maoyan: {
+    rows: [
+      { label: "场次", checked: true },
+      { label: "票种", checked: true },
+      { label: "价格", checked: true },
+      { label: "库存", checked: true },
+    ],
+    hint: "猫眼将按固定顺序同步：票种（含价格）→ 场次 → 库存",
+  },
+  damai: {
+    rows: [
+      { label: "场次", checked: true },
+      { label: "票种", checked: true },
+      { label: "价格", checked: false },
+      { label: "库存", checked: false },
+    ],
+    hint: "大麦仅同步场次与票种（票种同步含价格）；以下均为固定项，不可更改",
+  },
+};
 
 const REFUND_POLICY_OPTIONS: {
   label: string;
@@ -109,6 +140,10 @@ export default function ExhibitionDetailPage() {
   const { eid = "" } = useParams<{ eid: string }>();
   const navigate = useNavigate();
   const { token } = theme.useToken();
+  const { sync: syncInfoToMaoyan, syncing: maoyanInfoSyncing } =
+    useSyncInfoToMaoyan();
+  const { sync: syncInfoToDamai, syncing: damaiInfoSyncing } =
+    useSyncInfoToDamai();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ExhibitionDetailData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -790,16 +825,54 @@ export default function ExhibitionDetailPage() {
         width={640}
         open={otaSyncModalOpen}
         onCancel={() => setOtaSyncModalOpen(false)}
-        onOk={() => {
-          if (otaSyncScopes.length === 0) {
-            message.warning("请至少选择一项同步内容");
-            return;
-          }
+        confirmLoading={
+          (otaSyncPlatform === "maoyan" && maoyanInfoSyncing) ||
+          (otaSyncPlatform === "damai" && damaiInfoSyncing)
+        }
+        onOk={async () => {
           if (
             !otaSyncDateRange?.[0]?.isValid() ||
             !otaSyncDateRange?.[1]?.isValid()
           ) {
             message.warning("请选择同步日期范围");
+            return;
+          }
+          const sessionDateStart = otaSyncDateRange[0].format("YYYY-MM-DD");
+          const sessionDateEnd = otaSyncDateRange[1].format("YYYY-MM-DD");
+          if (otaSyncPlatform === "maoyan") {
+            if (!eid) {
+              message.warning("缺少展会 ID");
+              return;
+            }
+            try {
+              await syncInfoToMaoyan(eid, {
+                sessionDateStart,
+                sessionDateEnd,
+              });
+              setOtaSyncModalOpen(false);
+            } catch {
+              /* 错误已在 hook 中提示 */
+            }
+            return;
+          }
+          if (otaSyncPlatform === "damai") {
+            if (!eid) {
+              message.warning("缺少展会 ID");
+              return;
+            }
+            try {
+              await syncInfoToDamai(eid, {
+                start_session_date: sessionDateStart,
+                end_session_date: sessionDateEnd,
+              });
+              setOtaSyncModalOpen(false);
+            } catch {
+              /* 错误已在 hook 中提示 */
+            }
+            return;
+          }
+          if (otaSyncScopes.length === 0) {
+            message.warning("请至少选择一项同步内容");
             return;
           }
           message.info("同步接口暂未对接，请稍后在版本中接入");
@@ -847,33 +920,56 @@ export default function ExhibitionDetailPage() {
             >
               同步内容（可多选）
             </Typography.Text>
-            <Checkbox.Group
-              value={otaSyncScopes}
-              onChange={(v) => setOtaSyncScopes(v as OtaSyncScope[])}
-            >
+            {otaSyncPlatform === "maoyan" || otaSyncPlatform === "damai" ? (
               <Space direction="vertical" size="small">
-                <Checkbox value="sessions">场次</Checkbox>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {OTA_SYNC_FIXED_CONTENT[otaSyncPlatform].rows.map((row) => (
                   <Checkbox
-                    value="tickets"
-                    disabled={otaSyncPlatform === "ctrip"}
+                    key={`${otaSyncPlatform}-${row.label}`}
+                    checked={row.checked}
+                    disabled
                   >
-                    票种
+                    {row.label}
                   </Checkbox>
-                  {otaSyncPlatform === "ctrip" ? (
-                    <Tooltip title="移步携程后台创建票种">
-                      <InfoCircleOutlined
-                        style={{
-                          color: token.colorTextSecondary,
-                          cursor: "default",
-                        }}
-                      />
-                    </Tooltip>
-                  ) : null}
-                </div>
-                <Checkbox value="price">价格</Checkbox>
+                ))}
+                <Typography.Paragraph
+                  type="secondary"
+                  style={{ marginBottom: 0, fontSize: 12 }}
+                >
+                  {OTA_SYNC_FIXED_CONTENT[otaSyncPlatform].hint}
+                </Typography.Paragraph>
               </Space>
-            </Checkbox.Group>
+            ) : (
+              <Checkbox.Group
+                value={otaSyncScopes}
+                onChange={(v) => setOtaSyncScopes(v as OtaSyncScope[])}
+              >
+                <Space direction="vertical" size="small">
+                  <Checkbox value="sessions">场次</Checkbox>
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 6 }}
+                  >
+                    <Checkbox
+                      value="tickets"
+                      disabled={otaSyncPlatform === "ctrip"}
+                    >
+                      票种
+                    </Checkbox>
+                    {otaSyncPlatform === "ctrip" ? (
+                      <Tooltip title="移步携程后台创建票种">
+                        <InfoCircleOutlined
+                          style={{
+                            color: token.colorTextSecondary,
+                            cursor: "default",
+                          }}
+                        />
+                      </Tooltip>
+                    ) : null}
+                  </div>
+                  <Checkbox value="price">价格</Checkbox>
+                  <Checkbox value="inventory">库存</Checkbox>
+                </Space>
+              </Checkbox.Group>
+            )}
           </div>
         </Flex>
         <div style={{ marginTop: token.marginMD }}>

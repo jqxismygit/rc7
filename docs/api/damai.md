@@ -104,6 +104,7 @@
   ```ts
   { eid: string, sid: string }
   ```
+
 - Response Status:
   - `204 No Content`：同步请求发送成功
   - `400 Bad Request`：参数格式错误
