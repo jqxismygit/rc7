@@ -1,13 +1,14 @@
 import config from 'config';
 import {
   describeFeature,
+  FeatureDescriibeCallbackParams,
   loadFeature,
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import { expect, vi } from 'vitest';
 import type { MockInstance } from 'vitest';
 import { Exhibition, Xiecheng } from '@cr7/types';
-import { prepareAPIServer, prepareServices, services_fixtures } from './fixtures/services.js';
+import { prepareAPIServer, prepareServices } from './fixtures/services.js';
 import { getUserProfile, prepareAdminToken, registerUser } from './fixtures/user.js';
 import {
   getSessions,
@@ -36,17 +37,36 @@ const feature = await loadFeature('tests/features/xiecheng.feature');
 
 type TicketByName = Record<string, Exhibition.TicketCategory>;
 
-interface FeatureContext {
-  broker: ServiceBroker;
-  apiServer: Server;
-  adminToken: string;
-  userToken: string;
+interface XiechengServer {
+  xiechengReqHandler: MockInstance;
+}
+
+interface ExhibitionContext {
   exhibition: Exhibition.Exhibition;
   sessions: Exhibition.Session[];
   ticketByName: TicketByName;
 }
 
-type PendingSyncRequest = {
+interface UserContext {
+  adminToken: string;
+  userToken: string;
+}
+
+interface FeatureContext extends
+  UserContext,
+  ExhibitionContext,
+  Partial<XiechengServer> {
+  broker: ServiceBroker;
+  apiServer: Server;
+  pendingSync?: PendingSyncRequest;
+  syncLog?: Xiecheng.XcSyncLog;
+  syncLogs?: Xiecheng.XcSyncLog[];
+  lastError?: unknown;
+  latestRequestPayload?: XiechengRequestPayload;
+  latestDecryptedBody?: SessionPriceReqBody | SessionInventoryReqBody;
+}
+
+interface PendingSyncRequest {
   ticketName: string;
   serviceName: Xiecheng.XcServiceName;
   startSessionDate: string;
@@ -54,137 +74,78 @@ type PendingSyncRequest = {
   quantity?: number;
 };
 
-type XiechengScenarioContext = {
-  mockServer?: MockServer;
-  baseUrlSpy?: MockInstance;
-  latestRequestPayload?: {
-    header: {
-      accountId: string;
-      serviceName: string;
-      requestTime: string;
-      version: string;
-      sign: string;
-    };
-    body: string;
+interface SessionPriceReqBody {
+  sequenceId: string;
+  prices: Array<{
+    date: string;
+    salePrice: number;
+    costPrice: number;
+  }>;
+  otaOptionId: string;
+  supplierOptionId: string;
+}
+
+interface SessionInventoryReqBody {
+  sequenceId: string;
+  inventories: Array<{
+    date: string;
+    quantity: number;
+  }>;
+  otaOptionId: string;
+  supplierOptionId: string;
+}
+
+interface XiechengRequestPayload {
+  header: {
+    accountId: string;
+    serviceName: string;
+    requestTime: string;
+    version: string;
+    sign: string;
   };
-  latestDecryptedBody?: {
-    sequenceId: string;
-    otaOptionId: string;
-    supplierOptionId: string;
-    prices?: Array<{ date: string; salePrice: number; costPrice: number }>;
-    inventories?: Array<{ date: string; quantity: number }>;
-  };
+  body: string;
+}
+
+interface XiechengScenarioContext {
   pendingSync?: PendingSyncRequest;
   syncLog?: Xiecheng.XcSyncLog;
   syncLogs?: Xiecheng.XcSyncLog[];
   lastError?: unknown;
-};
+  latestRequestPayload?: XiechengRequestPayload;
+  latestDecryptedBody?: SessionPriceReqBody | SessionInventoryReqBody;
+}
 
 const openedMockServers: MockServer[] = [];
 const openedBaseUrlSpies: MockInstance[] = [];
 
-function resetScenarioContext(context: XiechengScenarioContext) {
-  context.latestRequestPayload = undefined;
-  context.latestDecryptedBody = undefined;
-  context.pendingSync = undefined;
-  context.syncLog = undefined;
-  context.syncLogs = undefined;
-  context.lastError = undefined;
+function getLatestXiechengRequestPayload(featureContext: FeatureContext): XiechengRequestPayload {
+  const { xiechengReqHandler } = featureContext;
+  expect(xiechengReqHandler).toBeTruthy();
+  expect(xiechengReqHandler).toHaveBeenCalled();
+  const latestCallArg = xiechengReqHandler!.mock.calls.at(-1)?.[0];
+  expect(latestCallArg).toBeTruthy();
+  return latestCallArg.body as XiechengRequestPayload;
 }
 
-async function closeScenarioServer(context: XiechengScenarioContext) {
-  if (context.baseUrlSpy) {
-    context.baseUrlSpy.mockRestore();
-    context.baseUrlSpy = undefined;
-  }
+function captureLatestDecryptedBody(featureContext: FeatureContext) {
+  const payload = getLatestXiechengRequestPayload(featureContext);
+  featureContext.latestRequestPayload = payload;
 
-  if (context.mockServer) {
-    await context.mockServer.close();
-    context.mockServer = undefined;
-  }
+  const { xiecheng } = config;
+  const decrypted = decryptXieChengBody(payload.body, xiecheng.aes_key, xiecheng.aes_iv);
+  featureContext.latestDecryptedBody = JSON.parse(decrypted);
 }
 
-async function setupXiechengMock(
-  context: XiechengScenarioContext,
-) {
-  await closeScenarioServer(context);
-
-  const mockServer = await mockJSONServer(async ({ body }) => {
-    const requestPayload = body as {
-      header: {
-        accountId: string;
-        serviceName: string;
-        requestTime: string;
-        version: string;
-        sign: string;
-      };
-      body: string;
-    };
-    context.latestRequestPayload = requestPayload;
-
-    const plainBody = decryptXieChengBody(
-      requestPayload.body,
-      config.xiecheng.aes_key,
-      config.xiecheng.aes_iv,
-    );
-
-    context.latestDecryptedBody = JSON.parse(plainBody);
-
-    return {
-      header: {
-        resultCode: '0000',
-        resultMessage: '操作成功',
-      }
-    };
-  });
-
-  context.baseUrlSpy = vi.spyOn(config.xiecheng, 'base_url', 'get').mockReturnValue(mockServer.address);
-  context.mockServer = mockServer;
-  openedMockServers.push(mockServer);
-  openedBaseUrlSpies.push(context.baseUrlSpy);
-}
-
-async function executePendingSync(
-  featureContext: FeatureContext,
-  scenarioContext: XiechengScenarioContext,
-) {
-  if (!scenarioContext.pendingSync || scenarioContext.syncLog) {
-    return;
+function toOtaOptionId(ticketName: string) {
+  if (ticketName === '早鸟票') {
+    return 'xc_early_bird';
   }
 
-  const pending = scenarioContext.pendingSync;
-  const ticket = featureContext.ticketByName[pending.ticketName];
-  expect(ticket, `Ticket '${pending.ticketName}' not found`).toBeTruthy();
-
-  const payload = {
-    start_session_date: toDateLabel(pending.startSessionDate),
-    end_session_date: toDateLabel(pending.endSessionDate),
-  };
-
-  try {
-    if (pending.serviceName === 'DatePriceModify') {
-      scenarioContext.syncLog = await syncTicketPriceToXiecheng(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        ticket.id,
-        payload,
-      );
-    } else {
-      scenarioContext.syncLog = await syncTicketInventoryToXiecheng(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        ticket.id,
-        {
-          ...payload,
-          quantity: pending.quantity,
-        },
-      );
-    }
-  } catch (error) {
-    scenarioContext.lastError = error;
+  if (ticketName === '单人票') {
+    return 'xc_single_ticket';
   }
+
+  return `xc_${ticketName}`;
 }
 
 describeFeature(feature, ({
@@ -192,9 +153,10 @@ describeFeature(feature, ({
   AfterAllScenarios,
   AfterEachScenario,
   Background,
+  defineSteps,
   Scenario,
   context: featureContext,
-}) => {
+}: FeatureDescriibeCallbackParams<FeatureContext>) => {
 
   BeforeAllScenarios(async () => {
     vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
@@ -225,6 +187,127 @@ describeFeature(feature, ({
       }
       Object.assign(featureContext, { [key]: undefined });
     }
+  });
+
+  defineSteps(({ Given, And, When }) => {
+    Given('携程服务已经准备好接受同步信息', async () => {
+      const xiechengReqHandler = vi.fn()
+      .mockResolvedValueOnce({
+        header: { resultCode: '0000', resultMessage: '操作成功' }
+      });
+      const mockServer = await mockJSONServer(xiechengReqHandler);
+
+      const baseUrlSpy = vi
+      .spyOn(config.xiecheng, 'base_url', 'get')
+      .mockReturnValue(mockServer.address);
+
+      openedMockServers.push(mockServer);
+      openedBaseUrlSpies.push(baseUrlSpy);
+
+      featureContext.xiechengReqHandler = xiechengReqHandler;
+    });
+
+    Given('当前同步类型为场次价格', () => {
+      featureContext.pendingSync = {
+        ticketName: featureContext.pendingSync?.ticketName ?? '',
+        serviceName: 'DatePriceModify',
+        startSessionDate: featureContext.pendingSync?.startSessionDate ?? '今天',
+        endSessionDate: featureContext.pendingSync?.endSessionDate ?? '2天后',
+        quantity: 0,
+      };
+    });
+
+    Given('当前同步类型为剩余库存', () => {
+      featureContext.pendingSync = {
+        ticketName: featureContext.pendingSync?.ticketName ?? '',
+        serviceName: 'DateInventoryModify',
+        startSessionDate: featureContext.pendingSync?.startSessionDate ?? '今天',
+        endSessionDate: featureContext.pendingSync?.endSessionDate ?? '2天后',
+      };
+    });
+
+    Given('当前同步类型为指定库存', () => {
+      featureContext.pendingSync = {
+        ticketName: featureContext.pendingSync?.ticketName ?? '',
+        serviceName: 'DateInventoryModify',
+        startSessionDate: featureContext.pendingSync?.startSessionDate ?? '今天',
+        endSessionDate: featureContext.pendingSync?.endSessionDate ?? '2天后',
+        quantity: featureContext.pendingSync?.quantity ?? 1,
+      };
+    });
+
+    And('指定库存数量为 {string}', (_ctx, quantityText: string) => {
+      expect(featureContext.pendingSync).toBeTruthy();
+      featureContext.pendingSync!.quantity = Number(quantityText);
+    });
+
+    Given('票种 {string}，场次开始时间为 {string}，结束时间为 {string}', async (_ctx, ticketName: string, startDate: string, endDate: string) => {
+      featureContext.pendingSync = {
+        ticketName,
+        serviceName: featureContext.pendingSync?.serviceName ?? 'DatePriceModify',
+        startSessionDate: startDate,
+        endSessionDate: endDate,
+        quantity: featureContext.pendingSync?.quantity,
+      };
+
+      const ticket = featureContext.ticketByName[ticketName];
+      expect(ticket, `Ticket '${ticketName}' not found`).toBeTruthy();
+      const updated = await bindTicketXiechengOptionId(
+        featureContext.apiServer,
+        featureContext.adminToken,
+        featureContext.exhibition.id,
+        ticket.id,
+        toOtaOptionId(ticketName),
+      );
+      featureContext.ticketByName[ticketName] = updated;
+    });
+
+    And('场次起始时间为 {string}', (_ctx, startDate: string) => {
+      expect(featureContext.pendingSync).toBeTruthy();
+      featureContext.pendingSync!.startSessionDate = startDate;
+    });
+
+    And('场次结束时间为 {string}', (_ctx, endDate: string) => {
+      expect(featureContext.pendingSync).toBeTruthy();
+      featureContext.pendingSync!.endSessionDate = endDate;
+    });
+
+    When('管理员将场次票种同步给携程', async () => {
+      expect(featureContext.pendingSync).toBeTruthy();
+      const pending = featureContext.pendingSync!;
+      const ticket = featureContext.ticketByName[pending.ticketName];
+      expect(ticket, `Ticket '${pending.ticketName}' not found`).toBeTruthy();
+
+      const payload = {
+        start_session_date: toDateLabel(pending.startSessionDate),
+        end_session_date: toDateLabel(pending.endSessionDate),
+      };
+
+      try {
+        if (pending.serviceName === 'DatePriceModify') {
+          featureContext.syncLog = await syncTicketPriceToXiecheng(
+            featureContext.apiServer,
+            featureContext.adminToken,
+            featureContext.exhibition.id,
+            ticket.id,
+            payload,
+          );
+        } else {
+          featureContext.syncLog = await syncTicketInventoryToXiecheng(
+            featureContext.apiServer,
+            featureContext.adminToken,
+            featureContext.exhibition.id,
+            ticket.id,
+            {
+              ...payload,
+              quantity: pending.quantity,
+            },
+          );
+        }
+      } catch (error) {
+        featureContext.lastError = error;
+      }
+    });
   });
 
   Background(({ Given, And }) => {
@@ -321,10 +404,9 @@ describeFeature(feature, ({
   });
 
   Scenario('管理员绑定门票到携程', (s: StepTest<XiechengScenarioContext>) => {
-    const { When, Then, context } = s;
+    const { When, Then } = s;
 
     When('管理员在 {string} 上添加携程编号 {string}', async (_ctx, ticketName: string, otaOptionId: string) => {
-      resetScenarioContext(context);
       const ticket = featureContext.ticketByName[ticketName];
       expect(ticket).toBeTruthy();
       const updated = await bindTicketXiechengOptionId(
@@ -342,129 +424,86 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('管理员可以将门票的场次及价格同步到携程', (s: StepTest<XiechengScenarioContext>) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given('携程服务已经准备好接收场次价格同步信息', async () => {
-      resetScenarioContext(context);
-      await setupXiechengMock(context);
-    });
-
-    Given('{string} 的携程编号是 {string}', async (_ctx, ticketName: string, otaOptionId: string) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
-      const updated = await bindTicketXiechengOptionId(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        ticket.id,
-        otaOptionId,
-      );
-      featureContext.ticketByName[ticketName] = updated;
-    });
-
-    When('管理员将 {string} 场次和价格同步给携程', (_ctx, ticketName: string) => {
-      context.pendingSync = {
-        ticketName,
-        serviceName: 'DatePriceModify',
-        startSessionDate: '今天',
-        endSessionDate: '2天后',
-      };
-    });
-
-    And('场次起始时间为 {string}', (_ctx, startDate: string) => {
-      context.pendingSync!.startSessionDate = startDate;
-    });
-
-    And('场次结束时间为 {string}', async (_ctx, endDate: string) => {
-      context.pendingSync!.endSessionDate = endDate;
-      await executePendingSync(featureContext, context);
-    });
+  Scenario('管理员可以将门票的场次及价格同步到携程', (s: StepTest<
+    XiechengScenarioContext
+    & { decryptedBody: SessionPriceReqBody; }
+  >) => {
+    const { Then, And, context } = s;
 
     Then('携程接收到了场次价格同步信息', () => {
-      expect(context.latestRequestPayload).toBeTruthy();
-      expect(context.latestRequestPayload!.header.serviceName).toBe('DatePriceModify');
+      const { xiechengReqHandler } = featureContext;
+      expect(xiechengReqHandler).toHaveBeenCalledTimes(1);
+      expect(xiechengReqHandler).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          method: "POST",
+          path: "/api/product/price.do",
+        })
+      );
     });
 
     And('可以正确解密', () => {
-      expect(context.latestDecryptedBody).toBeTruthy();
+      captureLatestDecryptedBody(featureContext);
+      context.decryptedBody = featureContext.latestDecryptedBody as SessionPriceReqBody;
     });
 
     And('包含 {string} 天的场次信息', (_ctx, days: string) => {
-      expect(context.latestDecryptedBody?.prices).toHaveLength(Number(days));
+      const { decryptedBody } = context;
+      expect(decryptedBody.prices).toHaveLength(Number(days));
     });
 
     And('同步的场次起始时间为 {string}', (_ctx, dateLabel: string) => {
-      const prices = context.latestDecryptedBody?.prices ?? [];
+      const prices = context.decryptedBody.prices ?? [];
       expect(prices[0].date).toBe(toDateLabel(dateLabel));
     });
 
     And('同步的场次结束时间为 {string}', (_ctx, dateLabel: string) => {
-      const prices = context.latestDecryptedBody?.prices ?? [];
+      const prices = context.decryptedBody.prices ?? [];
       expect(prices.at(-1)?.date).toBe(toDateLabel(dateLabel));
     });
 
     And('场次中的售价为 {string} 的价格', (_ctx, ticketName: string) => {
       const ticket = featureContext.ticketByName[ticketName];
       const expected = Number((ticket.price / 100).toFixed(2));
-      const prices = context.latestDecryptedBody?.prices ?? [];
+      const prices = context.decryptedBody.prices ?? [];
       expect(prices.every(item => item.salePrice === expected)).toBe(true);
     });
 
     And('场次中的成本价为 {string} 的价格', (_ctx, ticketName: string) => {
       const ticket = featureContext.ticketByName[ticketName];
       const expected = Number((ticket.price / 100).toFixed(2));
-      const prices = context.latestDecryptedBody?.prices ?? [];
+      const prices = context.decryptedBody.prices ?? [];
       expect(prices.every(item => item.costPrice === expected)).toBe(true);
     });
 
     And('ota Option Id 是 {string} 的携程编号 {string}', (_ctx, ticketName: string, otaOptionId: string) => {
       expect(featureContext.ticketByName[ticketName].ota_xc_option_id).toBe(otaOptionId);
-      expect(context.latestDecryptedBody?.otaOptionId).toBe(otaOptionId);
+      expect(context.decryptedBody.otaOptionId).toBe(otaOptionId);
     });
 
     And('supplier Option Id 是 {string} 的票种 ID', (_ctx, ticketName: string) => {
-      expect(context.latestDecryptedBody?.supplierOptionId).toBe(featureContext.ticketByName[ticketName].id);
+      expect(context.decryptedBody.supplierOptionId).toBe(featureContext.ticketByName[ticketName].id);
     });
 
     And('Service Name 是 {string}', (_ctx, serviceName: string) => {
-      expect(context.latestRequestPayload?.header.serviceName).toBe(serviceName);
+      const { xiechengReqHandler } = featureContext;
+      expect(xiechengReqHandler).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          body: expect.objectContaining({
+            header: expect.objectContaining({
+              serviceName: serviceName,
+            }),
+          }),
+        })
+      );
     });
   });
 
   Scenario('管理员可以查看门票的场次及价格同步记录', (s: StepTest<XiechengScenarioContext>) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given('携程服务已经准备好接收场次价格同步信息', async () => {
-      resetScenarioContext(context);
-      await setupXiechengMock(context);
-    });
-
-    Given('{string} 的携程编号是 {string}', async (_ctx, ticketName: string, otaOptionId: string) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      const updated = await bindTicketXiechengOptionId(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        ticket.id,
-        otaOptionId,
-      );
-      featureContext.ticketByName[ticketName] = updated;
-    });
-
-    When('管理员将 {string} 场次和价格同步给携程', async (_ctx, ticketName: string) => {
-      context.pendingSync = {
-        ticketName,
-        serviceName: 'DatePriceModify',
-        startSessionDate: '今天',
-        endSessionDate: '2天后',
-      };
-      await executePendingSync(featureContext, context);
-    });
+    const { Then, And } = s;
 
     Then('管理员可以查看 {string} 的携程价格同步记录', async (_ctx, ticketName: string) => {
       const ticket = featureContext.ticketByName[ticketName];
-      context.syncLogs = await listTicketXiechengSyncLogs(
+      featureContext.syncLogs = await listTicketXiechengSyncLogs(
         featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
@@ -474,91 +513,61 @@ describeFeature(feature, ({
     });
 
     And('{string} 有 {string} 条携程价格同步记录', (_ctx, _ticketName: string, expectedCount: string) => {
-      expect(context.syncLogs).toHaveLength(Number(expectedCount));
+      expect(featureContext.syncLogs).toHaveLength(Number(expectedCount));
     });
 
     And('同步结果为 {string}', (_ctx, resultText: string) => {
       expect(resultText).toBe('成功');
-      expect(context.syncLogs?.[0].status).toBe('SUCCESS');
+      expect(featureContext.syncLogs?.[0].status).toBe('SUCCESS');
     });
 
     And('sequence Id 是同步信息中的 sequence Id', () => {
-      expect(context.syncLogs?.[0].sequence_id).toBe(context.syncLog?.sequence_id);
-      expect(context.syncLogs?.[0].sequence_id).toBe(context.latestDecryptedBody?.sequenceId);
+      captureLatestDecryptedBody(featureContext);
+      expect(featureContext.syncLogs?.[0].sequence_id).toBe(featureContext.syncLog?.sequence_id);
+      expect(featureContext.syncLogs?.[0].sequence_id).toBe(featureContext.latestDecryptedBody?.sequenceId);
     });
 
     And('service Name 是 {string}', (_ctx, serviceName: string) => {
-      expect(context.syncLogs?.[0].service_name).toBe(serviceName);
+      expect(featureContext.syncLogs?.[0].service_name).toBe(serviceName);
     });
 
     And('ota Option Id 是 {string} 的携程编号 {string}', (_ctx, ticketName: string, otaOptionId: string) => {
       expect(featureContext.ticketByName[ticketName].ota_xc_option_id).toBe(otaOptionId);
-      expect(context.syncLogs?.[0].ota_option_id).toBe(otaOptionId);
+      expect(featureContext.syncLogs?.[0].ota_option_id).toBe(otaOptionId);
     });
 
     And('场次有 {string} 个', (_ctx, count: string) => {
-      expect(context.syncLogs?.[0].sync_items).toHaveLength(Number(count));
+      expect(featureContext.syncLogs?.[0].sync_items).toHaveLength(Number(count));
     });
 
     And('起始场次时间为 {string}', (_ctx, dateLabel: string) => {
-      const items = context.syncLogs?.[0].sync_items as Array<{ date: string }>;
+      const items = featureContext.syncLogs?.[0].sync_items as Array<{ date: string }>;
       expect(items[0].date).toBe(toDateLabel(dateLabel));
     });
 
     And('结束场次时间为 {string}', (_ctx, dateLabel: string) => {
-      const items = context.syncLogs?.[0].sync_items as Array<{ date: string }>;
+      const items = featureContext.syncLogs?.[0].sync_items as Array<{ date: string }>;
       expect(items.at(-1)?.date).toBe(toDateLabel(dateLabel));
     });
 
     And('售价为 {string} 的价格', (_ctx, ticketName: string) => {
       const expected = Number((featureContext.ticketByName[ticketName].price / 100).toFixed(2));
-      const items = context.syncLogs?.[0].sync_items as Array<{ sale_price: number }>;
+      const items = featureContext.syncLogs?.[0].sync_items as Array<{ sale_price: number }>;
       expect(items.every(item => item.sale_price === expected)).toBe(true);
     });
 
     And('成本价为 {string} 的价格', (_ctx, ticketName: string) => {
       const expected = Number((featureContext.ticketByName[ticketName].price / 100).toFixed(2));
-      const items = context.syncLogs?.[0].sync_items as Array<{ cost_price: number }>;
+      const items = featureContext.syncLogs?.[0].sync_items as Array<{ cost_price: number }>;
       expect(items.every(item => item.cost_price === expected)).toBe(true);
     });
   });
 
   Scenario('不能同步时间不在展会范围内的场次价格信息', (s: StepTest<XiechengScenarioContext>) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given('{string} 的携程编号是 {string}', async (_ctx, ticketName: string, otaOptionId: string) => {
-      resetScenarioContext(context);
-      const ticket = featureContext.ticketByName[ticketName];
-      const updated = await bindTicketXiechengOptionId(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        ticket.id,
-        otaOptionId,
-      );
-      featureContext.ticketByName[ticketName] = updated;
-    });
-
-    When('管理员将 {string} 场次和价格同步给携程', (_ctx, ticketName: string) => {
-      context.pendingSync = {
-        ticketName,
-        serviceName: 'DatePriceModify',
-        startSessionDate: '今天',
-        endSessionDate: '2天后',
-      };
-    });
-
-    And('场次起始时间为 {string}', (_ctx, startDate: string) => {
-      context.pendingSync!.startSessionDate = startDate;
-    });
-
-    And('场次结束时间为 {string}', async (_ctx, endDate: string) => {
-      context.pendingSync!.endSessionDate = endDate;
-      await executePendingSync(featureContext, context);
-    });
+    const { Then } = s;
 
     Then('同步失败，错误信息包含 {string}', (_ctx, message: string) => {
-      assertAPIError(context.lastError, {
+      assertAPIError(featureContext.lastError, {
         status: 400,
         messageIncludes: message,
       });
@@ -566,180 +575,106 @@ describeFeature(feature, ({
   });
 
   Scenario('同步场次门票剩余库存到携程', (s: StepTest<XiechengScenarioContext>) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given('携程服务已经准备好接收场次库存同步信息', async () => {
-      resetScenarioContext(context);
-      await setupXiechengMock(context);
-    });
-
-    Given('{string} 的携程编号是 {string}', async (_ctx, ticketName: string, otaOptionId: string) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      const updated = await bindTicketXiechengOptionId(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        ticket.id,
-        otaOptionId,
-      );
-      featureContext.ticketByName[ticketName] = updated;
-    });
-
-    When('管理员将 {string} 剩余库存同步给携程', (_ctx, ticketName: string) => {
-      context.pendingSync = {
-        ticketName,
-        serviceName: 'DateInventoryModify',
-        startSessionDate: '今天',
-        endSessionDate: '2天后',
-      };
-    });
-
-    And('场次起始时间为 {string}', (_ctx, startDate: string) => {
-      context.pendingSync!.startSessionDate = startDate;
-    });
-
-    And('场次结束时间为 {string}', async (_ctx, endDate: string) => {
-      context.pendingSync!.endSessionDate = endDate;
-      await executePendingSync(featureContext, context);
-    });
+    const { Then, And } = s;
 
     Then('携程接收到了库存同步信息', () => {
-      expect(context.latestRequestPayload).toBeTruthy();
-      expect(context.latestRequestPayload?.header.serviceName).toBe('DateInventoryModify');
+      const { xiechengReqHandler } = featureContext;
+      expect(xiechengReqHandler).toHaveBeenCalledTimes(1);
+      expect(xiechengReqHandler).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          method: 'POST',
+          path: '/api/product/stock.do',
+        })
+      );
     });
 
     And('可以正确解密', () => {
-      expect(context.latestDecryptedBody).toBeTruthy();
+      captureLatestDecryptedBody(featureContext);
+      expect(featureContext.latestDecryptedBody).toBeTruthy();
     });
 
     And('库存数量为 {string} 的剩余库存数量', (_ctx, ticketName: string) => {
       const ticket = featureContext.ticketByName[ticketName];
-      const inventories = context.latestDecryptedBody?.inventories ?? [];
+      const inventories = (featureContext.latestDecryptedBody as SessionInventoryReqBody | undefined)?.inventories ?? [];
       const defaultInventory = 2;
       expect(ticket).toBeTruthy();
       expect(inventories.every(item => item.quantity === defaultInventory)).toBe(true);
     });
 
     And('ota Option Id 是 {string} 的携程编号 {string}', (_ctx, _ticketName: string, otaOptionId: string) => {
-      expect(context.latestDecryptedBody?.otaOptionId).toBe(otaOptionId);
+      expect((featureContext.latestDecryptedBody as SessionInventoryReqBody | undefined)?.otaOptionId).toBe(otaOptionId);
     });
 
     And('supplier Option Id 是 {string} 的票种 ID', (_ctx, ticketName: string) => {
-      expect(context.latestDecryptedBody?.supplierOptionId).toBe(featureContext.ticketByName[ticketName].id);
+      expect((featureContext.latestDecryptedBody as SessionInventoryReqBody | undefined)?.supplierOptionId).toBe(featureContext.ticketByName[ticketName].id);
     });
 
     And('Service Name 是 {string}', (_ctx, serviceName: string) => {
-      expect(context.latestRequestPayload?.header.serviceName).toBe(serviceName);
+      const { xiechengReqHandler } = featureContext;
+      expect(xiechengReqHandler).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          body: expect.objectContaining({
+            header: expect.objectContaining({
+              serviceName,
+            }),
+          }),
+        })
+      );
     });
 
     And('同步结果为 {string}', (_ctx, resultText: string) => {
       expect(resultText).toBe('成功');
-      expect(context.syncLog?.status).toBe('SUCCESS');
+      expect(featureContext.syncLog?.status).toBe('SUCCESS');
     });
 
     And('同步的场次起始时间为 {string}', (_ctx, dateLabel: string) => {
-      const items = context.syncLog?.sync_items as Array<{ date: string }>;
+      const items = featureContext.syncLog?.sync_items as Array<{ date: string }>;
       expect(items[0].date).toBe(toDateLabel(dateLabel));
     });
 
     And('同步的场次结束时间为 {string}', (_ctx, dateLabel: string) => {
-      const items = context.syncLog?.sync_items as Array<{ date: string }>;
+      const items = featureContext.syncLog?.sync_items as Array<{ date: string }>;
       expect(items.at(-1)?.date).toBe(toDateLabel(dateLabel));
     });
 
     And('每个场次的库存数量为 {string} 的剩余库存数量', (_ctx, _ticketName: string) => {
-      const items = context.syncLog?.sync_items as Array<{ quantity: number }>;
+      const items = featureContext.syncLog?.sync_items as Array<{ quantity: number }>;
       expect(items.every(item => item.quantity === 2)).toBe(true);
     });
   });
 
   Scenario('同步场次门票指定库存到携程', (s: StepTest<XiechengScenarioContext>) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given('携程服务已经准备好接收场次库存同步信息', async () => {
-      resetScenarioContext(context);
-      await setupXiechengMock(context);
-    });
-
-    Given('{string} 的携程编号是 {string}', async (_ctx, ticketName: string, otaOptionId: string) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      const updated = await bindTicketXiechengOptionId(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        ticket.id,
-        otaOptionId,
-      );
-      featureContext.ticketByName[ticketName] = updated;
-    });
-
-    When('管理员将 {string} 指定库存数量 {string} 同步给携程', (_ctx, ticketName: string, quantityText: string) => {
-      context.pendingSync = {
-        ticketName,
-        serviceName: 'DateInventoryModify',
-        startSessionDate: '今天',
-        endSessionDate: '2天后',
-        quantity: Number(quantityText),
-      };
-    });
-
-    And('场次起始时间为 {string}', (_ctx, startDate: string) => {
-      context.pendingSync!.startSessionDate = startDate;
-    });
-
-    And('场次结束时间为 {string}', async (_ctx, endDate: string) => {
-      context.pendingSync!.endSessionDate = endDate;
-      await executePendingSync(featureContext, context);
-    });
+    const { Then, And } = s;
 
     Then('携程接收到了库存同步信息', () => {
-      expect(context.latestRequestPayload).toBeTruthy();
+      const { xiechengReqHandler } = featureContext;
+      expect(xiechengReqHandler).toHaveBeenCalledTimes(1);
+      expect(xiechengReqHandler).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          method: 'POST',
+          path: '/api/product/stock.do',
+        })
+      );
     });
 
     And('可以正确解密', () => {
-      expect(context.latestDecryptedBody).toBeTruthy();
+      captureLatestDecryptedBody(featureContext);
+      expect(featureContext.latestDecryptedBody).toBeTruthy();
     });
 
     And('库存数量为 {string}', (_ctx, quantityText: string) => {
       const quantity = Number(quantityText);
-      const items = context.latestDecryptedBody?.inventories ?? [];
+      const items = (featureContext.latestDecryptedBody as SessionInventoryReqBody | undefined)?.inventories ?? [];
       expect(items.every(item => item.quantity === quantity)).toBe(true);
     });
   });
 
   Scenario('管理员可以查看门票的库存同步记录', (s: StepTest<XiechengScenarioContext>) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given('携程服务已经准备好接收场次库存同步信息', async () => {
-      resetScenarioContext(context);
-      await setupXiechengMock(context);
-    });
-
-    Given('{string} 的携程编号是 {string}', async (_ctx, ticketName: string, otaOptionId: string) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      const updated = await bindTicketXiechengOptionId(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        ticket.id,
-        otaOptionId,
-      );
-      featureContext.ticketByName[ticketName] = updated;
-    });
-
-    When('管理员将 {string} 剩余库存同步给携程', async (_ctx, ticketName: string) => {
-      context.pendingSync = {
-        ticketName,
-        serviceName: 'DateInventoryModify',
-        startSessionDate: '今天',
-        endSessionDate: '2天后',
-      };
-      await executePendingSync(featureContext, context);
-    });
+    const { Then, And } = s;
 
     Then('管理员可以查看 {string} 的携程库存同步记录', async (_ctx, ticketName: string) => {
       const ticket = featureContext.ticketByName[ticketName];
-      context.syncLogs = await listTicketXiechengSyncLogs(
+      featureContext.syncLogs = await listTicketXiechengSyncLogs(
         featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
@@ -749,83 +684,53 @@ describeFeature(feature, ({
     });
 
     And('{string} 有 {string} 条携程库存同步记录', (_ctx, _ticketName: string, expectedCount: string) => {
-      expect(context.syncLogs).toHaveLength(Number(expectedCount));
+      expect(featureContext.syncLogs).toHaveLength(Number(expectedCount));
     });
 
     And('同步结果为 {string}', (_ctx, resultText: string) => {
       expect(resultText).toBe('成功');
-      expect(context.syncLogs?.[0].status).toBe('SUCCESS');
+      expect(featureContext.syncLogs?.[0].status).toBe('SUCCESS');
     });
 
     And('sequence Id 是同步信息中的 sequence Id', () => {
-      expect(context.syncLogs?.[0].sequence_id).toBe(context.syncLog?.sequence_id);
-      expect(context.syncLogs?.[0].sequence_id).toBe(context.latestDecryptedBody?.sequenceId);
+      captureLatestDecryptedBody(featureContext);
+      expect(featureContext.syncLogs?.[0].sequence_id).toBe(featureContext.syncLog?.sequence_id);
+      expect(featureContext.syncLogs?.[0].sequence_id).toBe(featureContext.latestDecryptedBody?.sequenceId);
     });
 
     And('service Name 是 {string}', (_ctx, serviceName: string) => {
-      expect(context.syncLogs?.[0].service_name).toBe(serviceName);
+      expect(featureContext.syncLogs?.[0].service_name).toBe(serviceName);
     });
 
     And('ota Option Id 是 {string} 的携程编号 {string}', (_ctx, _ticketName: string, otaOptionId: string) => {
-      expect(context.syncLogs?.[0].ota_option_id).toBe(otaOptionId);
+      expect(featureContext.syncLogs?.[0].ota_option_id).toBe(otaOptionId);
     });
 
     And('场次有 {string} 个', (_ctx, count: string) => {
-      expect(context.syncLogs?.[0].sync_items).toHaveLength(Number(count));
+      expect(featureContext.syncLogs?.[0].sync_items).toHaveLength(Number(count));
     });
 
     And('起始场次时间为 {string}', (_ctx, dateLabel: string) => {
-      const items = context.syncLogs?.[0].sync_items as Array<{ date: string }>;
+      const items = featureContext.syncLogs?.[0].sync_items as Array<{ date: string }>;
       expect(items[0].date).toBe(toDateLabel(dateLabel));
     });
 
     And('结束场次时间为 {string}', (_ctx, dateLabel: string) => {
-      const items = context.syncLogs?.[0].sync_items as Array<{ date: string }>;
+      const items = featureContext.syncLogs?.[0].sync_items as Array<{ date: string }>;
       expect(items.at(-1)?.date).toBe(toDateLabel(dateLabel));
     });
 
     And('每个场次的库存数量为 {string} 的剩余库存数量', (_ctx, _ticketName: string) => {
-      const items = context.syncLogs?.[0].sync_items as Array<{ quantity: number }>;
+      const items = featureContext.syncLogs?.[0].sync_items as Array<{ quantity: number }>;
       expect(items.every(item => item.quantity === 2)).toBe(true);
     });
   });
 
   Scenario('不能同步时间不在展会范围内的库存信息', (s: StepTest<XiechengScenarioContext>) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given('{string} 的携程编号是 {string}', async (_ctx, ticketName: string, otaOptionId: string) => {
-      resetScenarioContext(context);
-      const ticket = featureContext.ticketByName[ticketName];
-      const updated = await bindTicketXiechengOptionId(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        ticket.id,
-        otaOptionId,
-      );
-      featureContext.ticketByName[ticketName] = updated;
-    });
-
-    When('管理员将 {string} 剩余库存同步给携程', (_ctx, ticketName: string) => {
-      context.pendingSync = {
-        ticketName,
-        serviceName: 'DateInventoryModify',
-        startSessionDate: '今天',
-        endSessionDate: '2天后',
-      };
-    });
-
-    And('场次起始时间为 {string}', (_ctx, startDate: string) => {
-      context.pendingSync!.startSessionDate = startDate;
-    });
-
-    And('场次结束时间为 {string}', async (_ctx, endDate: string) => {
-      context.pendingSync!.endSessionDate = endDate;
-      await executePendingSync(featureContext, context);
-    });
+    const { Then } = s;
 
     Then('同步失败，错误信息包含 {string}', (_ctx, message: string) => {
-      assertAPIError(context.lastError, {
+      assertAPIError(featureContext.lastError, {
         status: 400,
         messageIncludes: message,
       });
@@ -833,42 +738,10 @@ describeFeature(feature, ({
   });
 
   Scenario('不能同步库存数量超过实际剩余库存的库存信息', (s: StepTest<XiechengScenarioContext>) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given('{string} 的携程编号是 {string}', async (_ctx, ticketName: string, otaOptionId: string) => {
-      resetScenarioContext(context);
-      const ticket = featureContext.ticketByName[ticketName];
-      const updated = await bindTicketXiechengOptionId(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        ticket.id,
-        otaOptionId,
-      );
-      featureContext.ticketByName[ticketName] = updated;
-    });
-
-    When('管理员将 {string} 指定库存数量 {string} 同步给携程', (_ctx, ticketName: string, quantityText: string) => {
-      context.pendingSync = {
-        ticketName,
-        serviceName: 'DateInventoryModify',
-        startSessionDate: '今天',
-        endSessionDate: '2天后',
-        quantity: Number(quantityText),
-      };
-    });
-
-    And('场次起始时间为 {string}', (_ctx, startDate: string) => {
-      context.pendingSync!.startSessionDate = startDate;
-    });
-
-    And('场次结束时间为 {string}', async (_ctx, endDate: string) => {
-      context.pendingSync!.endSessionDate = endDate;
-      await executePendingSync(featureContext, context);
-    });
+    const { Then } = s;
 
     Then('同步失败，错误信息包含 {string}', (_ctx, message: string) => {
-      assertAPIError(context.lastError, {
+      assertAPIError(featureContext.lastError, {
         status: 400,
         messageIncludes: message,
       });
