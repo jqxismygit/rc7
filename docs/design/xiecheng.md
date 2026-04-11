@@ -35,7 +35,7 @@
 ### 2.1 管理端同步接口
 
 - `PUT /exhibition/:eid/tickets/:tid/ota/xc`
-- `POST /exhibition/:eid/tickets/:tid/ota/xc/sync`
+- `POST /exhibition/:eid/tickets/:tid/ota/xc/sync/prices`
 - `POST /exhibition/:eid/tickets/:tid/ota/xc/sync/inventory`
 - `GET /exhibition/:eid/tickets/:tid/ota/xc/sync/logs`
 

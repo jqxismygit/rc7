@@ -40,7 +40,7 @@ export async function syncTicketPriceToXiecheng(
 ) {
   return postJSON<Xiecheng.XcSyncLog>(
     server,
-    `/exhibition/${eid}/tickets/${tid}/ota/xc/sync`,
+    `/exhibition/${eid}/tickets/${tid}/ota/xc/sync/prices`,
     {
       token,
       body: payload,

@@ -54,7 +54,7 @@
 
 ## 同步票种场次价格至携程
 
-- URL: `/exhibition/:eid/tickets/:tid/ota/xc/sync`
+- URL: `/exhibition/:eid/tickets/:tid/ota/xc/sync/prices`
 - Method: `POST`
 - Request Header:
   ```ts

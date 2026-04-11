@@ -121,7 +121,7 @@ export default class XiechengService extends RC7BaseService {
         },
 
         syncXiechengPrice: {
-          rest: 'POST /:eid/tickets/:tid/ota/xc/sync',
+          rest: 'POST /:eid/tickets/:tid/ota/xc/sync/prices',
           roles: ['admin'],
           params: {
             eid: 'string',
