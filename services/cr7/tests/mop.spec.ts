@@ -861,7 +861,7 @@ describeFeature(feature, ({
     });
 
     And('默认展会活动的城市是 {string}', async (_ctx, cityName: string) => {
-      const city = getCityMetaByName(cityName);
+      const city = await getCityMetaByName(cityName);
       expect(city).toBeTruthy();
       const { apiServer, adminToken, exhibition } = featureContext;
       featureContext.exhibition = await updateExhibition(
@@ -911,9 +911,9 @@ describeFeature(feature, ({
       }));
     });
 
-    And('展会同步消息中的城市 ID 是展会所在城市的 ID', () => {
+    And('展会同步消息中的城市 ID 是展会所在城市的 ID', async () => {
       const { exhibition, mopRequestHandler } = featureContext;
-      const city = getCityMetaById(exhibition.city);
+      const city = await getCityMetaById(exhibition.city);
       expect(city).toBeTruthy();
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
         body: expect.objectContaining({
@@ -922,9 +922,9 @@ describeFeature(feature, ({
       }));
     });
 
-    And('展会同步消息中的城市名称是展会所在城市的名称', () => {
+    And('展会同步消息中的城市名称是展会所在城市的名称', async () => {
       const { exhibition, mopRequestHandler } = featureContext;
-      const city = getCityMetaById(exhibition.city);
+      const city = await getCityMetaById(exhibition.city);
       expect(city).toBeTruthy();
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
         body: expect.objectContaining({

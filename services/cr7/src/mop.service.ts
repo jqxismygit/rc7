@@ -244,8 +244,8 @@ function toMopRefundStatus(status: Order.OrderStatus): number {
   }
 }
 
-function getCityMeta(cityName: string) {
-  const city = getCityMetaById(cityName);
+async function getCityMeta(cityName: string) {
+  const city = await getCityMetaById(cityName);
   if (!city) {
     throw new MoleculerClientError(`暂不支持同步城市: ${cityName}`, 400, 'MOP_CITY_NOT_SUPPORTED');
   }
@@ -436,7 +436,7 @@ export default class MoeService extends RC7BaseService {
       'cr7.exhibition.get', { eid }
     );
 
-    const cityMeta = getCityMeta(exhibition.city);
+    const cityMeta = await getCityMeta(exhibition.city);
     const request: MopProjectSyncRequest = {
       cityId: cityMeta.id,
       cityName: cityMeta.name,
