@@ -284,30 +284,45 @@ describeFeature(feature, ({
       };
 
       try {
-        if (pending.serviceName === 'DatePriceModify') {
-          featureContext.syncLog = await syncTicketPriceToXiecheng(
-            featureContext.apiServer,
-            featureContext.adminToken,
-            featureContext.exhibition.id,
-            ticket.id,
-            payload,
-          );
-        } else {
-          featureContext.syncLog = await syncTicketInventoryToXiecheng(
-            featureContext.apiServer,
-            featureContext.adminToken,
-            featureContext.exhibition.id,
-            ticket.id,
-            {
-              ...payload,
-              quantity: pending.quantity,
-            },
-          );
-        }
+        featureContext.syncLog = await syncTicketPriceToXiecheng(
+          featureContext.apiServer,
+          featureContext.adminToken,
+          featureContext.exhibition.id,
+          ticket.id,
+          payload,
+        );
+
       } catch (error) {
         featureContext.lastError = error;
       }
     });
+
+    When('管理员将场次票种的库存同步给携程', async () => {
+      expect(featureContext.pendingSync).toBeTruthy();
+      const pending = featureContext.pendingSync!;
+      const ticket = featureContext.ticketByName[pending.ticketName];
+      expect(ticket, `Ticket '${pending.ticketName}' not found`).toBeTruthy();
+
+      const payload = {
+        start_session_date: toDateLabel(pending.startSessionDate),
+        end_session_date: toDateLabel(pending.endSessionDate),
+      };
+
+      try {
+        featureContext.syncLog = await syncTicketInventoryToXiecheng(
+          featureContext.apiServer,
+          featureContext.adminToken,
+          featureContext.exhibition.id,
+          ticket.id,
+          {
+            ...payload,
+            quantity: pending.quantity,
+          },
+        );
+      } catch (error) {
+        featureContext.lastError = error;
+      }
+    })
   });
 
   Background(({ Given, And }) => {
@@ -329,7 +344,7 @@ describeFeature(feature, ({
     Given('默认核销展览活动已创建，开始时间为 {string}，结束时间为 {string}', async (_ctx, startDate: string, endDate: string) => {
       const { adminToken, apiServer } = featureContext;
       featureContext.exhibition = await prepareExhibition(apiServer, adminToken, {
-        name: `XC_${Date.now()}`,
+        name: 'XC_Exhibition',
         description: 'xiecheng integration test exhibition',
         start_date: toDateLabel(startDate),
         end_date: toDateLabel(endDate),
