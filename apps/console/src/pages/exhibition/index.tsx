@@ -366,8 +366,7 @@ const ExhibitionPage = () => {
       last_entry_time: parseExhibitionTime(
         editingRow.last_entry_time as string | null | undefined,
       ),
-      city_cascader:
-        getCascaderValuePathByLeafCode(editingRow.city) ?? [],
+      city_cascader: getCascaderValuePathByLeafCode(editingRow.city) ?? [],
       venue_name: editingRow.venue_name ?? "",
       location: editingRow.location,
       cover_url: editingRow.cover_url ?? "",

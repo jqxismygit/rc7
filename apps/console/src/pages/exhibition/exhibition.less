@@ -107,6 +107,58 @@
   border-bottom: 1px solid #f0f0f0;
 }
 
-.exhibition-detail-sessions-table .ant-table-cell {
-  border-inline-end: none !important;
+.exhibition-detail-sessions-layout {
+  align-items: flex-start;
+}
+
+.exhibition-detail-session-calendar-wrap {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 380px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fafafa;
+}
+
+.exhibition-detail-session-calendar-wrap .ant-picker-calendar {
+  background: #fff;
+}
+
+/* 有场次：整格淡蓝透明底（由占位节点 + :has 触发，无圆点） */
+.exhibition-detail-session-calendar-wrap
+  .ant-picker-cell-inner.ant-picker-calendar-date:has(
+    .exhibition-session-calendar-has-session
+  ) {
+  background: color-mix(in srgb, var(--ant-color-primary, #1677ff) 12%, transparent);
+  border-radius: 4px;
+}
+
+@supports not (background: color-mix(in srgb, red 12%, transparent)) {
+  .exhibition-detail-session-calendar-wrap
+    .ant-picker-cell-inner.ant-picker-calendar-date:has(
+      .exhibition-session-calendar-has-session
+    ) {
+    background: rgba(22, 119, 255, 0.1);
+  }
+}
+
+/* 仅占位触发 :has，不占布局 */
+.exhibition-session-calendar-has-session {
+  display: block;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  line-height: 0;
+  font-size: 0;
+}
+
+.exhibition-detail-session-panel .exhibition-detail-session-descriptions {
+  margin-bottom: 0;
+}
+
+.exhibition-detail-session-panel .ant-descriptions-item-label {
+  width: 100px;
 }

@@ -46,14 +46,20 @@ export function buildLeafRegionLabelMap(
 
 const LEAF_LABEL_MAP = buildLeafRegionLabelMap(pcaC as RawNode[]);
 
-export function getRegionLabelByLeafCode(code: string | null | undefined): string {
+export function getRegionLabelByLeafCode(
+  code: string | null | undefined,
+): string {
   if (code == null || code === "") return "—";
   const hit = LEAF_LABEL_MAP.get(code.trim());
   if (hit) return hit;
   return code;
 }
 
-function findPath(nodes: RawNode[], targetLeaf: string, acc: string[]): string[] | null {
+function findPath(
+  nodes: RawNode[],
+  targetLeaf: string,
+  acc: string[],
+): string[] | null {
   const t = targetLeaf.trim();
   for (const n of nodes) {
     const next = [...acc, n.code];

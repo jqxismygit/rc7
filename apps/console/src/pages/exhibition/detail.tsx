@@ -1,14 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import type { ColumnsType } from "antd/es/table";
 import {
   Breadcrumb,
   Button,
+  Calendar,
   Card,
   Descriptions,
   Empty,
+  Flex,
   Image,
   Modal,
+  Segmented,
   Spin,
   Table,
   Typography,
@@ -32,8 +41,9 @@ import {
   type CreateTicketCategoryInput,
 } from "@/apis/exhibition";
 import { useModal } from "@/hooks/use-modal";
-import { formatDateTime, formatSessionDateTime } from "@/utils/format-datetime";
+import { formatDateTime } from "@/utils/format-datetime";
 import dayjs from "dayjs";
+import type { Dayjs } from "dayjs";
 import "./exhibition.less";
 
 type ExhibitionDetailData = ExhibitionTypes.Exhibition & {
@@ -115,6 +125,12 @@ export default function ExhibitionDetailPage() {
     InventoryTypes.SessionTicketsInventory[]
   >([]);
 
+  const [selectedDay, setSelectedDay] = useState<Dayjs | null>(null);
+  const [panelDate, setPanelDate] = useState<Dayjs>(() => dayjs());
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null,
+  );
+
   const loadDetail = useCallback(async () => {
     if (!eid) {
       setLoading(false);
@@ -179,49 +195,92 @@ export default function ExhibitionDetailPage() {
     [openSessionInvModal],
   );
 
-  const sessionColumns = useMemo<ColumnsType<ExhibitionTypes.Session>>(
-    () => [
-      {
-        title: "序号",
-        key: "index",
-        width: 72,
-        align: "center",
-        render: (_, __, index) => index + 1,
-      },
-      {
-        title: "场次日期",
-        dataIndex: "session_date",
-        width: 180,
-        render: (v: string) => dayjs(v).format("YYYY-MM-DD"),
-      },
-      {
-        title: "场次 ID",
-        dataIndex: "id",
-        ellipsis: true,
-        render: (id: string) => (
-          <Typography.Text copyable={{ text: id }} ellipsis>
-            {id}
-          </Typography.Text>
-        ),
-      },
-      {
-        title: "操作",
-        key: "action",
-        width: 108,
-        fixed: "right",
-        render: (_, row) => (
-          <Button
-            type="link"
-            size="small"
-            style={{ padding: 0, height: "auto" }}
-            onClick={() => openSessionInventory(row)}
-          >
-            查看库存
-          </Button>
-        ),
-      },
-    ],
-    [openSessionInventory],
+  const sessions = useMemo(
+    () => data?.sessions ?? [],
+    [data?.sessions],
+  );
+
+  const sessionsByDate = useMemo(() => {
+    const map = new Map<string, ExhibitionTypes.Session[]>();
+    for (const s of sessions) {
+      const key = dayjs(s.session_date).format("YYYY-MM-DD");
+      const arr = map.get(key) ?? [];
+      arr.push(s);
+      map.set(key, arr);
+    }
+    for (const arr of map.values()) {
+      arr.sort(
+        (a, b) =>
+          dayjs(a.created_at).valueOf() - dayjs(b.created_at).valueOf(),
+      );
+    }
+    return map;
+  }, [sessions]);
+
+  useLayoutEffect(() => {
+    if (!sessions.length) {
+      setSelectedDay(null);
+      setSelectedSessionId(null);
+      return;
+    }
+    setSelectedSessionId((prev) => {
+      if (prev && sessions.some((s) => s.id === prev)) return prev;
+      return sessions[0].id;
+    });
+  }, [sessions]);
+
+  useLayoutEffect(() => {
+    if (!selectedSessionId) return;
+    const s = sessions.find((x) => x.id === selectedSessionId);
+    if (s) {
+      const d = dayjs(s.session_date);
+      setSelectedDay(d);
+      setPanelDate(d);
+    }
+  }, [selectedSessionId, sessions]);
+
+  const selectedSession = useMemo(
+    () =>
+      selectedSessionId
+        ? sessions.find((s) => s.id === selectedSessionId)
+        : undefined,
+    [sessions, selectedSessionId],
+  );
+
+  const sessionsOnSelectedDay = useMemo(() => {
+    if (!selectedDay) return [];
+    return sessionsByDate.get(selectedDay.format("YYYY-MM-DD")) ?? [];
+  }, [selectedDay, sessionsByDate]);
+
+  /** 展期与场次并集，避免场次落在展期外时无法在日历中选到 */
+  const exhibitionDateRange = useMemo((): [Dayjs, Dayjs] | undefined => {
+    if (!data) return undefined;
+    let start = data.start_date
+      ? dayjs(data.start_date).startOf("day")
+      : null;
+    let end = data.end_date ? dayjs(data.end_date).endOf("day") : null;
+    for (const s of sessions) {
+      const d = dayjs(s.session_date);
+      if (!d.isValid()) continue;
+      const dayStart = d.startOf("day");
+      const dayEnd = d.endOf("day");
+      if (!start || dayStart.isBefore(start)) start = dayStart;
+      if (!end || dayEnd.isAfter(end)) end = dayEnd;
+    }
+    if (start && end && start.isValid() && end.isValid()) return [start, end];
+    return undefined;
+  }, [data, sessions]);
+
+  const handleCalendarSelect = useCallback(
+    (date: Dayjs) => {
+      setSelectedDay(date);
+      setPanelDate(date);
+      const key = date.format("YYYY-MM-DD");
+      const list = sessionsByDate.get(key);
+      if (list?.length) setSelectedSessionId(list[0].id);
+      else setSelectedSessionId(null);
+    },
+    [sessionsByDate],
   );
 
   const inventoryColumns = useMemo<
@@ -570,20 +629,113 @@ export default function ExhibitionDetailPage() {
               boxShadow: token.boxShadowSecondary,
             }}
           >
-            <Table<ExhibitionTypes.Session>
-              className="exhibition-detail-sessions-table"
-              rowKey="id"
-              columns={sessionColumns}
-              dataSource={data.sessions ?? []}
-              pagination={{
-                pageSize: 20,
-                showSizeChanger: true,
-                pageSizeOptions: [10, 20, 50, 100],
-                showTotal: (total) => `共 ${total} 场`,
-              }}
-              locale={{ emptyText: "暂无场次数据" }}
-              scroll={{ x: "max-content" }}
-            />
+            {sessions.length === 0 ? (
+              <Empty description="暂无场次数据" />
+            ) : (
+              <Flex
+                gap={token.marginLG}
+                align="flex-start"
+                wrap="wrap"
+                className="exhibition-detail-sessions-layout"
+              >
+                <div className="exhibition-detail-session-calendar-wrap">
+                  <Calendar
+                    fullscreen={false}
+                    value={selectedDay ?? panelDate}
+                    validRange={exhibitionDateRange}
+                    onSelect={(d) => handleCalendarSelect(d)}
+                    onPanelChange={(d) => setPanelDate(d)}
+                    cellRender={(current, info) => {
+                      if (info.type !== "date") return info.originNode;
+                      const hasSession =
+                        (sessionsByDate.get(current.format("YYYY-MM-DD"))
+                          ?.length ?? 0) > 0;
+                      if (!hasSession) return null;
+                      return (
+                        <span
+                          className="exhibition-session-calendar-has-session"
+                          aria-hidden
+                        />
+                      );
+                    }}
+                  />
+                </div>
+                <div
+                  className="exhibition-detail-session-panel"
+                  style={{ flex: "1 1 320px", minWidth: 280 }}
+                >
+                  <Typography.Title level={5} style={{ marginTop: 0 }}>
+                    当前场次
+                  </Typography.Title>
+                  {selectedSession ? (
+                    <>
+                      {sessionsOnSelectedDay.length > 1 ? (
+                        <div style={{ marginBottom: token.marginMD }}>
+                          <Typography.Text
+                            type="secondary"
+                            style={{ display: "block", marginBottom: 8 }}
+                          >
+                            当日有多场，请切换：
+                          </Typography.Text>
+                          <Segmented
+                            value={selectedSessionId ?? undefined}
+                            onChange={(v) => setSelectedSessionId(v as string)}
+                            options={sessionsOnSelectedDay.map((s, i) => ({
+                              label: `第 ${i + 1} 场`,
+                              value: s.id,
+                            }))}
+                          />
+                        </div>
+                      ) : null}
+                      <Descriptions
+                        bordered
+                        column={1}
+                        size="middle"
+                        className="exhibition-detail-session-descriptions"
+                      >
+                        <Descriptions.Item label="场次日期">
+                          {dayjs(selectedSession.session_date).format(
+                            "YYYY-MM-DD",
+                          )}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="场次 ID">
+                          <Typography.Text
+                            copyable={{ text: selectedSession.id }}
+                          >
+                            {selectedSession.id}
+                          </Typography.Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="创建时间">
+                          {formatDateTime(selectedSession.created_at)}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="更新时间">
+                          {formatDateTime(selectedSession.updated_at)}
+                        </Descriptions.Item>
+                      </Descriptions>
+                      <Typography.Title
+                        level={5}
+                        style={{ marginTop: token.marginLG, marginBottom: 12 }}
+                      >
+                        配置
+                      </Typography.Title>
+                      <Button
+                        type="primary"
+                        onClick={() =>
+                          openSessionInventory(selectedSession)
+                        }
+                      >
+                        查看库存
+                      </Button>
+                    </>
+                  ) : selectedDay &&
+                    sessionsOnSelectedDay.length === 0 ? (
+                    <Empty description="该日暂无场次" />
+                  ) : (
+                    <Empty description="请在左侧日历中选择有场次的日期" />
+                  )}
+                </div>
+              </Flex>
+            )}
           </Card>
         </>
       ) : null}
