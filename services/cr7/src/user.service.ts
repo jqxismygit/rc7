@@ -388,7 +388,9 @@ export default class UserService extends Service {
     const schema = await this.getSchema();
 
     const roles = await getUserRoles(client, schema, uid);
-    return roles;
+    const permissions = [...new Set(roles.flatMap(role => role.permissions ?? []))];
+    const isAdmin = roles.some(role => role.name === 'ADMIN');
+    return { roles, permissions, isAdmin };
   }
 
   async getSchema() {

@@ -166,16 +166,18 @@
   ```
 - Response Body:
   ```ts
-  User.Role[]
+  User.UserRolesResult
   ```
 - Response Status:
   - `200 OK`：查询成功
   - `401 Unauthorized`：未认证
 
 - 说明：
-  - 仅返回当前登录用户自身的角色列表
-  - 每个角色包含 `id`、`name` 和 `permissions`
-  - 未授予任何角色时返回空数组
+  - 返回值包含 `roles`、`permissions`、`isAdmin`
+  - `roles` 为当前用户所有角色列表，每个角色包含 `id`、`name`、`permissions`
+  - `permissions` 为当前用户拥有角色权限的去重集合
+  - `isAdmin` 表示当前用户是否拥有 `ADMIN` 角色
+  - 未授予任何角色时，`roles` 与 `permissions` 均为空数组
 
 ## 为用户授予角色
 

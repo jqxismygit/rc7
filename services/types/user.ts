@@ -38,3 +38,9 @@ export interface UserListResult {
   page: number;
   limit: number;
 }
+
+export interface UserRolesResult {
+  roles: Role[];
+  permissions: string[];
+  isAdmin: boolean;
+}
