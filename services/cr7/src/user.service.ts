@@ -106,7 +106,10 @@ export default class UserService extends Service {
           handler: this.profile_update,
         },
 
-        roles: this.getRoleNames,
+        roles: {
+          rest: 'GET /roles',
+          handler: this.getRoleNames,
+        },
 
         grant_role: {
           rest: 'POST /:uid/roles',

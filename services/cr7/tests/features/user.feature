@@ -51,8 +51,10 @@ Feature: user registration and login
   Scenario: 管理员可以将其他用户设置成运营人员
     Given 管理员账号创建并登录
     Given 用户 "Alice" 已注册并登录
+
      When 管理员账号将用户 "Alice" 设置成运营人员
-     Then 用户 "Alice" 的角色包含 "operator"
+     Then 用户 "Alice" 查看个人的角色列表
+      And 用户 "Alice" 的角色列表包含 "OPERATOR"
 
   Scenario: 管理员可以查看用户列表
     Given 管理员账号已登录，手机号为 "12345678901"

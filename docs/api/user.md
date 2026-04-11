@@ -156,6 +156,27 @@
   - `profile` 为可选对象，传入时按 key 合并到现有资料，不会清空未传入字段
   - 更新后可通过 `GET /user/profile` 读取最新资料
 
+## 获取当前用户角色列表
+
+- URL: `/user/roles`
+- Method: `GET`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Response Body:
+  ```ts
+  string[]
+  ```
+- Response Status:
+  - `200 OK`：查询成功
+  - `401 Unauthorized`：未认证
+
+- 说明：
+  - 仅返回当前登录用户自身的角色名称列表
+  - 返回值中的角色名使用大写，例如 `['ADMIN', 'OPERATOR']`
+  - 未授予任何角色时返回空数组
+
 ## 为用户授予角色
 
 - URL: `/users/:uid/roles`
@@ -181,8 +202,7 @@
   - `400 Bad Request`：参数无效
   - `401 Unauthorized`：未认证
   - `403 Forbidden`：无权限（仅管理员可执行）
-  - `404 Not Found`：角色不存在
-  - `404 Not Found`：用户不存在
+  - `404 Not Found`：用户不存在或角色不存在
 
 - 说明：
   - 仅管理员（ADMIN 角色）可执行此操作
