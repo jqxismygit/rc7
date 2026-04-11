@@ -1,3 +1,4 @@
+import { User } from "@cr7/types";
 import { Service, Errors, ServiceBroker, Context } from "moleculer";
 import { Pool } from "pg";
 
@@ -43,15 +44,16 @@ export class RC7BaseService extends Service {
    * 检查当前用户是否满足 action 所需角色
    */
   async checkUserRole(
-    ctx: Context<unknown, { roles?: Array<{ name: string }> }>
+    ctx: Context<unknown, { roles?: Array<string> }>
   ) {
     const requiredRoles: string[] = ctx.action?.roles || [];
     if (requiredRoles.length === 0) {
       return;
     }
 
-    const roles = ctx.meta.roles ?? await ctx.call('user.roles') as Array<{ name: string }>;
-    const roleSet = new Set(roles.map(role => role.name.toLowerCase()));
+    const resolvedRoles = ctx.meta.roles
+      ?? (await ctx.call<User.UserRolesResult>('user.roles')).roles.map(role => role.name);
+    const roleSet = new Set(resolvedRoles.map(role => role.toLowerCase()));
 
     const satisfy = requiredRoles.some(role => roleSet.has(role));
     if (satisfy === false) {

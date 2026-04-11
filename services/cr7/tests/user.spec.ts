@@ -273,7 +273,7 @@ describeFeature(feature, ({
 
       expect(currentCount).toBe(count);
       state.lastCheckedUserName = userName;
-      state.lastCheckedUserRoles = await getCurrentUserRoles(apiServer, suToken);
+      state.lastCheckedUserRoles = (await getCurrentUserRoles(apiServer, suToken)).roles;
       featureContext.lastCheckedUserName = userName;
       featureContext.lastCheckedUserRoles = state.lastCheckedUserRoles;
     });
@@ -807,7 +807,7 @@ describeFeature(feature, ({
         const userProfile = getRegisteredUserProfile(ctx, userName);
         const suToken = await suUserToken(apiServer, adminToken, userProfile.id);
         const userRoles = await getCurrentUserRoles(apiServer, suToken);
-        expect(userRoles.some(role => role.name === roleName)).toBe(true);
+        expect(userRoles.roles.some(role => role.name === roleName)).toBe(true);
       };
 
       Then('角色 {string} 已成功授予用户 {string}', grantedAssertStep);
@@ -827,7 +827,7 @@ describeFeature(feature, ({
         const userProfile = getRegisteredUserProfile(ctx, userName);
         const suToken = await suUserToken(apiServer, adminToken, userProfile.id);
         const userRoles = await getCurrentUserRoles(apiServer, suToken);
-        expect(userRoles.some(role => role.name === roleName)).toBe(false);
+        expect(userRoles.roles.some(role => role.name === roleName)).toBe(false);
       });
 
     }
