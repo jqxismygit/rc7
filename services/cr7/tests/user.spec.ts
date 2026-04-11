@@ -212,7 +212,7 @@ describeFeature(feature, ({
     }
   });
 
-  defineSteps(({ When, Then }) => {
+  defineSteps(({ Given, When, Then }) => {
     When(
       '微信用户 {string} 首次打开小程序',
       async (_ctx, user: string) => {
@@ -253,6 +253,7 @@ describeFeature(feature, ({
       assertUserProfile(profile);
       featureContext.userProfile = profile;
     });
+
   });
 
   Background(({ Given }) => {
@@ -431,35 +432,36 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('管理员账号登录', (s: StepTest<AdminIdentityContext & AdminPasswordContext & AdminLoginContext>) => {
+  Scenario('管理员账号登录', (s: StepTest<{
+    phone: string;
+    countryCode: string;
+    password: string;
+    token: string;
+  }>) => {
     const { Given, When, Then, context } = s;
 
-    Given('管理员账号 {string} 已创建，手机号为 {string}，密码为 {string}', async (ctx, name: string, phone: string, password: string) => {
-      Object.assign(context, {
-        adminCountryCode: '+86',
-        adminName: name,
-        adminPhone: phone,
-        adminInitialPassword: password,
-      });
-
-      await initAdminHandler({ schema, phone, password });
+    Given('管理员账号已创建，手机号为 {string}，密码为 {string}', async (_ctx, phone: string, password: string) => {
+      context.password = password;
+      context.phone = phone;
+      const countryCode = '+86';
+      context.countryCode = countryCode;
+      await initAdminHandler({ schema, countryCode, phone, password });
     });
 
-    When('管理员账号 {string} 登录', async (ctx, name: string) => {
-      expect(context.adminName).toBe(name);
-      await loginAdmin(context, context.adminInitialPassword!);
+    When('管理员使用账号 {string} 密码 {string} 登录', async (_ctx, phone: string, password: string) => {
+      const countryCode = '+86';
+      const { apiServer } = featureContext;
+      const { token } = await passwordLogin(apiServer, countryCode, phone, password);
+      context.token = token;
     });
 
     Then('登录成功并获取管理员用户信息', async () => {
       const { apiServer } = featureContext;
-      const loginResponse = context.adminLoginResponse!;
-      const adminCountryCode = context.adminCountryCode!;
-      const adminPhone = context.adminPhone!;
-      const adminName = context.adminName!;
-      const profile = await getUserProfile(apiServer, loginResponse.token);
+      const { token } = context;
+      const profile = await getUserProfile(apiServer, token);
       assertUserProfile(profile);
-      expect(profile.name).toBe(adminName);
-      expect(profile.phone).toBe(`${adminCountryCode} ${adminPhone}`);
+      const { countryCode, phone } = context;
+      expect(profile.phone).toBe(`${countryCode} ${phone}`);
       expect(profile.openid).toBeNull();
       expect(profile.auth_methods ?? []).toContain('PASSWORD');
     });

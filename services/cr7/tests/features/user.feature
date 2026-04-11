@@ -40,8 +40,8 @@ Feature: user registration and login
       And 管理员的用户名默认为 "system admin"
 
   Scenario: 管理员账号登录
-    Given 管理员账号 "system admin" 已创建，手机号为 "12345678901"，密码为 "pass_test"
-     When 管理员账号 "system admin" 登录
+    Given 管理员账号已创建，手机号为 "12345678901"，密码为 "pass_test"
+     When 管理员使用账号 "12345678901" 密码 "pass_test" 登录
      Then 登录成功并获取管理员用户信息
 
   Scenario: 管理员账号修改密码
