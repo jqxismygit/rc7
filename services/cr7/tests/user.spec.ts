@@ -24,7 +24,6 @@ import {
   wechatMiniLogin
 } from './fixtures/user.js';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
-import { assertAPIError } from './lib/api.js';
 import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
 import { ServiceBroker } from 'moleculer';
 import { Server } from 'node:http';
@@ -41,20 +40,6 @@ type LoginResponseContext = {
   userProfile: User.Profile;
 };
 
-type AdminIdentityContext = TestContext & {
-  adminCountryCode?: string;
-  adminPhone?: string;
-  adminName?: string;
-};
-
-type AdminPasswordContext = {
-  adminInitialPassword?: string;
-  adminUpdatedPassword?: string;
-};
-
-type AdminProfileContext = {
-  adminProfile?: User.Profile;
-};
 
 type OperatorAdminContext = TestContext & {
   adminToken?: string;
@@ -347,31 +332,29 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('初始化系统管理员账号', (s: StepTest<AdminIdentityContext & AdminPasswordContext & AdminProfileContext>) => {
+  Scenario('初始化系统管理员账号', (s: StepTest<{
+    userProfile: User.Profile;
+  }>) => {
     const { Given, Then, And, context } = s;
 
-    Given('使用 cli 初始化管理员账号，指定手机号 {string}，密码为 {string}', async (ctx, phone: string, password: string) => {
-      Object.assign(context, {
-        adminCountryCode: '+86',
-        adminPhone: phone,
-        adminInitialPassword: password,
-        adminName: 'system admin',
-      });
+    Given(
+      '使用 cli 初始化管理员账号，指定手机号 {string}，密码为 {string}',
+      async (ctx, phone: string, password: string) => {
 
       const { apiServer } = featureContext;
       const { profile: adminProfile } = await prepareAdminUser(apiServer, schema, phone);
-      context.adminProfile = adminProfile;
+      context.userProfile = adminProfile;
     });
 
     Then('管理员账号创建成功', () => {
     });
 
     And('管理员账号的手机号为 {string} {string}', (ctx, countryCode: string, phone: string) => {
-      expect(context.adminProfile!.phone).toBe(`${countryCode} ${phone}`);
+      expect(context.userProfile!.phone).toBe(`${countryCode} ${phone}`);
     });
 
     And('管理员的用户名默认为 "system admin"', () => {
-      expect(context.adminProfile!.name).toBe('system admin');
+      expect(context.userProfile!.name).toBe('system admin');
     });
   });
 
