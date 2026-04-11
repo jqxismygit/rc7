@@ -207,6 +207,18 @@ describeFeature(feature, ({
       featureContext.xiechengReqHandler = xiechengReqHandler;
     });
 
+    And('{string} 库存为 {int}', async (_ctx, ticketName: string, quantity: number) => {
+      const ticket = featureContext.ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+      await updateTicketCategoryMaxInventory(
+        featureContext.apiServer,
+        featureContext.adminToken,
+        featureContext.exhibition.id,
+        ticket.id,
+        quantity,
+      );
+    });
+
     Given('当前同步类型为场次价格', () => {
       featureContext.pendingSync = {
         ticketName: featureContext.pendingSync?.ticketName ?? '',
@@ -392,30 +404,7 @@ describeFeature(feature, ({
       };
     });
 
-    And('{string} 库存为 {int}', async (_ctx, ticketName: string, quantity: number) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
-      await updateTicketCategoryMaxInventory(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        ticket.id,
-        quantity,
-      );
-    });
 
-    And('"单人票" 库存为 2', async () => {
-      const ticketName = '单人票';
-      const ticket = featureContext.ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
-      await updateTicketCategoryMaxInventory(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        ticket.id,
-        2,
-      );
-    });
   });
 
   Scenario('管理员绑定门票到携程', (s: StepTest<XiechengScenarioContext>) => {
