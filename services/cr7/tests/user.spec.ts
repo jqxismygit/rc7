@@ -67,7 +67,6 @@ interface FeatureContext extends
   roleViewCountByUser?: Record<string, number>;
   lastCheckedUserName?: string;
   lastCheckedUserRoles?: User.Role[];
-  deleteBuiltinRoleError?: unknown;
 }
 
 const openedMockServers: MockServer[] = [];
@@ -298,27 +297,6 @@ describeFeature(feature, ({
       const { lastCheckedUserName, lastCheckedUserRoles } = featureContext;
       expect(lastCheckedUserName).toBe(userName);
       expect(lastCheckedUserRoles!.some(role => role.name === roleName)).toBe(false);
-    });
-
-    When('管理员删除内置角色 {string}', async (_ctx, roleName: string) => {
-      const { apiServer, adminToken } = featureContext;
-      const roleList = await listRoles(apiServer, adminToken);
-      const targetRole = roleList.find(role => role.name === roleName);
-
-      expect(targetRole).toBeDefined();
-      featureContext.deleteBuiltinRoleError = await deleteRole(apiServer, adminToken, targetRole!.id)
-        .catch(error => error);
-    });
-
-    Then('删除内置角色 {string} 失败，返回错误提示内置角色不能删除', (
-      _ctx,
-      _roleName: string,
-    ) => {
-      assertAPIError(featureContext.deleteBuiltinRoleError, {
-        status: 400,
-        method: 'DELETE',
-        messageIncludes: '内置角色不能删除',
-      });
     });
   });
 
@@ -682,6 +660,7 @@ describeFeature(feature, ({
         permissions: string[];
         is_builtin: boolean;
       }[];
+      deleteBuiltinRoleError: unknown;
     }>) => {
       const { When, Then, context } = s;
 
@@ -737,6 +716,27 @@ describeFeature(feature, ({
         expect(context.roleList.some(role => role.name === roleName)).toBe(false);
       });
 
+
+      When('管理员删除内置角色 {string}', async (_ctx, roleName: string) => {
+        const { apiServer, adminToken } = featureContext;
+        const roleList = await listRoles(apiServer, adminToken);
+        const targetRole = roleList.find(role => role.name === roleName);
+
+        expect(targetRole).toBeDefined();
+        context.deleteBuiltinRoleError = await deleteRole(apiServer, adminToken, targetRole!.id)
+          .catch(error => error);
+      });
+
+      Then('删除内置角色 {string} 失败，返回错误提示内置角色不能删除', (
+        _ctx,
+        _roleName: string,
+      ) => {
+        assertAPIError(context.deleteBuiltinRoleError, {
+          status: 400,
+          method: 'DELETE',
+          messageIncludes: '内置角色不能删除',
+        });
+      });
     }
   );
 

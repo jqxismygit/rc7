@@ -118,9 +118,6 @@ Feature: user registration and login
   Scenario: 管理员不能删除自己的管理员角色
     Given 管理员账号创建并登录
 
-     When 管理员删除内置角色 "ADMIN"
-     Then 删除内置角色 "ADMIN" 失败，返回错误提示内置角色不能删除
-
      When 管理员为自己收回管理员角色 "ADMIN"
      Then 收回管理员角色 "ADMIN" 失败，返回错误提示内置角色不能删除
 
