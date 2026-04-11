@@ -16,8 +16,7 @@ Feature: 对接携程 OTA
 
   Scenario: 管理员可以将门票的场次及价格同步到携程
     Given 携程服务已经准备好接受同步信息
-    Given 当前同步类型为场次价格
-    Given 票种 "早鸟票"，场次开始时间为 "今天"，结束时间为 "2天后"
+    Given 当前同步类型为场次价格, 票种 "早鸟票"，场次开始时间为 "今天"，结束时间为 "2天后"
      When 管理员将场次票种同步给携程
      Then 携程接收到了场次价格同步信息
       And 可以正确解密
@@ -26,21 +25,18 @@ Feature: 对接携程 OTA
       And 同步的场次结束时间为 "2天后"
       And 场次中的售价为 "早鸟票" 的价格
       And 场次中的成本价为 "早鸟票" 的价格
-      And ota Option Id 是 "早鸟票" 的携程编号 "xc_early_bird"
       And supplier Option Id 是 "早鸟票" 的票种 ID
       And Service Name 是 "DatePriceModify"
 
   Scenario: 管理员可以查看门票的场次及价格同步记录
     Given 携程服务已经准备好接受同步信息
-    Given 当前同步类型为场次价格
-    Given 票种 "早鸟票"，场次开始时间为 "今天"，结束时间为 "2天后"
+    Given 当前同步类型为场次价格, 票种 "早鸟票"，场次开始时间为 "今天"，结束时间为 "2天后"
      When 管理员将场次票种同步给携程
      Then 管理员可以查看 "早鸟票" 的携程价格同步记录
       And "早鸟票" 有 "1" 条携程价格同步记录
       And 同步结果为 "成功"
       And sequence Id 是同步信息中的 sequence Id
       And service Name 是 "DatePriceModify"
-      And ota Option Id 是 "早鸟票" 的携程编号 "xc_early_bird"
       And 场次有 "3" 个
       And 起始场次时间为 "今天"
       And 结束场次时间为 "2天后"
@@ -48,8 +44,7 @@ Feature: 对接携程 OTA
       And 成本价为 "早鸟票" 的价格
 
   Scenario: 不能同步时间不在展会范围内的场次价格信息
-    Given 当前同步类型为场次价格
-    Given 票种 "早鸟票"，场次开始时间为 "3天后"，结束时间为 "4天后"
+    Given 当前同步类型为场次价格, 票种 "早鸟票"，场次开始时间为 "3天后"，结束时间为 "4天后"
      When 管理员将场次票种同步给携程
     Then 同步失败，错误信息包含 "同步的场次时间不在展会时间范围内"
 

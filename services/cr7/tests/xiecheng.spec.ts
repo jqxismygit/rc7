@@ -52,12 +52,19 @@ interface UserContext {
   userToken: string;
 }
 
+interface DatePriceContext {
+  ticket: Exhibition.TicketCategory;
+  start_session_date: string;
+  end_session_date: string;
+}
+
 interface FeatureContext extends
   UserContext,
   ExhibitionContext,
   Partial<XiechengServer> {
   broker: ServiceBroker;
   apiServer: Server;
+  datePrice: DatePriceContext;
   pendingSync?: PendingSyncRequest;
   syncLog?: Xiecheng.XcSyncLog;
   syncLogs?: Xiecheng.XcSyncLog[];
@@ -219,13 +226,15 @@ describeFeature(feature, ({
       );
     });
 
-    Given('当前同步类型为场次价格', () => {
-      featureContext.pendingSync = {
-        ticketName: featureContext.pendingSync?.ticketName ?? '',
-        serviceName: 'DatePriceModify',
-        startSessionDate: featureContext.pendingSync?.startSessionDate ?? '今天',
-        endSessionDate: featureContext.pendingSync?.endSessionDate ?? '2天后',
-        quantity: 0,
+    Given(
+      '当前同步类型为场次价格, 票种 {string}，场次开始时间为 {string}，结束时间为 {string}',
+      (_ctx, ticketName: string, startDate: string, endDate: string) => {
+      const ticket = featureContext.ticketByName[ticketName];
+      expect(ticket, `Ticket '${ticketName}' not found`).toBeTruthy();
+      featureContext.datePrice = {
+        ticket,
+        start_session_date: toDateLabel(startDate),
+        end_session_date: toDateLabel(endDate),
       };
     });
 
@@ -285,25 +294,14 @@ describeFeature(feature, ({
     });
 
     When('管理员将场次票种同步给携程', async () => {
-      expect(featureContext.pendingSync).toBeTruthy();
-      const pending = featureContext.pendingSync!;
-      const ticket = featureContext.ticketByName[pending.ticketName];
-      expect(ticket, `Ticket '${pending.ticketName}' not found`).toBeTruthy();
-
-      const payload = {
-        start_session_date: toDateLabel(pending.startSessionDate),
-        end_session_date: toDateLabel(pending.endSessionDate),
-      };
+      const { apiServer, adminToken, exhibition, datePrice } = featureContext;
+      const { ticket, start_session_date, end_session_date } = datePrice;
 
       try {
         featureContext.syncLog = await syncTicketPriceToXiecheng(
-          featureContext.apiServer,
-          featureContext.adminToken,
-          featureContext.exhibition.id,
-          ticket.id,
-          payload,
+          apiServer, adminToken, exhibition.id, ticket.id,
+          { start_session_date, end_session_date },
         );
-
       } catch (error) {
         featureContext.lastError = error;
       }
@@ -337,7 +335,7 @@ describeFeature(feature, ({
     })
   });
 
-  Background(({ Given, And }) => {
+  Background(({ Given }) => {
     Given('cr7 服务已启动', async () => {
       await migrate({ schema });
     });
@@ -479,11 +477,6 @@ describeFeature(feature, ({
       expect(prices.every(item => item.costPrice === expected)).toBe(true);
     });
 
-    And('ota Option Id 是 {string} 的携程编号 {string}', (_ctx, ticketName: string, otaOptionId: string) => {
-      expect(featureContext.ticketByName[ticketName].ota_xc_option_id).toBe(otaOptionId);
-      expect(context.decryptedBody.otaOptionId).toBe(otaOptionId);
-    });
-
     And('supplier Option Id 是 {string} 的票种 ID', (_ctx, ticketName: string) => {
       expect(context.decryptedBody.supplierOptionId).toBe(featureContext.ticketByName[ticketName].id);
     });
@@ -533,11 +526,6 @@ describeFeature(feature, ({
 
     And('service Name 是 {string}', (_ctx, serviceName: string) => {
       expect(featureContext.syncLogs?.[0].service_name).toBe(serviceName);
-    });
-
-    And('ota Option Id 是 {string} 的携程编号 {string}', (_ctx, ticketName: string, otaOptionId: string) => {
-      expect(featureContext.ticketByName[ticketName].ota_xc_option_id).toBe(otaOptionId);
-      expect(featureContext.syncLogs?.[0].ota_option_id).toBe(otaOptionId);
     });
 
     And('场次有 {string} 个', (_ctx, count: string) => {

@@ -254,9 +254,6 @@ export default class XiechengService extends RC7BaseService {
     }
 
     const ticket = await ctx.call('cr7.exhibition.getTicket', { eid, tid }) as Exhibition.TicketCategory;
-    if (!ticket.ota_xc_option_id) {
-      handleXiechengError(new XiechengDataError('Ticket category has no xiecheng option id', 'TICKET_CATEGORY_NOT_BOUND'));
-    }
 
     const sessions = await ctx.call('cr7.exhibition.getSessions', {
       eid,
@@ -275,7 +272,6 @@ export default class XiechengService extends RC7BaseService {
     const sequenceId = randomUUID();
     const requestBody = {
       sequenceId,
-      otaOptionId: ticket.ota_xc_option_id,
       supplierOptionId: ticket.id,
       dateType: 'DATE_REQUIRED',
       prices: syncItems.map(item => ({
@@ -447,7 +443,7 @@ export default class XiechengService extends RC7BaseService {
     sequence_id?: string;
     ticket_category_id: string;
     service_name: 'DatePriceModify' | 'DateInventoryModify';
-    ota_option_id: string;
+    ota_option_id?: string;
     sync_items: Xiecheng.XcSyncItem[];
     sync_response?: unknown;
     status: 'SUCCESS' | 'FAILURE';
