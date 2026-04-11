@@ -5,7 +5,7 @@ import {
   FeatureDescriibeCallbackParams
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
-import { expect, Mock, vi, TestContext, MockInstance } from 'vitest';
+import { expect, Mock, vi, MockInstance } from 'vitest';
 import { User } from '@cr7/types';
 import { handler as initAdminHandler } from "@/scripts/user/init-admin.js";
 import { mockWechatServer, MockServer } from './lib/server.js';
@@ -21,7 +21,8 @@ import {
   registerUser,
   updateUserProfile,
   wechatBindPhone,
-  wechatMiniLogin
+  wechatMiniLogin,
+  prepareAdminToken
 } from './fixtures/user.js';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
 import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
@@ -40,21 +41,6 @@ type LoginResponseContext = {
   userProfile: User.Profile;
 };
 
-
-type OperatorAdminContext = TestContext & {
-  adminToken?: string;
-  adminProfile?: User.Profile;
-};
-
-type OperatorUserContext = {
-  userToken?: string;
-  userProfile?: User.Profile;
-};
-
-type GrantRoleResultContext = {
-  grantRoleResponse?: { role_names: string[] };
-};
-
 interface FeatureContext extends
   Partial<LoginResponseContext> {
   broker: ServiceBroker;
@@ -62,7 +48,6 @@ interface FeatureContext extends
   adminToken: string;
   mockWechatReqHandler: Mock;
 }
-
 
 const openedMockServers: MockServer[] = [];
 const openedSpies: MockInstance[] = [];
@@ -136,7 +121,7 @@ describeFeature(feature, ({
     }
   });
 
-  defineSteps(({ When, Then }) => {
+  defineSteps(({ Given, When, Then }) => {
     When(
       '微信用户 {string} 首次打开小程序',
       async (_ctx, user: string) => {
@@ -178,6 +163,10 @@ describeFeature(feature, ({
       featureContext.userProfile = profile;
     });
 
+    Given('管理员账号已登录', async () => {
+      const { apiServer } = featureContext;
+      featureContext.adminToken = await prepareAdminToken(apiServer, schema);
+    });
   });
 
   Background(({ Given }) => {
@@ -417,36 +406,30 @@ describeFeature(feature, ({
 
   Scenario(
     '管理员可以将其他用户设置成运营人员',
-    (s: StepTest<OperatorAdminContext & OperatorUserContext & GrantRoleResultContext>) => {
+    (s: StepTest<{
+      userProfile: User.Profile;
+      userRoles: { role_names: string[] };
+    }>) => {
       const { Given, When, Then, context } = s;
-
-      Given('管理员账号已登录', async (ctx, adminName: string) => {
-        const { apiServer } = featureContext;
-        const { token, profile } = await prepareAdminUser(apiServer, schema, `admin_${adminName}`);
-        Object.assign(context, { adminToken: token, adminProfile: profile });
-      });
 
       Given('用户 {string} 已注册并登录', async (ctx, userName: string) => {
         const { apiServer } = featureContext;
         const token = await registerUser(apiServer, userName);
         const profile = await getUserProfile(apiServer, token);
-        Object.assign(context, { userToken: token, userProfile: profile });
+        context.userProfile = profile;
       });
 
       When('管理员账号将用户 {string} 设置成运营人员', async () => {
-        const { apiServer } = featureContext;
+        const { apiServer, adminToken } = featureContext;
+        const { userProfile } = context;
         const grantRoleResponse = await grantRoleToUser(
-          apiServer,
-          context.adminToken!,
-          context.userProfile!.id,
-          'OPERATOR',
+          apiServer, adminToken, userProfile!.id, 'OPERATOR',
         );
-        Object.assign(context, { grantRoleResponse });
+        context.userRoles = grantRoleResponse;
       });
 
       Then('用户 {string} 的角色包含 {string}', (_ctx, userName: string, roleLabel: string) => {
-        expect(roleLabel).toBe('operator');
-        expect(context.grantRoleResponse!.role_names).toContain('OPERATOR');
+        expect(context.userRoles!.role_names).toContain(roleLabel.toUpperCase());
       });
     });
 
