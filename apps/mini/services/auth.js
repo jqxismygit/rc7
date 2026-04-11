@@ -1,6 +1,27 @@
 // 认证与登录相关服务（接入真实后端 API）
 import request from "@/utils/request.js";
 
+function normalizeUserProfile(user) {
+  if (!user || typeof user !== "object") return user;
+  const profile = user.profile && typeof user.profile === "object" ? user.profile : {};
+  const normalized = { ...user };
+
+  // 兼容前端历史字段：昵称使用 nickname，后端标准字段为 name
+  if (!normalized.nickname && normalized.name) {
+    normalized.nickname = normalized.name;
+  }
+
+  // 兼容邮箱：优先读取顶层 email，不存在时回退到 profile.email
+  if (
+    (normalized.email == null || normalized.email === "") &&
+    typeof profile.email === "string"
+  ) {
+    normalized.email = profile.email;
+  }
+
+  return normalized;
+}
+
 /**
  * 微信小程序登录 / 注册（真实接口）
  *
@@ -43,7 +64,7 @@ export async function loginWithWechatPhone() {
     },
   });
 
-  const user = profileRes;
+  const user = normalizeUserProfile(profileRes);
 
   // 目前后端暂未提供员工标识，这里默认 false，后续有字段再从 user 中取
   const isEmployee = false;
@@ -62,7 +83,26 @@ export async function loginWithWechatPhone() {
  */
 export async function fetchProfile() {
   const profileRes = await request.get("/user/profile");
-  return profileRes;
+  return normalizeUserProfile(profileRes);
+}
+
+/**
+ * 更新当前用户资料
+ * 后端接口：PUT /user/profile
+ */
+export async function updateProfile(payload) {
+  await request.put("/user/profile", payload);
+}
+
+/**
+ * 微信手机号授权绑定（需登录态）
+ * 后端接口：POST /user/phone/wechat  { code }
+ */
+export async function bindWechatPhone(code) {
+  if (!code) {
+    throw new Error("手机号授权失败：未获取到 code");
+  }
+  await request.post("/user/phone/wechat", { code });
 }
 
 // // // 认证与登录相关 mock 服务

@@ -648,9 +648,10 @@ export default function CategoryDetailPage() {
               话题信息来自「话题详情」接口；文章列表一并返回，表格为前端分页。
             </li>
             <li>
-              文章标题必填；正文为富文本（HTML），弹窗右侧为 iPhone 框 +
-              小程序深色主题实时预览；封面可选，规则与话题封面一致（限 1
-              张，先删再换）。
+              文章标题必填；正文为富文本（HTML），支持图片与视频上传（视频走
+              <Typography.Text code>/assets/videos</Typography.Text>
+              ）；弹窗右侧为 iPhone 框 + 小程序深色主题实时预览；封面可选，规则与话题封面一致（限
+              1 张，先删再换）。
             </li>
             <li>
               小程序文章详情路径：
