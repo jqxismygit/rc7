@@ -94,7 +94,7 @@ interface SessionPriceReqBody {
 
 interface SessionInventoryReqBody {
   sequenceId: string;
-  inventories: Array<{
+  inventorys: Array<{
     date: string;
     quantity: number;
   }>;
@@ -557,10 +557,10 @@ describeFeature(feature, ({
 
     And('库存数量为 {string} 的剩余库存数量', (_ctx, ticketName: string) => {
       const ticket = featureContext.ticketByName[ticketName];
-      const inventories = (featureContext.latestDecryptedBody as SessionInventoryReqBody | undefined)?.inventories ?? [];
+      const inventorys = (featureContext.latestDecryptedBody as SessionInventoryReqBody | undefined)?.inventorys ?? [];
       const defaultInventory = 2;
       expect(ticket).toBeTruthy();
-      expect(inventories.every(item => item.quantity === defaultInventory)).toBe(true);
+      expect(inventorys.every(item => item.quantity === defaultInventory)).toBe(true);
     });
 
     And('supplier Option Id 是 {string} 的票种 ID', (_ctx, ticketName: string) => {
@@ -622,7 +622,7 @@ describeFeature(feature, ({
 
     And('库存数量为 {string}', (_ctx, quantityText: string) => {
       const quantity = Number(quantityText);
-      const items = (featureContext.latestDecryptedBody as SessionInventoryReqBody | undefined)?.inventories ?? [];
+      const items = (featureContext.latestDecryptedBody as SessionInventoryReqBody | undefined)?.inventorys ?? [];
       expect(items.every(item => item.quantity === quantity)).toBe(true);
     });
   });

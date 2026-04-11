@@ -313,7 +313,6 @@ export default class XiechengService extends RC7BaseService {
       sequence_id: sequenceId,
       ticket_category_id: ticket.id,
       service_name: 'DatePriceModify',
-      ota_option_id: ticket.ota_xc_option_id ?? null,
       sync_items: syncItems,
       sync_response: syncResponse,
       status,
@@ -365,10 +364,9 @@ export default class XiechengService extends RC7BaseService {
     const sequenceId = randomUUID();
     const requestBody = {
       sequenceId,
-      otaOptionId: ticket.ota_xc_option_id,
       supplierOptionId: ticket.id,
       dateType: 'DATE_REQUIRED',
-      inventories: syncItems.map(item => ({
+      inventorys: syncItems.map(item => ({
         date: item.date,
         quantity: item.quantity,
       })),
@@ -406,7 +404,6 @@ export default class XiechengService extends RC7BaseService {
       sequence_id: sequenceId,
       ticket_category_id: ticket.id,
       service_name: 'DateInventoryModify',
-      ota_option_id: ticket.ota_xc_option_id,
       sync_items: syncItems,
       sync_response: syncResponse,
       status,
@@ -439,7 +436,7 @@ export default class XiechengService extends RC7BaseService {
     sequence_id?: string;
     ticket_category_id: string;
     service_name: 'DatePriceModify' | 'DateInventoryModify';
-    ota_option_id: string | null;
+    ota_option_id?: string | null;
     sync_items: Xiecheng.XcSyncItem[];
     sync_response?: unknown;
     status: 'SUCCESS' | 'FAILURE';
