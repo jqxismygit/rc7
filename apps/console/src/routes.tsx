@@ -28,9 +28,9 @@ import {
   LineChartOutlined,
   StockOutlined,
   TableOutlined,
+  SecurityScanOutlined,
 } from "@ant-design/icons";
 import Order from "./pages/order";
-import User from "./pages/user";
 
 const GRAFANA_PREFIX_URL = window.location.origin.includes("localhost")
   ? "https://errows.ghostiee.cc"
@@ -48,6 +48,8 @@ const ExhibitionDetail = React.lazy(() => import("./pages/exhibition/detail"));
 const Category = React.lazy(() => import("./pages/category"));
 const CategoryDetail = React.lazy(() => import("./pages/category/detail"));
 
+const Role = React.lazy(() => import("./pages/user/role"));
+const User = React.lazy(() => import("./pages/user"));
 // 路由配置类型
 export interface RouteConfig {
   /** 路由路径；`index: true` 的叶子可省略 */
@@ -124,10 +126,24 @@ export const routes: RouteConfig[] = [
     element: <Order />,
   },
   {
-    path: "/user",
-    name: "用户",
-    icon: <UserOutlined />,
-    element: <User />,
+    path: "/permission",
+    name: "权限",
+    icon: <SecurityScanOutlined />,
+    element: <CommonLayout />,
+    children: [
+      {
+        path: "user",
+        name: "用户",
+        icon: <UserOutlined />,
+        element: <User />,
+      },
+      {
+        path: "role",
+        name: "角色",
+        icon: <TeamOutlined />,
+        element: <Role />,
+      },
+    ],
   },
 ];
 

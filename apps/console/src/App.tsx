@@ -4,12 +4,9 @@ import type { RouteObject } from "react-router";
 import { App as AntdApp, ConfigProvider, Spin } from "antd";
 import Login from "./pages/login";
 import BasicLayout from "./layout";
-import {
-  APP_FALLBACK_PATH,
-  routeConfigToRouteObject,
-  routes,
-} from "./routes";
+import { APP_FALLBACK_PATH, routeConfigToRouteObject, routes } from "./routes";
 import zhCN from "antd/locale/zh_CN";
+import { connect } from "./hooks/use-permissions";
 import "./App.less";
 
 function AppRoutes() {
@@ -64,4 +61,4 @@ function App() {
   );
 }
 
-export default App;
+export default connect(App);
