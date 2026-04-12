@@ -39,14 +39,20 @@ import {
 } from './fixtures/order.js';
 import { markOrderAsPaidForTest } from './fixtures/payment.js';
 import { random_text } from './lib/random.js';
-import { mockWechatServer as createMockWechatServer, MockServer } from './lib/server.js';
+import {
+  mockJSONServer,
+  mockWechatServer as createMockWechatServer,
+  MockServer
+} from './lib/server.js';
 
 const schema = 'test_order';
-const services = ['api', 'user', 'wechat', 'cr7'];
+const services = ['api', 'user', 'cr7'];
 
 let mockWechatReqHandler: ReturnType<typeof vi.fn>;
 let mockWechatServer: MockServer | undefined;
+let mockWechatTokenServer: MockServer | undefined;
 let wechatBaseUrlSpy: { mockRestore: () => void } | undefined;
+let wechatServiceUrlSpy: { mockRestore: () => void } | undefined;
 let currentWechatPhoneBinding = {
   countryCode: '86',
   phone: '12345678901',
@@ -206,13 +212,6 @@ describeFeature(feature, ({
         };
       }
 
-      if (path === '/cgi-bin/token') {
-        return {
-          access_token: 'mock_access_token',
-          expires_in: 7200,
-        };
-      }
-
       if (path === '/wxa/business/getuserphonenumber') {
         return {
           errcode: 0,
@@ -229,8 +228,19 @@ describeFeature(feature, ({
     });
 
     mockWechatServer = await createMockWechatServer(mockWechatReqHandler);
+    mockWechatTokenServer = await mockJSONServer(async ({ path }) => {
+      if (path !== '/access_token') {
+        throw new Error(`Unexpected request to mock wechat token server with path: ${path}`);
+      }
+
+      return {
+        access_token: 'mock_access_token',
+        expires_in: 7200,
+      };
+    });
     const { default: runtimeConfig } = await import('config');
     wechatBaseUrlSpy = vi.spyOn(runtimeConfig.wechat, 'base_url', 'get').mockReturnValue(mockWechatServer.address);
+    wechatServiceUrlSpy = vi.spyOn(runtimeConfig.wechat, 'service_url', 'get').mockReturnValue(mockWechatTokenServer.address);
 
     vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
     featureContext.fixtures = await useFixtures(
@@ -241,7 +251,9 @@ describeFeature(feature, ({
 
   AfterAllScenarios(async () => {
     await featureContext.fixtures.close();
+    wechatServiceUrlSpy?.mockRestore();
     wechatBaseUrlSpy?.mockRestore();
+    await mockWechatTokenServer?.close();
     await mockWechatServer?.close();
   });
 

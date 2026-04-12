@@ -1,26 +1,10 @@
-import { getJSON, postJSON } from "./fetch-utils.js";
+import { getJSON, postJSON } from './fetch-utils.js';
 
-interface WechatConfig {
+interface WechatServiceConfig {
   base_url: string;
   appid: string;
   secret: string;
-}
-
-interface WechatErrorResponse {
-  errcode: number;
-  errmsg: string;
-}
-
-export class WechatError extends Error {
-  errcode: number;
-  errmsg: string;
-
-  constructor(response: WechatErrorResponse) {
-    const { errcode, errmsg } = response;
-    super(`Wechat API Error ${errcode}: ${errmsg}`);
-    this.errcode = errcode;
-    this.errmsg = errmsg;
-  }
+  service_url: string;
 }
 
 interface Jscode2SessionSuccess {
@@ -32,6 +16,13 @@ interface AccessTokenSuccess {
   access_token: string;
   expires_in: number;
 }
+
+interface WechatErrorResponse {
+  errcode: number;
+  errmsg: string;
+}
+
+type Jscode2SessionResponse = Jscode2SessionSuccess | WechatErrorResponse;
 
 interface PhoneInfo {
   phoneNumber: string;
@@ -45,48 +36,31 @@ interface GetUserPhoneNumberSuccess {
   phone_info: PhoneInfo;
 }
 
-type Jscode2SessionResponse =
-| Jscode2SessionSuccess
-| WechatErrorResponse;
+type GetUserPhoneNumberResponse = GetUserPhoneNumberSuccess | WechatErrorResponse;
 
-type AccessTokenResponse =
-| AccessTokenSuccess
-| WechatErrorResponse;
+export class WechatError extends Error {
+  errcode: number;
+  errmsg: string;
 
-type GetUserPhoneNumberResponse =
-| GetUserPhoneNumberSuccess
-| WechatErrorResponse;
-
-export async function jscode2session(
-  wechatConfig: WechatConfig, js_code: string
-): Promise<Jscode2SessionSuccess> {
-  const { base_url, appid, secret } = wechatConfig;
-  const res = await getJSON<string>(
-    `${base_url}/sns/jscode2session`,
-    { query: { appid, secret, js_code, grant_type: 'authorization_code' } }
-  );
-
-  const parsed_res = JSON.parse(res) as Jscode2SessionResponse;
-  if ('errcode' in parsed_res) {
-    throw new WechatError(parsed_res);
+  constructor(response: WechatErrorResponse) {
+    const { errcode, errmsg } = response;
+    super(`Wechat API Error ${errcode}: ${errmsg}`);
+    this.errcode = errcode;
+    this.errmsg = errmsg;
   }
-
-  return parsed_res as Jscode2SessionSuccess;
 }
 
-export async function getWechatAccessToken(
-  wechatConfig: WechatConfig
-): Promise<AccessTokenSuccess> {
+export async function jscode2session(
+  wechatConfig: WechatServiceConfig,
+  js_code: string,
+): Promise<Jscode2SessionSuccess> {
   const { base_url, appid, secret } = wechatConfig;
-  const raw = await getJSON<AccessTokenResponse | string>(
-    `${base_url}/cgi-bin/token`,
-    { query: { appid, secret, grant_type: 'client_credential' } }
+  const raw = await getJSON<string | Jscode2SessionResponse>(
+    `${base_url}/sns/jscode2session`,
+    { query: { appid, secret, js_code, grant_type: 'authorization_code' } },
   );
 
-  const res = (typeof raw === 'string'
-    ? JSON.parse(raw)
-    : raw) as AccessTokenResponse;
-
+  const res = (typeof raw === 'string' ? JSON.parse(raw) : raw) as Jscode2SessionResponse;
   if ('errcode' in res) {
     throw new WechatError(res);
   }
@@ -94,21 +68,28 @@ export async function getWechatAccessToken(
   return res;
 }
 
+export async function getWechatAccessToken(
+  wechatConfig: WechatServiceConfig,
+): Promise<AccessTokenSuccess> {
+  const res = await getJSON<AccessTokenSuccess>(
+    `${wechatConfig.service_url}/access_token`
+  );
+  return res;
+}
+
 export async function getWechatUserPhoneNumber(
-  wechatConfig: WechatConfig,
-  access_token: string,
+  wechatConfig: WechatServiceConfig,
   code: string,
 ): Promise<PhoneInfo> {
   const { base_url } = wechatConfig;
+  const { access_token } = await getWechatAccessToken(wechatConfig);
+
   const raw = await postJSON<GetUserPhoneNumberResponse | string>(
     `${base_url}/wxa/business/getuserphonenumber?access_token=${access_token}`,
-    { body: { code } }
+    { body: { code } },
   );
 
-  const res = (typeof raw === 'string'
-    ? JSON.parse(raw)
-    : raw) as GetUserPhoneNumberResponse;
-
+  const res = (typeof raw === 'string' ? JSON.parse(raw) : raw) as GetUserPhoneNumberResponse;
   if ('errcode' in res && res.errcode !== 0) {
     throw new WechatError(res);
   }

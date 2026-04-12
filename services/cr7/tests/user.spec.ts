@@ -8,7 +8,7 @@ import config from 'config';
 import { expect, Mock, vi, MockInstance } from 'vitest';
 import { User } from '@cr7/types';
 import { handler as initAdminHandler } from "@/scripts/user/init-admin.js";
-import { mockWechatServer, MockServer } from './lib/server.js';
+import { mockJSONServer, mockWechatServer, MockServer } from './lib/server.js';
 import {
   adminCreateUser,
   assertLoginResponse,
@@ -39,7 +39,7 @@ import { ServiceBroker } from 'moleculer';
 import { Server } from 'node:http';
 
 const schema = 'test_wechat';
-const services = ['api', 'user', 'wechat'];
+const services = ['api', 'user'];
 
 const feature = await loadFeature('./tests/features/user.feature');
 
@@ -62,6 +62,7 @@ interface FeatureContext extends
   apiServer: Server;
   adminToken: string;
   mockWechatReqHandler: Mock;
+  mockWechatTokenHandler: Mock;
   registeredUsersByName?: Record<string, User.Profile>;
   stagedRoles?: ManagedRoleDraft[];
   roleViewCountByUser?: Record<string, number>;
@@ -85,36 +86,11 @@ describeFeature(feature, ({
   BeforeAllScenarios(async () => {
     vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
     await bootstrap();
-
-    const mockWechatReqHandler = vi.fn()
-    .mockImplementationOnce(async ({ path }) => {
-      if (path === '/cgi-bin/token') {
-        return {
-          access_token: 'default_test_token',
-          expires_in: 7200,
-        };
-      }
-
-      return Promise.reject(
-        new Error(`Unexpected request to mock wechat server with path: ${path}`)
-      );
-    });
-
-    const mock_wechat_server = await mockWechatServer(mockWechatReqHandler);
-
-    const wechatServerSpy = vi
-    .spyOn(config.wechat, 'base_url', 'get')
-    .mockReturnValue(mock_wechat_server.address);
-
-    await migrate({ schema });
     const broker = await prepareServices(services);
     await broker.start();
+
     featureContext.broker = broker;
     featureContext.apiServer = await prepareAPIServer(broker);
-    featureContext.mockWechatReqHandler = mockWechatReqHandler;
-
-    openedSpies.push(wechatServerSpy);
-    openedMockServers.push(mock_wechat_server);
   });
 
   AfterAllScenarios(async () => {
@@ -132,9 +108,8 @@ describeFeature(feature, ({
   AfterEachScenario(async () => {
     await dropSchema({ schema });
 
-    featureContext.mockWechatReqHandler.mockReset();
     for (const [key] of Object.entries(featureContext)) {
-      if (['broker', 'apiServer', 'mockWechatReqHandler'].includes(key)) {
+      if (['broker', 'apiServer'].includes(key)) {
         continue;
       }
       Object.assign(featureContext, { [key]: undefined });
@@ -142,6 +117,29 @@ describeFeature(feature, ({
   });
 
   defineSteps(({ Given, When, Then, And }) => {
+    Given('微信服务已经准备好', async () => {
+      const mockWechatReqHandler = vi.fn();
+      const mock_wechat_server = await mockWechatServer(mockWechatReqHandler);
+      const wechatServerSpy = vi
+      .spyOn(config.wechat, 'base_url', 'get')
+      .mockReturnValue(mock_wechat_server.address);
+      featureContext.mockWechatReqHandler = mockWechatReqHandler;
+      openedMockServers.push(mock_wechat_server);
+      openedSpies.push(wechatServerSpy);
+
+      const mockWechatTokenHandler = vi.fn().mockResolvedValue({
+        access_token: 'default_test_token',
+        expires_in: 7200,
+      });
+      const mock_wechat_token_server = await mockJSONServer(mockWechatTokenHandler);
+      const wechatTokenServerSpy = vi
+      .spyOn(config.wechat, 'service_url', 'get')
+      .mockReturnValue(mock_wechat_token_server.address)
+      featureContext.mockWechatTokenHandler = mockWechatTokenHandler;
+      openedSpies.push(wechatTokenServerSpy);
+      openedMockServers.push(mock_wechat_token_server);
+    });
+
     When(
       '微信用户 {string} 首次打开小程序',
       async (_ctx, user: string) => {
@@ -154,13 +152,17 @@ describeFeature(feature, ({
         const code = `code_${user}`;
         featureContext.loginResponse = await wechatMiniLogin(apiServer, code);
 
-        const { appid, secret, } = config.wechat;
+        const { appid, secret } = config.wechat;
         expect(mockWechatReqHandler).toHaveBeenCalledWith(
           expect.objectContaining({
             body: null,
+            path: '/sns/jscode2session',
             query: expect.objectContaining({
-              appid, secret, js_code: code, grant_type: 'authorization_code'
-            })
+              appid,
+              secret,
+              js_code: code,
+              grant_type: 'authorization_code',
+            }),
           })
         );
       }
@@ -323,9 +325,13 @@ describeFeature(feature, ({
       const { appid, secret } = config.wechat;
       expect(mockWechatReqHandler).toHaveBeenCalledWith(expect.objectContaining({
         body: null,
+        path: '/sns/jscode2session',
         query: expect.objectContaining({
-          appid, secret, js_code: code, grant_type: 'authorization_code'
-        })
+          appid,
+          secret,
+          js_code: code,
+          grant_type: 'authorization_code',
+        }),
       }));
 
       context.loginResponse = loginResponse;
@@ -431,8 +437,9 @@ describeFeature(feature, ({
     });
 
   Then('微信服务端返回用户的手机号信息', async () => {
-      const { mockWechatReqHandler } = featureContext;
+      const { mockWechatReqHandler, mockWechatTokenHandler } = featureContext;
       await vi.waitFor(() => {
+        expect(mockWechatTokenHandler).toHaveBeenCalledTimes(1);
         expect(mockWechatReqHandler).toHaveBeenCalledTimes(2);
       });
     });

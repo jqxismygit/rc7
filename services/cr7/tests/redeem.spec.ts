@@ -39,7 +39,7 @@ import { getOrder } from './fixtures/order.js';
 import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 
 const schema = 'test_redeem';
-const services = ['api', 'user', 'wechat', 'cr7'];
+const services = ['api', 'user', 'cr7'];
 
 const feature = await loadFeature('tests/features/redeem.feature');
 

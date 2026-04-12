@@ -33,6 +33,7 @@ declare module 'config' {
       base_url: string;
       appid: string;
       secret: string;
+      service_url: string;
     },
     wechatpay: {
       base_url: string;

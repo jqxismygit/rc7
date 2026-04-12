@@ -37,6 +37,7 @@ export default {
     base_url: 'https://1.1.1.1',
     appid: 'test_appid',
     secret: 'test_secret',
+    service_url: 'http://127.0.0.1:3000',
   },
   wechatpay: {
     base_url: 'https://1.1.1.1',

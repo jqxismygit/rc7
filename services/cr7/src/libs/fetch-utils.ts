@@ -43,12 +43,16 @@ function getHeaders(options: Options): HeadersInit {
 
 async function handlerBody(res: Response): Promise<string | unknown> {
   const contentType = res.headers.get('content-type') || '';
+  const body = await res.text();
   if (contentType.includes('application/json') === false) {
-    return res.text();
+    return body;
   }
 
-  const body = await res.json();
-  return body;
+  if (body.length === 0) {
+    return null;
+  }
+
+  return JSON.parse(body);
 }
 
 export async function getJSON<Res>(uri: string, options: Options = {}) {
