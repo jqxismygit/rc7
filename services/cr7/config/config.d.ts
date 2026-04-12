@@ -72,6 +72,12 @@ declare module 'config' {
       sign: string;
       api_key: string;
       api_pwd: string;
+    },
+    fapiao: {
+      app_id: string;
+      secret: string;
+      base_url: string;
+      callback_base_url: string;
     }
   }
 

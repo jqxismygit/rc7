@@ -76,5 +76,11 @@ export default {
     api_key: '3309712MW9',
     sign: '<--ignore-->',
     api_pwd: '<--ignore-->',
+  },
+  fapiao: {
+    app_id: 'your_app_id',
+    secret: '<--ignore-->',
+    base_url: 'https://www.fapiao.com:53085/fpt-rhqz/prepose',
+    callback_base_url: `${host}/api/fapiao/callback`,
   }
 }

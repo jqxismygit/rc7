@@ -9,5 +9,8 @@ export default {
   },
   assets: {
     path: path.resolve(__dirname, '../../../assets'),
+  },
+  fapiao: {
+    base_url: 'https://dev.fapiao.com:19444/fpt-rhqz/prepose',
   }
 }

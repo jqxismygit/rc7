@@ -61,5 +61,8 @@ export default {
   },
   damai: {
     base_url: 'https://1.1.1.1',
+  },
+  fapiao: {
+    base_url: 'https://1.1.1.1',
   }
 }
