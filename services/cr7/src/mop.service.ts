@@ -245,7 +245,7 @@ async function getCityMeta(cityName: string) {
     throw new MoleculerClientError(`暂不支持同步城市: ${cityName}`, 400, 'MOP_CITY_NOT_SUPPORTED');
   }
 
-  throw new MoleculerClientError(`暂不支持同步城市: ${cityName}`, 400, 'MOP_CITY_NOT_SUPPORTED');
+  return city;
 }
 
 async function readKey(path: string) {
