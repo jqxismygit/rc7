@@ -43,6 +43,7 @@ export default {
     base_url: 'https://api.weixin.qq.com',
     appid: 'wx8e0cd522cf168035',
     secret: '__APP_SECRET__',
+    service_url: 'http://127.0.0.1:3000',
   },
   wechatpay: {
     base_url: 'https://api.mch.weixin.qq.com',

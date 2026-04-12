@@ -1,0 +1,13 @@
+[Unit]
+Description=Wechat service.
+
+[Service]
+WorkingDirectory=/var/lib/cr7/services/wechat
+Environment=NODE_ENV=production
+Environment=WECHAT_SETTINGS_PATH=/var/lib/cr7/services/wechat/wechat-settings.json
+ExecStart=/usr/bin/node index.js
+Restart=always
+RestartSec=500ms
+
+[Install]
+WantedBy=default.target

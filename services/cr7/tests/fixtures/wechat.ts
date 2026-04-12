@@ -2,7 +2,7 @@ import { Server } from 'node:http';
 import { User } from '@cr7/types';
 import { vi } from 'vitest';
 import { random_text } from '../lib/random.js';
-import { MockServer, mockWechatServer } from '../lib/server.js';
+import { mockJSONServer, mockWechatServer } from '../lib/server.js';
 import { getUserProfile, wechatBindPhone, wechatMiniLogin } from './user.js';
 
 type MiniLoginResponse = {
@@ -55,17 +55,10 @@ export async function setupWechatFixture(): Promise<WechatFixture> {
     query: Record<string, string>;
     body: unknown;
   }) => {
-    if (path === '/cgi-bin/token') {
-      return {
-        access_token: 'mock_access_token',
-        expires_in: 7200,
-      };
-    }
-
     if (path === '/sns/jscode2session') {
       const code = query.js_code;
       if (!code) {
-        throw new Error('js_code is required');
+        throw new Error('code is required');
       }
 
       const response = miniLoginCodes.get(code);
@@ -98,10 +91,23 @@ export async function setupWechatFixture(): Promise<WechatFixture> {
   });
 
   const server = await mockWechatServer(mockWechatReqHandler);
+  const accessTokenServer = await mockJSONServer(async ({ path }) => {
+    if (path !== '/access_token') {
+      throw new Error(`Unexpected request to mock access token server with path: ${path}`);
+    }
+
+    return {
+      access_token: 'mock_access_token',
+      expires_in: 7200,
+    };
+  });
   const { default: runtimeConfig } = await import('config');
   const baseUrlSpy = vi
     .spyOn(runtimeConfig.wechat, 'base_url', 'get')
     .mockReturnValue(server.address);
+  const serviceUrlSpy = vi
+    .spyOn(runtimeConfig.wechat, 'service_url', 'get')
+    .mockReturnValue(accessTokenServer.address);
 
   const mockMiniLoginCode = (code: string, response: Partial<MiniLoginResponse> = {}) => {
     const res: MiniLoginResponse = {
@@ -126,7 +132,9 @@ export async function setupWechatFixture(): Promise<WechatFixture> {
 
   return {
     async close() {
+      serviceUrlSpy.mockRestore();
       baseUrlSpy.mockRestore();
+      await accessTokenServer.close();
       await server.close();
     },
     mockMiniLoginCode,

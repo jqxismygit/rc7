@@ -1,0 +1,7 @@
+{
+  "wechat": {
+    "base_url": "https://api.weixin.qq.com",
+    "appid": "your_appid_here",
+    "secret": "your_secret_here"
+  }
+}

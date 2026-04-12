@@ -40,7 +40,7 @@ import { getSessionTickets } from './fixtures/inventory.js';
 import { random_text } from './lib/random.js';
 
 const schema = 'test_wechatpay';
-const services = ['api', 'user', 'wechat', 'cr7'];
+const services = ['api', 'user', 'cr7'];
 
 type ExhibitionContext = {
   exhibition?: Exhibition.Exhibition;

@@ -4,12 +4,14 @@ Feature: user registration and login
     Given cr7 服务已启动
 
   Scenario: 微信用户登录
+    Given 微信服务已经准备好
      When 微信用户 "wechat_mp_user" 首次打开小程序
      Then 注册为新用户
      When 微信用户 "wechat_mp_user" 再次打开小程序
      Then 登录成功并获取用户信息
 
   Scenario: 用户更新个人信息
+   Given 微信服务已经准备好
     When 微信用户 "wechat_mp_user" 首次打开小程序
     Then 注册为新用户
 
@@ -26,6 +28,7 @@ Feature: user registration and login
      And 用户信息 profile 中 "年龄" 的值为 30
 
   Scenario: 微信用户绑定手机号
+    Given 微信服务已经准备好
      When 微信用户 "wechat_mp_user" 首次打开小程序
      Then 注册为新用户
      When 用户点击手机号授权, 国家码为 "86"，手机号为 "12345678901"

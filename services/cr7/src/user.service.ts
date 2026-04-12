@@ -314,12 +314,7 @@ export default class UserService extends Service {
     const schema = await this.getSchema();
     const wechatConfig = await this.getWechatConfig();
 
-    const { access_token } = await ctx.call<{ access_token: string }>('wechat.access_token');
-    const phoneInfo = await getWechatUserPhoneNumber(
-      wechatConfig,
-      access_token,
-      code,
-    );
+    const phoneInfo = await getWechatUserPhoneNumber(wechatConfig, code);
 
     const country_code = phoneInfo.countryCode.startsWith('+')
       ? phoneInfo.countryCode
