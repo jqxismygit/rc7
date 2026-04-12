@@ -1,6 +1,7 @@
 
 import { createCipheriv, createDecipheriv, createHash } from 'node:crypto';
 import config from 'config';
+import { format } from 'date-fns';
 import { Errors } from 'moleculer';
 
 const { MoleculerClientError } = Errors;
@@ -84,22 +85,8 @@ function getAESAlgorithm(secret: string) {
 	return 'aes-256-ecb';
 }
 
-function formatRequestTime(date = new Date()) {
-	const year = date.getFullYear();
-	const month = String(date.getMonth() + 1).padStart(2, '0');
-	const day = String(date.getDate()).padStart(2, '0');
-	const hour = String(date.getHours()).padStart(2, '0');
-	const minute = String(date.getMinutes()).padStart(2, '0');
-	const second = String(date.getSeconds()).padStart(2, '0');
-	return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
-}
 
-function formatExchangeDate(date = new Date()) {
-	const year = date.getFullYear();
-	const month = String(date.getMonth() + 1).padStart(2, '0');
-	const day = String(date.getDate()).padStart(2, '0');
-	return `${year}${month}${day}`;
-}
+
 
 function normalizeContent(content: unknown) {
 	return typeof content === 'string' ? content : JSON.stringify(content);
@@ -146,13 +133,14 @@ export function decryptFapiaoContentKey(contentKey: string, secret: string) {
 }
 
 export function buildFapiaoDataExchangeId(interfaceCode: string, sequence: string, date = new Date()) {
-	return `${DEFAULT_REQUEST_CODE}${interfaceCode}${formatExchangeDate(date)}${sequence}`;
+  const exchangeDate = format(date, 'yyyyMMdd');
+	return `${DEFAULT_REQUEST_CODE}${interfaceCode}${exchangeDate}${sequence}`;
 }
 
 export function buildFapiaoRequest(options: BuildFapiaoRequestOptions) {
 	const requestCode = options.requestCode ?? DEFAULT_REQUEST_CODE;
 	const responseCode = options.responseCode ?? DEFAULT_RESPONSE_CODE;
-	const requestTime = options.requestTime ?? formatRequestTime();
+	const requestTime = options.requestTime ?? format(new Date(), 'yyyy-MM-dd HH:mm:ss');
 	const encodedContent = encodeFapiaoContent(options.content);
 	const contentSha256 = sha256FapiaoContent(encodedContent);
 	const contentKey = encryptFapiaoContentKey(contentSha256, options.secret);
