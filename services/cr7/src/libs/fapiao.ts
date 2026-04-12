@@ -56,7 +56,6 @@ interface BuildFapiaoRequestOptions {
 
 interface ParseFapiaoResponseOptions {
   secret?: string;
-  verifyContentKey?: boolean;
   parseContentAsJSON?: boolean;
 }
 
@@ -211,14 +210,18 @@ export function parseFapiaoResponse<T = unknown>(
     ? null
     : decodeFapiaoContent(encodedContent);
 
-  if (options.verifyContentKey !== false && options.secret && encodedContent.length > 0) {
-    const expectedSha = sha256FapiaoContent(encodedContent);
+  if (
+		envelope.interface.data.contentKey.length > 0
+    && options.secret && encodedContent.length > 0
+	) {
     let decryptedSha = '';
     try {
       decryptedSha = decryptFapiaoContentKey(envelope.interface.data.contentKey, options.secret);
     } catch {
       throw new MoleculerClientError('发票平台响应 contentKey 校验失败', 400, 'FAPIAO_CONTENT_KEY_INVALID');
     }
+
+    const expectedSha = sha256FapiaoContent(encodedContent);
     if (decryptedSha !== expectedSha) {
       throw new MoleculerClientError('发票平台响应 contentKey 校验失败', 400, 'FAPIAO_CONTENT_KEY_INVALID');
     }
@@ -338,7 +341,7 @@ export async function sendFapiaoKpjRequest(params: FapiaoKpjParams): Promise<voi
     [FAPIAO_INTERFACE_KEY]: {
       SBLX: '6',
       SBBH: '',
-      FPQQLSH: oid.replace(/-/g, ''),
+      FPQQLSH: "SHJZWLJC00000000001",
       KPZDDM: '',
       FPLXDM: '030',
       KPLX: '0',
