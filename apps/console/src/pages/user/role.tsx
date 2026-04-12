@@ -243,11 +243,11 @@ const RolesPage: React.FC = () => {
         <Space>
           <CrownOutlined />
           <Text strong>{text}</Text>
-          {/* {record.builtin && (
+          {record.is_builtin && (
             <Tag color="blue" icon={<LockOutlined />}>
               内置
             </Tag>
-          )} */}
+          )}
         </Space>
       ),
     },
@@ -290,7 +290,10 @@ const RolesPage: React.FC = () => {
             type="link"
             icon={<EditOutlined />}
             onClick={() => handleOpenModal(record)}
-            // disabled={record.builtin || !hasPermission("permission_roles_edit")}
+            disabled={
+              record.is_builtin
+              // || !hasPermission("permission_roles_edit")
+            }
           >
             编辑
           </Button>
@@ -300,15 +303,16 @@ const RolesPage: React.FC = () => {
             onConfirm={() => handleDelete(record.id)}
             okText="确定"
             cancelText="取消"
-            // disabled={
-            //   record.builtin || !hasPermission("permission_roles_delete")
-            // }
+            disabled={
+              record.is_builtin
+              //  || !hasPermission("permission_roles_delete")
+            }
           >
             <Button
               type="link"
               danger
               icon={<DeleteOutlined />}
-              // disabled={record.builtin}
+              disabled={record.is_builtin}
             >
               删除
             </Button>
@@ -394,10 +398,11 @@ const RolesPage: React.FC = () => {
                 validator: (_, value) => {
                   if (
                     typeof value === "string" &&
-                    value.trim().toUpperCase() === "ADMIN"
+                    (value.trim().toUpperCase() === "ADMIN" ||
+                      value.trim().toUpperCase() === "OPERATOR")
                   ) {
                     return Promise.reject(
-                      new Error("角色名称不能为 ADMIN（保留名称）"),
+                      new Error("角色名称不能为 ADMIN 或 OPERATOR（保留名称）"),
                     );
                   }
                   return Promise.resolve();

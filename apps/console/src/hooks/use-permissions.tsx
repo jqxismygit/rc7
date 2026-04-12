@@ -74,8 +74,8 @@ export const useRoles = () => {
         const data = await getRolesApi();
         console.log("roles ===>>", data);
         //过滤系统内置角色
-        setData(data?.filter((item) => !item.is_builtin) ?? []);
-        // setData(data?.roles ?? []);
+        // setData(data?.filter((item) => item?.name !== "ADMIN") ?? []);
+        setData(data ?? []);
         setLoaded(true);
       } catch (error) {
         console.error(error);
