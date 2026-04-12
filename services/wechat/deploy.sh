@@ -16,9 +16,11 @@ echo "deploy to $SERVER";
 rsync -aP etc                                                           "$SERVER:";
 rsync -aP etc/wechat.service                                            "$SERVER:.config/systemd/user/";
 
+echo "deploy wechat projects settings...";
+rsync -aP "services/wechat/package.json"                                "$SERVER:services/wechat/";
+
 echo "deploy wechat...";
-rsync -aP --delete --delete-excluded --include="**/*.js" --exclude="*.*" \
-    "services/wechat/dist/"                                            "$SERVER:services/wechat/"
+rsync -aP "services/wechat/dist/"                                       "$SERVER:services/wechat/"
 
 echo "deploy default settings template...";
 rsync -aP "services/wechat/wechat-settings.json.example"               "$SERVER:services/wechat/";
