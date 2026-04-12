@@ -140,3 +140,109 @@ export async function updateTicketCategoryInventoryMaxApi(
     { quantity },
   );
 }
+
+/** 同步展览项目到猫眼（MOP），响应 204 */
+export async function syncExhibitionToMopApi(eid: string): Promise<void> {
+  await request.post(`/exhibition/${encodeURIComponent(eid)}/ota/mop/sync`);
+}
+
+/** MOP 按场次日期区间同步时请求体（与 docs/api/mop.md 一致） */
+export type MopSessionDateRangeBody = {
+  sessionDateStart?: string;
+  sessionDateEnd?: string;
+};
+
+/** 同步票种信息到 MOP，响应 204 */
+export async function syncMopTicketsApi(
+  eid: string,
+  body: MopSessionDateRangeBody,
+): Promise<void> {
+  await request.post(
+    `/exhibition/${encodeURIComponent(eid)}/ota/mop/sync/tickets`,
+    body,
+  );
+}
+
+/** 同步场次信息到 MOP，响应 204 */
+export async function syncMopSessionsApi(
+  eid: string,
+  body: MopSessionDateRangeBody,
+): Promise<void> {
+  await request.post(
+    `/exhibition/${encodeURIComponent(eid)}/ota/mop/sync/sessions`,
+    body,
+  );
+}
+
+/** 同步库存信息到 MOP，响应 204 */
+export async function syncMopStocksApi(
+  eid: string,
+  body: MopSessionDateRangeBody,
+): Promise<void> {
+  await request.post(
+    `/exhibition/${encodeURIComponent(eid)}/ota/mop/sync/stocks`,
+    body,
+  );
+}
+
+/** 同步展览项目到大麦，响应 204 */
+export async function syncExhibitionToDamaiApi(eid: string): Promise<void> {
+  await request.post(`/exhibition/${encodeURIComponent(eid)}/ota/damai/sync`);
+}
+
+/** 大麦按场次日期区间同步（与 docs/api/damai.md 一致，snake_case） */
+export type DamaiSessionDateRangeBody = {
+  start_session_date?: string;
+  end_session_date?: string;
+};
+
+/** 同步场次信息到大麦，响应 204 */
+export async function syncDamaiSessionsApi(
+  eid: string,
+  body: DamaiSessionDateRangeBody,
+): Promise<void> {
+  await request.post(
+    `/exhibition/${encodeURIComponent(eid)}/ota/damai/sync/sessions`,
+    body,
+  );
+}
+
+/** 同步指定场次下票种（价格）到大麦，响应 204 */
+export async function syncDamaiSessionTicketsApi(
+  eid: string,
+  sid: string,
+): Promise<void> {
+  await request.post(
+    `/exhibition/${encodeURIComponent(eid)}/sessions/${encodeURIComponent(sid)}/ota/damai/sync/tickets`,
+  );
+}
+
+/** 携程按场次日期区间同步（与 docs/api/xiecheng.md 一致，snake_case） */
+export type XiechengSessionDateRangeBody = {
+  start_session_date: string;
+  end_session_date: string;
+};
+
+/** 同步票种场次库存至携程；不传 quantity 时按各场次剩余库存同步 */
+export async function syncXiechengTicketInventoryApi(
+  eid: string,
+  tid: string,
+  body: XiechengSessionDateRangeBody,
+): Promise<void> {
+  await request.post(
+    `/exhibition/${encodeURIComponent(eid)}/tickets/${encodeURIComponent(tid)}/ota/xc/sync/inventory`,
+    body,
+  );
+}
+
+/** 同步票种场次价格至携程 */
+export async function syncXiechengTicketPricesApi(
+  eid: string,
+  tid: string,
+  body: XiechengSessionDateRangeBody,
+): Promise<void> {
+  await request.post(
+    `/exhibition/${encodeURIComponent(eid)}/tickets/${encodeURIComponent(tid)}/ota/xc/sync/prices`,
+    body,
+  );
+}

@@ -8,11 +8,17 @@ import {
   APP_FALLBACK_PATH,
   routeConfigToRouteObject,
   routes,
+  filterRoutesByPermission,
 } from "./routes";
 import zhCN from "antd/locale/zh_CN";
+import { connect, usePermission } from "./hooks/use-permissions";
 import "./App.less";
 
 function AppRoutes() {
+  const { userPermissions } = usePermission();
+  const filteredRoutes = useMemo(() => {
+    return filterRoutesByPermission(routes, userPermissions);
+  }, [userPermissions]);
   const appRouteObjects = useMemo((): RouteObject[] => {
     return [
       { path: "/login", element: <Login /> },
@@ -21,13 +27,12 @@ function AppRoutes() {
         element: <BasicLayout />,
         children: [
           { index: true, element: <Navigate to={APP_FALLBACK_PATH} replace /> },
-          ...routes.map(routeConfigToRouteObject),
+          ...filteredRoutes.map(routeConfigToRouteObject),
         ],
       },
       { path: "*", element: <Navigate to={APP_FALLBACK_PATH} replace /> },
     ];
-  }, []);
-
+  }, [filteredRoutes]);
   return useRoutes(appRouteObjects);
 }
 
@@ -64,4 +69,4 @@ function App() {
   );
 }
 
-export default App;
+export default connect(App);

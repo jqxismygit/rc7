@@ -1,21 +1,35 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import type { ColumnsType } from "antd/es/table";
 import {
   Breadcrumb,
   Button,
+  Calendar,
   Card,
+  Checkbox,
+  DatePicker,
   Descriptions,
   Empty,
+  Flex,
   Image,
   Modal,
+  Radio,
+  Segmented,
+  Space,
   Spin,
   Table,
   Typography,
   message,
   theme,
 } from "antd";
-import { HomeOutlined, PlusOutlined } from "@ant-design/icons";
+import { HomeOutlined, PlusOutlined, SyncOutlined } from "@ant-design/icons";
+import type { RangePickerProps } from "antd/es/date-picker";
 import {
   ModalForm,
   ProFormDigit,
@@ -32,13 +46,59 @@ import {
   type CreateTicketCategoryInput,
 } from "@/apis/exhibition";
 import { useModal } from "@/hooks/use-modal";
-import { formatDateTime, formatSessionDateTime } from "@/utils/format-datetime";
+import {
+  useSyncInfoToCtrip,
+  useSyncInfoToDamai,
+  useSyncInfoToMaoyan,
+} from "@/hooks/use-sync";
+import { formatDateTime } from "@/utils/format-datetime";
 import dayjs from "dayjs";
+import type { Dayjs } from "dayjs";
 import "./exhibition.less";
 
 type ExhibitionDetailData = ExhibitionTypes.Exhibition & {
   sessions?: ExhibitionTypes.Session[];
   ticket_categories?: ExhibitionTypes.TicketCategory[];
+};
+
+/** 同步到 OTA 弹窗：平台与同步项 */
+type OtaSyncPlatform = "maoyan" | "damai" | "ctrip";
+
+/** 各平台固定同步项展示（不可编辑，仅说明实际同步范围与顺序） */
+const OTA_SYNC_FIXED_CONTENT: Record<
+  OtaSyncPlatform,
+  {
+    rows: { label: string; checked: boolean }[];
+    hint: string;
+  }
+> = {
+  maoyan: {
+    rows: [
+      { label: "场次", checked: true },
+      { label: "票种", checked: true },
+      { label: "价格", checked: true },
+      { label: "库存", checked: true },
+    ],
+    hint: "猫眼将按固定顺序同步：票种（含价格）→ 场次 → 库存",
+  },
+  damai: {
+    rows: [
+      { label: "场次", checked: true },
+      { label: "票种", checked: true },
+      { label: "价格", checked: false },
+      { label: "库存", checked: false },
+    ],
+    hint: "大麦仅同步场次与票种（票种同步含价格）；以下均为固定项，不可更改",
+  },
+  ctrip: {
+    rows: [
+      { label: "场次", checked: true },
+      { label: "票种", checked: false },
+      { label: "价格", checked: true },
+      { label: "库存", checked: true },
+    ],
+    hint: "携程按各票种依次同步：库存（默认按剩余库存）→ 价格；场次为所选日期区间内的场次日期",
+  },
 };
 
 const REFUND_POLICY_OPTIONS: {
@@ -85,6 +145,12 @@ export default function ExhibitionDetailPage() {
   const { eid = "" } = useParams<{ eid: string }>();
   const navigate = useNavigate();
   const { token } = theme.useToken();
+  const { sync: syncInfoToMaoyan, syncing: maoyanInfoSyncing } =
+    useSyncInfoToMaoyan();
+  const { sync: syncInfoToDamai, syncing: damaiInfoSyncing } =
+    useSyncInfoToDamai();
+  const { sync: syncInfoToCtrip, syncing: ctripInfoSyncing } =
+    useSyncInfoToCtrip();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ExhibitionDetailData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -101,19 +167,60 @@ export default function ExhibitionDetailPage() {
     close: closeTicketInvModal,
   } = useModal<ExhibitionTypes.TicketCategory>();
 
-  const {
-    visible: sessionInvVisible,
-    data: sessionInvData,
-    open: openSessionInvModal,
-    close: closeSessionInvModal,
-  } = useModal<ExhibitionTypes.Session>();
-
   const [ticketSubmitting, setTicketSubmitting] = useState(false);
   const [ticketInvSubmitting, setTicketInvSubmitting] = useState(false);
   const [sessionInvLoading, setSessionInvLoading] = useState(false);
   const [sessionInvRows, setSessionInvRows] = useState<
     InventoryTypes.SessionTicketsInventory[]
   >([]);
+
+  const [selectedDay, setSelectedDay] = useState<Dayjs | null>(null);
+  const [panelDate, setPanelDate] = useState<Dayjs>(() => dayjs());
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null,
+  );
+
+  const [otaSyncModalOpen, setOtaSyncModalOpen] = useState(false);
+  const [otaSyncPlatform, setOtaSyncPlatform] =
+    useState<OtaSyncPlatform>("maoyan");
+  const [otaSyncDateRange, setOtaSyncDateRange] = useState<
+    [Dayjs, Dayjs] | null
+  >(null);
+
+  const otaExhibitionDateBounds = useMemo(() => {
+    if (!data?.start_date || !data?.end_date) return null;
+    const start = dayjs(data.start_date).startOf("day");
+    const end = dayjs(data.end_date).startOf("day");
+    if (!start.isValid() || !end.isValid()) return null;
+    return { start, end };
+  }, [data?.start_date, data?.end_date]);
+
+  /** 同步可选下界：不早于今天、不早于展期开始；若展期已结束则无可用区间 */
+  const otaSyncEffectiveBounds = useMemo(() => {
+    if (!otaExhibitionDateBounds) return null;
+    const today = dayjs().startOf("day");
+    const { start: exStart, end: exEnd } = otaExhibitionDateBounds;
+    const minStart = today.isBefore(exStart, "day") ? exStart : today;
+    if (minStart.isAfter(exEnd, "day")) return null;
+    return { exStart, exEnd, minStart };
+  }, [otaExhibitionDateBounds]);
+
+  const otaSyncRangeDisabledDate = useMemo<
+    NonNullable<RangePickerProps["disabledDate"]>
+  >(() => {
+    return (current, info) => {
+      if (!otaSyncEffectiveBounds || !current) return false;
+      const { exStart, exEnd, minStart } = otaSyncEffectiveBounds;
+      if (current.isBefore(exStart, "day") || current.isAfter(exEnd, "day")) {
+        return true;
+      }
+      const from = info?.from;
+      if (from) {
+        return current.isBefore(from, "day");
+      }
+      return current.isBefore(minStart, "day");
+    };
+  }, [otaSyncEffectiveBounds]);
 
   const loadDetail = useCallback(async () => {
     if (!eid) {
@@ -140,22 +247,22 @@ export default function ExhibitionDetailPage() {
     void loadDetail();
   }, [loadDetail]);
 
-  /** 场次库存弹窗打开后拉取列表 */
+  /** 当前选中场次变更时拉取该场次库存 */
   useEffect(() => {
-    if (!sessionInvVisible || !sessionInvData || !eid) {
-      if (!sessionInvVisible) {
-        setSessionInvRows([]);
-        setSessionInvLoading(false);
-      }
+    if (!eid || !selectedSessionId) {
+      setSessionInvRows([]);
+      setSessionInvLoading(false);
       return;
     }
-    const session = sessionInvData;
     let cancelled = false;
     setSessionInvLoading(true);
     setSessionInvRows([]);
     (async () => {
       try {
-        const rows = await listExhibitionSessionTicketsApi(eid, session.id);
+        const rows = await listExhibitionSessionTicketsApi(
+          eid,
+          selectedSessionId,
+        );
         if (!cancelled) setSessionInvRows(rows);
       } catch (err) {
         if (!cancelled) {
@@ -170,58 +277,88 @@ export default function ExhibitionDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [sessionInvVisible, sessionInvData, eid]);
+  }, [eid, selectedSessionId, data]);
 
-  const openSessionInventory = useCallback(
-    (session: ExhibitionTypes.Session) => {
-      openSessionInvModal(session);
-    },
-    [openSessionInvModal],
+  const sessions = useMemo(() => data?.sessions ?? [], [data?.sessions]);
+
+  const sessionsByDate = useMemo(() => {
+    const map = new Map<string, ExhibitionTypes.Session[]>();
+    for (const s of sessions) {
+      const key = dayjs(s.session_date).format("YYYY-MM-DD");
+      const arr = map.get(key) ?? [];
+      arr.push(s);
+      map.set(key, arr);
+    }
+    for (const arr of map.values()) {
+      arr.sort(
+        (a, b) => dayjs(a.created_at).valueOf() - dayjs(b.created_at).valueOf(),
+      );
+    }
+    return map;
+  }, [sessions]);
+
+  useLayoutEffect(() => {
+    if (!sessions.length) {
+      setSelectedDay(null);
+      setSelectedSessionId(null);
+      return;
+    }
+    setSelectedSessionId((prev) => {
+      if (prev && sessions.some((s) => s.id === prev)) return prev;
+      return sessions[0].id;
+    });
+  }, [sessions]);
+
+  useLayoutEffect(() => {
+    if (!selectedSessionId) return;
+    const s = sessions.find((x) => x.id === selectedSessionId);
+    if (s) {
+      const d = dayjs(s.session_date);
+      setSelectedDay(d);
+      setPanelDate(d);
+    }
+  }, [selectedSessionId, sessions]);
+
+  const selectedSession = useMemo(
+    () =>
+      selectedSessionId
+        ? sessions.find((s) => s.id === selectedSessionId)
+        : undefined,
+    [sessions, selectedSessionId],
   );
 
-  const sessionColumns = useMemo<ColumnsType<ExhibitionTypes.Session>>(
-    () => [
-      {
-        title: "序号",
-        key: "index",
-        width: 72,
-        align: "center",
-        render: (_, __, index) => index + 1,
-      },
-      {
-        title: "场次日期",
-        dataIndex: "session_date",
-        width: 180,
-        render: (v: string) => dayjs(v).format("YYYY-MM-DD"),
-      },
-      {
-        title: "场次 ID",
-        dataIndex: "id",
-        ellipsis: true,
-        render: (id: string) => (
-          <Typography.Text copyable={{ text: id }} ellipsis>
-            {id}
-          </Typography.Text>
-        ),
-      },
-      {
-        title: "操作",
-        key: "action",
-        width: 108,
-        fixed: "right",
-        render: (_, row) => (
-          <Button
-            type="link"
-            size="small"
-            style={{ padding: 0, height: "auto" }}
-            onClick={() => openSessionInventory(row)}
-          >
-            查看库存
-          </Button>
-        ),
-      },
-    ],
-    [openSessionInventory],
+  const sessionsOnSelectedDay = useMemo(() => {
+    if (!selectedDay) return [];
+    return sessionsByDate.get(selectedDay.format("YYYY-MM-DD")) ?? [];
+  }, [selectedDay, sessionsByDate]);
+
+  /** 展期与场次并集，避免场次落在展期外时无法在日历中选到 */
+  const exhibitionDateRange = useMemo((): [Dayjs, Dayjs] | undefined => {
+    if (!data) return undefined;
+    let start = data.start_date ? dayjs(data.start_date).startOf("day") : null;
+    let end = data.end_date ? dayjs(data.end_date).endOf("day") : null;
+    for (const s of sessions) {
+      const d = dayjs(s.session_date);
+      if (!d.isValid()) continue;
+      const dayStart = d.startOf("day");
+      const dayEnd = d.endOf("day");
+      if (!start || dayStart.isBefore(start)) start = dayStart;
+      if (!end || dayEnd.isAfter(end)) end = dayEnd;
+    }
+    if (start && end && start.isValid() && end.isValid()) return [start, end];
+    return undefined;
+  }, [data, sessions]);
+
+  const handleCalendarSelect = useCallback(
+    (date: Dayjs) => {
+      setSelectedDay(date);
+      setPanelDate(date);
+      const key = date.format("YYYY-MM-DD");
+      const list = sessionsByDate.get(key);
+      if (list?.length) setSelectedSessionId(list[0].id);
+      else setSelectedSessionId(null);
+    },
+    [sessionsByDate],
   );
 
   const inventoryColumns = useMemo<
@@ -457,9 +594,40 @@ export default function ExhibitionDetailPage() {
           <Empty description={error} />
         ) : data ? (
           <>
-            <Typography.Title level={4} style={{ marginTop: 0 }}>
-              {data.name}
-            </Typography.Title>
+            <div
+              style={{
+                display: "flex",
+                gap: token.marginSM,
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: token.marginMD,
+              }}
+            >
+              <Typography.Title
+                level={4}
+                style={{ marginTop: 0, marginBottom: 0 }}
+              >
+                {data.name}
+              </Typography.Title>
+              <Button
+                type="primary"
+                icon={<SyncOutlined />}
+                onClick={() => {
+                  setOtaSyncModalOpen(true);
+                  setOtaSyncPlatform("maoyan");
+                  if (data?.start_date && data?.end_date) {
+                    setOtaSyncDateRange([
+                      dayjs(data.start_date).startOf("day"),
+                      dayjs(data.end_date).startOf("day"),
+                    ]);
+                  } else {
+                    setOtaSyncDateRange(null);
+                  }
+                }}
+              >
+                批量同步到OTA
+              </Button>
+            </div>
             <Descriptions
               column={{ xs: 1, sm: 1, md: 2 }}
               bordered
@@ -530,13 +698,15 @@ export default function ExhibitionDetailPage() {
             variant="borderless"
             title="票种列表"
             extra={
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => openAddTicketModal()}
-              >
-                添加票种
-              </Button>
+              <div style={{ display: "flex", gap: token.marginSM }}>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => openAddTicketModal()}
+                >
+                  添加票种
+                </Button>
+              </div>
             }
             style={{
               marginTop: token.marginMD,
@@ -570,54 +740,288 @@ export default function ExhibitionDetailPage() {
               boxShadow: token.boxShadowSecondary,
             }}
           >
-            <Table<ExhibitionTypes.Session>
-              className="exhibition-detail-sessions-table"
-              rowKey="id"
-              columns={sessionColumns}
-              dataSource={data.sessions ?? []}
-              pagination={{
-                pageSize: 20,
-                showSizeChanger: true,
-                pageSizeOptions: [10, 20, 50, 100],
-                showTotal: (total) => `共 ${total} 场`,
-              }}
-              locale={{ emptyText: "暂无场次数据" }}
-              scroll={{ x: "max-content" }}
-            />
+            {sessions.length === 0 ? (
+              <Empty description="暂无场次数据" />
+            ) : (
+              <Flex
+                gap={token.marginLG}
+                align="flex-start"
+                wrap="wrap"
+                className="exhibition-detail-sessions-layout"
+              >
+                <div className="exhibition-detail-session-calendar-wrap">
+                  <Calendar
+                    fullscreen={false}
+                    value={selectedDay ?? panelDate}
+                    validRange={exhibitionDateRange}
+                    onSelect={(d) => handleCalendarSelect(d)}
+                    onPanelChange={(d) => setPanelDate(d)}
+                    cellRender={(current, info) => {
+                      if (info.type !== "date") return info.originNode;
+                      const hasSession =
+                        (sessionsByDate.get(current.format("YYYY-MM-DD"))
+                          ?.length ?? 0) > 0;
+                      if (!hasSession) return null;
+                      return (
+                        <span
+                          className="exhibition-session-calendar-has-session"
+                          aria-hidden
+                        />
+                      );
+                    }}
+                  />
+                </div>
+                <div
+                  className="exhibition-detail-session-panel"
+                  style={{ flex: "1 1 320px", minWidth: 280 }}
+                >
+                  <Typography.Title level={5} style={{ marginTop: 0 }}>
+                    当前场次
+                  </Typography.Title>
+                  {selectedSession ? (
+                    <>
+                      {sessionsOnSelectedDay.length > 1 ? (
+                        <div style={{ marginBottom: token.marginMD }}>
+                          <Typography.Text
+                            type="secondary"
+                            style={{ display: "block", marginBottom: 8 }}
+                          >
+                            当日有多场，请切换：
+                          </Typography.Text>
+                          <Segmented
+                            value={selectedSessionId ?? undefined}
+                            onChange={(v) => setSelectedSessionId(v as string)}
+                            options={sessionsOnSelectedDay.map((s, i) => ({
+                              label: `第 ${i + 1} 场`,
+                              value: s.id,
+                            }))}
+                          />
+                        </div>
+                      ) : null}
+                      <Descriptions
+                        bordered
+                        column={1}
+                        size="middle"
+                        className="exhibition-detail-session-descriptions"
+                      >
+                        <Descriptions.Item label="场次日期">
+                          {dayjs(selectedSession.session_date).format(
+                            "YYYY-MM-DD",
+                          )}
+                        </Descriptions.Item>
+                        <Descriptions.Item label="场次 ID">
+                          <Typography.Text
+                            copyable={{ text: selectedSession.id }}
+                          >
+                            {selectedSession.id}
+                          </Typography.Text>
+                        </Descriptions.Item>
+                      </Descriptions>
+                      <Typography.Title
+                        level={5}
+                        style={{ marginTop: token.marginLG, marginBottom: 12 }}
+                      >
+                        库存
+                      </Typography.Title>
+                      <Spin spinning={sessionInvLoading}>
+                        <Table<InventoryTypes.SessionTicketsInventory>
+                          className="exhibition-detail-session-inventory-table"
+                          rowKey="id"
+                          size="small"
+                          columns={inventoryColumns}
+                          dataSource={sessionInvRows}
+                          pagination={false}
+                          locale={{
+                            emptyText: sessionInvLoading
+                              ? "加载中…"
+                              : "暂无票种或库存数据",
+                          }}
+                          scroll={{ x: "max-content" }}
+                        />
+                      </Spin>
+                    </>
+                  ) : selectedDay && sessionsOnSelectedDay.length === 0 ? (
+                    <Empty description="该日暂无场次" />
+                  ) : (
+                    <Empty description="请在左侧日历中选择有场次的日期" />
+                  )}
+                </div>
+              </Flex>
+            )}
           </Card>
         </>
       ) : null}
 
       <Modal
-        title={
-          sessionInvData
-            ? `场次库存 · ${dayjs(sessionInvData.session_date).format("YYYY-MM-DD")}`
-            : "场次库存"
+        title="同步场次到 OTA"
+        width={640}
+        open={otaSyncModalOpen}
+        afterOpenChange={(open) => {
+          if (open && otaSyncEffectiveBounds) {
+            const { exEnd, minStart } = otaSyncEffectiveBounds;
+            setOtaSyncDateRange([minStart, exEnd]);
+          }
+        }}
+        onCancel={() => setOtaSyncModalOpen(false)}
+        confirmLoading={
+          (otaSyncPlatform === "maoyan" && maoyanInfoSyncing) ||
+          (otaSyncPlatform === "damai" && damaiInfoSyncing) ||
+          (otaSyncPlatform === "ctrip" && ctripInfoSyncing)
         }
-        open={sessionInvVisible}
-        onCancel={closeSessionInvModal}
-        footer={null}
-        width={880}
+        onOk={async () => {
+          if (
+            !otaSyncDateRange?.[0]?.isValid() ||
+            !otaSyncDateRange?.[1]?.isValid()
+          ) {
+            message.warning("请选择同步日期范围");
+            return;
+          }
+          const sessionDateStart = otaSyncDateRange[0].format("YYYY-MM-DD");
+          const sessionDateEnd = otaSyncDateRange[1].format("YYYY-MM-DD");
+          if (otaSyncPlatform === "maoyan") {
+            if (!eid) {
+              message.warning("缺少展会 ID");
+              return;
+            }
+            try {
+              await syncInfoToMaoyan(eid, {
+                sessionDateStart,
+                sessionDateEnd,
+              });
+              setOtaSyncModalOpen(false);
+            } catch {
+              /* 错误已在 hook 中提示 */
+            }
+            return;
+          }
+          if (otaSyncPlatform === "damai") {
+            if (!eid) {
+              message.warning("缺少展会 ID");
+              return;
+            }
+            try {
+              await syncInfoToDamai(eid, {
+                start_session_date: sessionDateStart,
+                end_session_date: sessionDateEnd,
+              });
+              setOtaSyncModalOpen(false);
+            } catch {
+              /* 错误已在 hook 中提示 */
+            }
+            return;
+          }
+          if (otaSyncPlatform === "ctrip") {
+            if (!eid) {
+              message.warning("缺少展会 ID");
+              return;
+            }
+            try {
+              await syncInfoToCtrip(eid, {
+                start_session_date: sessionDateStart,
+                end_session_date: sessionDateEnd,
+              });
+              setOtaSyncModalOpen(false);
+            } catch {
+              /* 错误已在 hook 中提示 */
+            }
+            return;
+          }
+        }}
+        okText="确定"
+        cancelText="取消"
         destroyOnClose
         maskClosable={false}
       >
-        <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
-          展示该场次下各票种的库存数量（接口：GET
-          /exhibition/:eid/sessions/:sid/tickets）。
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 16 }}>
+          当前展会：{data?.name ?? "—"}
         </Typography.Paragraph>
-        <Spin spinning={sessionInvLoading}>
-          <Table<InventoryTypes.SessionTicketsInventory>
-            rowKey="id"
-            size="small"
-            columns={inventoryColumns}
-            dataSource={sessionInvRows}
-            pagination={false}
-            locale={{
-              emptyText: sessionInvLoading ? "加载中…" : "暂无票种或库存数据",
-            }}
-            scroll={{ x: "max-content" }}
+        <Flex gap={token.marginLG} wrap="wrap" align="flex-start">
+          <div style={{ flex: "1 1 220px", minWidth: 200 }}>
+            <Typography.Text
+              type="secondary"
+              style={{ display: "block", marginBottom: 8 }}
+            >
+              同步目标（单选）
+            </Typography.Text>
+            <Radio.Group
+              value={otaSyncPlatform}
+              onChange={(e) => {
+                setOtaSyncPlatform(e.target.value as OtaSyncPlatform);
+              }}
+            >
+              <Space direction="vertical">
+                <Radio value="maoyan">猫眼</Radio>
+                <Radio value="damai">大麦</Radio>
+                <Radio value="ctrip">携程</Radio>
+              </Space>
+            </Radio.Group>
+          </div>
+          <div style={{ flex: "1 1 220px", minWidth: 200 }}>
+            <Typography.Text
+              type="secondary"
+              style={{ display: "block", marginBottom: 8 }}
+            >
+              同步内容（可多选）
+            </Typography.Text>
+            <Space direction="vertical" size="small">
+              {OTA_SYNC_FIXED_CONTENT[otaSyncPlatform].rows.map((row) => (
+                <Checkbox
+                  key={`${otaSyncPlatform}-${row.label}`}
+                  checked={row.checked}
+                  disabled
+                >
+                  {row.label}
+                </Checkbox>
+              ))}
+              <Typography.Paragraph
+                type="secondary"
+                style={{ marginBottom: 0, fontSize: 12 }}
+              >
+                {OTA_SYNC_FIXED_CONTENT[otaSyncPlatform].hint}
+              </Typography.Paragraph>
+            </Space>
+          </div>
+        </Flex>
+        <div style={{ marginTop: token.marginMD }}>
+          <Typography.Text
+            type="secondary"
+            style={{ display: "block", marginBottom: 8 }}
+          >
+            同步日期
+          </Typography.Text>
+          <DatePicker.RangePicker
+            value={otaSyncDateRange}
+            disabled={!otaSyncEffectiveBounds}
+            onChange={(v) =>
+              setOtaSyncDateRange(v && v[0] && v[1] ? [v[0], v[1]] : null)
+            }
+            format="YYYY-MM-DD"
+            style={{ width: "100%", maxWidth: 360 }}
+            disabledDate={otaSyncRangeDisabledDate}
+            placeholder={["开始日期", "结束日期"]}
           />
-        </Spin>
+          {otaExhibitionDateBounds ? (
+            <Typography.Paragraph
+              type="secondary"
+              style={{ marginTop: 8, marginBottom: 0, fontSize: 12 }}
+            >
+              {otaSyncEffectiveBounds ? (
+                <>
+                  须在展期 {otaExhibitionDateBounds.start.format("YYYY-MM-DD")}{" "}
+                  ~ {otaExhibitionDateBounds.end.format("YYYY-MM-DD")}{" "}
+                  内；开始日期不早于今天（默认开始为今天，若尚未开展则为展期首日）。
+                </>
+              ) : (
+                <>
+                  展期已结束或不可选（
+                  {otaExhibitionDateBounds.start.format("YYYY-MM-DD")} ~{" "}
+                  {otaExhibitionDateBounds.end.format("YYYY-MM-DD")}
+                  ），无法选择同步日期。
+                </>
+              )}
+            </Typography.Paragraph>
+          ) : null}
+        </div>
       </Modal>
 
       <ModalForm<{ quantity: number }>

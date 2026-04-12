@@ -1,0 +1,42 @@
+[
+  {
+    "group": "exhibition",
+    "name": "exhibition_view",
+    "title": "查看展会列表"
+  },
+  {
+    "group": "exhibition",
+    "name": "exhibition_create",
+    "title": "创建展会"
+  },
+  {
+    "group": "exhibition",
+    "name": "exhibition_edit",
+    "title": "编辑展会"
+  },
+  {
+    "group": "exhibition",
+    "name": "exhibition_delete",
+    "title": "删除展会"
+  },
+  {
+    "group": "article",
+    "name": "banner_manage",
+    "title": "banner管理"
+  },
+  {
+    "group": "article",
+    "name": "news_manage",
+    "title": "新闻管理"
+  },
+  {
+    "group": "article",
+    "name": "brand_cooperation_manage",
+    "title": "品牌合作管理"
+  },
+  {
+    "group": "article",
+    "name": "privacy_policy_manage",
+    "title": "隐私政策管理"
+  }
+]
