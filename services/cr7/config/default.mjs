@@ -82,5 +82,8 @@ export default {
     secret: '<--ignore-->',
     base_url: 'https://www.fapiao.com:53085/fpt-rhqz/prepose',
     callback_base_url: `${host}/api/fapiao/callback`,
+    tax_id: 'your_tax_id',
+    company_name: 'your_company_name',
+    issuer: 'your_issuer',
   }
 }

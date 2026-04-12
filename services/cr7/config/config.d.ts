@@ -78,6 +78,9 @@ declare module 'config' {
       secret: string;
       base_url: string;
       callback_base_url: string;
+      tax_id: string;
+      company_name: string;
+      issuer: string;
     }
   }
 

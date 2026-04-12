@@ -12,5 +12,10 @@ export default {
   },
   fapiao: {
     base_url: 'https://dev.fapiao.com:19444/fpt-rhqz/prepose',
+    app_id: '2d9688c1e9a68a8da702ffcc75f90226f0d8c7ea71076313d1088f50a8493093',
+    secret: '48E92223495F210A',
+    tax_id: '914402023073111101',
+    company_name: '国票虚拟数电企业',
+    issuer: '开票人'
   }
 }
