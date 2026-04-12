@@ -49,9 +49,9 @@ export const deleteRoleApi = async (id: string): Promise<void> => {
 
 export const updateRoleApi = async (
   id: string,
-  data: UserTypes.Role,
+  data: Pick<UserTypes.Role, "name" | "permissions">,
 ): Promise<void> => {
-  await request.put(`/users/roles/${id}`, data);
+  await request.patch(`/users/roles/${id}`, data);
 };
 
 export type UserRolesResult = {

@@ -100,10 +100,16 @@ export const useRoles = () => {
     }
   };
 
-  const updateRole = async (role_id: string, data: UserTypes.Role) => {
+  const updateRole = async (
+    role_id: string,
+    data: Pick<UserTypes.Role, "name" | "permissions">,
+  ) => {
     try {
       setOptioning(true);
-      const res = await updateRoleApi(role_id, data);
+      const res = await updateRoleApi(role_id, {
+        name: data.name,
+        permissions: data.permissions,
+      });
       refetch();
       message.success("更新角色成功");
       return res;
