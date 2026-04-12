@@ -158,6 +158,7 @@ describeFeature(feature, ({
   AfterAllScenarios,
   Background,
   Scenario,
+  defineSteps,
   context: featureContext,
 }: FeatureDescriibeCallbackParams<FeatureContext>) => {
   BeforeAllScenarios(async () => {
@@ -179,12 +180,7 @@ describeFeature(feature, ({
     await featureContext.wechatFixture.close();
   });
 
-  Background(({ Given, And }) => {
-    Given('系统管理员已经创建并登录', async () => {
-      const { apiServer } = featureContext.fixtures.values;
-      featureContext.adminToken = await prepareAdminToken(apiServer, schema);;
-    });
-
+  defineSteps(({ Given }) => {
     Given('用户 {string} 已注册并登录，已绑定手机号', async (_ctx, userName: string) => {
       const { apiServer } = featureContext.fixtures.values;
       const { token, profile } = await featureContext.wechatFixture
@@ -193,14 +189,12 @@ describeFeature(feature, ({
       featureContext.userProfile = profile;
       featureContext.usersByName[userName] = { token, profile };
     });
+  });
 
-    Given('{string} 已注册并登录，已绑定手机号', async (_ctx, userName: string) => {
+  Background(({ Given, And }) => {
+    Given('系统管理员已经创建并登录', async () => {
       const { apiServer } = featureContext.fixtures.values;
-      const { token, profile } = await featureContext.wechatFixture
-        .registerAndBindPhone(apiServer, `${userName}_${Date.now()}`);
-      featureContext.operatorToken = token;
-      featureContext.operatorProfile = profile;
-      featureContext.usersByName[userName] = { token, profile };
+      featureContext.adminToken = await prepareAdminToken(apiServer, schema);;
     });
 
     And('{string} 被授予 {string} 角色', async (_ctx, userName: string, roleLabel: string) => {
@@ -218,6 +212,9 @@ describeFeature(feature, ({
         user.profile.id,
         operatorRoleId,
       );
+
+      featureContext.operatorToken = user.token;
+      featureContext.operatorProfile = user.profile;
     });
 
     Given('默认核销展览活动已创建，开始时间为 {string}，结束时间为 {string}', async (_ctx, startDate: string, endDate: string) => {
