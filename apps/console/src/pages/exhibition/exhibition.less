@@ -125,6 +125,11 @@
   background: #fff;
 }
 
+/* 不显示头部「月 / 年」视图切换，仅保留年月下拉与翻月 */
+.exhibition-detail-session-calendar-wrap .ant-picker-calendar-mode-switch {
+  display: none !important;
+}
+
 /* 有场次：整格淡蓝透明底（由占位节点 + :has 触发，无圆点） */
 .exhibition-detail-session-calendar-wrap
   .ant-picker-cell-inner.ant-picker-calendar-date:has(

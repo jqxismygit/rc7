@@ -216,3 +216,33 @@ export async function syncDamaiSessionTicketsApi(
     `/exhibition/${encodeURIComponent(eid)}/sessions/${encodeURIComponent(sid)}/ota/damai/sync/tickets`,
   );
 }
+
+/** 携程按场次日期区间同步（与 docs/api/xiecheng.md 一致，snake_case） */
+export type XiechengSessionDateRangeBody = {
+  start_session_date: string;
+  end_session_date: string;
+};
+
+/** 同步票种场次库存至携程；不传 quantity 时按各场次剩余库存同步 */
+export async function syncXiechengTicketInventoryApi(
+  eid: string,
+  tid: string,
+  body: XiechengSessionDateRangeBody,
+): Promise<void> {
+  await request.post(
+    `/exhibition/${encodeURIComponent(eid)}/tickets/${encodeURIComponent(tid)}/ota/xc/sync/inventory`,
+    body,
+  );
+}
+
+/** 同步票种场次价格至携程 */
+export async function syncXiechengTicketPricesApi(
+  eid: string,
+  tid: string,
+  body: XiechengSessionDateRangeBody,
+): Promise<void> {
+  await request.post(
+    `/exhibition/${encodeURIComponent(eid)}/tickets/${encodeURIComponent(tid)}/ota/xc/sync/prices`,
+    body,
+  );
+}

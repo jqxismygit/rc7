@@ -3,6 +3,7 @@ import { useCallback, useState } from "react";
 import dayjs from "dayjs";
 import {
   getExhibitionSessionsApi,
+  listExhibitionTicketsApi,
   syncDamaiSessionTicketsApi,
   syncDamaiSessionsApi,
   syncExhibitionToDamaiApi,
@@ -10,8 +11,11 @@ import {
   syncMopSessionsApi,
   syncMopStocksApi,
   syncMopTicketsApi,
+  syncXiechengTicketInventoryApi,
+  syncXiechengTicketPricesApi,
   type DamaiSessionDateRangeBody,
   type MopSessionDateRangeBody,
+  type XiechengSessionDateRangeBody,
 } from "@/apis/exhibition";
 import { pickApiErrorMessage } from "@/utils/pick-api-error";
 
@@ -126,6 +130,49 @@ export function useSyncInfoToDamai() {
           await syncDamaiSessionTicketsApi(eid, s.id);
         }
         message.success("大麦同步已完成（场次 → 票种）");
+      } catch (err) {
+        message.error(pickApiErrorMessage(err));
+        throw err;
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [message],
+  );
+
+  return { sync, syncing };
+}
+
+/**
+ * 携程：按票种依次同步（同一日期区间）。顺序：库存（不传 quantity，按剩余库存）→ 价格。
+ */
+export function useSyncInfoToCtrip() {
+  const { message } = App.useApp();
+  const [syncing, setSyncing] = useState(false);
+
+  const sync = useCallback(
+    async (eid: string, range: XiechengSessionDateRangeBody) => {
+      const { start_session_date, end_session_date } = range;
+      if (!start_session_date?.trim() || !end_session_date?.trim()) {
+        message.warning("请选择同步日期范围");
+        return;
+      }
+      setSyncing(true);
+      try {
+        const tickets = await listExhibitionTicketsApi(eid);
+        if (tickets.length === 0) {
+          message.warning("暂无票种，无法同步携程");
+          return;
+        }
+        const body: XiechengSessionDateRangeBody = {
+          start_session_date,
+          end_session_date,
+        };
+        for (const t of tickets) {
+          await syncXiechengTicketInventoryApi(eid, t.id, body);
+          await syncXiechengTicketPricesApi(eid, t.id, body);
+        }
+        message.success("携程同步已完成（各票种：库存 → 价格）");
       } catch (err) {
         message.error(pickApiErrorMessage(err));
         throw err;
