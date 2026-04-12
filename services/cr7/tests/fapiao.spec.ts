@@ -177,9 +177,7 @@ describeFeature(feature, ({
       );
     });
 
-    And('订单状态为 {string}', (_ctx, statusLabel: string) => {
-      expect(statusLabel).toBe('已支付');
-      expect(featureContext.order).toBeTruthy();
+    And('订单状态为已支付', () => {
       expect(featureContext.order!.status).toBe('PAID');
     });
   });
