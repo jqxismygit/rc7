@@ -143,6 +143,17 @@ export const getPermissionsApi = async (): Promise<PermissionItem[]> => {
 export const createUserApi = async (
   data: UserCreateInput,
 ): Promise<UserTypes.Profile> => {
-  const res = await request.post("/users", data);
-  return res as unknown as UserTypes.Profile;
+  //先通过手机号查找，如果存在，直接更新角色即可
+  const result = await listUsersApi({ phone: data.phone });
+  if (result.users.length > 0) {
+    const user = result.users[0];
+    if (user && user?.roles && user?.roles?.length > 0) {
+      throw new Error("用户已存在");
+    } else {
+      return user as unknown as UserTypes.Profile;
+    }
+  } else {
+    const res = await request.post("/users", data);
+    return res as unknown as UserTypes.Profile;
+  }
 };
