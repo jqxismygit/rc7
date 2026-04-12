@@ -47,6 +47,23 @@ export async function getOrder(
   );
 }
 
+export async function applyOrderInvoice(
+  server: Server,
+  orderId: string,
+  payload: {
+    invoice_title: string;
+    tax_no?: string;
+    buyer_name: string;
+  },
+  token: string,
+) {
+  return postJSON<{ success: boolean }>(
+    server,
+    `/orders/${orderId}/invoice`,
+    { body: payload, token },
+  );
+}
+
 export async function getOrderAdmin(
   server: Server,
   orderId: string,

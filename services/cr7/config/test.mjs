@@ -63,6 +63,16 @@ export default {
     base_url: 'https://1.1.1.1',
   },
   fapiao: {
+    app_id: 'test_fapiao_app_id',
+    secret: '80AB94991453FA0D',
     base_url: 'https://1.1.1.1',
+    callback_base_url: 'https://test.example.com/api/fapiao/callback',
+    tax_id: '110109500321668',
+    company_name: '测试销售方公司',
+    company_address: '测试销售方地址',
+    company_phone: '010-1008611',
+    company_bank: '测试银行北京分行',
+    company_bank_account: '6222020202020202020',
+    issuer: '测试开票员',
   }
 }

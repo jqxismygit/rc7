@@ -3,6 +3,7 @@ import { createCipheriv, createDecipheriv, createHash } from 'node:crypto';
 import config from 'config';
 import { format } from 'date-fns';
 import { Errors } from 'moleculer';
+import { postJSON } from './fetch-utils.js';
 
 const { MoleculerClientError } = Errors;
 
@@ -237,13 +238,130 @@ export function parseFapiaoResponse<T = unknown>(
 	};
 }
 
-export function createFapiaoRequest(
-  options: Omit<BuildFapiaoRequestOptions, 'appId' | 'secret' | 'requestCode'>,
-) {
-	return buildFapiaoRequest({
-		...options,
+
+/**
+ * 构建请求、发送 POST、校验响应，返回解密后的业务内容。
+ * 若平台返回 returnCode 非 0000，或业务内容中 CODE 非 0000，则抛出错误。
+ */
+export async function sendFapiaoRequest<T = unknown>(
+  interfaceCode: string,
+  content: unknown,
+): Promise<T> {
+	const request = buildFapiaoRequest({
+		interfaceCode, content,
     requestCode: DEFAULT_REQUEST_CODE,
 		appId: config.fapiao.app_id,
 		secret: config.fapiao.secret,
 	});
+
+	const rawResponse = await postJSON(config.fapiao.base_url, {
+		body: request.payload,
+	});
+
+	const parsed = parseFapiaoResponse<T & { CODE?: string; MESSAGE?: string }>(rawResponse, {
+		secret: config.fapiao.secret,
+	});
+
+	if (parsed.returnCode !== '0000') {
+		throw new MoleculerClientError(
+			`发票平台错误: ${parsed.returnMessage}`,
+			502,
+			'FAPIAO_PLATFORM_ERROR',
+		);
+	}
+
+	const decoded = parsed.decodedContent;
+	if (
+		typeof decoded === 'object' &&
+		decoded !== null &&
+		'CODE' in decoded &&
+		(decoded as { CODE?: string }).CODE !== '0000'
+	) {
+		const msg = (decoded as { MESSAGE?: string }).MESSAGE ?? '发票申请失败';
+		throw new MoleculerClientError(msg, 502, 'FAPIAO_REQUEST_FAILED');
+	}
+
+	return decoded as T;
+}
+
+const FAPIAO_INTERFACE_CODE = 'GP_FPKJ';
+const FAPIAO_INTERFACE_KEY = 'REQUEST_COMMON_FPKJ';
+const FAPIAO_TAX_RATE = 0.03;
+const FAPIAO_ITEM_CODE = '3070301000000000000';
+
+function formatYuanFromFen(valueInFen: number) {
+	const value = valueInFen / 100;
+	if (Number.isInteger(value)) {
+		return `${value}`;
+	}
+	return value.toFixed(2);
+}
+
+export interface FapiaoKpjItem {
+	ticket_name: string;
+	quantity: number;
+	unit_price: number;
+	subtotal: number;
+}
+
+export interface FapiaoKpjParams {
+	oid: string;
+	invoice_title: string;
+	tax_no?: string;
+	buyer_name: string;
+	total_amount: number;
+	items: FapiaoKpjItem[];
+}
+
+export async function sendFapiaoKpjRequest(params: FapiaoKpjParams): Promise<void> {
+	const { oid, invoice_title, tax_no = '', buyer_name, total_amount, items } = params;
+
+	const hjjeFen = Math.round(total_amount / (1 + FAPIAO_TAX_RATE));
+	const hjseFen = total_amount - hjjeFen;
+
+	const itemRows = items.map((item) => {
+		const itemHjjeFen = Math.round(item.subtotal / (1 + FAPIAO_TAX_RATE));
+		const itemHjseFen = item.subtotal - itemHjjeFen;
+
+		return {
+			FPHXZ: '0',
+			SPBM: FAPIAO_ITEM_CODE,
+			XMMC: item.ticket_name,
+			XMSL: `${item.quantity}`,
+			XMDJ: formatYuanFromFen(item.unit_price),
+			XMJE: formatYuanFromFen(itemHjjeFen),
+			SL: `${FAPIAO_TAX_RATE}`,
+			SE: formatYuanFromFen(itemHjseFen),
+		};
+	});
+
+	const content = {
+		[FAPIAO_INTERFACE_KEY]: {
+			SBLX: '6',
+			SBBH: '',
+			FPQQLSH: oid.replace(/-/g, ''),
+			KPZDDM: '',
+			FPLXDM: '030',
+			KPLX: '0',
+			BMB_BBH: '',
+			ZSFS: '0',
+			XSF_NSRSBH: config.fapiao.tax_id,
+			XSF_MC: config.fapiao.company_name,
+			XSF_DZ: config.fapiao.company_address,
+			XSF_DH: config.fapiao.company_phone,
+			XSF_KHH: config.fapiao.company_bank,
+			XSF_ZH: config.fapiao.company_bank_account,
+			GMF_NSRSBH: tax_no,
+			GMF_MC: buyer_name,
+			KPR: config.fapiao.issuer,
+			BY1: invoice_title,
+			JSHJ: formatYuanFromFen(total_amount),
+			HJJE: formatYuanFromFen(hjjeFen),
+			HJSE: formatYuanFromFen(hjseFen),
+			COMMON_FPKJ_XMXX: itemRows,
+			CALLBACK_URL: config.fapiao.callback_base_url,
+		},
+	};
+
+	await sendFapiaoRequest(FAPIAO_INTERFACE_CODE, content);
 }

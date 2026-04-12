@@ -1,6 +1,7 @@
 import { RC7BaseService } from "./libs/cr7.base.js";
 import { AssetsService } from './libs/assets.js';
 import { ExhibitionService } from "./libs/exhibition.js";
+import { FapiaoService } from './libs/invoice.js';
 import { OrderService } from "./libs/order.js";
 import { PaymentService } from "./libs/payment.js";
 import { RedemptionService } from './libs/redeem.js';
@@ -16,6 +17,7 @@ export default class RC7Service extends RC7BaseService {
     super(broker);
     const assetsService = new AssetsService(broker);
     const exhibitionService = new ExhibitionService(broker);
+    const invoiceService = new FapiaoService(broker);
     const orderService = new OrderService(broker);
     const redemptionService = new RedemptionService(broker);
     const topicService = new TopicService(broker);
@@ -43,6 +45,7 @@ export default class RC7Service extends RC7BaseService {
       actions: {
         ...assetsService.actions_assets,
         ...exhibitionService.actions_exhibition,
+        ...invoiceService.actions_fapiao,
         ...orderService.actions_order,
         ...redemptionService.actions_redemption,
         ...topicService.actions_topics,

@@ -80,6 +80,10 @@ declare module 'config' {
       callback_base_url: string;
       tax_id: string;
       company_name: string;
+      company_address: string;
+      company_phone: string;
+      company_bank: string;
+      company_bank_account: string;
       issuer: string;
     }
   }
