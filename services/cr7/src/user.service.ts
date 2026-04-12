@@ -202,6 +202,11 @@ export default class UserService extends Service {
               type: 'uuid',
               optional: true,
             },
+            has_any_role: {
+              type: 'boolean',
+              optional: true,
+              convert: true,
+            },
             damai_user_id: {
               type: 'string',
               optional: true,
@@ -464,17 +469,18 @@ export default class UserService extends Service {
     ctx: Context<{
       phone?: string;
       role_id?: string;
+      has_any_role?: boolean;
       damai_user_id?: string;
       page?: number;
       limit?: number
     }>
   ) {
     const schema = await this.getSchema();
-    const { phone, role_id, damai_user_id, page = 1, limit = 20 } = ctx.params;
+    const { phone, role_id, has_any_role, damai_user_id, page = 1, limit = 20 } = ctx.params;
 
     const users = await listUserProfiles(
       this.pool, schema,
-      { phone, role_id, damai_user_id, page, limit }
+      { phone, role_id, has_any_role, damai_user_id, page, limit }
     );
     return users;
   }

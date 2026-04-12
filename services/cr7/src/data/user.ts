@@ -103,19 +103,27 @@ export async function listUserProfiles(
   options: {
     phone?: string;
     role_id?: string;
+    has_any_role?: boolean;
     damai_user_id?: string;
     page: number;
     limit: number;
   },
 ) {
-  const { phone, role_id, damai_user_id, page, limit } = options;
+  const { phone, role_id, has_any_role, damai_user_id, page, limit } = options;
   const offset = (page - 1) * limit;
+  const filterParams = [
+    phone ?? null,
+    damai_user_id ?? null,
+    role_id ?? null,
+    has_any_role ?? null,
+  ];
 
-  const { rows: countRows } = await client.query<{ total: string }>(
-    `SELECT COUNT(*)::text AS total
+  const filterFromSql = `
     FROM ${schema}.users u
     LEFT JOIN ${schema}.user_damai ud ON u.id = ud.uid
-    LEFT JOIN ${schema}.user_phone up ON u.id = up.uid
+    LEFT JOIN ${schema}.user_phone up ON u.id = up.uid`;
+
+  const filterWhereSql = `
     WHERE ($1::text IS NULL OR up.phone = $1)
       AND ($2::text IS NULL OR ud.damai_user_id = $2)
       AND (
@@ -126,8 +134,26 @@ export async function listUserProfiles(
           WHERE ur.uid = u.id
             AND ur.role_id = $3::uuid
         )
-      )`,
-    [phone ?? null, damai_user_id ?? null, role_id ?? null],
+      )
+      AND (
+        $4::boolean IS NULL
+        OR ($4::boolean = TRUE AND EXISTS (
+          SELECT 1
+          FROM ${schema}.user_roles ur_any
+          WHERE ur_any.uid = u.id
+        ))
+        OR ($4::boolean = FALSE AND NOT EXISTS (
+          SELECT 1
+          FROM ${schema}.user_roles ur_any
+          WHERE ur_any.uid = u.id
+        ))
+      )`;
+
+  const { rows: countRows } = await client.query<{ total: string }>(
+    `SELECT COUNT(*)::text AS total
+    ${filterFromSql}
+    ${filterWhereSql}`,
+    filterParams,
   );
   const total = parseInt(countRows[0].total, 10);
 
@@ -156,25 +182,13 @@ export async function listUserProfiles(
         COALESCE(up.updated_at, u.updated_at),
         COALESCE(upw.updated_at, u.updated_at)
       ) AS updated_at
-    FROM ${schema}.users u
-    LEFT JOIN ${schema}.user_damai ud ON u.id = ud.uid
+    ${filterFromSql}
     LEFT JOIN ${schema}.user_wechat uw ON u.id = uw.uid
-    LEFT JOIN ${schema}.user_phone up ON u.id = up.uid
     LEFT JOIN ${schema}.user_password upw ON u.id = upw.uid
-    WHERE ($1::text IS NULL OR up.phone = $1)
-      AND ($2::text IS NULL OR ud.damai_user_id = $2)
-      AND (
-        $3::uuid IS NULL
-        OR EXISTS (
-          SELECT 1
-          FROM ${schema}.user_roles ur
-          WHERE ur.uid = u.id
-            AND ur.role_id = $3::uuid
-        )
-      )
+    ${filterWhereSql}
       ORDER BY u.created_at DESC
-      LIMIT $4 OFFSET $5`,
-    [phone ?? null, damai_user_id ?? null, role_id ?? null, limit, offset],
+      LIMIT $5 OFFSET $6`,
+    [...filterParams, limit, offset],
   );
 
   return {

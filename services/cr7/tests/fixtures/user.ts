@@ -57,6 +57,7 @@ export function listUsers(
   query: {
     phone?: string;
     role_id?: string;
+    has_any_role?: boolean;
     damai_user_id?: string;
     page?: number;
     limit?: number;
