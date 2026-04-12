@@ -115,7 +115,7 @@ const routes = [
     '/users',
     [
       'user.grant_role', 'user.revoke_role', 'user.list', 'user.create_user',
-      'user.list_roles', 'user.create_role', 'user.delete_role'
+      'user.list_roles', 'user.create_role', 'user.delete_role', 'user.update_role'
     ],
     {
       aliases: {
@@ -126,6 +126,7 @@ const routes = [
         'GET /roles': 'user.list_roles',
         'POST /roles': 'user.create_role',
         'DELETE /roles/:role_id': 'user.delete_role',
+        'PATCH /roles/:role_id': 'user.update_role',
       }
     }
   ),

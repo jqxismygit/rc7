@@ -7,6 +7,7 @@ export type USER_DATA_ERROR_CODES =
 | 'ROLE_NOT_FOUND'
 | 'ROLE_ALREADY_EXISTS'
 | 'BUILTIN_ROLE_CANNOT_DELETE'
+| 'BUILTIN_ROLE_CANNOT_UPDATE'
 | 'PHONE_ALREADY_EXISTS'
 | 'INVALID_PHONE_OR_PASSWORD'
 | 'USER_PASSWORD_NOT_FOUND'
@@ -464,6 +465,104 @@ export async function deleteRoleById(
     WHERE id = $1`,
     [role.id],
   );
+}
+
+export async function updateRole(
+  client: DBClient,
+  schema: string,
+  roleId: string,
+  input: {
+    name?: string;
+    description?: string;
+    permissions?: string[];
+  },
+) {
+  const { rows: roleRows } = await client.query<{
+    id: string;
+    is_builtin: boolean;
+  }>(
+    `SELECT id, is_builtin
+    FROM ${schema}.roles
+    WHERE id = $1
+    LIMIT 1`,
+    [roleId],
+  );
+
+  const role = roleRows[0] ?? null;
+  if (role === null) {
+    throw new UserDataError('Role not found', 'ROLE_NOT_FOUND');
+  }
+
+  if (role.is_builtin === true) {
+    throw new UserDataError('Builtin role cannot update', 'BUILTIN_ROLE_CANNOT_UPDATE');
+  }
+
+  const updates: string[] = [];
+  const values: (string | string[] | undefined)[] = [];
+  let paramCount = 1;
+
+  if (input.name !== undefined) {
+    updates.push(`name = $${paramCount}`);
+    values.push(input.name);
+    paramCount++;
+  }
+
+  if (input.description !== undefined) {
+    updates.push(`description = $${paramCount}`);
+    values.push(input.description);
+    paramCount++;
+  }
+
+  if (input.permissions !== undefined) {
+    updates.push(`permissions = $${paramCount}::text[]`);
+    values.push(input.permissions);
+    paramCount++;
+  }
+
+  if (updates.length === 0) {
+    // If no updates provided, return the existing role
+    const { rows: [existingRole] } = await client.query<{
+      id: string;
+      name: string;
+      description: string;
+      permissions: string[];
+      is_builtin: boolean;
+    }>(
+      `SELECT
+        id,
+        name,
+        description,
+        permissions,
+        is_builtin
+      FROM ${schema}.roles
+      WHERE id = $1`,
+      [roleId],
+    );
+
+    return existingRole;
+  }
+
+  values.push(roleId);
+  const { rows: [updatedRole] } = await client.query<{
+    id: string;
+    name: string;
+    description: string;
+    permissions: string[];
+    is_builtin: boolean;
+  }>(
+    `UPDATE ${schema}.roles
+    SET ${updates.join(', ')}
+    WHERE id = $${paramCount}
+    RETURNING
+      id,
+      name,
+      description,
+      permissions,
+      is_builtin`,
+    values,
+  );
+
+  return updatedRole;
 }
 
 export async function assignRoleToUser(

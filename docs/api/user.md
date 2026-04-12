@@ -309,6 +309,42 @@
   - 仅管理员（ADMIN 角色）可执行此操作
   - 角色删除后，其对应用户-角色关系会被级联删除
 
+## 管理员更新角色
+
+- URL: `/users/roles/:role_id`
+- Method: `PATCH`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Params:
+  ```ts
+  { role_id: User.Role['id'] }
+  ```
+- Request Body:
+  ```ts
+  {
+    description?: string;
+    permissions?: string[];
+  }
+  ```
+- Response Body:
+  ```ts
+  User.Role
+  ```
+- Response Status:
+  - `200 OK`：更新成功
+  - `400 Bad Request`：内置角色不允许更新
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：无权限（仅管理员可执行）
+  - `404 Not Found`：角色不存在
+
+- 说明：
+  - 仅管理员（ADMIN 角色）可执行此操作
+  - 内置角色（如 ADMIN、OPERATOR）不可更新
+  - 可单独更新描述或权限，也可同时更新两者
+  - 返回更新后的完整角色对象
+
 ## 管理员添加新用户
 
 - URL: `/users`

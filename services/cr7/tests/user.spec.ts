@@ -27,6 +27,7 @@ import {
   prepareAdminUser,
   registerUser,
   suUserToken,
+  updateRole,
   updateUserProfile,
   wechatBindPhone,
   wechatMiniLogin,
@@ -661,8 +662,14 @@ describeFeature(feature, ({
         is_builtin: boolean;
       }[];
       deleteBuiltinRoleError: unknown;
+      stagedRoleUpdate: {
+        oldName: string;
+        newName: string;
+        description: string;
+        permissions: string[];
+      } | null;
     }>) => {
-      const { When, Then, context } = s;
+      const { Given, When, Then, context } = s;
 
       When('管理员获取角色列表', async () => {
         const { apiServer, adminToken } = featureContext;
@@ -697,6 +704,45 @@ describeFeature(feature, ({
         expect(createdRole!.permissions).toContain(permission);
         expect(createdRole!.is_builtin).toBe(false);
       });
+
+      Given(
+        '角色 {string} 的新名称为 {string}，描述为 {string}, 新权限包含 {string} 和 {string}',
+        (_ctx, oldName: string, newName: string, description: string, perm1: string, perm2: string) => {
+          context.stagedRoleUpdate = {
+            oldName,
+            newName,
+            description,
+            permissions: [perm1, perm2],
+          };
+        },
+      );
+
+      When('管理员更新角色', async () => {
+        const { apiServer, adminToken } = featureContext;
+        const { stagedRoleUpdate } = context;
+        if (!stagedRoleUpdate) return;
+
+        const roleId = await getRoleIdByName(apiServer, adminToken, stagedRoleUpdate.oldName);
+        await updateRole(apiServer, adminToken, roleId, {
+          name: stagedRoleUpdate.newName,
+          description: stagedRoleUpdate.description,
+          permissions: stagedRoleUpdate.permissions,
+        });
+        context.stagedRoleUpdate = null;
+      });
+
+      Then(
+        '角色 {string} 更新成功，描述为 {string}，权限包含 {string} 和 {string}',
+        async (_ctx, roleName: string, description: string, perm1: string, perm2: string) => {
+          const { apiServer, adminToken } = featureContext;
+          context.roleList = await listRoles(apiServer, adminToken);
+          const updatedRole = context.roleList.find(role => role.name === roleName);
+          expect(updatedRole).toBeDefined();
+          expect(updatedRole!.description).toBe(description);
+          expect(updatedRole!.permissions).toContain(perm1);
+          expect(updatedRole!.permissions).toContain(perm2);
+        },
+      );
 
       When('管理员删除角色 {string}', async (_ctx, roleName: string) => {
         const { apiServer, adminToken } = featureContext;

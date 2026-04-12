@@ -84,8 +84,12 @@ Feature: user registration and login
      When 管理员创建新角色
      Then 角色 "TEST_ROLE" 创建成功，并且在角色列表中, 权限包含 "USER_MANAGE"
 
-     When 管理员删除角色 "TEST_ROLE"
-     Then 角色 "TEST_ROLE" 删除成功，并且不在角色列表中
+    Given 角色 "TEST_ROLE" 的新名称为 "TEST_ROLE_NEW"，描述为 "新的测试角色", 新权限包含 "USER_MANAGE" 和 "CONTENT_MANAGE"
+     When 管理员更新角色
+     Then 角色 "TEST_ROLE_NEW" 更新成功，描述为 "新的测试角色"，权限包含 "USER_MANAGE" 和 "CONTENT_MANAGE"
+
+     When 管理员删除角色 "TEST_ROLE_NEW"
+     Then 角色 "TEST_ROLE_NEW" 删除成功，并且不在角色列表中
 
      When 管理员删除内置角色 "OPERATOR"
      Then 删除内置角色 "OPERATOR" 失败，返回错误提示内置角色不能删除
