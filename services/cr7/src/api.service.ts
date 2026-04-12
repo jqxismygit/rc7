@@ -176,7 +176,7 @@ const routes = [
     '/orders',
     [
       'cr7.order.get', 'cr7.order.list', 'cr7.order.cancel',
-      'cr7.order.hide', 'cr7.order.applyFapiao',
+      'cr7.order.hide', 'cr7.invoice.applyFapiao',
       'cr7.order.wechatpay', 'cr7.order.refund', 'cr7.redemption.getByOrder'
     ],
     {

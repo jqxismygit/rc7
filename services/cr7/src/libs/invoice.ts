@@ -24,7 +24,7 @@ export class FapiaoService extends RC7BaseService {
   }
 
   actions_fapiao: ServiceSchema['actions'] = {
-    'order.applyFapiao': {
+    'invoice.applyFapiao': {
       rest: 'POST /:oid/invoice',
       params: {
         oid: 'string',
@@ -68,7 +68,7 @@ export class FapiaoService extends RC7BaseService {
       ticketCategories.map(category => [category.id, category.name]),
     );
 
-    await sendFapiaoKpjRequest({
+    const res = await sendFapiaoKpjRequest({
       oid,
       invoice_title,
       tax_no,
@@ -81,6 +81,6 @@ export class FapiaoService extends RC7BaseService {
       })),
     });
 
-    return { success: true };
+    return res;
   }
 }
