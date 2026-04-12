@@ -1,0 +1,22 @@
+{
+  "name": "@cr7/wechat",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "WeChat API service",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "node --loader tsx/esm src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "vitest run"
+  },
+  "keywords": ["wechat"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^24.10.13",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

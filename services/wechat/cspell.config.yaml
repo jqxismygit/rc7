@@ -1,0 +1,10 @@
+ignoreWords:
+  - errcode
+  - errmsg
+  - Jscode
+  - Descriibe
+  - wechatpay
+  - ciphertext
+  - JSAPI
+words:
+  - wechat
