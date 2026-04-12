@@ -53,7 +53,6 @@ export async function applyOrderInvoice(
   payload: {
     invoice_title: string;
     tax_no?: string;
-    buyer_name: string;
   },
   token: string,
 ) {

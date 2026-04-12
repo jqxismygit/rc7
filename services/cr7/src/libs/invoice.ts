@@ -33,7 +33,6 @@ export class FapiaoService extends RC7BaseService {
 					type: 'string',
 					optional: true,
 				},
-				buyer_name: 'string',
 			},
 			handler: this.applyFapiao,
 		},
@@ -42,7 +41,7 @@ export class FapiaoService extends RC7BaseService {
 	async applyFapiao(
 		ctx: Context<ApplyFapiaoRequest, { user: UserMeta }>,
 	) {
-		const { oid, invoice_title, tax_no = '', buyer_name } = ctx.params;
+		const { oid, invoice_title, tax_no = '' } = ctx.params;
 		const { uid } = ctx.meta.user;
 
 		const order = await ctx.call(
@@ -73,7 +72,6 @@ export class FapiaoService extends RC7BaseService {
 			oid,
 			invoice_title,
 			tax_no,
-			buyer_name,
 			total_amount: order.total_amount,
 			items: order.items.map(item => ({
 				ticket_name: nameByTicketCategoryId.get(item.ticket_category_id) ?? item.ticket_category_id,

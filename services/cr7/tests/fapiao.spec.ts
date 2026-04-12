@@ -44,7 +44,6 @@ type OrderContext = {
 };
 
 type FapiaoScenarioContext = OrderContext & {
-  invoiceBuyerName: string;
   fapiaoEnvelope: FapiaoEnvelope;
   fapiaoRequestData: Record<string, unknown>;
 };
@@ -256,22 +255,6 @@ describeFeature(feature, ({
   Scenario('用户成功申请发票', (s: StepTest<FapiaoScenarioContext>) => {
     const { Given, When, Then, And, context } = s;
 
-    function getRequestData() {
-      return context.fapiaoRequestData;
-    }
-
-    function getInvoiceItem(index: number) {
-      const request = getRequestData();
-      const rows = request.COMMON_FPKJ_XMXX as Array<Record<string, unknown>>;
-      expect(Array.isArray(rows)).toBe(true);
-      expect(rows.length).toBeGreaterThanOrEqual(index);
-      return rows[index - 1];
-    }
-
-    Given('用户在开票时填写开票人姓名是 {string}', (_ctx, buyerName: string) => {
-      context.invoiceBuyerName = buyerName;
-    });
-
     When('用户申请订单的发票，发票抬头为 {string}，税号为 {string}', async (_ctx, invoiceTitle: string, taxNo: string) => {
       const result = await applyOrderInvoice(
         featureContext.apiServer,
@@ -279,7 +262,6 @@ describeFeature(feature, ({
         {
           invoice_title: invoiceTitle,
           tax_no: taxNo,
-          buyer_name: context.invoiceBuyerName,
         },
         featureContext.userToken,
       );
@@ -314,73 +296,90 @@ describeFeature(feature, ({
     });
 
     And('请求中设备类型是数电，值为 {string}', (_ctx, value: string) => {
-      expect(String(getRequestData().SBLX)).toBe(value);
+      expect(String(context.fapiaoRequestData.SBLX)).toBe(value);
     });
 
     And('请求中发票类型代码是数电普票，值为 {string}', (_ctx, value: string) => {
-      expect(String(getRequestData().FPLXDM)).toBe(value);
+      expect(String(context.fapiaoRequestData.FPLXDM)).toBe(value);
     });
 
     And('请求中发票类型是蓝字发票，值为 {string}', (_ctx, value: string) => {
-      expect(String(getRequestData().KPLX)).toBe(value);
+      expect(String(context.fapiaoRequestData.KPLX)).toBe(value);
     });
 
     And('请求中征税方式是普通征税，值为 {string}', (_ctx, value: string) => {
-      expect(String(getRequestData().ZSFS)).toBe(value);
+      expect(String(context.fapiaoRequestData.ZSFS)).toBe(value);
     });
 
     And('请求中销售方纳税人识别号是配置中的 tax_id', () => {
-      expect(String(getRequestData().XSF_NSRSBH)).toBe(config.fapiao.tax_id);
+      expect(String(context.fapiaoRequestData.XSF_NSRSBH)).toBe(config.fapiao.tax_id);
     });
 
     And('请求中销售方名称是配置中的 company_name， 销售方地址是配置中的 company_address，销售方电话是配置中的 company_phone', () => {
-      expect(String(getRequestData().XSF_MC)).toBe(config.fapiao.company_name);
-      expect(String(getRequestData().XSF_DZ)).toBe(config.fapiao.company_address);
-      expect(String(getRequestData().XSF_DH)).toBe(config.fapiao.company_phone);
+      const { fapiaoRequestData } = context;
+      expect(String(fapiaoRequestData.XSF_MC)).toBe(config.fapiao.company_name);
+      expect(String(fapiaoRequestData.XSF_DZ)).toBe(config.fapiao.company_address);
+      expect(String(fapiaoRequestData.XSF_DH)).toBe(config.fapiao.company_phone);
     });
 
     And('请求中销售方开户行是配置中的 company_bank，银行账号是配置中的 company_bank_account', () => {
-      expect(String(getRequestData().XSF_KHH)).toBe(config.fapiao.company_bank);
-      expect(String(getRequestData().XSF_ZH)).toBe(config.fapiao.company_bank_account);
+      const { fapiaoRequestData } = context;
+      expect(String(fapiaoRequestData.XSF_KHH)).toBe(config.fapiao.company_bank);
+      expect(String(fapiaoRequestData.XSF_ZH)).toBe(config.fapiao.company_bank_account);
     });
 
     And('请求中开票人是配置中的 issuer', () => {
-      expect(String(getRequestData().KPR)).toBe(config.fapiao.issuer);
+      const { fapiaoRequestData } = context;
+      expect(String(fapiaoRequestData.KPR)).toBe(config.fapiao.issuer);
     });
 
-    And('请求中购买方名称是 {string}', (_ctx, buyerName: string) => {
-      expect(String(getRequestData().GMF_MC)).toBe(buyerName);
+    And(
+      '请求中购买方名称是 {string}, 购买方纳税人识别号是 {string}',
+      (_ctx, invoice_title: string, buyerTaxId: string) => {
+      const { fapiaoRequestData } = context;
+      expect(String(fapiaoRequestData.GMF_MC)).toBe(invoice_title);
+      expect(String(fapiaoRequestData.GMF_NSRSBH)).toBe(buyerTaxId);
     });
 
     And('请求中价税合计是 {number} 元，合计金额是 {number} 元，合计税额是 {number} 元', (_ctx, totalYuan: number, amountYuan: number, taxYuan: number) => {
-      expect(Number(getRequestData().JSHJ)).toBe(totalYuan);
-      expect(Number(getRequestData().HJJE)).toBe(amountYuan);
-      expect(Number(getRequestData().HJSE)).toBe(taxYuan);
+      const { fapiaoRequestData } = context;
+      expect(Number(fapiaoRequestData.JSHJ)).toBe(totalYuan);
+      expect(Number(fapiaoRequestData.HJJE)).toBe(amountYuan);
+      expect(Number(fapiaoRequestData.HJSE)).toBe(taxYuan);
     });
 
     And('请求中有 {number} 个发票行项目', (_ctx, count: number) => {
-      const rows = getRequestData().COMMON_FPKJ_XMXX as unknown[];
+      const { fapiaoRequestData } = context;
+      const rows = fapiaoRequestData.COMMON_FPKJ_XMXX as unknown[];
       expect(Array.isArray(rows)).toBe(true);
       expect(rows.length).toBe(count);
     });
 
     And('发票行项目的第 {number} 行的发票行性质是正常行，值为 {string}', (_ctx, index: number, value: string) => {
-      expect(String(getInvoiceItem(index).FPHXZ)).toBe(value);
+      const { fapiaoRequestData } = context;
+      const rows = fapiaoRequestData.COMMON_FPKJ_XMXX as Array<Record<string, unknown>>;
+      expect(rows[index - 1].FPHXZ).toBe(value);
     });
 
     And('发票行项目的第 {number} 行的商品编码是 {string}', (_ctx, index: number, value: string) => {
-      expect(String(getInvoiceItem(index).SPBM)).toBe(value);
+      const { fapiaoRequestData } = context;
+      const rows = fapiaoRequestData.COMMON_FPKJ_XMXX as Array<Record<string, unknown>>;
+      expect(String(rows[index - 1].SPBM)).toBe(value);
     });
 
     And('发票行项目的第 {number} 行的项目名称是 {string}, 数量是 {number}，单价是 {number} 元', (_ctx, index: number, name: string, quantity: number, unitPrice: number) => {
-      const row = getInvoiceItem(index);
+      const { fapiaoRequestData } = context;
+      const rows = fapiaoRequestData.COMMON_FPKJ_XMXX as Array<Record<string, unknown>>;
+      const row = rows[index - 1];
       expect(String(row.XMMC)).toBe(name);
       expect(Number(row.XMSL)).toBe(quantity);
       expect(Number(row.XMDJ)).toBe(unitPrice);
     });
 
     And('发票行项目的第 {number} 行的税率是 {number}%， 税额是 {number} 元', (_ctx, index: number, taxRate: number, taxAmount: number) => {
-      const row = getInvoiceItem(index);
+      const { fapiaoRequestData } = context;
+      const rows = fapiaoRequestData.COMMON_FPKJ_XMXX as Array<Record<string, unknown>>;
+      const row = rows[index - 1];
       expect(Number(row.SL) * 100).toBe(taxRate);
       expect(Number(row.SE)).toBe(taxAmount);
     });

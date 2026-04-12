@@ -16,7 +16,6 @@ Feature: 为订单开发票
     Given 发票服务已经启动
 
   Scenario: 用户成功申请发票
-   Given 用户在开票时填写开票人姓名是 "Alice"
     When 用户申请订单的发票，发票抬头为 "测试公司"，税号为 "123456789"
     Then 发票服务接收到发票开具请求, 可以正常解密出发票申请信息
      And 请求中 interface code 是 "GP_FPKJ"
@@ -29,7 +28,7 @@ Feature: 为订单开发票
      And 请求中销售方名称是配置中的 company_name， 销售方地址是配置中的 company_address，销售方电话是配置中的 company_phone
      And 请求中销售方开户行是配置中的 company_bank，银行账号是配置中的 company_bank_account
      And 请求中开票人是配置中的 issuer
-     And 请求中购买方名称是 "Alice"
+     And 请求中购买方名称是 "测试公司", 购买方纳税人识别号是 "123456789"
      And 请求中价税合计是 206 元，合计金额是 200 元，合计税额是 6 元
      And 请求中有 1 个发票行项目
      And 发票行项目的第 1 行的发票行性质是正常行，值为 "0"

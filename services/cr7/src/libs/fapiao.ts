@@ -308,13 +308,12 @@ export interface FapiaoKpjParams {
 	oid: string;
 	invoice_title: string;
 	tax_no?: string;
-	buyer_name: string;
 	total_amount: number;
 	items: FapiaoKpjItem[];
 }
 
 export async function sendFapiaoKpjRequest(params: FapiaoKpjParams): Promise<void> {
-	const { oid, invoice_title, tax_no = '', buyer_name, total_amount, items } = params;
+	const { oid, invoice_title, tax_no = '', total_amount, items } = params;
 
 	const hjjeFen = Math.round(total_amount / (1 + FAPIAO_TAX_RATE));
 	const hjseFen = total_amount - hjjeFen;
@@ -352,14 +351,12 @@ export async function sendFapiaoKpjRequest(params: FapiaoKpjParams): Promise<voi
 			XSF_KHH: config.fapiao.company_bank,
 			XSF_ZH: config.fapiao.company_bank_account,
 			GMF_NSRSBH: tax_no,
-			GMF_MC: buyer_name,
+			GMF_MC: invoice_title,
 			KPR: config.fapiao.issuer,
-			BY1: invoice_title,
 			JSHJ: formatYuanFromFen(total_amount),
 			HJJE: formatYuanFromFen(hjjeFen),
 			HJSE: formatYuanFromFen(hjseFen),
 			COMMON_FPKJ_XMXX: itemRows,
-			CALLBACK_URL: config.fapiao.callback_base_url,
 		},
 	};
 
