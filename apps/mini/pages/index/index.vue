@@ -199,7 +199,11 @@
     </scroll-view>
 
     <!-- 悬浮核销入口 → 扫码核销页 -->
-    <view class="fab-verify" @click="goToScanTicket">
+    <view
+      v-if="userStore.isOperator"
+      class="fab-verify"
+      @click="goToScanTicket"
+    >
       <sx-svg name="scan" :width="52" :height="52" />
       <text class="fab-verify-text">券码核销</text>
     </view>
@@ -225,6 +229,10 @@ const BRANDS_HOME_PREVIEW_LIMIT = 4;
 export default {
   mixins: [createTabBarMixin(0)],
   computed: {
+    /** 供模板使用；与 methods 里局部 useUserStore() 一致 */
+    userStore() {
+      return useUserStore();
+    },
     ticketEventCardLine() {
       const line = formatTicketEventCardMetaLine(
         this.ticketSection.ticketEvent,
