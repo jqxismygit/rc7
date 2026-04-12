@@ -20,6 +20,8 @@ export interface Profile {
   /** 未绑定微信时为 null */
   openid: string | null;
   auth_methods?: AuthMethodType[];
+  /** 用户的角色列表（仅在列表查询中返回） */
+  roles?: Role[];
   created_at: string;
   updated_at: string;
 }

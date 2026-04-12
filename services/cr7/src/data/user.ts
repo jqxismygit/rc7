@@ -191,8 +191,49 @@ export async function listUserProfiles(
     [...filterParams, limit, offset],
   );
 
+  // Fetch roles for all users in the list
+  const userIds = users.map(u => u.id);
+  const rolesByUserId: Record<string, Array<{ id: string; name: string; permissions: string[] }>> = {};
+
+  if (userIds.length > 0) {
+    const { rows: userRoles } = await client.query<{
+      uid: string;
+      id: string;
+      name: string;
+      permissions: string[];
+    }>(
+      `SELECT
+        ur.uid,
+        r.id,
+        r.name,
+        r.permissions
+      FROM ${schema}.user_roles ur
+      JOIN ${schema}.roles r ON ur.role_id = r.id
+      WHERE ur.uid = ANY($1::uuid[])
+      ORDER BY r.name`,
+      [userIds]
+    );
+
+    for (const role of userRoles) {
+      if (!rolesByUserId[role.uid]) {
+        rolesByUserId[role.uid] = [];
+      }
+      rolesByUserId[role.uid].push({
+        id: role.id,
+        name: role.name,
+        permissions: role.permissions,
+      });
+    }
+  }
+
+  // Add roles to each user
+  const usersWithRoles = users.map(user => ({
+    ...user,
+    roles: rolesByUserId[user.id] || [],
+  }));
+
   return {
-    users,
+    users: usersWithRoles,
     total,
     page,
     limit,

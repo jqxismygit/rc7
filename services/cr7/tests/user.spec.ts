@@ -897,10 +897,13 @@ describeFeature(feature, ({
         context.userList = await listUsers(apiServer, adminToken, { has_any_role: true });
       });
 
-      Then('用户列表获取成功，用户列表包含用户 {string}', (ctx, userName: string) => {
+      Then('用户列表获取成功，用户列表包含用户 {string}，角色为 {string}', (_ctx, userName: string, roleName: string) => {
         const { registeredUsersByName } = featureContext;
         const targetProfile = registeredUsersByName?.[userName]!;
-        expect(context.userList.users.some(user => user.id === targetProfile.id)).toBe(true);
+        const matchedUser = context.userList.users.find(user => user.id === targetProfile.id);
+
+        expect(matchedUser).toBeDefined();
+        expect(matchedUser?.roles?.some(role => role.name === roleName)).toBe(true);
       });
 
       And('用户列表获取成功，用户列表不包含用户 {string}', (ctx, userName: string) => {

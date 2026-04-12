@@ -133,7 +133,7 @@ Feature: user registration and login
     Given 管理员账号将用户 "Bob" 设置成客服人员
 
      When 管理员账号获取用户列表，角色过滤为 "OPERATOR"
-     Then 用户列表获取成功，用户列表包含用户 "Alice"
+     Then 用户列表获取成功，用户列表包含用户 "Alice"，角色为 "OPERATOR"
       And 用户列表获取成功，用户列表不包含用户 "Bob"
 
      When 管理员查看所有分配过任何角色的用户列表
