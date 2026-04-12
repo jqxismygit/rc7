@@ -72,7 +72,6 @@ export const useRoles = () => {
       try {
         setLoading(true);
         const data = await getRolesApi();
-        console.log("roles ===>>", data);
         //过滤系统内置角色
         // setData(data?.filter((item) => item?.name !== "ADMIN") ?? []);
         setData(data ?? []);
@@ -239,9 +238,10 @@ export const PermissionContext = React.createContext<PermissionContextType>(
 
 //这个是徐彤管理员的权限表，为了整体权限的一致性，将其转换成权限的方式
 const adminPermissions = [
-  "permission_users_edit",
-  "permission_users_delete",
-  "permission_users_create",
+  "permission_article_manage",
+  "permission_exhibition_manage",
+  "permission_order_manage",
+  "permission_user_manage",
 ];
 
 export const PermissionProvider = ({
@@ -254,8 +254,8 @@ export const PermissionProvider = ({
   const users = useUsers();
   const userProfile = useFetchUserProfile();
   const isAdmin = React.useMemo(() => {
-    // return !!userProfile?.data?.sysadmin;
-    return true;
+    //@ts-ignore
+    return !!userProfile?.data?.isAdmin;
   }, [userProfile?.data]);
   //TODO这里如果是管理员，则会手动注入一些权限
   const userPermissions = React.useMemo(() => {

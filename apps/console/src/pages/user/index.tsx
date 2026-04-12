@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
   Alert,
@@ -17,6 +17,7 @@ import {
 } from "antd";
 import {
   CopyOutlined,
+  EditOutlined,
   HomeOutlined,
   PlusOutlined,
   ReloadOutlined,
@@ -24,13 +25,18 @@ import {
 import type { ActionType, ProColumns } from "@ant-design/pro-components";
 import { ProTable } from "@ant-design/pro-components";
 import type { User as UserTypes } from "@cr7/types";
-import { assignUserRoleApi, createUserApi, listUsersApi } from "@/apis/user";
+import {
+  assignUserRoleApi,
+  createUserApi,
+  diffRoleIds,
+  listUsersApi,
+  syncUserRolesToTargetApi,
+} from "@/apis/user";
 import { usePermission } from "@/hooks/use-permissions";
 import {
   normalizeProTablePaging,
   useTableQuery,
 } from "@/hooks/use-table-query";
-import { formatDateTime } from "@/utils/format-datetime";
 import { pickApiErrorMessage } from "@/utils/pick-api-error";
 import "./user.less";
 
@@ -50,10 +56,78 @@ const UserPage = () => {
     role_ids: string[];
   }>();
 
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserRow | null>(null);
+  const [editForm] = Form.useForm<{ role_ids: string[] }>();
+
+  const editRoleOptions = useMemo(() => {
+    const m = new Map<string, UserTypes.Role>();
+    for (const r of roles.data) m.set(r.id, r);
+    for (const r of editingUser?.roles ?? []) {
+      if (!m.has(r.id)) m.set(r.id, r);
+    }
+    return Array.from(m.values());
+  }, [roles.data, editingUser]);
+
   const { proTablePagination, rowIndexBase } = useTableQuery({
     defaultPageSize: 10,
     maxPageSize: 100,
   });
+
+  const openEditRoles = useCallback((row: UserRow) => {
+    setEditingUser(row);
+    setEditModalOpen(true);
+  }, []);
+
+  /** 弹窗打开且选项就绪后写入角色，避免 roles 列表晚于弹窗导致多选不回显 */
+  const editingRoleIds = useMemo(
+    () => editingUser?.roles?.map((r) => r.id) ?? [],
+    [editingUser],
+  );
+
+  useEffect(() => {
+    if (!editModalOpen || !editingUser) return;
+    editForm.setFieldsValue({
+      role_ids: editingRoleIds,
+    });
+  }, [editModalOpen, editingUser, editForm, editingRoleIds, editRoleOptions]);
+
+  const syncEditRoleIdsToForm = useCallback(() => {
+    if (!editingUser) return;
+    editForm.setFieldsValue({ role_ids: editingRoleIds });
+  }, [editForm, editingUser, editingRoleIds]);
+
+  const handleSaveEditRoles = useCallback(async () => {
+    try {
+      const values = await editForm.validateFields();
+      if (!editingUser) return;
+      const prev = editingUser.roles?.map((r) => r.id) ?? [];
+      const next = values.role_ids ?? [];
+      const { toRemove, toAdd } = diffRoleIds(prev, next);
+      if (toRemove.length === 0 && toAdd.length === 0) {
+        message.info("角色未变更");
+        setEditModalOpen(false);
+        setEditingUser(null);
+        editForm.resetFields();
+        return;
+      }
+      setEditSubmitting(true);
+      await syncUserRolesToTargetApi(editingUser.id, prev, next);
+      message.success("角色已更新");
+      setEditModalOpen(false);
+      setEditingUser(null);
+      editForm.resetFields();
+      actionRef.current?.reload();
+    } catch (err) {
+      if (err && typeof err === "object" && "errorFields" in err) {
+        return;
+      }
+      message.error(pickApiErrorMessage(err) || "更新角色失败");
+    } finally {
+      setEditSubmitting(false);
+    }
+  }, [editForm, editingUser, message, actionRef]);
 
   const columns = useMemo<ProColumns<UserRow>[]>(
     () => [
@@ -116,8 +190,46 @@ const UserPage = () => {
             <Typography.Text type="secondary">未绑定</Typography.Text>
           ),
       },
+      {
+        title: "角色",
+        dataIndex: "roles",
+        width: 260,
+        search: false,
+        render: (_, row) => {
+          const list = row.roles ?? [];
+          if (list.length === 0) {
+            return <Typography.Text type="secondary">未分配</Typography.Text>;
+          }
+          return (
+            <Space size={[6, 6]} wrap>
+              {list.map((r) => (
+                <Tag key={r.id} color={r.is_builtin ? "default" : "blue"}>
+                  {r.name}
+                </Tag>
+              ))}
+            </Space>
+          );
+        },
+      },
+      {
+        title: "操作",
+        key: "action",
+        width: 108,
+        fixed: "right",
+        search: false,
+        render: (_, row) => (
+          <Button
+            type="link"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => openEditRoles(row)}
+          >
+            编辑
+          </Button>
+        ),
+      },
     ],
-    [message, rowIndexBase],
+    [message, openEditRoles, rowIndexBase],
   );
 
   const handleCreateUser = useCallback(async () => {
@@ -189,6 +301,10 @@ const UserPage = () => {
             <li>
               「添加用户」须填写手机号、密码并<strong>至少选择一个角色</strong>
               （创建成功后并行授予所选角色）。
+            </li>
+            <li>
+              「编辑角色」弹窗中用户名与手机号为禁用输入框样式（只读），仅
+              <strong>角色</strong>可多选修改。
             </li>
           </ol>
         }
@@ -311,7 +427,11 @@ const UserPage = () => {
               },
             ]}
           >
-            <Input placeholder="11 位手机号" maxLength={11} inputMode="numeric" />
+            <Input
+              placeholder="11 位手机号"
+              maxLength={11}
+              inputMode="numeric"
+            />
           </Form.Item>
           <Form.Item
             name="role_ids"
@@ -359,12 +479,91 @@ const UserPage = () => {
               { min: 8, message: "密码至少 8 位" },
             ]}
           >
-            <Input.Password placeholder="至少 8 位" autoComplete="new-password" />
+            <Input.Password
+              placeholder="至少 8 位"
+              autoComplete="new-password"
+            />
           </Form.Item>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             默认使用区号 +86；手机号需与登录页校验规则一致。
           </Typography.Text>
         </Form>
+      </Modal>
+
+      <Modal
+        title={editingUser ? `编辑角色 · ${editingUser.name}` : "编辑角色"}
+        open={editModalOpen}
+        okText="保存"
+        cancelText="取消"
+        confirmLoading={editSubmitting}
+        destroyOnClose
+        width={520}
+        afterOpenChange={(open) => {
+          if (open) {
+            syncEditRoleIdsToForm();
+          }
+        }}
+        onCancel={() => {
+          setEditModalOpen(false);
+          setEditingUser(null);
+          editForm.resetFields();
+        }}
+        onOk={handleSaveEditRoles}
+      >
+        {editingUser ? (
+          <Form
+            form={editForm}
+            layout="vertical"
+            preserve={false}
+            style={{ marginTop: 8 }}
+          >
+            <Form.Item label="用户名">
+              <Input disabled value={editingUser.name || ""} placeholder="-" />
+            </Form.Item>
+            <Form.Item label="手机号">
+              <Input
+                disabled
+                value={editingUser.phone || ""}
+                placeholder="未绑定"
+              />
+            </Form.Item>
+            <Form.Item name="role_ids" label="角色">
+              <Select
+                mode="multiple"
+                allowClear
+                placeholder="可多选；清空表示收回全部角色"
+                loading={roles.loading}
+                disabled={roles.loading && editRoleOptions.length === 0}
+                options={editRoleOptions.map((r) => ({
+                  value: r.id,
+                  label: r.name,
+                }))}
+                tagRender={(props) => {
+                  const { value, closable, onClose } = props;
+                  const r = editRoleOptions.find((x) => x.id === value);
+                  return (
+                    <Tag
+                      color={r?.is_builtin ? "default" : "blue"}
+                      closable={closable}
+                      onClose={onClose}
+                      style={{ marginInlineEnd: 4 }}
+                    >
+                      {r?.name ?? String(value)}
+                      {r?.is_builtin ? "（内置）" : ""}
+                    </Tag>
+                  );
+                }}
+                showSearch
+                maxTagCount="responsive"
+                filterOption={(input, option) =>
+                  String(option?.label ?? "")
+                    .toLowerCase()
+                    .includes(input.trim().toLowerCase())
+                }
+              />
+            </Form.Item>
+          </Form>
+        ) : null}
       </Modal>
     </div>
   );

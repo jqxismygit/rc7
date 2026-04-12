@@ -27,8 +27,14 @@ export const listUsersApi = async (
 };
 
 export const getProfile = async (): Promise<UserTypes.Profile> => {
-  const res = await request.get("/user/profile");
-  return res as unknown as UserTypes.Profile;
+  const [profile, roles] = await Promise.all([
+    request.get("/user/profile"),
+    request.get("/user/roles"),
+  ]);
+  return {
+    ...profile,
+    ...roles,
+  } as unknown as UserTypes.Profile;
 };
 
 export type ChangePasswordInput = {
@@ -87,6 +93,46 @@ export const assignUserRoleApi = async (
       }),
     ),
   );
+};
+
+/** 收回单个角色，见 docs/api/user.md「为用户收回角色」 */
+export const revokeUserRoleApi = async (
+  uid: string,
+  role_id: string,
+): Promise<void> => {
+  await request.delete(
+    `/users/${encodeURIComponent(uid)}/roles/${encodeURIComponent(role_id)}`,
+  );
+};
+
+/** 根据目标角色集合计算需收回、需授予的角色 id */
+export const diffRoleIds = (
+  previousRoleIds: string[],
+  nextRoleIds: string[],
+): { toRemove: string[]; toAdd: string[] } => {
+  const prev = new Set(previousRoleIds);
+  const next = new Set(nextRoleIds);
+  return {
+    toRemove: [...prev].filter((id) => !next.has(id)),
+    toAdd: [...next].filter((id) => !prev.has(id)),
+  };
+};
+
+/**
+ * 将用户角色同步为指定集合：先并行收回多余角色，再并行授予新增角色。
+ * 与目标一致时不会产生请求。
+ */
+export const syncUserRolesToTargetApi = async (
+  uid: string,
+  previousRoleIds: string[],
+  nextRoleIds: string[],
+): Promise<void> => {
+  const { toRemove, toAdd } = diffRoleIds(previousRoleIds, nextRoleIds);
+  if (toRemove.length === 0 && toAdd.length === 0) return;
+  await Promise.all(toRemove.map((rid) => revokeUserRoleApi(uid, rid)));
+  if (toAdd.length > 0) {
+    await assignUserRoleApi(uid, toAdd);
+  }
 };
 
 export const getPermissionsApi = async (): Promise<PermissionItem[]> => {

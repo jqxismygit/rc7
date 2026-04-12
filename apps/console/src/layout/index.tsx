@@ -19,15 +19,20 @@ import {
   filterRoutesByPermission,
 } from "../routes";
 import { TOKEN_KEY } from "@/constants/index";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { UserServiceProvider, useUserService } from "@/services/user";
 import { install } from "@/libs/install";
+import { usePermission } from "@/hooks/use-permissions";
 
 const BasicLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isDark, setIsDark] = useState(false);
   const { profile } = useUserService();
+  const { userPermissions } = usePermission();
+  const filteredRoutes = useMemo(() => {
+    return filterRoutesByPermission(routes, userPermissions);
+  }, [userPermissions]);
   // const { setToken, setUser } = useAuthStore(
   //   useShallow((state) => ({
   //     setUser: state.setUser,
@@ -110,7 +115,7 @@ const BasicLayout = () => {
         location={{ pathname: location.pathname }}
         route={{
           path: "/",
-          children: routesForMenu(routes),
+          children: routesForMenu(filteredRoutes),
         }}
         menuItemRender={(item, dom) => (
           <div
