@@ -461,6 +461,7 @@ describeFeature(feature, ({
 
   Scenario('管理员添加新用户', (s: StepTest<{
     createdUser: User.Profile;
+    recreatedUser: User.Profile;
     newUserToken: string;
     newUserProfile: User.Profile;
   }>) => {
@@ -504,6 +505,30 @@ describeFeature(feature, ({
         expect(context.newUserProfile.name).toBe(name);
         expect(context.newUserProfile.phone).toBe(`+${countryCode} ${phone}`);
         expect(context.newUserProfile.auth_methods ?? []).toContain('PASSWORD');
+      },
+    );
+
+    Given(
+      '管理员再次添加用户 {string}, 手机号为 {string}，密码为 {string}',
+      async (_ctx, name: string, phone: string, password: string) => {
+        const { apiServer, adminToken } = featureContext;
+        const user = await adminCreateUser(apiServer, adminToken, {
+          name,
+          phone,
+          password,
+        });
+
+        context.recreatedUser = user;
+      },
+    );
+
+    Then(
+      '添加成功，返回用户信息，其 ID 与之前创建的用户相同，手机号为 {string}',
+      (_ctx, phone: string) => {
+        assertUserProfile(context.recreatedUser);
+        expect(context.recreatedUser.id).toBe(context.createdUser.id);
+        expect(context.recreatedUser.phone).toBe(`+86 ${phone}`);
+        expect(context.recreatedUser.auth_methods ?? []).toContain('PASSWORD');
       },
     );
   });

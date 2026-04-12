@@ -7,6 +7,7 @@ import {
 import {
   bindPhoneToUser,
   createOrUpdateUser,
+  getUserIdByPhone,
   getUserProfile,
   listUserProfiles,
   getUserRoles,
@@ -17,9 +18,9 @@ import {
   listRoles,
   createRole,
   deleteRoleById,
-  createUserByPhonePassword,
   upsertUserByDamaiId,
   upsertUserByPhone,
+  upsertUserPassword,
   updateUserProfile,
 } from './data/user.js';
 import { handleUserError } from './libs/errors.js';
@@ -470,17 +471,30 @@ export default class UserService extends Service {
       password,
     } = ctx.params;
 
-    const uid = await createUserByPhonePassword(this.pool, schema, {
-      name,
+    const existingUid = await getUserIdByPhone(
+      this.pool,
+      schema,
       country_code,
       phone,
-      password,
-    }).catch(handleUserError);
+    );
+
+    const uid = existingUid
+      ?? await upsertUserByPhone(
+        this.pool,
+        schema,
+        country_code,
+        phone,
+        name,
+      ).catch(handleUserError);
+
+    await upsertUserPassword(this.pool, schema, uid, password).catch(handleUserError);
 
     const userProfile = await getUserProfile(this.pool, schema, uid)
       .then(res => res, handleUserError);
 
-    ctx.meta.$statusCode = 201;
+    if (!existingUid) {
+      ctx.meta.$statusCode = 201;
+    }
     return userProfile;
   }
 
