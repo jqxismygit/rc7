@@ -56,6 +56,13 @@
   ```ts
   { eid: string }
   ```
+  - Request Body:
+  ```ts
+  {
+    sessionDateStart?: string; // yyyy-MM-dd
+    sessionDateEnd?: string;   // yyyy-MM-dd
+  }
+  ```
 - Response Status:
   - `204 No Content`：同步请求发送成功
   - `401 Unauthorized`：未认证

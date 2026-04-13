@@ -27,6 +27,7 @@ import {
   prepareAdminUser,
   registerUser,
   suUserToken,
+  updateRole,
   updateUserProfile,
   wechatBindPhone,
   wechatMiniLogin,
@@ -204,6 +205,19 @@ describeFeature(feature, ({
       const userProfile = registeredUsersByName?.[userName]!;
       const roleId = await getRoleIdByName(apiServer, adminToken, 'OPERATOR');
       await grantRoleToUser(apiServer, adminToken, userProfile.id, roleId);
+    });
+
+    Given('管理员账号将用户 {string} 设置成客服人员', async (_ctx, userName: string) => {
+      const { apiServer, adminToken, registeredUsersByName } = featureContext;
+      const userProfile = registeredUsersByName?.[userName]!;
+      const roleName = 'CUSTOMER_SERVICE';
+      const targetRole = await createRole(apiServer, adminToken, {
+        name: roleName,
+        description: '客服角色',
+        permissions: ['CUSTOMER_SERVICE'],
+      });
+
+      await grantRoleToUser(apiServer, adminToken, userProfile.id, targetRole.id);
     });
 
     Given(
@@ -693,8 +707,14 @@ describeFeature(feature, ({
         is_builtin: boolean;
       }[];
       deleteBuiltinRoleError: unknown;
+      stagedRoleUpdate: {
+        oldName: string;
+        newName: string;
+        description: string;
+        permissions: string[];
+      } | null;
     }>) => {
-      const { When, Then, context } = s;
+      const { Given, When, Then, context } = s;
 
       When('管理员获取角色列表', async () => {
         const { apiServer, adminToken } = featureContext;
@@ -729,6 +749,45 @@ describeFeature(feature, ({
         expect(createdRole!.permissions).toContain(permission);
         expect(createdRole!.is_builtin).toBe(false);
       });
+
+      Given(
+        '角色 {string} 的新名称为 {string}，描述为 {string}, 新权限包含 {string} 和 {string}',
+        (_ctx, oldName: string, newName: string, description: string, perm1: string, perm2: string) => {
+          context.stagedRoleUpdate = {
+            oldName,
+            newName,
+            description,
+            permissions: [perm1, perm2],
+          };
+        },
+      );
+
+      When('管理员更新角色', async () => {
+        const { apiServer, adminToken } = featureContext;
+        const { stagedRoleUpdate } = context;
+        if (!stagedRoleUpdate) return;
+
+        const roleId = await getRoleIdByName(apiServer, adminToken, stagedRoleUpdate.oldName);
+        await updateRole(apiServer, adminToken, roleId, {
+          name: stagedRoleUpdate.newName,
+          description: stagedRoleUpdate.description,
+          permissions: stagedRoleUpdate.permissions,
+        });
+        context.stagedRoleUpdate = null;
+      });
+
+      Then(
+        '角色 {string} 更新成功，描述为 {string}，权限包含 {string} 和 {string}',
+        async (_ctx, roleName: string, description: string, perm1: string, perm2: string) => {
+          const { apiServer, adminToken } = featureContext;
+          context.roleList = await listRoles(apiServer, adminToken);
+          const updatedRole = context.roleList.find(role => role.name === roleName);
+          expect(updatedRole).toBeDefined();
+          expect(updatedRole!.description).toBe(description);
+          expect(updatedRole!.permissions).toContain(perm1);
+          expect(updatedRole!.permissions).toContain(perm2);
+        },
+      );
 
       When('管理员删除角色 {string}', async (_ctx, roleName: string) => {
         const { apiServer, adminToken } = featureContext;
@@ -865,16 +924,33 @@ describeFeature(feature, ({
         context.userList = await listUsers(apiServer, adminToken, { role_id: roleId });
       });
 
-      Then('用户列表获取成功，用户列表包含用户 {string}', (ctx, userName: string) => {
+      When('管理员查看所有分配过任何角色的用户列表', async () => {
+        const { apiServer, adminToken } = featureContext;
+        context.userList = await listUsers(apiServer, adminToken, { has_any_role: true });
+      });
+
+      Then('用户列表获取成功，用户列表包含用户 {string}，角色为 {string}', (_ctx, userName: string, roleName: string) => {
         const { registeredUsersByName } = featureContext;
         const targetProfile = registeredUsersByName?.[userName]!;
-        expect(context.userList.users.some(user => user.id === targetProfile.id)).toBe(true);
+        const matchedUser = context.userList.users.find(user => user.id === targetProfile.id);
+
+        expect(matchedUser).toBeDefined();
+        expect(matchedUser?.roles?.some(role => role.name === roleName)).toBe(true);
       });
 
       And('用户列表获取成功，用户列表不包含用户 {string}', (ctx, userName: string) => {
         const { registeredUsersByName } = featureContext;
         const targetProfile = registeredUsersByName?.[userName]!;
         expect(context.userList.users.some(user => user.id === targetProfile.id)).toBe(false);
+      });
+
+      Then('用户列表获取成功，用户列表包含用户 {string} 和用户 {string}', (_ctx, userName1: string, userName2: string) => {
+        const { registeredUsersByName } = featureContext;
+        const profile1 = registeredUsersByName?.[userName1]!;
+        const profile2 = registeredUsersByName?.[userName2]!;
+
+        expect(context.userList.users.some(user => user.id === profile1.id)).toBe(true);
+        expect(context.userList.users.some(user => user.id === profile2.id)).toBe(true);
       });
     }
   );

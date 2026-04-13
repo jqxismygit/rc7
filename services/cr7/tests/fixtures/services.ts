@@ -45,7 +45,9 @@ export async function prepareAPIServer(broker: ServiceBroker): Promise<Server> {
   return service.server;
 }
 
-
+/**
+ * @deprecated 在测试中使用 `prepareServices` 和 `prepareAPIServer` 来设置测试环境
+ */
 export const services_fixtures = {
   schema: '__test__',
   services: ['api'],

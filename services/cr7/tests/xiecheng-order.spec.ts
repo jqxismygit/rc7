@@ -1199,7 +1199,7 @@ describeFeature(feature, ({
         header: { resultCode: '0000', resultMessage: '操作成功' },
       });
       const server = await mockJSONServer(handler);
-      vi.spyOn(config.xiecheng, 'base_url', 'get').mockReturnValue(server.address);
+      vi.spyOn(config.xiecheng, 'order_base_url', 'get').mockReturnValue(server.address);
       context.ctripConsumedMockHandler = handler;
       context.ctripConsumedMockServer = server;
     });

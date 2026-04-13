@@ -53,6 +53,7 @@ declare module 'config' {
     },
     xiecheng: {
       callback_base_url: string;
+      order_base_url: string;
       base_url: string;
       account_id: string;
       secret: string;
@@ -72,6 +73,19 @@ declare module 'config' {
       sign: string;
       api_key: string;
       api_pwd: string;
+    },
+    fapiao: {
+      app_id: string;
+      secret: string;
+      base_url: string;
+      callback_base_url: string;
+      tax_id: string;
+      company_name: string;
+      company_address: string;
+      company_phone: string;
+      company_bank: string;
+      company_bank_account: string;
+      issuer: string;
     }
   }
 

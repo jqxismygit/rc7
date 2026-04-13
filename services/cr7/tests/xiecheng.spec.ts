@@ -419,7 +419,7 @@ describeFeature(feature, ({
       expect(xiechengReqHandler).toHaveBeenLastCalledWith(
         expect.objectContaining({
           method: "POST",
-          path: "/api/product/price.do",
+          path: "/product/price.do",
         })
       );
     });

@@ -23,7 +23,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import type { ColumnsType } from "antd/es/table";
 import type { FormInstance } from "antd/es/form";
 import {
@@ -237,7 +237,14 @@ function buildArticleCoverUploadProps(
 }
 
 export default function CategoryDetailPage() {
-  const { tid = "" } = useParams<{ tid: string }>();
+  const params = useParams<{ tid?: string }>();
+  const { pathname } = useLocation();
+  /** `/category/:tid` 有命名参数；`/content/<uuid>` 为字面量路径，tid 取 pathname 最后一段 */
+  const tid = useMemo(() => {
+    if (params.tid) return params.tid;
+    const last = pathname.split("/").filter(Boolean).pop();
+    return last ?? "";
+  }, [params.tid, pathname]);
   const navigate = useNavigate();
   const { message, modal } = App.useApp();
   const { token } = theme.useToken();
@@ -650,8 +657,9 @@ export default function CategoryDetailPage() {
             <li>
               文章标题必填；正文为富文本（HTML），支持图片与视频上传（视频走
               <Typography.Text code>/assets/videos</Typography.Text>
-              ）；弹窗右侧为 iPhone 框 + 小程序深色主题实时预览；封面可选，规则与话题封面一致（限
-              1 张，先删再换）。
+              ）；弹窗右侧为 iPhone 框 +
+              小程序深色主题实时预览；封面可选，规则与话题封面一致（限 1
+              张，先删再换）。
             </li>
             <li>
               小程序文章详情路径：
@@ -889,7 +897,9 @@ export default function CategoryDetailPage() {
         />
         <div style={{ marginBottom: token.marginMD }}>
           <Space size={8} style={{ marginBottom: 8 }}>
-            <Typography.Text type="secondary">上传封面（限 1 张）</Typography.Text>
+            <Typography.Text type="secondary">
+              上传封面（限 1 张）
+            </Typography.Text>
             {matchedCoverConfig ? (
               <Typography.Text type="warning">
                 最佳尺寸：{matchedCoverConfig.coverSize.width} x{" "}
@@ -980,7 +990,9 @@ export default function CategoryDetailPage() {
         />
         <div style={{ marginBottom: token.marginMD }}>
           <Space size={8} style={{ marginBottom: 8 }}>
-            <Typography.Text type="secondary">上传封面（限 1 张）</Typography.Text>
+            <Typography.Text type="secondary">
+              上传封面（限 1 张）
+            </Typography.Text>
             {matchedCoverConfig ? (
               <Typography.Text type="warning">
                 最佳尺寸：{matchedCoverConfig.coverSize.width} x{" "}

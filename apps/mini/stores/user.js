@@ -5,6 +5,8 @@ export const useUserStore = defineStore('user', {
     token: '',
     profile: null,
     isEmployee: false,
+    /** 是否具备 OPERATOR 角色（券码核销等），由 fetchProfile 与 setProfile 同步 */
+    isOperator: false,
     invoiceTitle: ''
   }),
   getters: {
@@ -16,6 +18,9 @@ export const useUserStore = defineStore('user', {
     },
     setProfile(profile) {
       this.profile = profile || null
+      if (profile && 'isOperator' in profile) {
+        this.isOperator = !!profile.isOperator
+      }
     },
     setIsEmployee(flag) {
       this.isEmployee = !!flag
@@ -27,6 +32,7 @@ export const useUserStore = defineStore('user', {
       this.token = ''
       this.profile = null
       this.isEmployee = false
+      this.isOperator = false
       this.invoiceTitle = ''
     }
   },

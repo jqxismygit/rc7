@@ -86,7 +86,7 @@
 
 <script>
 import { useUserStore } from "@/stores/user";
-import { loginWithWechatPhone } from "@/services/auth.js";
+import { fetchProfile, loginWithWechatPhone } from "@/services/auth.js";
 
 export default {
   data() {
@@ -125,11 +125,12 @@ export default {
       const userStore = useUserStore();
 
       try {
-        const { user, token, isEmployee } = await loginWithWechatPhone();
+        const { token, isEmployee } = await loginWithWechatPhone();
 
         userStore.setToken(token);
-        userStore.setProfile(user);
         userStore.setIsEmployee(isEmployee);
+        const full = await fetchProfile();
+        userStore.setProfile(full);
 
         uni.showToast({
           title: "欢迎来到 CR7® LIFE",

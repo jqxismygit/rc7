@@ -3,7 +3,8 @@ import request from "@/utils/request.js";
 
 function normalizeUserProfile(user) {
   if (!user || typeof user !== "object") return user;
-  const profile = user.profile && typeof user.profile === "object" ? user.profile : {};
+  const profile =
+    user.profile && typeof user.profile === "object" ? user.profile : {};
   const normalized = { ...user };
 
   // 兼容前端历史字段：昵称使用 nickname，后端标准字段为 name
@@ -82,8 +83,14 @@ export async function loginWithWechatPhone() {
  * token 通过 request 拦截器自动注入
  */
 export async function fetchProfile() {
-  const profileRes = await request.get("/user/profile");
-  return normalizeUserProfile(profileRes);
+  const [profile, roles] = await Promise.all([
+    request.get("/user/profile"),
+    request.get("/user/roles"),
+  ]);
+  return {
+    ...normalizeUserProfile(profile),
+    isOperator: roles?.roles?.some((item) => item.name === "OPERATOR"),
+  };
 }
 
 /**

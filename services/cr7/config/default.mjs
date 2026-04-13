@@ -58,6 +58,7 @@ export default {
   },
   xiecheng: {
     callback_base_url: host,
+    order_base_url: 'https://ttdopen.ctrip.com/api',
     base_url: 'https://ttdopen.ctrip.com',
     account_id: '5134daa94d22e8bc',
     secret: '<--ignore-->',
@@ -76,5 +77,18 @@ export default {
     api_key: '3309712MW9',
     sign: '<--ignore-->',
     api_pwd: '<--ignore-->',
+  },
+  fapiao: {
+    app_id: 'your_app_id',
+    secret: '<--ignore-->',
+    base_url: 'https://www.fapiao.com:53085/fpt-rhqz/prepose',
+    callback_base_url: `${host}/api/fapiao/callback`,
+    tax_id: 'your_tax_id',
+    company_name: 'your_company_name',
+    company_address: 'your_company_address',
+    company_phone: 'your_company_phone',
+    company_bank: 'your_company_bank',
+    company_bank_account: 'your_company_bank_account',
+    issuer: 'your_issuer',
   }
 }

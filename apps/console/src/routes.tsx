@@ -28,9 +28,9 @@ import {
   LineChartOutlined,
   StockOutlined,
   TableOutlined,
+  SecurityScanOutlined,
 } from "@ant-design/icons";
 import Order from "./pages/order";
-import User from "./pages/user";
 
 const GRAFANA_PREFIX_URL = window.location.origin.includes("localhost")
   ? "https://errows.ghostiee.cc"
@@ -48,6 +48,8 @@ const ExhibitionDetail = React.lazy(() => import("./pages/exhibition/detail"));
 const Category = React.lazy(() => import("./pages/category"));
 const CategoryDetail = React.lazy(() => import("./pages/category/detail"));
 
+const Role = React.lazy(() => import("./pages/user/role"));
+const User = React.lazy(() => import("./pages/user"));
 // 路由配置类型
 export interface RouteConfig {
   /** 路由路径；`index: true` 的叶子可省略 */
@@ -82,6 +84,7 @@ export const routes: RouteConfig[] = [
     name: "展会",
     icon: <CalendarOutlined />,
     element: <CommonLayout />,
+    // permission: "permission_exhibition_manage",
     children: [
       {
         index: true,
@@ -102,6 +105,7 @@ export const routes: RouteConfig[] = [
     name: "分类",
     icon: <AppstoreOutlined />,
     element: <CommonLayout />,
+    permission: "permission_article_manage",
     children: [
       {
         index: true,
@@ -117,17 +121,70 @@ export const routes: RouteConfig[] = [
       },
     ],
   },
+  //这里到时候要区分测试环境和生产环境
+  {
+    path: "/content",
+    name: "内容管理",
+    icon: <FileTextOutlined />,
+    element: <CommonLayout />,
+    children: [
+      {
+        path: "aa88d1ad-7faa-4243-98f0-7a73d524cd4b",
+        name: "轮播图",
+        icon: <PictureOutlined />,
+        element: <CategoryDetail />,
+        permission: "banner_manage",
+      },
+      {
+        path: "c59d1736-35b3-46cc-9893-97677d576f55",
+        name: "新闻",
+        icon: <DashboardOutlined />,
+        element: <CategoryDetail />,
+        permission: "news_manage",
+      },
+      {
+        path: "de47573b-d515-4000-abc4-c0174885bdb0",
+        name: "品牌合作",
+        icon: <TeamOutlined />,
+        element: <CategoryDetail />,
+        permission: "brand_cooperation_manage",
+      },
+      {
+        path: "55a8ecee-9f48-431c-9e28-008e4f5cbb6f",
+        name: "隐私政策",
+        icon: <QuestionCircleOutlined />,
+        element: <CategoryDetail />,
+        permission: "privacy_policy_manage",
+      },
+    ],
+  },
   {
     path: "/order",
     name: "订单",
     icon: <DollarOutlined />,
     element: <Order />,
+    permission: "permission_order_manage",
   },
   {
-    path: "/user",
-    name: "用户",
-    icon: <UserOutlined />,
-    element: <User />,
+    path: "/permission",
+    name: "权限",
+    icon: <SecurityScanOutlined />,
+    element: <CommonLayout />,
+    permission: "permission_user_manage",
+    children: [
+      {
+        path: "user",
+        name: "用户",
+        icon: <UserOutlined />,
+        element: <User />,
+      },
+      {
+        path: "role",
+        name: "角色",
+        icon: <TeamOutlined />,
+        element: <Role />,
+      },
+    ],
   },
 ];
 

@@ -7,6 +7,7 @@ export type USER_DATA_ERROR_CODES =
 | 'ROLE_NOT_FOUND'
 | 'ROLE_ALREADY_EXISTS'
 | 'BUILTIN_ROLE_CANNOT_DELETE'
+| 'BUILTIN_ROLE_CANNOT_UPDATE'
 | 'PHONE_ALREADY_EXISTS'
 | 'INVALID_PHONE_OR_PASSWORD'
 | 'USER_PASSWORD_NOT_FOUND'
@@ -102,19 +103,27 @@ export async function listUserProfiles(
   options: {
     phone?: string;
     role_id?: string;
+    has_any_role?: boolean;
     damai_user_id?: string;
     page: number;
     limit: number;
   },
 ) {
-  const { phone, role_id, damai_user_id, page, limit } = options;
+  const { phone, role_id, has_any_role, damai_user_id, page, limit } = options;
   const offset = (page - 1) * limit;
+  const filterParams = [
+    phone ?? null,
+    damai_user_id ?? null,
+    role_id ?? null,
+    has_any_role ?? null,
+  ];
 
-  const { rows: countRows } = await client.query<{ total: string }>(
-    `SELECT COUNT(*)::text AS total
+  const filterFromSql = `
     FROM ${schema}.users u
     LEFT JOIN ${schema}.user_damai ud ON u.id = ud.uid
-    LEFT JOIN ${schema}.user_phone up ON u.id = up.uid
+    LEFT JOIN ${schema}.user_phone up ON u.id = up.uid`;
+
+  const filterWhereSql = `
     WHERE ($1::text IS NULL OR up.phone = $1)
       AND ($2::text IS NULL OR ud.damai_user_id = $2)
       AND (
@@ -125,8 +134,26 @@ export async function listUserProfiles(
           WHERE ur.uid = u.id
             AND ur.role_id = $3::uuid
         )
-      )`,
-    [phone ?? null, damai_user_id ?? null, role_id ?? null],
+      )
+      AND (
+        $4::boolean IS NULL
+        OR ($4::boolean = TRUE AND EXISTS (
+          SELECT 1
+          FROM ${schema}.user_roles ur_any
+          WHERE ur_any.uid = u.id
+        ))
+        OR ($4::boolean = FALSE AND NOT EXISTS (
+          SELECT 1
+          FROM ${schema}.user_roles ur_any
+          WHERE ur_any.uid = u.id
+        ))
+      )`;
+
+  const { rows: countRows } = await client.query<{ total: string }>(
+    `SELECT COUNT(*)::text AS total
+    ${filterFromSql}
+    ${filterWhereSql}`,
+    filterParams,
   );
   const total = parseInt(countRows[0].total, 10);
 
@@ -155,29 +182,58 @@ export async function listUserProfiles(
         COALESCE(up.updated_at, u.updated_at),
         COALESCE(upw.updated_at, u.updated_at)
       ) AS updated_at
-    FROM ${schema}.users u
-    LEFT JOIN ${schema}.user_damai ud ON u.id = ud.uid
+    ${filterFromSql}
     LEFT JOIN ${schema}.user_wechat uw ON u.id = uw.uid
-    LEFT JOIN ${schema}.user_phone up ON u.id = up.uid
     LEFT JOIN ${schema}.user_password upw ON u.id = upw.uid
-    WHERE ($1::text IS NULL OR up.phone = $1)
-      AND ($2::text IS NULL OR ud.damai_user_id = $2)
-      AND (
-        $3::uuid IS NULL
-        OR EXISTS (
-          SELECT 1
-          FROM ${schema}.user_roles ur
-          WHERE ur.uid = u.id
-            AND ur.role_id = $3::uuid
-        )
-      )
+    ${filterWhereSql}
       ORDER BY u.created_at DESC
-      LIMIT $4 OFFSET $5`,
-    [phone ?? null, damai_user_id ?? null, role_id ?? null, limit, offset],
+      LIMIT $5 OFFSET $6`,
+    [...filterParams, limit, offset],
   );
 
+  // Fetch roles for all users in the list
+  const userIds = users.map(u => u.id);
+  const rolesByUserId: Record<string, Array<{ id: string; name: string; permissions: string[] }>> = {};
+
+  if (userIds.length > 0) {
+    const { rows: userRoles } = await client.query<{
+      uid: string;
+      id: string;
+      name: string;
+      permissions: string[];
+    }>(
+      `SELECT
+        ur.uid,
+        r.id,
+        r.name,
+        r.permissions
+      FROM ${schema}.user_roles ur
+      JOIN ${schema}.roles r ON ur.role_id = r.id
+      WHERE ur.uid = ANY($1::uuid[])
+      ORDER BY r.name`,
+      [userIds]
+    );
+
+    for (const role of userRoles) {
+      if (!rolesByUserId[role.uid]) {
+        rolesByUserId[role.uid] = [];
+      }
+      rolesByUserId[role.uid].push({
+        id: role.id,
+        name: role.name,
+        permissions: role.permissions,
+      });
+    }
+  }
+
+  // Add roles to each user
+  const usersWithRoles = users.map(user => ({
+    ...user,
+    roles: rolesByUserId[user.id] || [],
+  }));
+
   return {
-    users,
+    users: usersWithRoles,
     total,
     page,
     limit,
@@ -464,6 +520,104 @@ export async function deleteRoleById(
     WHERE id = $1`,
     [role.id],
   );
+}
+
+export async function updateRole(
+  client: DBClient,
+  schema: string,
+  roleId: string,
+  input: {
+    name?: string;
+    description?: string;
+    permissions?: string[];
+  },
+) {
+  const { rows: roleRows } = await client.query<{
+    id: string;
+    is_builtin: boolean;
+  }>(
+    `SELECT id, is_builtin
+    FROM ${schema}.roles
+    WHERE id = $1
+    LIMIT 1`,
+    [roleId],
+  );
+
+  const role = roleRows[0] ?? null;
+  if (role === null) {
+    throw new UserDataError('Role not found', 'ROLE_NOT_FOUND');
+  }
+
+  if (role.is_builtin === true) {
+    throw new UserDataError('Builtin role cannot update', 'BUILTIN_ROLE_CANNOT_UPDATE');
+  }
+
+  const updates: string[] = [];
+  const values: (string | string[] | undefined)[] = [];
+  let paramCount = 1;
+
+  if (input.name !== undefined) {
+    updates.push(`name = $${paramCount}`);
+    values.push(input.name);
+    paramCount++;
+  }
+
+  if (input.description !== undefined) {
+    updates.push(`description = $${paramCount}`);
+    values.push(input.description);
+    paramCount++;
+  }
+
+  if (input.permissions !== undefined) {
+    updates.push(`permissions = $${paramCount}::text[]`);
+    values.push(input.permissions);
+    paramCount++;
+  }
+
+  if (updates.length === 0) {
+    // If no updates provided, return the existing role
+    const { rows: [existingRole] } = await client.query<{
+      id: string;
+      name: string;
+      description: string;
+      permissions: string[];
+      is_builtin: boolean;
+    }>(
+      `SELECT
+        id,
+        name,
+        description,
+        permissions,
+        is_builtin
+      FROM ${schema}.roles
+      WHERE id = $1`,
+      [roleId],
+    );
+
+    return existingRole;
+  }
+
+  values.push(roleId);
+  const { rows: [updatedRole] } = await client.query<{
+    id: string;
+    name: string;
+    description: string;
+    permissions: string[];
+    is_builtin: boolean;
+  }>(
+    `UPDATE ${schema}.roles
+    SET ${updates.join(', ')}
+    WHERE id = $${paramCount}
+    RETURNING
+      id,
+      name,
+      description,
+      permissions,
+      is_builtin`,
+    values,
+  );
+
+  return updatedRole;
 }
 
 export async function assignRoleToUser(

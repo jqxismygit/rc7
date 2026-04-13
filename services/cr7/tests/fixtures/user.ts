@@ -1,5 +1,5 @@
 import { Server } from "http";
-import { deleteJSON, getJSON, postJSON, putJSON } from "../lib/api.js";
+import { deleteJSON, getJSON, postJSON, putJSON, patchJSON } from "../lib/api.js";
 import { User } from "@cr7/types";
 import { expect, vi } from "vitest";
 import { mockWechatServer } from "../lib/server.js";
@@ -57,6 +57,7 @@ export function listUsers(
   query: {
     phone?: string;
     role_id?: string;
+    has_any_role?: boolean;
     damai_user_id?: string;
     page?: number;
     limit?: number;
@@ -121,6 +122,22 @@ export function deleteRole(
 ) {
   return deleteJSON<null>(server, `/users/roles/${roleId}`, {
     token,
+  });
+}
+
+export function updateRole(
+  server: Server,
+  token: string,
+  roleId: string,
+  payload: {
+    name?: string;
+    description?: string;
+    permissions?: string[];
+  },
+) {
+  return patchJSON<ManagedRole>(server, `/users/roles/${roleId}`, {
+    token,
+    body: payload,
   });
 }
 

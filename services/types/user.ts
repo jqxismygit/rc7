@@ -1,9 +1,10 @@
-export type AuthMethodType = 'DAMAI' | 'WECHAT_MINI' | 'PASSWORD';
+export type AuthMethodType = "DAMAI" | "WECHAT_MINI" | "PASSWORD";
 
 export interface Role {
   id: string;
   name: string;
   permissions: string[];
+  is_builtin?: boolean;
 }
 
 export interface Profile {
@@ -20,6 +21,8 @@ export interface Profile {
   /** 未绑定微信时为 null */
   openid: string | null;
   auth_methods?: AuthMethodType[];
+  /** 用户的角色列表（仅在列表查询中返回） */
+  roles?: Role[];
   created_at: string;
   updated_at: string;
 }

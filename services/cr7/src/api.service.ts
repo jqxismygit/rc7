@@ -115,7 +115,7 @@ const routes = [
     '/users',
     [
       'user.grant_role', 'user.revoke_role', 'user.list', 'user.create_user',
-      'user.list_roles', 'user.create_role', 'user.delete_role'
+      'user.list_roles', 'user.create_role', 'user.delete_role', 'user.update_role'
     ],
     {
       aliases: {
@@ -126,6 +126,7 @@ const routes = [
         'GET /roles': 'user.list_roles',
         'POST /roles': 'user.create_role',
         'DELETE /roles/:role_id': 'user.delete_role',
+        'PATCH /roles/:role_id': 'user.update_role',
       }
     }
   ),
@@ -175,7 +176,7 @@ const routes = [
     '/orders',
     [
       'cr7.order.get', 'cr7.order.list', 'cr7.order.cancel',
-      'cr7.order.hide',
+      'cr7.order.hide', 'cr7.invoice.applyFapiao', 'cr7.invoice.listFapiaoApplications',
       'cr7.order.wechatpay', 'cr7.order.refund', 'cr7.redemption.getByOrder'
     ],
     {

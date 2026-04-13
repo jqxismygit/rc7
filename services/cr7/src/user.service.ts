@@ -18,6 +18,7 @@ import {
   listRoles,
   createRole,
   deleteRoleById,
+  updateRole,
   upsertUserByDamaiId,
   upsertUserByPhone,
   upsertUserPassword,
@@ -168,6 +169,28 @@ export default class UserService extends Service {
           handler: this.delete_role,
         },
 
+        update_role: {
+          rest: 'PATCH /roles/:role_id',
+          roles: ['admin'],
+          params: {
+            role_id: 'uuid',
+            name: {
+              type: 'string',
+              optional: true,
+            },
+            description: {
+              type: 'string',
+              optional: true,
+            },
+            permissions: {
+              type: 'array',
+              items: 'string',
+              optional: true,
+            },
+          },
+          handler: this.update_role,
+        },
+
         list: {
           rest: 'GET /',
           roles: ['admin'],
@@ -179,6 +202,11 @@ export default class UserService extends Service {
             role_id: {
               type: 'uuid',
               optional: true,
+            },
+            has_any_role: {
+              type: 'boolean',
+              optional: true,
+              convert: true,
             },
             damai_user_id: {
               type: 'string',
@@ -437,17 +465,18 @@ export default class UserService extends Service {
     ctx: Context<{
       phone?: string;
       role_id?: string;
+      has_any_role?: boolean;
       damai_user_id?: string;
       page?: number;
       limit?: number
     }>
   ) {
     const schema = await this.getSchema();
-    const { phone, role_id, damai_user_id, page = 1, limit = 20 } = ctx.params;
+    const { phone, role_id, has_any_role, damai_user_id, page = 1, limit = 20 } = ctx.params;
 
     const users = await listUserProfiles(
       this.pool, schema,
-      { phone, role_id, damai_user_id, page, limit }
+      { phone, role_id, has_any_role, damai_user_id, page, limit }
     );
     return users;
   }
@@ -526,6 +555,19 @@ export default class UserService extends Service {
 
     ctx.meta.$statusCode = 204;
     return null;
+  }
+
+  async update_role(
+    ctx: Context<{ role_id: string; name?: string; description?: string; permissions?: string[] }>
+  ) {
+    const schema = await this.getSchema();
+    const { role_id, name, description, permissions } = ctx.params;
+
+    return updateRole(this.pool, schema, role_id, {
+      name,
+      description,
+      permissions,
+    }).catch(handleUserError);
   }
 
   async findOrCreateByPhone(
