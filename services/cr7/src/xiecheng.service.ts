@@ -285,7 +285,7 @@ export default class XiechengService extends RC7BaseService {
     let status: Xiecheng.XcSyncStatus = 'SUCCESS';
     try {
       syncResponse = await xieChengSyncPrice(
-        `${config.xiecheng.order_base_url}/product/price.do`,
+        `${config.xiecheng.base_url}/product/price.do`,
         {
           accountId: config.xiecheng.account_id,
           signKey: config.xiecheng.secret,
@@ -1245,7 +1245,7 @@ export default class XiechengService extends RC7BaseService {
 
     const xcConfig = config.xiecheng;
     await xieChengSendConsumedNotice(
-      `${xcConfig.base_url}/api/order/notice.do`,
+      `${xcConfig.order_base_url}/order/notice.do`,
       {
         accountId: xcConfig.account_id,
         signKey: xcConfig.secret,

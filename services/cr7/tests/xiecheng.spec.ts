@@ -208,12 +208,8 @@ describeFeature(feature, ({
       .spyOn(config.xiecheng, 'base_url', 'get')
       .mockReturnValue(mockServer.address);
 
-      const orderBaseUrlSpy = vi
-      .spyOn(config.xiecheng, 'order_base_url', 'get')
-      .mockReturnValue(mockServer.address);
-
       openedMockServers.push(mockServer);
-      openedBaseUrlSpies.push(baseUrlSpy, orderBaseUrlSpy);
+      openedBaseUrlSpies.push(baseUrlSpy);
 
       featureContext.xiechengReqHandler = xiechengReqHandler;
     });
