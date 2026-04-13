@@ -2,8 +2,8 @@ import { Server } from 'http';
 import type { Invoice } from '@cr7/types';
 import { getJSON, postJSON } from '../lib/api.js';
 
-type ApplyInvoicePayload = Pick<Invoice.InvoiceApplication, 'invoice_title' | 'email'> & {
-  tax_no?: Invoice.InvoiceApplication['tax_no'];
+type ApplyInvoicePayload = Pick<Invoice.InvoiceRecord, 'invoice_title' | 'email'> & {
+  tax_no?: Invoice.InvoiceRecord['tax_no'];
 };
 
 
@@ -13,7 +13,7 @@ export async function applyOrderInvoice(
   payload: ApplyInvoicePayload,
   token: string,
 ) {
-  return postJSON<Invoice.InvoiceApplication>(
+  return postJSON<Invoice.InvoiceRecord>(
     server,
     `/orders/${orderId}/invoice`,
     { body: payload, token },
@@ -23,9 +23,9 @@ export async function applyOrderInvoice(
 export async function listInvoiceApplications(
   server: Server,
   token: string,
-  query: { oid?: Invoice.InvoiceApplication['order_id'] } = {},
+  query: { oid?: Invoice.InvoiceRecord['order_id'] } = {},
 ) {
-  return getJSON<Invoice.InvoiceApplicationListResult>(
+  return getJSON<Invoice.InvoiceListResult>(
     server,
     '/orders/invoice',
     { token, query },

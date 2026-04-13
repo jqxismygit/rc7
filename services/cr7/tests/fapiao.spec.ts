@@ -21,7 +21,6 @@ import {
   applyOrderInvoice,
   listInvoiceApplications,
 } from './fixtures/invoice.js';
-import { assertAPIError } from './lib/api.js';
 import { markOrderAsPaidForTest } from './fixtures/payment.js';
 import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
 import {
@@ -51,7 +50,7 @@ type OrderContext = {
 type FapiaoScenarioContext = OrderContext & {
   fapiaoEnvelope: FapiaoEnvelope;
   fapiaoRequestData: Record<string, unknown>;
-  listResult: Invoice.InvoiceApplicationListResult;
+  listResult: Invoice.InvoiceListResult;
 };
 
 interface CreateFapiaoContext {
@@ -59,20 +58,24 @@ interface CreateFapiaoContext {
   fapiaoBaseUrlSpy: { mockRestore: () => void };
   fapiaoRequestHandler: ReturnType<typeof vi.fn>;
   fapiaoResponseResolver: (args: unknown) => void;
+  applyInvoicePromise?: Promise<Invoice.InvoiceRecord>;
+}
+
+interface ListFapiaoContext {
+  fapiaoList: Invoice.InvoiceListResult;
 }
 
 interface FeatureContext extends
   ExhibitionContext,
   OrderContext,
-  Partial<CreateFapiaoContext> {
+  Partial<CreateFapiaoContext>,
+  Partial<ListFapiaoContext> {
   broker: ServiceBroker;
   apiServer: Server;
   wechatFixture: WechatFixture;
   adminToken: string;
   userToken: string;
   userProfile: User.Profile;
-  applyInvoicePromise?: Promise<Invoice.InvoiceApplication>;
-  lastError?: unknown;
 }
 
 describeFeature(feature, ({
@@ -146,6 +149,18 @@ describeFeature(feature, ({
         },
         featureContext.userToken,
       );
+    });
+
+
+    When('用户查看发票申请列表', async () => {
+      featureContext.fapiaoList = await listInvoiceApplications(
+        featureContext.apiServer,
+        featureContext.userToken,
+      );
+    });
+
+    Then('发票申请列表有 {number} 条记录', (_ctx, count: number) => {
+      expect(featureContext.fapiaoList!.items.length).toBe(count);
     });
   });
 
@@ -292,7 +307,7 @@ describeFeature(feature, ({
   Scenario('用户成功申请发票', (s: StepTest<
     FapiaoScenarioContext
     & {
-      invoiceApplication: Invoice.InvoiceApplication;
+      invoiceApplication: Invoice.InvoiceRecord;
       sequenceSuffix: string;
       fapiaoResponse: {
         CODE: string;
@@ -303,6 +318,7 @@ describeFeature(feature, ({
           FP_HM: string,
         }
       };
+      applyInvoicePromise: Promise<Invoice.InvoiceRecord>;
     }
   >) => {
     const { Given, When, Then, And, context } = s;
@@ -468,73 +484,60 @@ describeFeature(feature, ({
       expect(context.sequenceSuffix).toBe(sequenceId);
     });
 
-    When('用户查看发票申请列表', async () => {
-      context.listResult = await listInvoiceApplications(
-        featureContext.apiServer,
-        featureContext.userToken,
-      );
-    });
-
-    Then('发票申请列表有 {number} 条记录', (_ctx, count: number) => {
-      expect(context.listResult.items.length).toBe(count);
-    });
-
     And('该记录的订单 ID 是用户预订的订单 ID', () => {
-      const [first] = context.listResult.items;
+      const [first] = featureContext.fapiaoList!.items;
       expect(first.order_id).toBe(featureContext.order.id);
     });
 
     And('该记录的发票抬头是 {string}', (_ctx, invoiceTitle: string) => {
-      const [first] = context.listResult.items;
+      const [first] = featureContext.fapiaoList!.items;
       expect(first.invoice_title).toBe(invoiceTitle);
     });
 
     And('该记录的税号是 {string}', (_ctx, taxNo: string) => {
-      const [first] = context.listResult.items;
+      const [first] = featureContext.fapiaoList!.items;
       expect(first.tax_no).toBe(taxNo);
     });
 
     And('该记录的邮箱是 {string}', (_ctx, email: string) => {
-      const [first] = context.listResult.items;
+      const [first] = featureContext.fapiaoList!.items;
       expect(first.email).toBe(email);
     });
 
     And('该记录的状态是开具成功', () => {
-      const [first] = context.listResult.items;
+      const [first] = featureContext.fapiaoList!.items;
       expect(first.status).toBe('SUCCESS');
     });
 
     And('该记录的发票号码是 {string}', (_ctx, invoiceNo: string) => {
-      const [first] = context.listResult.items;
+      const [first] = featureContext.fapiaoList!.items;
       expect(first.invoice_no).toBe(invoiceNo);
     });
 
     And('该记录的 PDF URL 是 {string}', (_ctx, pdfUrl: string) => {
-      const [first] = context.listResult.items;
+      const [first] = featureContext.fapiaoList!.items;
       expect(first.pdf_url).toBe(pdfUrl);
     });
 
     When('用户再次申请同一订单的发票', async () => {
-      try {
-        await applyOrderInvoice(
-          featureContext.apiServer,
-          featureContext.order.id,
-          {
-            invoice_title: '测试公司',
-            tax_no: '123456789',
-            email: 'send_me_invoice@example.com',
-          },
-          featureContext.userToken,
-        );
-      } catch (error) {
-        featureContext.lastError = error;
-      }
+      context.applyInvoicePromise = applyOrderInvoice(
+        featureContext.apiServer,
+        featureContext.order.id,
+        {
+          invoice_title: '测试公司',
+          tax_no: '123456789',
+          email: 'send_me_invoice@example.com',
+        },
+        featureContext.userToken,
+      );
     });
 
-    Then('cr7 返回错误，提示该订单的发票已经开具成功', () => {
-      assertAPIError(featureContext.lastError, {
+    Then('cr7 返回错误，提示该订单的发票已经开具成功', async () => {
+      await expect(context.applyInvoicePromise).rejects.toMatchObject({
         status: 409,
-        messageIncludes: '该订单的发票已经开具成功',
+        body: {
+          message: '该订单的发票已经开具成功',
+        },
       });
     });
   });

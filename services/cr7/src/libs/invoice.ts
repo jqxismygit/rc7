@@ -188,6 +188,6 @@ export class FapiaoService extends RC7BaseService {
         created_at: record.created_at,
         updated_at: record.updated_at,
       })),
-    } as Invoice.InvoiceApplicationListResult;
+    } as Invoice.InvoiceListResult;
   }
 }

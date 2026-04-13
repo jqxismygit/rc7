@@ -3,13 +3,13 @@ import type { Invoice } from '@cr7/types';
 
 type DBClient = Pool | PoolClient;
 
-export interface InvoiceApplicationRecord extends Invoice.InvoiceApplication {
+export interface InvoiceApplicationRecord extends Invoice.InvoiceRecord {
   id: string;
   order_id: string;
   invoice_title: string;
   tax_no: string;
   email: string;
-  status: Invoice.InvoiceApplicationStatus;
+  status: Invoice.InvoiceStatus;
   sequence_id: string;
   invoice_no: string | null;
   created_at: string;
@@ -29,7 +29,7 @@ type InvoiceApplicationDraft = Omit<InvoiceApplicationRecord,
   | 'tax_no'
   | 'pdf_url'
 > & {
-  tax_no?: Invoice.InvoiceApplication['tax_no'];
+  tax_no?: Invoice.InvoiceRecord['tax_no'];
 };
 
 type InvoiceApplyPersistResult = Pick<InvoiceApplicationRecord,

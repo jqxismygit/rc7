@@ -61,3 +61,6 @@ Feature: 为订单开发票
   Scenario: 用户订单未支付申请发票失败
     When 用户申请该订单的发票，发票抬头为 "测试公司"，税号为 "123456789", 邮箱为 "send_me_invoice@example.com"
     Then cr7 返回错误，提示订单未支付，无法申请发票
+
+    When 用户查看发票申请列表
+    Then 发票申请列表有 0 条记录

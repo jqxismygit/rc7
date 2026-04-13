@@ -1,12 +1,12 @@
-export type InvoiceApplicationStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
+export type InvoiceStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
 
-export interface InvoiceApplication {
+export interface InvoiceRecord {
   id: string;
   order_id: string;
   invoice_title: string;
   tax_no: string;
   email: string;
-  status: InvoiceApplicationStatus;
+  status: InvoiceStatus;
   sequence_id: string;
   invoice_no: string | null;
   pdf_url: string | null;
@@ -14,6 +14,6 @@ export interface InvoiceApplication {
   updated_at: string;
 }
 
-export interface InvoiceApplicationListResult {
-  items: InvoiceApplication[];
+export interface InvoiceListResult {
+  items: InvoiceRecord[];
 }
