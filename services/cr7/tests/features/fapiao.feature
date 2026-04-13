@@ -16,10 +16,11 @@ Feature: 为订单开发票
     Given 发票服务已经启动
 
   Scenario: 用户成功申请发票
-    When 用户申请订单的发票，发票抬头为 "测试公司"，税号为 "123456789"
+    When 用户申请订单的发票，发票抬头为 "测试公司"，税号为 "123456789", 邮箱为 "send_me_invoice@example.com"
     Then 发票服务接收到发票开具请求, 可以正常解密出发票申请信息
      And 请求中 interface code 是 "GP_FPKJ"
      And 请求中 interface 是 "REQUEST_COMMON_FPKJ"
+     And 请求中流水号前缀是 "JZWLJC"，后缀是发票开具记录的 ID pad 到 14 位
      And 请求中设备类型是数电，值为 "6"
      And 请求中发票类型代码是数电普票，值为 "030"
      And 请求中发票类型是蓝字发票，值为 "0"
@@ -28,11 +29,27 @@ Feature: 为订单开发票
      And 请求中销售方名称是配置中的 company_name， 销售方地址是配置中的 company_address，销售方电话是配置中的 company_phone
      And 请求中销售方开户行是配置中的 company_bank，银行账号是配置中的 company_bank_account
      And 请求中开票人是配置中的 issuer
-     And 请求中购买方名称是 "测试公司", 购买方纳税人识别号是 "123456789"
+     And 请求中购买方名称是 "测试公司", 购买方纳税人识别号是 "123456789"，电子邮箱是 "send_me_invoice@example.com"
      And 请求中价税合计是 206 元，合计金额是 200 元，合计税额是 6 元
      And 请求中有 1 个发票行项目
      And 发票行项目的第 1 行的发票行性质是正常行，值为 "0"
      And 发票行项目的第 1 行的商品编码是 "3070301000000000000"
      And 发票行项目的第 1 行的项目名称是 "单人票", 数量是 2，单价是 103 元
      And 发票行项目的第 1 行的税率是 3%， 税额是 6 元
+
+   Given 发票平台返回发票开具成功的响应， 值为 "0000"
+     And 发票开具结果中流水号是 cr7 生成的流水号
+     And 发票开具结果中的 PDF URL 是 "https://example.com/invoice.pdf"
+     And 发票开具结果中的发票号码是 "fapiao1234567890"
+    When 发票服务返回开具结果给 cr7
+
+    When 用户查看发票申请列表
+    Then 发票申请列表有 1 条记录
+     And 该记录的订单 ID 是用户预订的订单 ID
+     And 该记录的发票抬头是 "测试公司"
+     And 该记录的税号是 "123456789"
+     And 该记录的邮箱是 "send_me_invoice@example.com"
+     And 该记录的状态是开具成功
+     And 该记录的发票号码是 "fapiao1234567890"
+     And 该记录的 PDF URL 是 "https://example.com/invoice.pdf"
 

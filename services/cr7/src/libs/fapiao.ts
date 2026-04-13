@@ -67,6 +67,17 @@ export interface ParsedFapiaoResponse<T = unknown> {
   returnMessage: string;
 }
 
+export interface FapiaoRequestTrace<T = unknown> {
+  result: T;
+  request: FapiaoEnvelope;
+  response: unknown;
+}
+
+export interface FapiaoTraceableError extends Error {
+  fapiaoRequest: FapiaoEnvelope;
+  fapiaoResponse: unknown;
+}
+
 function assertAESKey(secret: string) {
   const keySize = Buffer.byteLength(secret, 'utf-8');
   if (![16, 24, 32].includes(keySize)) {
@@ -250,6 +261,14 @@ export async function sendFapiaoRequest<T = unknown>(
   interfaceCode: string,
   content: unknown,
 ): Promise<T> {
+  const trace = await sendFapiaoRequestWithTrace<T>(interfaceCode, content);
+  return trace.result;
+}
+
+export async function sendFapiaoRequestWithTrace<T = unknown>(
+  interfaceCode: string,
+  content: unknown,
+): Promise<FapiaoRequestTrace<T>> {
   const request = buildFapiaoRequest({
     interfaceCode, content,
     requestCode: DEFAULT_REQUEST_CODE,
@@ -266,11 +285,19 @@ export async function sendFapiaoRequest<T = unknown>(
   });
 
   if (parsed.returnCode !== '0000') {
-    throw new MoleculerClientError(
+    const error = new MoleculerClientError(
       `发票平台错误: ${parsed.returnMessage}`,
       502,
       'FAPIAO_PLATFORM_ERROR',
     );
+    Object.assign(
+      error,
+      {
+        fapiaoRequest: request.payload,
+        fapiaoResponse: rawResponse
+      } as FapiaoTraceableError
+    );
+    throw error;
   }
 
   const decoded = parsed.decodedContent;
@@ -281,10 +308,22 @@ export async function sendFapiaoRequest<T = unknown>(
     (decoded as { CODE?: string }).CODE !== '0000'
   ) {
     const msg = (decoded as { MESSAGE?: string }).MESSAGE ?? '发票申请失败';
-    throw new MoleculerClientError(msg, 502, 'FAPIAO_REQUEST_FAILED');
+    const error = new MoleculerClientError(msg, 502, 'FAPIAO_REQUEST_FAILED');
+    Object.assign(
+      error,
+      {
+        fapiaoRequest: request.payload,
+        fapiaoResponse: decoded
+      } as FapiaoTraceableError
+    );
+    throw error;
   }
 
-  return decoded as T;
+  return {
+    result: decoded as T,
+    request: request.payload,
+    response: typeof decoded === 'object' && decoded !== null ? decoded : rawResponse,
+  };
 }
 
 const FAPIAO_INTERFACE_CODE = 'GP_FPKJ';
@@ -309,14 +348,28 @@ export interface FapiaoKpjItem {
 
 export interface FapiaoKpjParams {
   oid: string;
+  sequence_id: string;
   invoice_title: string;
   tax_no?: string;
+  email: string;
   total_amount: number;
   items: FapiaoKpjItem[];
 }
 
-export async function sendFapiaoKpjRequest(params: FapiaoKpjParams): Promise<void> {
-  const { oid, invoice_title, tax_no = '', total_amount, items } = params;
+export interface FapiaoKpjResult {
+  CODE: string;
+  MESSAGE: string;
+  DATA: {
+    FPQQLSH: string;
+    PDF_URL: string;
+    FP_HM: string;
+  };
+}
+
+export async function sendFapiaoKpjRequest(
+  params: FapiaoKpjParams
+): Promise<FapiaoRequestTrace<FapiaoKpjResult>> {
+  const { invoice_title, tax_no = '', email, sequence_id, total_amount, items } = params;
 
   const hjjeFen = Math.round(total_amount / (1 + FAPIAO_TAX_RATE));
   const hjseFen = total_amount - hjjeFen;
@@ -341,7 +394,7 @@ export async function sendFapiaoKpjRequest(params: FapiaoKpjParams): Promise<voi
     [FAPIAO_INTERFACE_KEY]: {
       SBLX: '6',
       SBBH: '',
-      FPQQLSH: "SHJZWLJC00000000001",
+      FPQQLSH: sequence_id,
       KPZDDM: '',
       FPLXDM: '030',
       KPLX: '0',
@@ -355,6 +408,7 @@ export async function sendFapiaoKpjRequest(params: FapiaoKpjParams): Promise<voi
       XSF_ZH: config.fapiao.company_bank_account,
       GMF_NSRSBH: tax_no,
       GMF_MC: invoice_title,
+      GMF_DZYX: email,
       KPR: config.fapiao.issuer,
       JSHJ: formatYuanFromFen(total_amount),
       HJJE: formatYuanFromFen(hjjeFen),
@@ -363,5 +417,5 @@ export async function sendFapiaoKpjRequest(params: FapiaoKpjParams): Promise<voi
     },
   };
 
-  await sendFapiaoRequest(FAPIAO_INTERFACE_CODE, content);
+  return sendFapiaoRequestWithTrace<FapiaoKpjResult>(FAPIAO_INTERFACE_CODE, content);
 }
