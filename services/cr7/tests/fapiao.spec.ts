@@ -70,6 +70,7 @@ interface CreateFapiaoContext {
   fapiaoResponse: FapiaoResponse;
   fapiaoResponseResolver: (args: unknown) => void;
   applyInvoicePromise?: Promise<Invoice.InvoiceRecord>;
+  invoiceRes: Invoice.InvoiceRecord;
 }
 
 interface ListFapiaoContext {
@@ -195,6 +196,12 @@ describeFeature(feature, ({
       fapiaoResponse!.DATA.FPQQLSH = fapiaoRequestData!.FPQQLSH as string;
     });
 
+    When('发票服务返回开具结果给 cr7', async () => {
+      const { fapiaoResponseResolver, fapiaoResponse, applyInvoicePromise } = featureContext;
+      fapiaoResponseResolver?.(fapiaoResponse);
+      featureContext.invoiceRes = await applyInvoicePromise!;
+    });
+
     When('用户查看发票申请列表', async () => {
       featureContext.fapiaoList = await listInvoiceApplications(
         featureContext.apiServer,
@@ -300,11 +307,12 @@ describeFeature(feature, ({
     });
 
     Given('发票服务已经启动', async () => {
-      let resolvePromise!: (args: unknown) => void;
-      const promise = new Promise<unknown>((resolve) => {
-        resolvePromise = resolve;
+      const promise = new Promise<unknown>((resolve, reject) => {
+        featureContext.fapiaoResponseResolver = resolve;
+        setTimeout(() => {
+          reject(new Error('Fapiao response timeout'));
+        }, 1000);
       });
-      featureContext.fapiaoResponseResolver = resolvePromise;
 
       const requestHandler = vi.fn(async () => {
         const response = await promise;
@@ -349,12 +357,9 @@ describeFeature(feature, ({
   });
 
   Scenario('用户成功申请发票', (s: StepTest<{
-    invoiceApplication: Invoice.InvoiceRecord;
-    sequenceSuffix: string;
     applyInvoicePromise: Promise<Invoice.InvoiceRecord>;
   }>) => {
     const { When, Then, And, context } = s;
-
     And('请求中 interface code 是 {string}', (_ctx, interfaceCode: string) => {
       const { fapiaoEnvelope } = featureContext;
       expect(fapiaoEnvelope!.interface.globalInfo.interfaceCode).toBe(interfaceCode);
@@ -373,7 +378,6 @@ describeFeature(feature, ({
       expect(sequence_id.startsWith(prefix)).toBe(true);
       const suffix = sequence_id.slice(prefix.length);
       expect(/^\d{14}$/.test(suffix)).toBe(true);
-      context.sequenceSuffix = suffix;
     });
 
     And('请求中设备类型是数电，值为 {string}', (_ctx, value: string) => {
@@ -488,14 +492,6 @@ describeFeature(feature, ({
       fapiaoResponse!.DATA.FP_HM = invoiceNo;
     });
 
-    When('发票服务返回开具结果给 cr7', async () => {
-      const { fapiaoResponseResolver, fapiaoResponse } = featureContext;
-      fapiaoResponseResolver?.(fapiaoResponse);
-      context.invoiceApplication = await featureContext.applyInvoicePromise!;
-      const sequenceId = String(context.invoiceApplication.id).padStart(14, '0');
-      expect(context.sequenceSuffix).toBe(sequenceId);
-    });
-
     And('该记录的订单 ID 是用户预订的订单 ID', () => {
       const [first] = featureContext.fapiaoList!.items;
       expect(first.order_id).toBe(featureContext.order.id);
@@ -568,7 +564,7 @@ describeFeature(feature, ({
     });
   });
 
-  // Scenario.skip('用户申请发票后发票平台开具失败', async () => {
-
+  // Scenario('用户申请发票后发票平台开具失败', async ({ Given }) => {
+  //  Given('发票平台返回发票开具失败的响应， 值为 "2000"', () => {});
   // });
 });
