@@ -58,6 +58,7 @@ export default {
   },
   xiecheng: {
     callback_base_url: host,
+    order_base_url: 'https://ttdopen.ctrip.com/api',
     base_url: 'https://ttdopen.ctrip.com',
     account_id: '5134daa94d22e8bc',
     secret: '<--ignore-->',

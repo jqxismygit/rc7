@@ -285,7 +285,7 @@ export default class XiechengService extends RC7BaseService {
     let status: Xiecheng.XcSyncStatus = 'SUCCESS';
     try {
       syncResponse = await xieChengSyncPrice(
-        `${config.xiecheng.base_url}/api/product/price.do`,
+        `${config.xiecheng.order_base_url}/product/price.do`,
         {
           accountId: config.xiecheng.account_id,
           signKey: config.xiecheng.secret,
