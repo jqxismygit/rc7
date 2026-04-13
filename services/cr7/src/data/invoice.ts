@@ -203,3 +203,33 @@ export async function listInvoiceApplicationsByUser(
 
   return rows;
 }
+
+export async function getInvoiceApplicationByOrder(
+  client: DBClient,
+  schema: string,
+  orderId: string,
+) {
+  const { rows } = await client.query<InvoiceApplicationRecord>(
+    `SELECT
+      id,
+      order_id,
+      user_id,
+      invoice_title,
+      tax_no,
+      email,
+      status,
+      sequence_id,
+      invoice_no,
+      request,
+      response,
+      created_at,
+      updated_at
+    FROM ${schema}.invoices
+    WHERE order_id = $1
+    ORDER BY created_at DESC
+    LIMIT 1`,
+    [orderId],
+  );
+
+  return rows[0] ?? null;
+}

@@ -5,6 +5,7 @@ import { RC7BaseService } from './cr7.base.js';
 import { sendFapiaoKpjRequest, FapiaoTraceableError } from './fapiao.js';
 import {
   createInvoiceApplication,
+  getInvoiceApplicationByOrder,
   listInvoiceApplicationsByUser,
   markInvoiceApplicationFailed,
   markInvoiceApplicationSuccess,
@@ -100,11 +101,15 @@ export class FapiaoService extends RC7BaseService {
       ticketCategories.map(category => [category.id, category.name]),
     );
 
-    const dbClient = await this.pool.connect();
+    let application = await getInvoiceApplicationByOrder(this.pool, schema, oid);
 
-    try {
-      await dbClient.query('BEGIN');
-      const application = await createInvoiceApplication(dbClient, schema, {
+    if (application?.status === 'SUCCESS') {
+      throw new MoleculerClientError('该订单的发票已经开具成功', 409, 'ORDER_INVOICE_ALREADY_SUCCESS');
+    }
+
+    if (application === null) {
+      // Persist first to lock in one sequence_id for the order before calling external fapiao service.
+      application = await createInvoiceApplication(this.pool, schema, {
         order_id: oid,
         user_id: uid,
         invoice_title,
@@ -113,53 +118,47 @@ export class FapiaoService extends RC7BaseService {
         request: {},
         response: {},
       });
+    }
 
-      try {
-        const { result, request, response } = await sendFapiaoKpjRequest({
-          oid,
-          invoice_title,
-          tax_no,
-          email,
-          sequence_id: application.sequence_id,
-          total_amount: order.total_amount,
-          items: order.items.map(item => ({
-            ticket_name: nameByTicketCategoryId.get(item.ticket_category_id) ?? item.ticket_category_id,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            subtotal: item.subtotal,
-          })),
-        });
+    try {
+      const { result, request, response } = await sendFapiaoKpjRequest({
+        oid,
+        invoice_title,
+        tax_no,
+        email,
+        sequence_id: application.sequence_id,
+        total_amount: order.total_amount,
+        items: order.items.map(item => ({
+          ticket_name: nameByTicketCategoryId.get(item.ticket_category_id) ?? item.ticket_category_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          subtotal: item.subtotal,
+        })),
+      });
 
-        const resultData = result.DATA;
+      const resultData = result.DATA;
 
-        const persisted = await markInvoiceApplicationSuccess(dbClient, schema, application.id, {
-          request: request as unknown as Record<string, unknown>,
-          response: response as Record<string, unknown>,
-          invoice_no: resultData.FP_HM,
-        });
+      const persisted = await markInvoiceApplicationSuccess(this.pool, schema, application.id, {
+        request: request as unknown as Record<string, unknown>,
+        response: response as Record<string, unknown>,
+        invoice_no: resultData.FP_HM,
+      });
 
-        await dbClient.query('COMMIT');
-        return persisted;
-      } catch (error) {
-        const fapiaoError = error as Error & FapiaoTraceableError;
-        await markInvoiceApplicationFailed(dbClient, schema, application.id, {
-          request: typeof fapiaoError.fapiaoRequest === 'object' && fapiaoError.fapiaoRequest !== null
-            ? fapiaoError.fapiaoRequest as unknown as Record<string, unknown>
-            : {},
-          response: typeof fapiaoError.fapiaoResponse === 'object' && fapiaoError.fapiaoResponse !== null
-            ? fapiaoError.fapiaoResponse as Record<string, unknown>
-            : {
-              CODE: 'FAILED',
-              MESSAGE: error instanceof Error ? error.message : '发票申请失败',
-            },
-        });
-        throw error;
-      }
+      return persisted;
     } catch (error) {
-      await dbClient.query('ROLLBACK');
+      const fapiaoError = error as Error & FapiaoTraceableError;
+      await markInvoiceApplicationFailed(this.pool, schema, application.id, {
+        request: typeof fapiaoError.fapiaoRequest === 'object' && fapiaoError.fapiaoRequest !== null
+          ? fapiaoError.fapiaoRequest as unknown as Record<string, unknown>
+          : {},
+        response: typeof fapiaoError.fapiaoResponse === 'object' && fapiaoError.fapiaoResponse !== null
+          ? fapiaoError.fapiaoResponse as Record<string, unknown>
+          : {
+            CODE: 'FAILED',
+            MESSAGE: error instanceof Error ? error.message : '发票申请失败',
+          },
+      });
       throw error;
-    } finally {
-      dbClient.release();
     }
   }
 

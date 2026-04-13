@@ -21,6 +21,7 @@ import {
   applyOrderInvoice,
   listInvoiceApplications,
 } from './fixtures/invoice.js';
+import { assertAPIError } from './lib/api.js';
 import { markOrderAsPaidForTest } from './fixtures/payment.js';
 import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
 import {
@@ -274,7 +275,8 @@ describeFeature(feature, ({
           PDF_URL: string,
           FP_HM: string,
         }
-      }
+      };
+      lastError: unknown;
     }
   >) => {
     const { Given, When, Then, And, context } = s;
@@ -499,6 +501,30 @@ describeFeature(feature, ({
     And('该记录的 PDF URL 是 {string}', (_ctx, pdfUrl: string) => {
       const [first] = context.listResult.items;
       expect(first.pdf_url).toBe(pdfUrl);
+    });
+
+    When('用户再次申请同一订单的发票', async () => {
+      try {
+        await applyOrderInvoice(
+          featureContext.apiServer,
+          featureContext.order.id,
+          {
+            invoice_title: '测试公司',
+            tax_no: '123456789',
+            email: 'send_me_invoice@example.com',
+          },
+          featureContext.userToken,
+        );
+      } catch (error) {
+        context.lastError = error;
+      }
+    });
+
+    Then('cr7 返回错误，提示该订单的发票已经开具成功', () => {
+      assertAPIError(context.lastError, {
+        status: 409,
+        messageIncludes: '该订单的发票已经开具成功',
+      });
     });
   });
 });
