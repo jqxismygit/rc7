@@ -125,7 +125,7 @@ describeFeature(feature, ({
   });
 
 
-  defineSteps(({ Given, When, Then }) => {
+  defineSteps(({ Given, When, Then, And }) => {
     When('用户发起并完成微信支付', async () => {
       await markOrderAsPaidForTest(
         featureContext.apiServer,
@@ -178,17 +178,6 @@ describeFeature(feature, ({
       expect(featureContext.fapiaoRequestData).toBeTruthy();
     });
 
-    When('用户查看发票申请列表', async () => {
-      featureContext.fapiaoList = await listInvoiceApplications(
-        featureContext.apiServer,
-        featureContext.userToken,
-      );
-    });
-
-    Then('发票申请列表有 {number} 条记录', (_ctx, count: number) => {
-      expect(featureContext.fapiaoList!.items.length).toBe(count);
-    });
-
     Given('发票平台返回发票开具成功的响应， 值为 {string}', (_ctx, code: string) => {
       featureContext.fapiaoResponse = {
         CODE: code,
@@ -200,6 +189,23 @@ describeFeature(feature, ({
         },
       };
     });
+
+    And('发票开具结果中流水号是 cr7 生成的流水号', () => {
+      const { fapiaoRequestData, fapiaoResponse } = featureContext;
+      fapiaoResponse!.DATA.FPQQLSH = fapiaoRequestData!.FPQQLSH as string;
+    });
+
+    When('用户查看发票申请列表', async () => {
+      featureContext.fapiaoList = await listInvoiceApplications(
+        featureContext.apiServer,
+        featureContext.userToken,
+      );
+    });
+
+    Then('发票申请列表有 {number} 条记录', (_ctx, count: number) => {
+      expect(featureContext.fapiaoList!.items.length).toBe(count);
+    });
+
   });
 
   Background(({ Given, And }) => {
@@ -470,10 +476,7 @@ describeFeature(feature, ({
     });
 
 
-    And('发票开具结果中流水号是 cr7 生成的流水号', () => {
-      const { fapiaoRequestData, fapiaoResponse } = featureContext;
-      fapiaoResponse!.DATA.FPQQLSH = fapiaoRequestData!.FPQQLSH as string;
-    });
+
 
     And('发票开具结果中的 PDF URL 是 {string}', (_ctx, pdfUrl: string) => {
       const { fapiaoResponse } = featureContext;
