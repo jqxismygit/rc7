@@ -328,7 +328,7 @@ export async function sendFapiaoRequestWithTrace<T = unknown>(
 
 const FAPIAO_INTERFACE_CODE = 'GP_FPKJ';
 const FAPIAO_INTERFACE_KEY = 'REQUEST_COMMON_FPKJ';
-const FAPIAO_TAX_RATE = 0.03;
+const FAPIAO_TAX_RATE = 0.06;
 const FAPIAO_ITEM_CODE = '3070301000000000000';
 
 function formatYuanFromFen(valueInFen: number) {

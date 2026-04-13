@@ -83,9 +83,13 @@ export class FapiaoService extends RC7BaseService {
       { meta: { user: { uid } } },
     ) as Order.OrderWithItems;
 
-    if (order.status !== 'PAID') {
-      throw new MoleculerClientError('订单未支付，无法申请发票', 409, 'ORDER_STATUS_INVALID');
-    }
+      if (order.status === 'REFUNDED') {
+        throw new MoleculerClientError('订单已退款，无法申请发票', 409, 'ORDER_REFUNDED');
+      }
+
+      if (order.status !== 'PAID') {
+        throw new MoleculerClientError('订单未支付，无法申请发票', 409, 'ORDER_STATUS_INVALID');
+      }
 
     if (order.items.length === 0) {
       throw new MoleculerClientError('Invalid order items', 400, 'INVALID_ARGUMENT');
