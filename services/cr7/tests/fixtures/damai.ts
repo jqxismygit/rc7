@@ -89,8 +89,8 @@ export interface DamaiPayOrderResponse {
     returnDesc: string;
   };
   body: {
-    orderPayInfo: {
-      thirdOrderId?: string;
+    orderInfo: {
+      orderId?: string;
       daMaiOrderId?: string;
       payStatus?: number;
     };

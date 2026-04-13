@@ -145,8 +145,8 @@ type DamaiPayOrderResponse = {
     returnDesc: string;
   };
   body: {
-    orderPayInfo: {
-      thirdOrderId?: string;
+    orderInfo: {
+      orderId?: string;
       daMaiOrderId?: string;
       payStatus?: number;
     };
@@ -381,7 +381,7 @@ function buildDamaiPayOrderError(returnCode: string, returnDesc: string): DamaiP
       returnDesc,
     },
     body: {
-      orderPayInfo: {},
+      orderInfo: {},
     },
   };
 }
@@ -396,8 +396,8 @@ function buildDamaiPayOrderSuccess(input: {
       returnDesc: '成功',
     },
     body: {
-      orderPayInfo: {
-        thirdOrderId: input.orderId,
+      orderInfo: {
+        orderId: input.orderId,
         daMaiOrderId: input.damaiOrderId,
         payStatus: DAMAI_PAY_STATUS_SUCCESS,
       },

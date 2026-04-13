@@ -1219,17 +1219,17 @@ describeFeature(feature, ({
     And('订单支付结果里的第三方订单 ID 是 cr7 创建的订单 ID', () => {
       expect(featureContext.payOrderResponse).toBeTruthy();
       expect(featureContext.order).toBeTruthy();
-      expect(featureContext.payOrderResponse!.body.orderPayInfo.thirdOrderId).toBe(featureContext.order!.id);
+      expect(featureContext.payOrderResponse!.body.orderInfo.orderId).toBe(featureContext.order!.id);
     });
 
     And('订单支付结果里的大麦订单 ID 是 {string}', (_ctx, damaiOrderId: string) => {
       expect(featureContext.payOrderResponse).toBeTruthy();
-      expect(featureContext.payOrderResponse!.body.orderPayInfo.daMaiOrderId).toBe(damaiOrderId);
+      expect(featureContext.payOrderResponse!.body.orderInfo.daMaiOrderId).toBe(damaiOrderId);
     });
 
     And('订单支付结果里的支付状态为成功，值为 {int}', (_ctx, expectedStatus: number) => {
       expect(featureContext.payOrderResponse).toBeTruthy();
-      expect(featureContext.payOrderResponse!.body.orderPayInfo.payStatus).toBe(expectedStatus);
+      expect(featureContext.payOrderResponse!.body.orderInfo.payStatus).toBe(expectedStatus);
     });
 
     When('大麦再次把相同的订单支付消息发送给 cr7', async () => {
@@ -1255,9 +1255,9 @@ describeFeature(feature, ({
     And('cr7 返回了大麦订单支付结果，订单 ID 是之前创建的订单 ID，大麦订单 ID 是 {string}，支付状态为成功，值为 {int}', (_ctx, damaiOrderId: string, expectedStatus: number) => {
       expect(featureContext.payOrderResponse).toBeTruthy();
       expect(featureContext.order).toBeTruthy();
-      expect(featureContext.payOrderResponse!.body.orderPayInfo.thirdOrderId).toBe(featureContext.order!.id);
-      expect(featureContext.payOrderResponse!.body.orderPayInfo.daMaiOrderId).toBe(damaiOrderId);
-      expect(featureContext.payOrderResponse!.body.orderPayInfo.payStatus).toBe(expectedStatus);
+      expect(featureContext.payOrderResponse!.body.orderInfo.orderId).toBe(featureContext.order!.id);
+      expect(featureContext.payOrderResponse!.body.orderInfo.daMaiOrderId).toBe(damaiOrderId);
+      expect(featureContext.payOrderResponse!.body.orderInfo.payStatus).toBe(expectedStatus);
     });
   });
 
