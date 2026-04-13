@@ -9,14 +9,16 @@ Feature: 为订单开发票
       And 票种 "单人票" 库存为 2
 
     Given 用户已经通过微信绑定手机号，手机号为 "12345678901"，国别码为 "886"
-      And 用户预订 2 张该展会的 "今天" 场次的 "单人票"
-      And 用户发起并完成微信支付
-      And 订单状态为已支付
+    Given 用户预订 2 张该展会的 "今天" 场次的 "单人票"
+    Given 订单状态为待支付
 
     Given 发票服务已经启动
 
   Scenario: 用户成功申请发票
-    When 用户申请订单的发票，发票抬头为 "测试公司"，税号为 "123456789", 邮箱为 "send_me_invoice@example.com"
+    When 用户发起并完成微信支付
+    Then 订单状态为已支付
+
+    When 用户申请该订单的发票，发票抬头为 "测试公司"，税号为 "123456789", 邮箱为 "send_me_invoice@example.com"
     Then 发票服务接收到发票开具请求, 可以正常解密出发票申请信息
      And 请求中 interface code 是 "GP_FPKJ"
      And 请求中 interface 是 "REQUEST_COMMON_FPKJ"
@@ -56,3 +58,6 @@ Feature: 为订单开发票
     When 用户再次申请同一订单的发票
     Then cr7 返回错误，提示该订单的发票已经开具成功
 
+  Scenario: 用户订单未支付申请发票失败
+    When 用户申请该订单的发票，发票抬头为 "测试公司"，税号为 "123456789", 邮箱为 "send_me_invoice@example.com"
+    Then cr7 返回错误，提示订单未支付，无法申请发票

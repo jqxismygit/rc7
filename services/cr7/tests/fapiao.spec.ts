@@ -71,6 +71,8 @@ interface FeatureContext extends
   adminToken: string;
   userToken: string;
   userProfile: User.Profile;
+  applyInvoicePromise?: Promise<Invoice.InvoiceApplication>;
+  lastError?: unknown;
 }
 
 describeFeature(feature, ({
@@ -78,6 +80,7 @@ describeFeature(feature, ({
   AfterAllScenarios,
   AfterEachScenario,
   Background,
+  defineSteps,
   Scenario,
   context: featureContext,
 }: FeatureDescriibeCallbackParams<FeatureContext>) => {
@@ -104,6 +107,46 @@ describeFeature(feature, ({
     await featureContext.fapiaoMockServer?.close();
     featureContext.fapiaoBaseUrlSpy?.mockRestore();
     await dropSchema({ schema });
+  });
+
+
+  defineSteps(({ When, Then }) => {
+    When('用户发起并完成微信支付', async () => {
+      await markOrderAsPaidForTest(
+        featureContext.apiServer,
+        featureContext.userToken,
+        featureContext.order!,
+        featureContext.userProfile.openid!,
+      );
+      featureContext.order = await getOrder(
+        featureContext.apiServer,
+        featureContext.order!.id,
+        featureContext.userToken,
+      );
+    });
+
+    Then('订单状态为已支付', async () => {
+      const { apiServer, userToken } = featureContext;
+      const orderId = featureContext.order!.id;
+      const order = await getOrder( apiServer, orderId, userToken);
+      expect(order.status).toBe('PAID');
+      featureContext.order = order;
+    });
+
+    When(
+      '用户申请该订单的发票，发票抬头为 {string}，税号为 {string}, 邮箱为 {string}',
+      (_ctx, invoiceTitle: string, taxNo: string, email: string) => {
+      featureContext.applyInvoicePromise = applyOrderInvoice(
+        featureContext.apiServer,
+        featureContext.order.id,
+        {
+          invoice_title: invoiceTitle,
+          tax_no: taxNo,
+          email,
+        },
+        featureContext.userToken,
+      );
+    });
   });
 
   Background(({ Given, And }) => {
@@ -180,7 +223,7 @@ describeFeature(feature, ({
       featureContext.userProfile = profile;
     });
 
-    And('用户预订 {number} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
+    Given('用户预订 {number} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
       const ticket = featureContext.ticketByName[ticketName];
       const session = featureContext.sessions.find(item => isSameDay(item.session_date, Text2Date(sessionDate)))!;
 
@@ -193,23 +236,8 @@ describeFeature(feature, ({
       );
     });
 
-
-    And('用户发起并完成微信支付', async () => {
-      await markOrderAsPaidForTest(
-        featureContext.apiServer,
-        featureContext.userToken,
-        featureContext.order!,
-        featureContext.userProfile.openid!,
-      );
-      featureContext.order = await getOrder(
-        featureContext.apiServer,
-        featureContext.order!.id,
-        featureContext.userToken,
-      );
-    });
-
-    And('订单状态为已支付', () => {
-      expect(featureContext.order!.status).toBe('PAID');
+    Given('订单状态为待支付', () => {
+      expect(featureContext.order!.status).toBe('PENDING_PAYMENT');
     });
 
     Given('发票服务已经启动', async () => {
@@ -264,7 +292,6 @@ describeFeature(feature, ({
   Scenario('用户成功申请发票', (s: StepTest<
     FapiaoScenarioContext
     & {
-      applyInvoicePromise: Promise<Invoice.InvoiceApplication>;
       invoiceApplication: Invoice.InvoiceApplication;
       sequenceSuffix: string;
       fapiaoResponse: {
@@ -276,25 +303,9 @@ describeFeature(feature, ({
           FP_HM: string,
         }
       };
-      lastError: unknown;
     }
   >) => {
     const { Given, When, Then, And, context } = s;
-
-    When(
-      '用户申请订单的发票，发票抬头为 {string}，税号为 {string}, 邮箱为 {string}',
-      async (_ctx, invoiceTitle: string, taxNo: string, email: string) => {
-      context.applyInvoicePromise = applyOrderInvoice(
-        featureContext.apiServer,
-        featureContext.order.id,
-        {
-          invoice_title: invoiceTitle,
-          tax_no: taxNo,
-          email,
-        },
-        featureContext.userToken,
-      );
-    });
 
     Then('发票服务接收到发票开具请求, 可以正常解密出发票申请信息', async () => {
       await vi.waitFor(() => {
@@ -452,7 +463,7 @@ describeFeature(feature, ({
 
     When('发票服务返回开具结果给 cr7', async () => {
       featureContext.fapiaoResponseResolver?.(context.fapiaoResponse);
-      context.invoiceApplication = await context.applyInvoicePromise;
+      context.invoiceApplication = await featureContext.applyInvoicePromise!;
       const sequenceId = String(context.invoiceApplication.id).padStart(14, '0');
       expect(context.sequenceSuffix).toBe(sequenceId);
     });
@@ -516,14 +527,28 @@ describeFeature(feature, ({
           featureContext.userToken,
         );
       } catch (error) {
-        context.lastError = error;
+        featureContext.lastError = error;
       }
     });
 
     Then('cr7 返回错误，提示该订单的发票已经开具成功', () => {
-      assertAPIError(context.lastError, {
+      assertAPIError(featureContext.lastError, {
         status: 409,
         messageIncludes: '该订单的发票已经开具成功',
+      });
+    });
+  });
+
+  Scenario('用户订单未支付申请发票失败', (s: StepTest<void>) => {
+    const { Then } = s;
+
+    Then('cr7 返回错误，提示订单未支付，无法申请发票', async () => {
+      const { applyInvoicePromise } = featureContext;
+      await expect(applyInvoicePromise).rejects.toMatchObject({
+        status: 409,
+        body: {
+          message: '订单未支付，无法申请发票',
+        },
       });
     });
   });
