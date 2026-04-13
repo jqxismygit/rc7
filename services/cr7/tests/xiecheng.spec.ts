@@ -208,8 +208,12 @@ describeFeature(feature, ({
       .spyOn(config.xiecheng, 'base_url', 'get')
       .mockReturnValue(mockServer.address);
 
+      const orderBaseUrlSpy = vi
+      .spyOn(config.xiecheng, 'order_base_url', 'get')
+      .mockReturnValue(mockServer.address);
+
       openedMockServers.push(mockServer);
-      openedBaseUrlSpies.push(baseUrlSpy);
+      openedBaseUrlSpies.push(baseUrlSpy, orderBaseUrlSpy);
 
       featureContext.xiechengReqHandler = xiechengReqHandler;
     });
@@ -419,7 +423,7 @@ describeFeature(feature, ({
       expect(xiechengReqHandler).toHaveBeenLastCalledWith(
         expect.objectContaining({
           method: "POST",
-          path: "/api/product/price.do",
+          path: "/product/price.do",
         })
       );
     });

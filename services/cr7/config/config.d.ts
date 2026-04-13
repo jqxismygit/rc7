@@ -53,6 +53,7 @@ declare module 'config' {
     },
     xiecheng: {
       callback_base_url: string;
+      order_base_url: string;
       base_url: string;
       account_id: string;
       secret: string;
