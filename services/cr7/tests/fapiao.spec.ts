@@ -9,7 +9,7 @@ import config from 'config';
 import { isSameDay } from 'date-fns';
 import { ServiceBroker } from 'moleculer';
 import { expect, vi } from 'vitest';
-import { Exhibition, Invoice, Order, User } from '@cr7/types';
+import { Exhibition, Invoice, Order, Redeem, User } from '@cr7/types';
 import { Text2Date, toDateLabel } from './lib/relative-date.js';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
 import { prepareAdminToken } from './fixtures/user.js';
@@ -21,6 +21,7 @@ import {
   applyOrderInvoice,
   listInvoiceApplications,
 } from './fixtures/invoice.js';
+import { getOrderRedemption, redeemCode } from './fixtures/redeem.js';
 import { markOrderAsPaidForTest } from './fixtures/payment.js';
 import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
 import {
@@ -211,6 +212,11 @@ describeFeature(feature, ({
 
     Then('发票申请列表有 {number} 条记录', (_ctx, count: number) => {
       expect(featureContext.fapiaoList!.items.length).toBe(count);
+    });
+
+    And('该记录的订单 ID 是用户预订的订单 ID', () => {
+      const [first] = featureContext.fapiaoList!.items;
+      expect(first.order_id).toBe(featureContext.order.id);
     });
 
   });
@@ -492,11 +498,6 @@ describeFeature(feature, ({
       fapiaoResponse!.DATA.FP_HM = invoiceNo;
     });
 
-    And('该记录的订单 ID 是用户预订的订单 ID', () => {
-      const [first] = featureContext.fapiaoList!.items;
-      expect(first.order_id).toBe(featureContext.order.id);
-    });
-
     And('该记录的发票抬头是 {string}', (_ctx, invoiceTitle: string) => {
       const [first] = featureContext.fapiaoList!.items;
       expect(first.invoice_title).toBe(invoiceTitle);
@@ -561,6 +562,20 @@ describeFeature(feature, ({
           message: '订单未支付，无法申请发票',
         },
       });
+    });
+  });
+
+  Scenario('用户订单核销后申请发票', (s: StepTest<{ redemption: Redeem.RedemptionCodeWithOrder }>) => {
+    const { When, Then, context } = s;
+
+    When('管理员核销了用户的订单', async () => {
+      const { apiServer, order, userToken, exhibition, adminToken } = featureContext;
+      const redemption = await getOrderRedemption(apiServer, order.id, userToken);
+      context.redemption = await redeemCode(apiServer, exhibition.id, redemption.code, adminToken);
+    });
+
+    Then('订单状态为已核销', () => {
+      expect(context.redemption.status).toBe('REDEEMED');
     });
   });
 
