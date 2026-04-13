@@ -9,7 +9,7 @@ import config from 'config';
 import { isSameDay } from 'date-fns';
 import { ServiceBroker } from 'moleculer';
 import { expect, vi } from 'vitest';
-import { Exhibition, Invoice, Order, Redeem, User } from '@cr7/types';
+import { Exhibition, Invoice, Order, Payment, Redeem, User } from '@cr7/types';
 import { Text2Date, toDateLabel } from './lib/relative-date.js';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
 import { prepareAdminToken } from './fixtures/user.js';
@@ -22,7 +22,9 @@ import {
   listInvoiceApplications,
 } from './fixtures/invoice.js';
 import { getOrderRedemption, redeemCode } from './fixtures/redeem.js';
-import { markOrderAsPaidForTest } from './fixtures/payment.js';
+import {
+  markOrderAsPaidForTest, requestRefundWithMock, sendMockRefundCallback
+} from './fixtures/payment.js';
 import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
 import {
   decodeFapiaoContent,
@@ -128,6 +130,23 @@ describeFeature(feature, ({
 
 
   defineSteps(({ Given, When, Then, And }) => {
+    Given('用户预订 {number} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
+      const ticket = featureContext.ticketByName[ticketName];
+      const session = featureContext.sessions.find(item => isSameDay(item.session_date, Text2Date(sessionDate)))!;
+
+      featureContext.order = await createOrder(
+        featureContext.apiServer,
+        featureContext.exhibition.id,
+        session.id,
+        [{ ticket_category_id: ticket.id, quantity }],
+        featureContext.userToken,
+      );
+    });
+
+    Given('订单状态为待支付', () => {
+      expect(featureContext.order!.status).toBe('PENDING_PAYMENT');
+    });
+
     When('用户发起并完成微信支付', async () => {
       await markOrderAsPaidForTest(
         featureContext.apiServer,
@@ -264,7 +283,7 @@ describeFeature(feature, ({
           admittance,
           valid_duration_days: 1,
           price: priceYuan * 100,
-          refund_policy: 'NON_REFUNDABLE',
+            refund_policy: 'REFUNDABLE_48H_BEFORE',
         },
       );
       featureContext.ticketByName[ticketName] = ticket;
@@ -295,22 +314,6 @@ describeFeature(feature, ({
       featureContext.userProfile = profile;
     });
 
-    Given('用户预订 {number} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      const session = featureContext.sessions.find(item => isSameDay(item.session_date, Text2Date(sessionDate)))!;
-
-      featureContext.order = await createOrder(
-        featureContext.apiServer,
-        featureContext.exhibition.id,
-        session.id,
-        [{ ticket_category_id: ticket.id, quantity }],
-        featureContext.userToken,
-      );
-    });
-
-    Given('订单状态为待支付', () => {
-      expect(featureContext.order!.status).toBe('PENDING_PAYMENT');
-    });
 
     Given('发票服务已经启动', async () => {
       const promise = new Promise<unknown>((resolve, reject) => {
@@ -578,6 +581,43 @@ describeFeature(feature, ({
       expect(context.redemption.status).toBe('REDEEMED');
     });
   });
+
+  Scenario('用户订单退款后申请发票', (s: StepTest<void>) => {
+      const { When, Then } = s;
+
+      When('用户申请订单退款', async () => {
+        const { order, apiServer, userToken } = featureContext;
+        const { refundRecord } = await requestRefundWithMock(
+          apiServer,
+          order,
+          userToken,
+        );
+        await sendMockRefundCallback(
+          apiServer,
+          refundRecord as Payment.RefundRecord,
+          'SUCCESS',
+          { successTime: new Date().toISOString() },
+        );
+        featureContext.order = await getOrder(
+          apiServer,
+          order.id,
+          userToken,
+        );
+      });
+
+      Then('订单状态为已退款', () => {
+        expect(featureContext.order.status).toBe('REFUNDED');
+      });
+
+      Then('cr7 返回错误，提示订单已退款，无法申请发票', async () => {
+        await expect(featureContext.applyInvoicePromise).rejects.toMatchObject({
+          status: 409,
+          body: {
+            message: '订单已退款，无法申请发票',
+          },
+        });
+      });
+    });
 
   // Scenario('用户申请发票后发票平台开具失败', async ({ Given }) => {
   //  Given('发票平台返回发票开具失败的响应， 值为 "2000"', () => {});
