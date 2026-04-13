@@ -323,7 +323,7 @@ describeFeature(feature, ({
     });
 
     And('请求中流水号前缀是 {string}，后缀是发票开具记录的 ID pad 到 14 位', (_ctx, prefix: string) => {
-      const sequence_id = String(context.fapiaoRequestData.FPQQLSH ?? '');
+      const sequence_id = context.fapiaoRequestData.FPQQLSH as string;
       expect(sequence_id.startsWith(prefix)).toBe(true);
       const suffix = sequence_id.slice(prefix.length);
       expect(/^\d{14}$/.test(suffix)).toBe(true);
