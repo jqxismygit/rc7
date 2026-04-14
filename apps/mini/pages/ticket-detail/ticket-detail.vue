@@ -193,10 +193,12 @@
 <script>
 import { getOrderDetail, cancelOrder } from "@/services/order.js";
 import { getOrderRedemption } from "@/services/redeem.js";
+import { applyOrderInvoice } from "@/services/invoice.js";
 import request from "@/utils/request.js";
 import { buildTicketDetailFromOrder } from "@/utils/orderDisplay.js";
 import Cr7NavBar from "@/components/cr7-nav-bar/cr7-nav-bar.vue";
 import { getNavBarInsetPx } from "@/utils/navBar.js";
+import { useUserStore } from "@/stores/user";
 
 const ticketColorConfig = [
   {
@@ -248,6 +250,7 @@ export default {
       pageError: "",
       navInsetPx: 0,
       qrcodeStyle: null,
+      invoiceSubmitting: false,
     };
   },
 
@@ -433,9 +436,129 @@ export default {
       });
     },
 
-    handleInvoice() {
+    validateEmail(email) {
+      if (!email) return false;
+      const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      return pattern.test(email);
+    },
+
+    async chooseWechatInvoiceTitle() {
+      // #ifdef MP-WEIXIN
+      if (typeof wx !== "undefined" && wx.chooseInvoiceTitle) {
+        return new Promise((resolve) => {
+          wx.chooseInvoiceTitle({
+            success: (res) => {
+              const invoiceTitle = (res?.title || res?.company || "").trim();
+              const taxNo = (res?.taxNumber || "").trim();
+              resolve({ invoiceTitle, taxNo });
+            },
+            fail: (err) => {
+              const errMsg = String(err?.errMsg || "");
+              const isCancel = errMsg.includes("cancel");
+              if (!isCancel) {
+                uni.showToast({ title: "获取微信发票抬头失败", icon: "none" });
+              }
+              resolve(null);
+            },
+          });
+        });
+      }
+      // #endif
+      return null;
+    },
+
+    async promptInvoiceTitle(defaultTitle = "") {
+      const titleRes = await new Promise((resolve) => {
+        uni.showModal({
+          title: "发票抬头",
+          editable: true,
+          content: defaultTitle,
+          placeholderText: "示例：北京某某科技有限公司",
+          success: (res) => resolve(res),
+          fail: () => resolve({ confirm: false }),
+        });
+      });
+      if (!titleRes.confirm) return "";
+      return (titleRes.content || "").trim();
+    },
+
+    async collectInvoicePayload() {
+      const userStore = useUserStore();
+      const profile = userStore.profile || {};
+      const profileExtra =
+        profile.profile && typeof profile.profile === "object"
+          ? profile.profile
+          : {};
+      const storedTitle = userStore.invoiceTitle || "";
+      const defaultEmail = profile.email || profileExtra.email || "";
+
+      const wechatInvoice = await this.chooseWechatInvoiceTitle();
+      let invoiceTitle = wechatInvoice?.invoiceTitle || "";
+      const taxNo = wechatInvoice?.taxNo || "";
+
+      if (!invoiceTitle) {
+        invoiceTitle = await this.promptInvoiceTitle(storedTitle);
+      }
+      if (!invoiceTitle) {
+        uni.showToast({ title: "请填写发票抬头", icon: "none" });
+        return null;
+      }
+
+      const emailRes = await new Promise((resolve) => {
+        uni.showModal({
+          title: "接收邮箱",
+          editable: true,
+          content: defaultEmail,
+          placeholderText: "请输入常用邮箱地址",
+          success: (res) => resolve(res),
+          fail: () => resolve({ confirm: false }),
+        });
+      });
+      if (!emailRes.confirm) return null;
+      const email = (emailRes.content || "").trim();
+      if (!this.validateEmail(email)) {
+        uni.showToast({ title: "邮箱格式不正确", icon: "none" });
+        return null;
+      }
+
+      if (invoiceTitle !== storedTitle) {
+        userStore.setInvoiceTitle(invoiceTitle);
+      }
+
+      const payload = {
+        invoice_title: invoiceTitle,
+        email,
+      };
+      if (taxNo) {
+        payload.tax_no = taxNo;
+      }
+      return payload;
+    },
+
+    async handleInvoice() {
       if (this.invoiceDisabled) return;
-      uni.showToast({ title: "发票功能开发中", icon: "none" });
+      if (this.invoiceSubmitting) return;
+      const payload = await this.collectInvoicePayload();
+      if (!payload) return;
+      this.invoiceSubmitting = true;
+      try {
+        uni.showLoading({ title: "开具中...", mask: true });
+        await applyOrderInvoice(this.ticketId, payload);
+        uni.hideLoading();
+        uni.showToast({ title: "发票申请成功", icon: "success" });
+      } catch (e) {
+        uni.hideLoading();
+        const statusCode = e?.statusCode;
+        let title = e?.data?.message || "发票申请失败";
+        if (statusCode === 400) title = "参数错误，请检查抬头和邮箱";
+        if (statusCode === 401) title = "登录已过期，请重新登录";
+        if (statusCode === 404) title = "订单不存在或无权限开票";
+        if (statusCode === 409) title = "仅已支付订单支持申请发票";
+        if (statusCode === 502) title = "开票平台繁忙，请稍后重试";
+        uni.showToast({ title, icon: "none" });
+      } finally {
+        this.invoiceSubmitting = false;
+      }
     },
 
     handleDeleteOrder() {
