@@ -167,8 +167,6 @@ export class RedemptionService extends RC7BaseService {
       const categories = await getTicketCategoriesByExhibitionId(dbClient, schema, order.exhibit_id);
       const items = buildItems(order.items, categories);
 
-      const redemption = await redeemCode(dbClient, schema, eid, code, uid, order, items);
-
       if (order.source === 'CTRIP') {
         await ctx.call('xiecheng.notifyOrderConsumed', { oid: order.id });
       }
@@ -178,8 +176,11 @@ export class RedemptionService extends RC7BaseService {
       }
 
       if (order.source === 'DAMAI') {
-        await ctx.call('damai.notifyOrderConsumed', { oid: order.id, redeemed_at: redemption.redeemed_at });
+        const redeemed_at = codeRow.redeemed_at ?? new Date();
+        await ctx.call('damai.notifyOrderConsumed', { oid: order.id, redeemed_at });
       }
+
+      const redemption = await redeemCode(dbClient, schema, eid, code, uid, order, items);
 
       await dbClient.query('COMMIT');
       return redemption;
