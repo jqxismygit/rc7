@@ -1,8 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import config from 'config';
 import { format, isDate, parse, parseISO } from 'date-fns';
 import { Context, Errors, ServiceBroker } from 'moleculer';
-import { Exhibition, Inventory, Mop, Order, Redeem } from '@cr7/types';
+import { Exhibition, Inventory, Mop, Order, Payment, Redeem } from '@cr7/types';
 import { RC7BaseService } from './libs/cr7.base.js';
 import { getCityMetaById } from './libs/city.js';
 import {
@@ -1230,6 +1231,21 @@ export default class MoeService extends RC7BaseService {
       return this.finishWithMopResponse(recordId, 10001, '参数异常');
     }
 
+    const order = await ctx
+      .call<
+        Order.OrderWithItems,
+        { oid: string }
+      >(
+        'cr7.order.get',
+        { oid: firstSuccessRecord.order_id },
+        { meta: { user: { uid: firstSuccessRecord.user_id } } }
+      )
+      .catch(() => null);
+
+    if (order === null) {
+      return this.finishWithMopResponse(recordId, 10001, '参数异常');
+    }
+
     try {
       if (bizType === MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_CANCEL) {
         await ctx.call(
@@ -1238,7 +1254,41 @@ export default class MoeService extends RC7BaseService {
           { meta: { user: { uid: firstSuccessRecord.user_id } } }
         );
       } else if (bizType === MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_REFUND) {
-        await ctx.call('cr7.order.markRefunded', { oid: firstSuccessRecord.order_id });
+        if (order.status !== 'REFUNDED') {
+          const refundRecord = await ctx.call<
+            Payment.RefundRecord,
+            {
+              oid: string;
+              reason: string;
+              payment_method: 'MOP';
+              out_trade_no: string;
+              out_refund_no: string;
+              refund_amount: number;
+            }
+          >(
+            'cr7.payment.refund',
+            {
+              oid: firstSuccessRecord.order_id,
+              reason: '猫眼订单退款',
+              payment_method: 'MOP',
+              out_trade_no: myOrderId,
+              out_refund_no: randomUUID().replace(/-/g, ''),
+              refund_amount: order.total_amount,
+            },
+            { meta: { user: { uid: firstSuccessRecord.user_id } } },
+          );
+
+          await ctx.call('cr7.payment.updateRefundResult', {
+            out_refund_no: refundRecord.out_refund_no,
+            refund_status: 'SUCCESS',
+            refund_id: myOrderId,
+            refund_channel: 'MOP',
+            callback_refund_amount: order.total_amount,
+            succeeded_at: new Date().toISOString(),
+          });
+
+          await ctx.call('cr7.order.markRefunded', { oid: firstSuccessRecord.order_id });
+        }
       }
       ctx.meta.$statusCode = 200;
     } catch (error) {

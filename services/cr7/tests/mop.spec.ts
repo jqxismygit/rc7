@@ -10,7 +10,7 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import { format, isDate, parse, parseISO } from 'date-fns';
-import { Exhibition, Inventory, Mop, Order, Redeem, User } from '@cr7/types';
+import { Exhibition, Inventory, Mop, Order, Payment, Redeem, User } from '@cr7/types';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
 import { listUsers, prepareAdminToken } from './fixtures/user.js';
 import {
@@ -51,6 +51,7 @@ import { toDateLabel } from './lib/relative-date.js';
 import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
 import { MockServer } from './lib/server.js';
 import { getOrderAdmin } from './fixtures/order.js';
+import { getAdminOrderRefunds } from './fixtures/payment.js';
 
 const schema = 'test_mop';
 const services = ['api', 'user', 'cr7', 'mop'];
@@ -111,6 +112,7 @@ interface OrderContext {
   orderUser: User.Profile;
   order: Order.OrderWithItems;
   records: Mop.MopOrderSyncRecord[];
+  refundRecords: Payment.RefundRecord[];
 }
 
 interface OrderQueryContext {
@@ -1625,6 +1627,30 @@ describeFeature(feature, ({
       const currentOrder = await getOrderAdmin(apiServer, order!.id, adminToken!);
       expect(currentOrder.status).toBe('REFUNDED');
       expect(currentOrder.updated_at).toBe(order!.updated_at);
+    });
+
+    When('管理员查看订单的退款记录', async () => {
+      const { apiServer, adminToken, order } = featureContext;
+      featureContext.refundRecords = await getAdminOrderRefunds(
+        apiServer,
+        order!.id,
+        adminToken!,
+      );
+    });
+
+    Then('订单的退款记录里有 {int} 条记录', (_ctx, count: number) => {
+      expect(featureContext.refundRecords).toHaveLength(count);
+    });
+
+    And('退款记录里的订单 ID 是 cr7 创建的订单 ID', () => {
+      const refundRecord = featureContext.refundRecords![0];
+      expect(refundRecord.order_id).toBe(featureContext.order!.id);
+    });
+
+    And('退款记录里的退款状态是已退款', () => {
+      const refundRecord = featureContext.refundRecords![0];
+      expect(refundRecord.status).toBe('SUCCEEDED');
+      expect(refundRecord.refund_status).toBe('SUCCESS');
     });
   });
 });
