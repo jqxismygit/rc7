@@ -208,6 +208,7 @@
           <text class="quantity-value">{{ quantity }}</text>
           <view
             class="quantity-btn quantity-btn-plus"
+            :class="{ disabled: quantity >= maxSelectableQuantity }"
             @click="increaseQuantity"
           >
             <text class="quantity-btn-icon plus">+</text>
@@ -260,6 +261,9 @@ import { getNavBarInsetPx } from "@/utils/navBar.js";
 import Cr7NavBar from "@/components/cr7-nav-bar/cr7-nav-bar.vue";
 import WechatPhoneAuthButton from "@/components/wechat-phone-auth-button/wechat-phone-auth-button.vue";
 import dayjs from "dayjs";
+
+/** 单次订单最多购票张数 */
+const MAX_TICKETS_PER_ORDER = 6;
 
 export default {
   components: {
@@ -343,6 +347,13 @@ export default {
     totalPrice() {
       if (!this.selectedTicket) return 0;
       return this.selectedTicket.price * this.quantity;
+    },
+
+    /** 张数上限：取库存与业务上限的较小值；未选票种时仍受业务上限约束 */
+    maxSelectableQuantity() {
+      if (!this.selectedTicket) return MAX_TICKETS_PER_ORDER;
+      const stock = Math.max(0, Number(this.selectedTicket.stock) || 0);
+      return Math.min(MAX_TICKETS_PER_ORDER, stock || 1);
     },
 
     /** 与 initDateSelection 一致：首个有场次的预设日，用于判断是否为「默认」选中 */
@@ -538,7 +549,10 @@ export default {
       );
       if (matched) {
         this.selectedTicket = matched;
-        const max = matched.stock || 1;
+        const max = Math.min(
+          MAX_TICKETS_PER_ORDER,
+          matched.stock || 1,
+        );
         if (this.quantity > max) this.quantity = max;
         if (this.quantity < 1) this.quantity = 1;
         return;
@@ -614,8 +628,9 @@ export default {
     selectTicket(ticket) {
       if (ticket.stock > 0) {
         this.selectedTicket = ticket;
-        if (this.quantity > ticket.stock) {
-          this.quantity = ticket.stock;
+        const cap = Math.min(MAX_TICKETS_PER_ORDER, ticket.stock);
+        if (this.quantity > cap) {
+          this.quantity = cap;
         }
       } else {
         uni.showToast({ title: "该票种已售罄", icon: "none" });
@@ -629,7 +644,7 @@ export default {
     },
 
     increaseQuantity() {
-      const max = this.selectedTicket ? this.selectedTicket.stock : 99;
+      const max = this.maxSelectableQuantity;
       if (this.quantity < max) {
         this.quantity++;
       } else {
@@ -1144,6 +1159,11 @@ export default {
 
 .quantity-btn-minus.disabled {
   opacity: 0.5;
+}
+
+.quantity-btn-plus.disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .quantity-btn-plus {
