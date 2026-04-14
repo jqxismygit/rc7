@@ -145,7 +145,6 @@ export interface DamaiETicketInfo {
   priceId: string;
   qrcodeType: number;
   qrCode: string;
-  exchangeCode: string;
   seatByNumber: boolean;
 }
 

@@ -205,7 +205,6 @@ type DamaiGetETicketInfo = {
   priceId: string;
   qrcodeType: number;
   qrCode: string;
-  exchangeCode: string;
   seatByNumber: boolean;
 };
 
@@ -1301,7 +1300,6 @@ class DamaiService extends RC7BaseService {
       priceId: item.ticket_category_id,
       qrcodeType: DAMAI_QRCODE_TYPE_STATIC,
       qrCode: redemption.code,
-      exchangeCode: redemption.code,
       seatByNumber: false,
     })));
 
