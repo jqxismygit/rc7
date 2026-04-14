@@ -12,6 +12,27 @@ type RedemptionRow = Redeem.RedemptionCode;
 
 type RedemptionItemInput = Redeem.RedemptionCodeWithOrder['items'][number];
 
+type RedemptionListRow = {
+  exhibit_id: string;
+  order_id: string;
+  code: string;
+  status: Redeem.RedemptionStatus;
+  quantity: number;
+  valid_from: string;
+  valid_until: string;
+  redeemed_at: string | null;
+  redeemed_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type RedemptionListRowsResult = {
+  redemptions: RedemptionRow[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
 export type REDEEM_DATA_ERROR_CODES =
   | 'ORDER_NOT_FOUND'
   | 'ORDER_NOT_REDEEMABLE'
@@ -153,6 +174,60 @@ export async function getRedemptionRowByOrderId(
   }
 
   return row;
+}
+
+export async function getRedemptionListByUser(
+  client: DBClient,
+  schema: string,
+  userId: string,
+  options: {
+    status?: Redeem.RedemptionStatus;
+    page: number;
+    limit: number;
+  },
+): Promise<RedemptionListRowsResult> {
+  const { status, page, limit } = options;
+  const offset = (page - 1) * limit;
+
+  const { rows: countRows } = await client.query<{ total: string }>(
+    `SELECT COUNT(*)::text AS total
+    FROM ${schema}.exhibit_redemption_codes rc
+    JOIN ${schema}.exhibit_orders o ON o.id = rc.order_id
+    WHERE o.user_id = $1
+      AND ($2::text IS NULL OR rc.status = $2)`,
+    [userId, status ?? null],
+  );
+
+  const total = parseInt(countRows[0]?.total ?? '0', 10);
+
+  const { rows } = await client.query<RedemptionListRow>(
+    `SELECT
+      rc.exhibit_id,
+      rc.order_id,
+      rc.code,
+      rc.status,
+      rc.quantity,
+      rc.valid_from,
+      rc.valid_until,
+      rc.redeemed_at,
+      rc.redeemed_by,
+      rc.created_at,
+      rc.updated_at
+    FROM ${schema}.exhibit_redemption_codes rc
+    JOIN ${schema}.exhibit_orders o ON o.id = rc.order_id
+    WHERE o.user_id = $1
+      AND ($2::text IS NULL OR rc.status = $2)
+    ORDER BY rc.created_at DESC
+    LIMIT $3 OFFSET $4`,
+    [userId, status ?? null, limit, offset],
+  );
+
+  return {
+    redemptions: rows,
+    total,
+    page,
+    limit,
+  };
 }
 
 export async function getRedemptionRowByCode(

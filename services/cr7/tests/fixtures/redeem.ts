@@ -102,6 +102,19 @@ export function assertRedeem(data: unknown) {
   }
 }
 
+export function assertRedeemList(data: unknown) {
+  expect(data).toBeTypeOf('object');
+  expect(data).toHaveProperty('redemptions', expect.any(Array));
+  expect(data).toHaveProperty('total', expect.any(Number));
+  expect(data).toHaveProperty('page', expect.any(Number));
+  expect(data).toHaveProperty('limit', expect.any(Number));
+
+  const list = data as Redeem.RedemptionCodeListResult;
+  for (const redemption of list.redemptions) {
+    assertRedeem(redemption);
+  }
+}
+
 export async function getOrderRedemption(
   server: Server,
   orderId: string,
@@ -131,6 +144,25 @@ export async function redeemCode(
       body: { code },
     },
   );
+}
+
+export async function listMyRedemptions(
+  server: Server,
+  token: string,
+  query: {
+    status?: Redeem.RedemptionStatus;
+    page?: number;
+    limit?: number;
+  } = {},
+) {
+  const redemptionList = await getJSON<Redeem.RedemptionCodeListResult>(
+    server,
+    '/redemptions',
+    { token, query },
+  );
+
+  assertRedeemList(redemptionList);
+  return redemptionList;
 }
 
 export function toSessionDateLabel(value: string) {

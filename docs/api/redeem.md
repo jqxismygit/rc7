@@ -50,6 +50,35 @@
   - 仅允许查询自己订单的核销信息
   - 只有已支付订单才有核销码
 
+## 获取我的核销码列表
+
+- URL: `/redemptions`
+- Method: `GET`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Query Parameters:
+  ```ts
+  {
+    status?: Redeem.RedemptionStatus; // 可选，按核销状态筛选
+    page?: number;                    // 可选，页码，默认 1
+    limit?: number;                   // 可选，每页数量，默认 20
+  }
+  ```
+- Response Body:
+  ```ts
+  Redeem.RedemptionCodeListResult
+  ```
+- Response Status:
+  - `200 OK`：查询成功
+  - `401 Unauthorized`：未认证
+  - `400 Bad Request`：参数错误
+- 说明：
+  - 仅返回当前用户自己的核销码
+  - 支持按核销状态筛选（`UNREDEEMED`、`REDEEMED`）
+  - 支持分页查询，按核销码创建时间倒序返回
+
 ## 完成核销
 
 - URL: `/exhibition/:eid/redeem`

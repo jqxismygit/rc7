@@ -303,6 +303,63 @@ export async function getOrderById(
   };
 }
 
+export async function getOrdersByIdsForUser(
+  client: DBClient,
+  schema: string,
+  userId: string,
+  orderIds: string[],
+): Promise<Map<string, Order.OrderWithItems>> {
+  if (orderIds.length === 0) {
+    return new Map();
+  }
+
+  const { rows: orders } = await client.query<Omit<Order.OrderWithItems, 'items'>>(
+    `SELECT
+      o.id,
+      o.user_id,
+      o.exhibit_id,
+      o.session_id,
+      s.session_date,
+      o.current_refund_out_refund_no,
+      ${getOrderStatusCase({
+        refundedAtExpr: 'o.refunded_at',
+        refundStatusExpr: 'current_refund.status',
+        paidAtExpr: 'o.paid_at',
+        cancelledAtExpr: 'o.cancelled_at',
+        expiresAtExpr: 'o.expires_at',
+      })} AS status,
+      o.total_amount,
+      o.expires_at,
+      o.paid_at,
+      o.cancelled_at,
+      o.released_at,
+      o.hidden_at,
+      o.source,
+      o.created_at,
+      o.updated_at
+    FROM ${schema}.exhibit_orders o
+    JOIN ${schema}.exhibit_sessions s ON s.id = o.session_id
+    LEFT JOIN ${schema}.order_refunds current_refund
+      ON current_refund.out_refund_no = o.current_refund_out_refund_no
+    WHERE o.user_id = $1
+      AND o.id = ANY($2::uuid[])`,
+    [userId, orderIds],
+  );
+
+  const fetchedOrderIds = orders.map(order => order.id);
+  const itemsByOrderId = await getOrderItemsByOrderIds(client, schema, fetchedOrderIds);
+
+  const ordersById = new Map<string, Order.OrderWithItems>();
+  for (const order of orders) {
+    ordersById.set(order.id, {
+      ...normalizeOrderSessionDate(order),
+      items: itemsByOrderId.get(order.id) ?? [],
+    });
+  }
+
+  return ordersById;
+}
+
 export async function getOrders(
   client: DBClient,
   schema: string,
