@@ -1246,65 +1246,99 @@ export default class MoeService extends RC7BaseService {
       return this.finishWithMopResponse(recordId, 10001, '参数异常');
     }
 
+    const { order_id, user_id } = firstSuccessRecord;
+    if (order.status === 'REFUNDED') {
+      return this.finishWithMopResponse(
+        recordId,
+        10000, '成功', null, 'SUCCESS',
+        order_id, user_id
+      );
+    }
+
     try {
+
       if (bizType === MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_CANCEL) {
         await ctx.call(
           'cr7.order.cancel',
           { oid: firstSuccessRecord.order_id },
           { meta: { user: { uid: firstSuccessRecord.user_id } } }
         );
-      } else if (bizType === MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_REFUND) {
-        if (order.status !== 'REFUNDED') {
-          const refundRecord = await ctx.call<
-            Payment.RefundRecord,
-            {
-              oid: string;
-              reason: string;
-              payment_method: 'MOP';
-              out_trade_no: string;
-              out_refund_no: string;
-              refund_amount: number;
-            }
-          >(
-            'cr7.payment.refund',
-            {
-              oid: firstSuccessRecord.order_id,
-              reason: '猫眼订单退款',
-              payment_method: 'MOP',
-              out_trade_no: myOrderId,
-              out_refund_no: randomUUID().replace(/-/g, ''),
-              refund_amount: order.total_amount,
-            },
-            { meta: { user: { uid: firstSuccessRecord.user_id } } },
-          );
-
-          await ctx.call('cr7.payment.updateRefundResult', {
-            out_refund_no: refundRecord.out_refund_no,
-            refund_status: 'SUCCESS',
-            refund_id: myOrderId,
-            refund_channel: 'MOP',
-            callback_refund_amount: order.total_amount,
-            succeeded_at: new Date().toISOString(),
-          });
-
-          await ctx.call('cr7.order.markRefunded', { oid: firstSuccessRecord.order_id });
-        }
+      } else {
+        await this.refundOrder(
+          ctx,
+          {
+            user_id,
+            order_id,
+            total_amount: order.total_amount,
+            mop_order_id: myOrderId,
+          }
+        );
       }
+
       ctx.meta.$statusCode = 200;
+      return this.finishWithMopResponse(
+        recordId,
+        10000, '成功', null, 'SUCCESS',
+        order_id, user_id
+      )
     } catch (error) {
       this.logger.error('处理 MOP 订单状态变更通知时发生错误', error);
-      return this.finishWithMopResponse(recordId, 10099, (error as Error).message || '系统异常');
+      ctx.meta.$statusCode = 200;
+      const message = (error as Error).message || '系统异常';
+      return this.finishWithMopResponse(recordId, 10099, message);
     }
+  }
 
-    return this.finishWithMopResponse(
-      recordId,
-      10000,
-      '成功',
-      null,
-      'SUCCESS',
-      firstSuccessRecord.order_id,
-      firstSuccessRecord.user_id
-    );
+  async refundOrder(
+    ctx: Context,
+    params: {
+      user_id: string;
+      order_id: string;
+      total_amount: number;
+      mop_order_id: string
+    }
+  ) {
+      const {
+        user_id, order_id,
+        total_amount, mop_order_id
+      } = params;
+
+      const refundRecord = await ctx.call<
+        Payment.RefundRecord,
+        {
+          oid: string;
+          reason: string;
+          payment_method: 'MOP';
+          out_trade_no: string;
+          out_refund_no: string;
+          refund_amount: number;
+        }
+      >(
+        'cr7.payment.refund',
+        {
+          oid: order_id,
+          reason: '猫眼订单退款',
+          payment_method: 'MOP',
+          out_trade_no: mop_order_id,
+          out_refund_no: randomUUID().replace(/-/g, ''),
+          refund_amount: total_amount,
+        },
+        { meta: { user: { uid: user_id } } },
+      );
+
+      await ctx.call('cr7.order.markRefunded', { oid: order_id });
+
+      await ctx.call(
+        'cr7.payment.updateRefundResult',
+        {
+          out_refund_no: refundRecord.out_refund_no,
+          refund_status: 'SUCCESS',
+          refund_id: mop_order_id,
+          refund_channel: 'MOP',
+          callback_refund_amount: total_amount,
+          succeeded_at: new Date().toISOString(),
+        }
+      );
   }
 
   async getMopOrderRecord(
