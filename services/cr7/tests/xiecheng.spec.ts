@@ -545,7 +545,7 @@ describeFeature(feature, ({
       expect(xiechengReqHandler).toHaveBeenLastCalledWith(
         expect.objectContaining({
           method: 'POST',
-          path: '/api/product/stock.do',
+          path: '/product/stock.do',
         })
       );
     });
@@ -610,7 +610,7 @@ describeFeature(feature, ({
       expect(xiechengReqHandler).toHaveBeenLastCalledWith(
         expect.objectContaining({
           method: 'POST',
-          path: '/api/product/stock.do',
+          path: '/product/stock.do',
         })
       );
     });
