@@ -249,7 +249,9 @@ const DAMAI_CANCEL_ORDER_URI = '/damai/cancelOrder';
 const DAMAI_REFUND_APPLY_URI = '/damai/refundApply';
 const DAMAI_PAY_STATUS_SUCCESS = 1;
 const DAMAI_VALIDATE_URI = '/b2b2c/2.0/sync/validate';
+const DAMAI_REFUND_CALLBACK_NOTIFY_URI = '/b2b2c/2.0/refund/callback/notify';
 const DAMAI_VALIDATE_STATUS_VALIDATED = 2;
+const DAMAI_REFUND_STATUS_SUCCESS = 1;
 const DAMAI_CERT_TYPE_NON_REAL_NAME = 0;
 const DAMAI_QRCODE_TYPE_STATIC = 1;
 
@@ -1219,6 +1221,20 @@ class DamaiService extends RC7BaseService {
       );
 
       await ctx.call('cr7.order.markRefunded', { oid: order.id });
+
+      const refundNotifyBody = {
+        daMaiOrderId: refundInfo.daMaiOrderId,
+        daMaiRefundId: refundId,
+        orderId: order.id,
+        refundId: outRefundNo,
+        status: DAMAI_REFUND_STATUS_SUCCESS,
+      };
+
+      const refundNotifyUrl = new URL(DAMAI_REFUND_CALLBACK_NOTIFY_URI, config.damai.base_url).toString();
+      await damaiPostJson(refundNotifyUrl, {
+        sign: config.damai.sign,
+        body: refundNotifyBody,
+      });
 
       return this.finishWithDamaiResponse(
         recordId,

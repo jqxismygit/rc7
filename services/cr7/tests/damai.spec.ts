@@ -125,6 +125,18 @@ interface DamaiValidateOrderPayload {
   };
 }
 
+interface DamaiRefundNotifyPayload {
+  daMaiOrderId: string;
+  daMaiRefundId: string;
+  orderId: string;
+  refundId: string;
+  status: number;
+  signed: {
+    timeStamp: string;
+    signInfo: string;
+  };
+}
+
 interface FeatureContext extends
   ExhibitionContext,
   Partial<SessionSyncContext>,
@@ -218,7 +230,8 @@ type DamaiRequestBody =
   | DamaiCreateOrderRequest
   | DamaiPayOrderRequest
   | DamaiGetETicketInfoRequest
-  | DamaiValidateOrderPayload;
+  | DamaiValidateOrderPayload
+  | DamaiRefundNotifyPayload;
 
 type DamaiRequestHandler<Body = DamaiRequestBody> = Mock<
   (request: DamaiMockRequest<Body>) => unknown
@@ -1534,6 +1547,37 @@ describeFeature(feature, ({
 
   Scenario('用户在大麦申请了退款', (s: StepTest<void>) => {
     const { Then, And, When } = s;
+
+    When('携程收到 cr7 推送的退款结果消息', () => {
+      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(featureContext.damaiRequestHandler!);
+      expect(request.path).toBe('/b2b2c/2.0/refund/callback/notify');
+      expect(request.method).toBe('POST');
+    });
+
+    Then('退款成功消息中的大麦订单号 {string}，商家订单号是 cr7 创建的订单 ID', (_ctx, damaiOrderId: string) => {
+      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.daMaiOrderId).toBe(damaiOrderId);
+      expect(request.body.orderId).toBe(featureContext.order!.id);
+    });
+
+    And('退款成功消息中的退款 ID 是 {string}', (_ctx, refundId: string) => {
+      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.daMaiRefundId).toBe(refundId);
+    });
+
+    And('退款成功消息中的商家退款号是 cr7 生成的退款单号', () => {
+      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.refundId).toBe(featureContext.order!.current_refund_out_refund_no);
+    });
+
+    And('退款成功消息中的退款状态是成功 ，值为 {int}', (_ctx, status: number) => {
+      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.status).toBe(status);
+    });
+
+    Then('携程返回接收退款消息的响应，状态为成功，值为 {int}', (_ctx, responseCode: number) => {
+      expect(responseCode).toBe(0);
+    });
 
     And('订单退款申请消息中的大麦订单 ID 是 {string}', (_ctx, damaiOrderId: string) => {
       expect(featureContext.refundApplyRequest!.bodyRefundApply.refundInfo.daMaiOrderId).toBe(damaiOrderId);
