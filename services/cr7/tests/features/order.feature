@@ -77,6 +77,7 @@ Feature: Order ticket
    Given 用户 "Alice" 已成功预订 1 张该展会的 "3天后" 场次的 "成人票"
     When 用户 "Alice" 查看该订单详情
     Then 返回订单详情成功
+     And 订单有场次时间，为 "3天后"
      And 订单包含 1 条订单项
      And 订单项为该展会的 "3天后" 场次的 "成人票"
 

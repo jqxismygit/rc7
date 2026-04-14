@@ -1,4 +1,5 @@
 import { Pool, PoolClient } from 'pg';
+import { format } from 'date-fns';
 import type { Order } from '@cr7/types';
 
 type DBClient = Pool | PoolClient;
@@ -90,6 +91,13 @@ export class OrderDataError extends Error {
     this.name = 'OrderDataError';
     this.code = code;
   }
+}
+
+function normalizeOrderSessionDate<T extends { session_date: string }>(order: T): T {
+  return {
+    ...order,
+    session_date: format(new Date(order.session_date), 'yyyy-MM-dd'),
+  };
 }
 
 function normalizeOrderItems(items: Order.CreateOrderItem[]): AggregatedItem[] {
@@ -256,6 +264,7 @@ export async function getOrderById(
       o.user_id,
       o.exhibit_id,
       o.session_id,
+      s.session_date,
       o.current_refund_out_refund_no,
       ${getOrderStatusCase({
         refundedAtExpr: 'o.refunded_at',
@@ -274,6 +283,7 @@ export async function getOrderById(
       o.created_at,
       o.updated_at
     FROM ${schema}.exhibit_orders o
+    JOIN ${schema}.exhibit_sessions s ON s.id = o.session_id
     LEFT JOIN ${schema}.order_refunds current_refund
       ON current_refund.out_refund_no = o.current_refund_out_refund_no
     WHERE o.id = $1`,
@@ -287,7 +297,10 @@ export async function getOrderById(
   const [order] = rows;
   const items = await getOrderItemsByOrderId(client, schema, orderId);
 
-  return { ...order, items };
+  return {
+    ...normalizeOrderSessionDate(order),
+    items,
+  };
 }
 
 export async function getOrders(
@@ -335,6 +348,7 @@ export async function getOrders(
         o.user_id,
         o.exhibit_id,
         o.session_id,
+        s.session_date,
         o.current_refund_out_refund_no,
         ${getOrderStatusCase({
           refundedAtExpr: 'o.refunded_at',
@@ -353,6 +367,7 @@ export async function getOrders(
         o.created_at,
         o.updated_at
       FROM ${schema}.exhibit_orders o
+      JOIN ${schema}.exhibit_sessions s ON s.id = o.session_id
       LEFT JOIN ${schema}.order_refunds current_refund
         ON current_refund.out_refund_no = o.current_refund_out_refund_no
       WHERE o.user_id = $1
@@ -363,6 +378,7 @@ export async function getOrders(
       user_id,
       exhibit_id,
       session_id,
+      session_date,
       current_refund_out_refund_no,
       status,
       total_amount,
@@ -386,7 +402,7 @@ export async function getOrders(
 
   return {
     orders: orders.map(order => ({
-      ...order,
+      ...normalizeOrderSessionDate(order),
       items: itemsByOrderId.get(order.id) ?? [],
     })),
     total,
@@ -437,6 +453,7 @@ export async function getOrdersAdmin(
         o.user_id,
         o.exhibit_id,
         o.session_id,
+        s.session_date,
         o.current_refund_out_refund_no,
         ${getOrderStatusCase({
           refundedAtExpr: 'o.refunded_at',
@@ -455,6 +472,7 @@ export async function getOrdersAdmin(
         o.created_at,
         o.updated_at
       FROM ${schema}.exhibit_orders o
+      JOIN ${schema}.exhibit_sessions s ON s.id = o.session_id
       LEFT JOIN ${schema}.order_refunds current_refund
         ON current_refund.out_refund_no = o.current_refund_out_refund_no
     )
@@ -463,6 +481,7 @@ export async function getOrdersAdmin(
       user_id,
       exhibit_id,
       session_id,
+      session_date,
       current_refund_out_refund_no,
       status,
       total_amount,
@@ -486,7 +505,7 @@ export async function getOrdersAdmin(
 
   return {
     orders: orders.map(order => ({
-      ...order,
+      ...normalizeOrderSessionDate(order),
       items: itemsByOrderId.get(order.id) ?? [],
     })),
     total,

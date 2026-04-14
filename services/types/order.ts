@@ -15,6 +15,7 @@ export interface Order {
   user_id: string;
   exhibit_id: string;
   session_id: string;
+  session_date: string;
   current_refund_out_refund_no: string | null;
   status: OrderStatus;
   total_amount: number;

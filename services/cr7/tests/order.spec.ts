@@ -649,6 +649,11 @@ describeFeature(feature, ({
       expect(context.orderDetail!.id).toBe(context.order.id);
     });
 
+    And('订单有场次时间，为 {string}', (_ctx, expectedSessionDate: string) => {
+      expect(context.orderDetail).toBeTruthy();
+      expect(context.orderDetail.session_date).toBe(toDateLabel(expectedSessionDate));
+    });
+
     And('订单包含 1 条订单项', () => {
       expect(context.orderDetail).toBeTruthy();
       expect(context.orderDetail!.items).toHaveLength(1);

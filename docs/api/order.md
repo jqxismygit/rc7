@@ -22,6 +22,7 @@
   - `available_quantity = quantity - reserved_quantity`：可售余量
 
 - 关键字段：
+  - `session_date`：订单对应的场次日期（`yyyy-MM-dd`），用于订单查询和展示
   - `created_at`：订单创建时间
   - `expires_at`：订单过期时间（创建后 30 分钟）
   - `cancelled_at`：订单取消时间（仅当用户主动取消时写入）
