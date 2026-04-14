@@ -20,6 +20,7 @@ export interface RedemptionCodeWithOrder extends RedemptionCode {
     user_id: string;
     exhibit_id: string;
     session_id: string;
+    session_date: string;
     total_amount: number;
     status: string;
   };

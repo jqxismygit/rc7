@@ -331,6 +331,10 @@ describeFeature(feature, ({
         expect(context.redemption.quantity).toBe(Number(quantity));
       });
 
+      And('核销码关联订单的场次日期为 {string}', (_ctx, sessionDate: string) => {
+        expect(context.redemption.order.session_date).toBe(toDateLabel(sessionDate));
+      });
+
       And('核销码的有效期为场次当天', () => {
         const redemption = context.redemption;
         const validFrom = new Date(redemption.valid_from);
@@ -435,6 +439,10 @@ describeFeature(feature, ({
         const order = context.paidOrders[index - 1];
         expect(order).toBeTruthy();
         expect(context.redemptionList.redemptions[0].order_id).toBe(order.id);
+      });
+
+      And('按状态筛选结果中的订单场次日期为 {string}', (_ctx, sessionDate: string) => {
+        expect(context.redemptionList.redemptions[0].order.session_date).toBe(toDateLabel(sessionDate));
       });
     },
   );

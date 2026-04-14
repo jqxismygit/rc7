@@ -137,6 +137,7 @@ function buildRedemptionWithOrder(
       user_id: order.user_id,
       exhibit_id: order.exhibit_id,
       session_id: order.session_id,
+      session_date: order.session_date,
       total_amount: order.total_amount,
       status: order.status,
     },

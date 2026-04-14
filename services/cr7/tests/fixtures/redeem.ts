@@ -90,6 +90,7 @@ export function assertRedeem(data: unknown) {
   expect(redeem.order).toHaveProperty('user_id', expect.any(String));
   expect(redeem.order).toHaveProperty('exhibit_id', expect.any(String));
   expect(redeem.order).toHaveProperty('session_id', expect.any(String));
+  expect(redeem.order).toHaveProperty('session_date', expect.any(String));
   expect(redeem.order).toHaveProperty('total_amount', expect.any(Number));
   expect(redeem.order).toHaveProperty('status', expect.any(String));
 
