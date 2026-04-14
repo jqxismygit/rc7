@@ -187,6 +187,15 @@ const routes = [
     }
   ),
   routeConfig(
+    '/redemptions',
+    ['cr7.redemption.listByUser'],
+    {
+      aliases: {
+        'GET /': 'cr7.redemption.listByUser',
+      },
+    }
+  ),
+  routeConfig(
     '/admin/orders',
     ['cr7.order.listAdmin', 'cr7.order.getAdmin', 'cr7.order.refundsAdmin'],
     {

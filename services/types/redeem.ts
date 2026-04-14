@@ -20,6 +20,7 @@ export interface RedemptionCodeWithOrder extends RedemptionCode {
     user_id: string;
     exhibit_id: string;
     session_id: string;
+    session_date: string;
     total_amount: number;
     status: string;
   };
@@ -35,4 +36,11 @@ export interface RedemptionCodeWithOrder extends RedemptionCode {
 export interface RedeemRequest {
   code: string; // 核销码
   quantity?: number; // 本次核销人数，可选
+}
+
+export interface RedemptionCodeListResult {
+  redemptions: RedemptionCodeWithOrder[];
+  total: number;
+  page: number;
+  limit: number;
 }

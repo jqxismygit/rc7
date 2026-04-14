@@ -2,13 +2,14 @@ import { Context, ServiceBroker, ServiceSchema } from 'moleculer';
 import type { Exhibition, Order, Redeem } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
 import {
+  getRedemptionListByUser,
   getRedemptionRowByCode,
   getRedemptionRowByOrderId,
   upsertRedemptionCodeByOrderId,
   redeemCode,
   RedeemDataError,
 } from '../data/redeem.js';
-import { getOrderById, OrderDataError } from '../data/order.js';
+import { getOrderById, getOrdersByIdsForUser, OrderDataError } from '../data/order.js';
 import { getSessionById, getTicketCategoriesByExhibitionId } from '../data/exhibition.js';
 import { handleOrderError, handleRedeemError } from './errors.js';
 
@@ -57,6 +58,34 @@ export class RedemptionService extends RC7BaseService {
         oid: 'string',
       },
       handler: this.getByOrder,
+    },
+
+    'redemption.listByUser': {
+      rest: 'GET /redemptions',
+      params: {
+        status: {
+          type: 'enum',
+          values: ['UNREDEEMED', 'REDEEMED'],
+          optional: true,
+        },
+        page: {
+          type: 'number',
+          integer: true,
+          positive: true,
+          optional: true,
+          default: 1,
+          convert: true,
+        },
+        limit: {
+          type: 'number',
+          integer: true,
+          positive: true,
+          optional: true,
+          default: 20,
+          convert: true,
+        },
+      },
+      handler: this.listByUser,
     },
 
     'redemption.redeem': {
@@ -142,10 +171,83 @@ export class RedemptionService extends RC7BaseService {
         user_id: order.user_id,
         exhibit_id: order.exhibit_id,
         session_id: order.session_id,
+        session_date: order.session_date,
         total_amount: order.total_amount,
         status: order.status,
       },
       items,
+    };
+  }
+
+  async listByUser(
+    ctx: Context<{
+      status?: Redeem.RedemptionStatus;
+      page?: number;
+      limit?: number;
+    }, { user: UserMeta }>
+  ): Promise<Redeem.RedemptionCodeListResult> {
+    const { uid } = ctx.meta.user;
+    const {
+      status,
+      page = 1,
+      limit = 20,
+    } = ctx.params;
+    const schema = await this.getSchema();
+
+    const redemptionRows = await getRedemptionListByUser(this.pool, schema, uid, {
+      status,
+      page,
+      limit,
+    }).catch(handleRedeemError);
+
+    const orderIds = redemptionRows.redemptions.map(redemption => redemption.order_id);
+    const ordersById = await getOrdersByIdsForUser(this.pool, schema, uid, orderIds)
+      .catch(handleOrderError);
+
+    const ticketCategoriesByExhibitionId = new Map<string, Exhibition.TicketCategory[]>();
+    for (const order of ordersById.values()) {
+      if (ticketCategoriesByExhibitionId.has(order.exhibit_id)) {
+        continue;
+      }
+
+      const categories = await getTicketCategoriesByExhibitionId(this.pool, schema, order.exhibit_id)
+        .catch(handleRedeemError);
+      ticketCategoriesByExhibitionId.set(order.exhibit_id, categories);
+    }
+
+    const redemptions = redemptionRows.redemptions.map((redemption) => {
+      const order = ordersById.get(redemption.order_id);
+      if (order === undefined) {
+        return handleOrderError(new OrderDataError('Order not found', 'ORDER_NOT_FOUND'));
+      }
+
+      const categories = ticketCategoriesByExhibitionId.get(order.exhibit_id);
+      if (categories === undefined) {
+        return handleRedeemError(new RedeemDataError('Order has no redemption code', 'ORDER_NOT_REDEEMABLE'));
+      }
+
+      const items = buildItems(order.items, categories);
+
+      return {
+        ...redemption,
+        order: {
+          id: order.id,
+          user_id: order.user_id,
+          exhibit_id: order.exhibit_id,
+          session_id: order.session_id,
+          session_date: order.session_date,
+          total_amount: order.total_amount,
+          status: order.status,
+        },
+        items,
+      };
+    });
+
+    return {
+      redemptions,
+      total: redemptionRows.total,
+      page: redemptionRows.page,
+      limit: redemptionRows.limit,
     };
   }
 

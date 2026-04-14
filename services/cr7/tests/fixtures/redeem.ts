@@ -90,6 +90,7 @@ export function assertRedeem(data: unknown) {
   expect(redeem.order).toHaveProperty('user_id', expect.any(String));
   expect(redeem.order).toHaveProperty('exhibit_id', expect.any(String));
   expect(redeem.order).toHaveProperty('session_id', expect.any(String));
+  expect(redeem.order).toHaveProperty('session_date', expect.any(String));
   expect(redeem.order).toHaveProperty('total_amount', expect.any(Number));
   expect(redeem.order).toHaveProperty('status', expect.any(String));
 
@@ -99,6 +100,19 @@ export function assertRedeem(data: unknown) {
     expect(item).toHaveProperty('quantity', expect.any(Number));
     expect(item).toHaveProperty('unit_price', expect.any(Number));
     expect(item).toHaveProperty('category_name', expect.any(String));
+  }
+}
+
+export function assertRedeemList(data: unknown) {
+  expect(data).toBeTypeOf('object');
+  expect(data).toHaveProperty('redemptions', expect.any(Array));
+  expect(data).toHaveProperty('total', expect.any(Number));
+  expect(data).toHaveProperty('page', expect.any(Number));
+  expect(data).toHaveProperty('limit', expect.any(Number));
+
+  const list = data as Redeem.RedemptionCodeListResult;
+  for (const redemption of list.redemptions) {
+    assertRedeem(redemption);
   }
 }
 
@@ -131,6 +145,25 @@ export async function redeemCode(
       body: { code },
     },
   );
+}
+
+export async function listMyRedemptions(
+  server: Server,
+  token: string,
+  query: {
+    status?: Redeem.RedemptionStatus;
+    page?: number;
+    limit?: number;
+  } = {},
+) {
+  const redemptionList = await getJSON<Redeem.RedemptionCodeListResult>(
+    server,
+    '/redemptions',
+    { token, query },
+  );
+
+  assertRedeemList(redemptionList);
+  return redemptionList;
 }
 
 export function toSessionDateLabel(value: string) {
