@@ -10,7 +10,7 @@ import {
 import { format } from 'date-fns';
 import { expect, vi } from 'vitest';
 import { ServiceBroker } from 'moleculer';
-import type { Exhibition, Order, Redeem, User, Xiecheng } from '@cr7/types';
+import type { Exhibition, Order, Payment, Redeem, User, Xiecheng } from '@cr7/types';
 import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
 import { toDateLabel } from './lib/relative-date.js';
 import {
@@ -21,6 +21,7 @@ import { getOrderRedemption, redeemCode } from './fixtures/redeem.js';
 import { getSessions, prepareExhibition, prepareTicketCategory } from './fixtures/exhibition.js';
 import { getSessionTickets, updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 import { getOrder, getOrderAdmin } from './fixtures/order.js';
+import { getAdminOrderRefunds } from './fixtures/payment.js';
 import {
   assertCtripFailureResponse,
   assertCtripSuccessResponse,
@@ -106,6 +107,10 @@ interface RecordsContext {
   records: Xiecheng.XcOrderSyncRecord[];
 }
 
+interface RefundRecordsContext {
+  refundRecords: Payment.RefundRecord[];
+}
+
 interface FeatureContext extends
   AdminUserContext,
   ExhibitionContext,
@@ -116,6 +121,7 @@ interface FeatureContext extends
   Partial<OrderPayContext>,
   Partial<RefundContext>,
   Partial<RecordsContext>,
+  Partial<RefundRecordsContext>,
   Partial<CancelContext> {
     broker: ServiceBroker;
     apiServer: Server;
@@ -1157,6 +1163,29 @@ describeFeature(feature, ({
       const inventory = inventories.find(item => item.id === ticket.id);
       expect(inventory, `Inventory for ticket ${ticketName} in session ${dateLabel} not found`).toBeTruthy();
       expect(inventory!.quantity).toBe(expectedStock);
+    });
+
+    When('管理员查看订单的退款记录', async () => {
+      const { apiServer, order, adminToken } = featureContext;
+      const refunds = await getAdminOrderRefunds(
+        apiServer, order!.id, adminToken,
+      );
+      featureContext.refundRecords = refunds;
+    });
+
+    Then('订单的退款记录里有 {int} 条记录', (_ctx, count: number) => {
+      expect(featureContext.refundRecords).toHaveLength(count);
+    });
+
+    And('退款记录里的订单 ID 是 cr7 创建的订单 ID', () => {
+      const refundRecord = featureContext.refundRecords![0];
+      expect(refundRecord.order_id).toBe(featureContext.order!.id);
+    });
+
+    And('退款记录里的退款状态是已退款', () => {
+      const refundRecord = featureContext.refundRecords![0];
+      expect(refundRecord.status).toBe('SUCCEEDED');
+      expect(refundRecord.refund_status).toBe('SUCCESS');
     });
   });
 

@@ -373,7 +373,7 @@ type CreateRefundRecordInput = {
   order_amount: number;
   refund_amount: number;
   reason: string;
-  payment_method: 'WECHATPAY' | 'DAMAI';
+  payment_method: 'WECHATPAY' | 'DAMAI' | 'MOP' | 'CTRIP';
 };
 
 type RefundCallbackUpdateInput = {

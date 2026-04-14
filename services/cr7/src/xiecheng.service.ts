@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { addDays, format, isAfter, isBefore, parseISO, startOfDay } from 'date-fns';
 import config from 'config';
 import { Context, Errors, ServiceBroker } from 'moleculer';
-import { Exhibition, Order, Redeem, Xiecheng } from '@cr7/types';
+import { Exhibition, Order, Payment, Redeem, Xiecheng } from '@cr7/types';
 import {
   createXcSyncLog,
   listXcSyncLogs,
@@ -1105,8 +1105,33 @@ export default class XiechengService extends RC7BaseService {
       return this.failAndPersist(header, refundBody, '2004', '取消数量不正确', firstSuccessRecord);
     }
 
+    const outRefundNo = randomUUID().replace(/-/g, '');
+
     try {
       await ctx.call('cr7.order.markRefunded', { oid: supplierOrderId });
+
+      const refundRecord = await ctx.call(
+        'cr7.payment.refund',
+        {
+          oid: supplierOrderId,
+          reason: '携程订单退款',
+          payment_method: 'CTRIP',
+          out_trade_no: otaOrderId,
+          out_refund_no: outRefundNo,
+          refund_amount: order.total_amount,
+        },
+        { meta: { user: { uid: firstSuccessRecord.user_id } } },
+      ) as Payment.RefundRecord;
+
+      await ctx.call('cr7.payment.updateRefundResult', {
+        out_refund_no: refundRecord.out_refund_no,
+        refund_status: 'SUCCESS',
+        refund_id: sequenceId,
+        refund_channel: 'CTRIP',
+        callback_refund_amount: order.total_amount,
+        succeeded_at: new Date().toISOString(),
+      });
+
     } catch (error) {
       return this.failAndPersist(
         header,

@@ -141,7 +141,7 @@ export class PaymentService extends RC7BaseService {
         },
         payment_method: {
           type: 'enum',
-          values: ['WECHATPAY', 'DAMAI'],
+          values: ['WECHATPAY', 'DAMAI', 'MOP', 'CTRIP'],
         },
         out_trade_no: {
           type: 'string',
