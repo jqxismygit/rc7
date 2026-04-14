@@ -1108,8 +1108,6 @@ export default class XiechengService extends RC7BaseService {
     const outRefundNo = randomUUID().replace(/-/g, '');
 
     try {
-      await ctx.call('cr7.order.markRefunded', { oid: supplierOrderId });
-
       const refundRecord = await ctx.call(
         'cr7.payment.refund',
         {
@@ -1122,6 +1120,8 @@ export default class XiechengService extends RC7BaseService {
         },
         { meta: { user: { uid: firstSuccessRecord.user_id } } },
       ) as Payment.RefundRecord;
+
+      await ctx.call('cr7.order.markRefunded', { oid: supplierOrderId });
 
       await ctx.call('cr7.payment.updateRefundResult', {
         out_refund_no: refundRecord.out_refund_no,
