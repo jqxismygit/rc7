@@ -1,6 +1,7 @@
 Feature: manage exhibition
 
   Background:
+    Given cr7 服务已启动
     Given 系统管理员已经创建并登录
 
   Scenario: create a new exhibition

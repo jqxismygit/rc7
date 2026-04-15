@@ -8,8 +8,10 @@ import config from 'config';
 import { isSameDay } from 'date-fns';
 import { expect, vi } from 'vitest';
 import { Exhibition } from '@cr7/types';
-import { FixturesResult, useFixtures } from './lib/fixtures.js';
-import { services_fixtures } from './fixtures/services.js';
+import { ServiceBroker } from 'moleculer';
+import { Server } from 'node:http';
+import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
+import { prepareAPIServer, prepareServices } from './fixtures/services.js';
 import { toDateLabel } from './lib/relative-date.js';
 import {
   createExhibition,
@@ -89,13 +91,14 @@ type NonAdminAddTicketScenarioContext = PermissionErrorContext & ExhibitionConte
 
 type UpdateExhibitionValidationScenarioContext = ExhibitionContext & PermissionErrorContext;
 
-interface ScenarioContext {
-  fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
+interface FeatureContext {
+  broker: ServiceBroker;
+  apiServer: Server;
   adminToken: string;
 }
 
 function rememberError(context: PermissionErrorContext, error: unknown) {
-  Object.assign(context, { lastError: error });
+  context.lastError = error;
 }
 
 function assertPermissionDenied(error: unknown) {
@@ -142,29 +145,38 @@ function requireListResult(context: ExhibitionListResultContext) {
 describeFeature(feature, ({
   BeforeAllScenarios,
   AfterAllScenarios,
+  AfterEachScenario,
   Background,
   Scenario,
-  context: scenarioContext
-}: FeatureDescriibeCallbackParams<ScenarioContext>) => {
+  context: featureContext
+}: FeatureDescriibeCallbackParams<FeatureContext>) => {
   BeforeAllScenarios(async () => {
     vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
-    const fixtures = await useFixtures(
-      { ...services_fixtures, schema, services },
-      ['apiServer']
-    );
-    Object.assign(scenarioContext, { fixtures });
+    await bootstrap();
+    const broker = await prepareServices(services);
+    await broker.start();
+    featureContext.broker = broker;
+    featureContext.apiServer = await prepareAPIServer(broker);
   });
 
   AfterAllScenarios(async () => {
-    await scenarioContext.fixtures.close();
+    await featureContext.broker.stop();
+  });
+
+  AfterEachScenario(async () => {
+    await dropSchema({ schema });
   });
 
   Background(({ Given }) => {
+    Given('cr7 服务已启动', async () => {
+      await migrate({ schema });
+    });
+
     Given('系统管理员已经创建并登录', async () => {
-      const { apiServer } = scenarioContext.fixtures.values;
+      const { apiServer } = featureContext;
       const adminToken = await prepareAdminToken(apiServer, schema);
-      Object.assign(scenarioContext, { adminToken });
-      expect(scenarioContext.adminToken).toBeTruthy();
+      featureContext.adminToken = adminToken;
+      expect(featureContext.adminToken).toBeTruthy();
     });
   });
 
@@ -173,21 +185,19 @@ describeFeature(feature, ({
     (s: StepTest<CreateExhibitionScenarioContext>) => {
       const { Given, When, Then, And, context } = s;
       Given('展览名称为 {word}', (_ctx, name: string) => {
-        Object.assign(context, {
-          draftExhibition: {
-            name,
-            description: null,
-            start_date: null,
-            end_date: null,
-            opening_time: null,
-            closing_time: null,
-            last_entry_time: null,
-            city: null,
-            venue_name: null,
-            location: null,
-            cover_url: null,
-          },
-        });
+        context.draftExhibition = {
+          name,
+          description: null,
+          start_date: null,
+          end_date: null,
+          opening_time: null,
+          closing_time: null,
+          last_entry_time: null,
+          city: null,
+          venue_name: null,
+          location: null,
+          cover_url: null,
+        } as unknown as DraftExhibition;
       });
 
       And('展会描述为 {string}', (_ctx, description: string) => {
@@ -231,13 +241,13 @@ describeFeature(feature, ({
       });
 
       When('创建展览', async () => {
-        const { apiServer } = scenarioContext.fixtures.values;
+        const { apiServer } = featureContext;
         const exhibition = await createExhibition(
           apiServer,
-          scenarioContext.adminToken,
+          featureContext.adminToken,
           requireDraftExhibition(context),
         );
-        Object.assign(context, { exhibition });
+        context.exhibition = exhibition;
       });
 
       Then('展览创建成功且票种列表为空', async () => {
@@ -246,8 +256,8 @@ describeFeature(feature, ({
         assertExhibition(exhibition);
         expect(exhibition.name).toBe('cr7_life_museum');
 
-        const { apiServer } = scenarioContext.fixtures.values;
-        const categories = await getTicketCategories(apiServer, exhibition.id, scenarioContext.adminToken);
+        const { apiServer } = featureContext;
+        const categories = await getTicketCategories(apiServer, exhibition.id, featureContext.adminToken);
         expect(categories).toEqual([]);
       });
 
@@ -263,35 +273,35 @@ describeFeature(feature, ({
       const { Given, When, Then, context } = s;
 
       Given('已创建展览', async () => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        const [exhibition] = await createExhibitions(apiServer, scenarioContext.adminToken, 1);
-        Object.assign(context, { exhibition });
+        const { apiServer } = featureContext;
+        const [exhibition] = await createExhibitions(apiServer, featureContext.adminToken, 1);
+        context.exhibition = exhibition;
       });
 
       When('管理员将展览状态更新为 {string}', async (_ctx, status: string) => {
-        const { apiServer } = scenarioContext.fixtures.values;
+        const { apiServer } = featureContext;
         const eid = requireExhibition(context).id;
         await updateExhibitionStatus(
           apiServer,
-          scenarioContext.adminToken,
+          featureContext.adminToken,
           eid,
           status as Exhibition.ExhibitionStatus,
         );
-        const exhibition = await getExhibition(apiServer, eid, scenarioContext.adminToken);
-        Object.assign(context, { exhibition });
+        const exhibition = await getExhibition(apiServer, eid, featureContext.adminToken);
+        context.exhibition = exhibition;
       });
 
       When('管理员再次将展览状态更新为 {string}', async (_ctx, status: string) => {
-        const { apiServer } = scenarioContext.fixtures.values;
+        const { apiServer } = featureContext;
         const eid = requireExhibition(context).id;
         await updateExhibitionStatus(
           apiServer,
-          scenarioContext.adminToken,
+          featureContext.adminToken,
           eid,
           status as Exhibition.ExhibitionStatus,
         );
-        const exhibition = await getExhibition(apiServer, eid, scenarioContext.adminToken);
-        Object.assign(context, { exhibition });
+        const exhibition = await getExhibition(apiServer, eid, featureContext.adminToken);
+        context.exhibition = exhibition;
       });
 
       Then('展览状态更新为 {string}', (_ctx, status: string) => {
@@ -310,13 +320,13 @@ describeFeature(feature, ({
       const { Given, When, Then, And, context } = s;
 
       Given('已创建展览', async () => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        const [exhibition] = await createExhibitions(apiServer, scenarioContext.adminToken, 1);
-        Object.assign(context, { exhibition });
+        const { apiServer } = featureContext;
+        const [exhibition] = await createExhibitions(apiServer, featureContext.adminToken, 1);
+        context.exhibition = exhibition;
       });
 
       Given('为该展览准备票种草稿 {string}', (_ctx, categoryName: string) => {
-        Object.assign(context, { draftTicket: { name: categoryName } });
+        context.draftTicket = { name: categoryName } as DraftTicket;
       });
 
       And('票价为 {int}', (_ctx, price: number) => {
@@ -341,15 +351,15 @@ describeFeature(feature, ({
         expect(exhibition).toBeTruthy();
         expect(draftTicket).toBeTruthy();
 
-        const { apiServer } = scenarioContext.fixtures.values;
+        const { apiServer } = featureContext;
         const category = await addTicketCategory(
           apiServer,
-          scenarioContext.adminToken,
+          featureContext.adminToken,
           exhibition.id,
           draftTicket,
         );
 
-        Object.assign(context, { ticket: category });
+        context.ticket = category;
       });
 
       Then('票种 {string} 添加成功', (_ctx, categoryName: string) => {
@@ -363,11 +373,11 @@ describeFeature(feature, ({
       });
 
       And('展览包含 {int} 个票种 {string}', async (_ctx, count: number, categoryName: string) => {
-        const { apiServer } = scenarioContext.fixtures.values;
+        const { apiServer } = featureContext;
         const categories = await getTicketCategories(
           apiServer,
           requireExhibition(context).id,
-          scenarioContext.adminToken,
+          featureContext.adminToken,
         );
         expect(categories).toHaveLength(count);
         expect(categories.some(item => item.name === categoryName)).toBe(true);
@@ -382,13 +392,13 @@ describeFeature(feature, ({
       const { Given, When, Then, And, context } = s;
 
       Given('已创建展览', async () => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        const [exhibition] = await createExhibitions(apiServer, scenarioContext.adminToken, 1);
-        Object.assign(context, { exhibition });
+        const { apiServer } = featureContext;
+        const [exhibition] = await createExhibitions(apiServer, featureContext.adminToken, 1);
+        context.exhibition = exhibition;
       });
 
       Given('为该展览准备票种草稿 {string}', (_ctx, categoryName: string) => {
-        Object.assign(context, { draftTicket: { name: categoryName } });
+        context.draftTicket = { name: categoryName } as DraftTicket;
       });
 
       And('票价为 {int}', (_ctx, price: number) => {
@@ -413,15 +423,15 @@ describeFeature(feature, ({
         expect(exhibition).toBeTruthy();
         expect(draftTicket).toBeTruthy();
 
-        const { apiServer } = scenarioContext.fixtures.values;
+        const { apiServer } = featureContext;
         const ticket = await addTicketCategory(
           apiServer,
-          scenarioContext.adminToken,
+          featureContext.adminToken,
           exhibition.id,
           draftTicket,
         );
 
-        Object.assign(context, { ticket });
+        context.ticket = ticket;
       });
 
       Then('票种 {string} 添加成功', (_ctx, categoryName: string) => {
@@ -437,11 +447,11 @@ describeFeature(feature, ({
       And(
         '展览包含 {int} 个票种 {string}',
         async (_ctx, count: number, name: string) => {
-          const { apiServer } = scenarioContext.fixtures.values;
+          const { apiServer } = featureContext;
           const categories = await getTicketCategories(
             apiServer,
             requireExhibition(context).id,
-            scenarioContext.adminToken,
+            featureContext.adminToken,
           );
           expect(categories).toHaveLength(count);
           expect(categories.some(item => item.name === name)).toBe(true);
@@ -457,18 +467,18 @@ describeFeature(feature, ({
       const { Given, Then, And, context } = s;
 
       Given('已创建展览', async () => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        const [exhibition] = await createExhibitions(apiServer, scenarioContext.adminToken, 1);
-        Object.assign(context, { exhibition });
+        const { apiServer } = featureContext;
+        const [exhibition] = await createExhibitions(apiServer, featureContext.adminToken, 1);
+        context.exhibition = exhibition;
       });
 
       Then('展览默认按天创建场次', async () => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        const sessions = await getSessions(apiServer, requireExhibition(context).id, scenarioContext.adminToken);
+        const { apiServer } = featureContext;
+        const sessions = await getSessions(apiServer, requireExhibition(context).id, featureContext.adminToken);
 
         expect(sessions.length).toBeGreaterThan(0);
         sessions.forEach(assertSession);
-        Object.assign(context, { sessions });
+        context.sessions = sessions;
       });
 
       And('首个场次日期与展览开始日期一致', () => {
@@ -500,17 +510,17 @@ describeFeature(feature, ({
       const { Given, When, Then, And, context } = s;
 
       Given('已为列表创建 {int} 个展览', async (_ctx, count: number) => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        const createdExhibitions = await createExhibitions(apiServer, scenarioContext.adminToken, count, {
+        const { apiServer } = featureContext;
+        const createdExhibitions = await createExhibitions(apiServer, featureContext.adminToken, count, {
           namePrefix: 'list_exhibition',
         });
-        Object.assign(context, { createdExhibitions });
+        context.createdExhibitions = createdExhibitions;
       });
 
       When('按 limit {int} 和 offset {int} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        const listResult = await listAdminExhibitions(apiServer, scenarioContext.adminToken, { limit, offset });
-        Object.assign(context, { listResult });
+        const { apiServer } = featureContext;
+        const listResult = await listAdminExhibitions(apiServer, featureContext.adminToken, { limit, offset });
+        context.listResult = listResult;
       });
 
       Then('返回 {int} 个展览', (_ctx, count: number) => {
@@ -534,17 +544,17 @@ describeFeature(feature, ({
       const { Given, When, Then, And, context } = s;
 
       Given('已为列表创建 {int} 个展览', async (_ctx, count: number) => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        const createdExhibitions = await createExhibitions(apiServer, scenarioContext.adminToken, count, {
+        const { apiServer } = featureContext;
+        const createdExhibitions = await createExhibitions(apiServer, featureContext.adminToken, count, {
           namePrefix: 'list_exhibition',
         });
-        Object.assign(context, { createdExhibitions });
+        context.createdExhibitions = createdExhibitions;
       });
 
       When('按 limit {int} 和 offset {int} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        const listResult = await listAdminExhibitions(apiServer, scenarioContext.adminToken, { limit, offset });
-        Object.assign(context, { listResult });
+        const { apiServer } = featureContext;
+        const listResult = await listAdminExhibitions(apiServer, featureContext.adminToken, { limit, offset });
+        context.listResult = listResult;
       });
 
       Then('返回 {int} 个展览', (_ctx, count: number) => {
@@ -563,28 +573,28 @@ describeFeature(feature, ({
       const { Given, When, Then, And, context } = s;
 
       Given('已为列表创建 {int} 个展览', async (_ctx, count: number) => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        const createdExhibitions = await createExhibitions(apiServer, scenarioContext.adminToken, count, {
+        const { apiServer } = featureContext;
+        const createdExhibitions = await createExhibitions(apiServer, featureContext.adminToken, count, {
           namePrefix: 'list_exhibition',
         });
-        Object.assign(context, { createdExhibitions });
+        context.createdExhibitions = createdExhibitions;
       });
 
       And('管理员将第 {int} 个展览状态更新为 {string}', async (_ctx, index: number, status: string) => {
-        const { apiServer } = scenarioContext.fixtures.values;
+        const { apiServer } = featureContext;
         const target = requireCreatedExhibitions(context)[index - 1];
         await updateExhibitionStatus(
           apiServer,
-          scenarioContext.adminToken,
+          featureContext.adminToken,
           target.id,
           status as Exhibition.ExhibitionStatus,
         );
       });
 
       When('按 limit {int} 和 offset {int} 查询展览列表', async (_ctx, limit: number, offset: number) => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        const listResult = await listExhibitions(apiServer, scenarioContext.adminToken, { limit, offset });
-        Object.assign(context, { listResult });
+        const { apiServer } = featureContext;
+        const listResult = await listExhibitions(apiServer, featureContext.adminToken, { limit, offset });
+        context.listResult = listResult;
       });
 
       Then('返回 {int} 个展览', (_ctx, count: number) => {
@@ -603,9 +613,9 @@ describeFeature(feature, ({
       const { When, Then, context } = s;
 
       When('按 limit {int} 和 offset {int} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        const listResult = await listAdminExhibitions(apiServer, scenarioContext.adminToken, { limit, offset });
-        Object.assign(context, { listResult });
+        const { apiServer } = featureContext;
+        const listResult = await listAdminExhibitions(apiServer, featureContext.adminToken, { limit, offset });
+        context.listResult = listResult;
       });
 
       Then('返回 {int} 个展览', (_ctx, count: number) => {
@@ -620,27 +630,25 @@ describeFeature(feature, ({
       const { Given, When, Then, context } = s;
 
       Given('普通用户已登录', async () => {
-        const { apiServer } = scenarioContext.fixtures.values;
+        const { apiServer } = featureContext;
         const regularUserToken = await registerUser(apiServer);
-        Object.assign(context, { regularUserToken });
+        context.regularUserToken = regularUserToken;
       });
 
       When('普通用户尝试创建展览，名称为 {string}', async (_ctx, name: string) => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        Object.assign(context, {
-          draftExhibition: {
-            name,
-            description: 'unauthorized exhibition',
-            start_date: toDateLabel('1天后'),
-            end_date: toDateLabel('365天后'),
-            opening_time: '10:00',
-            closing_time: '18:00',
-            last_entry_time: '17:00',
-            city: '上海',
-            venue_name: '上海展览中心',
-            location: 'Test Location',
-          },
-        });
+        const { apiServer } = featureContext;
+        context.draftExhibition = {
+          name,
+          description: 'unauthorized exhibition',
+          start_date: toDateLabel('1天后'),
+          end_date: toDateLabel('365天后'),
+          opening_time: '10:00',
+          closing_time: '18:00',
+          last_entry_time: '17:00',
+          city: '上海',
+          venue_name: '上海展览中心',
+          location: 'Test Location',
+        };
 
         try {
           await createExhibition(apiServer, context.regularUserToken!, requireDraftExhibition(context));
@@ -661,28 +669,26 @@ describeFeature(feature, ({
       const { Given, When, Then, context } = s;
 
       Given('管理员已创建展览', async () => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        const [exhibition] = await createExhibitions(apiServer, scenarioContext.adminToken, 1);
-        Object.assign(context, { exhibition });
+        const { apiServer } = featureContext;
+        const [exhibition] = await createExhibitions(apiServer, featureContext.adminToken, 1);
+        context.exhibition = exhibition;
       });
 
       Given('普通用户已登录', async () => {
-        const { apiServer } = scenarioContext.fixtures.values;
+        const { apiServer } = featureContext;
         const regularUserToken = await registerUser(apiServer);
-        Object.assign(context, { regularUserToken });
+        context.regularUserToken = regularUserToken;
       });
 
       When('普通用户尝试为展览添加票种', async () => {
-        const { apiServer } = scenarioContext.fixtures.values;
-        Object.assign(context, {
-          draftTicket: {
-            name: 'unauthorized_ticket',
-            price: 100,
-            valid_duration_days: 1,
-            refund_policy: 'NON_REFUNDABLE',
-            admittance: 1,
-          },
-        });
+        const { apiServer } = featureContext;
+        context.draftTicket = {
+          name: 'unauthorized_ticket',
+          price: 100,
+          valid_duration_days: 1,
+          refund_policy: 'NON_REFUNDABLE',
+          admittance: 1,
+        };
 
         try {
           await addTicketCategory(
@@ -712,21 +718,19 @@ describeFeature(feature, ({
           const { Given, When, Then, And, context } = s;
 
           Given('展览名称为 {string}', (_ctx, name: string) => {
-            Object.assign(context, {
-              draftExhibition: {
-                name,
-                description: null,
-                start_date: null,
-                end_date: null,
-                opening_time: null,
-                closing_time: null,
-                last_entry_time: null,
-                city: null,
-                venue_name: null,
-                location: null,
-                cover_url: null,
-              },
-            });
+            context.draftExhibition = {
+              name,
+              description: null,
+              start_date: null,
+              end_date: null,
+              opening_time: null,
+              closing_time: null,
+              last_entry_time: null,
+              city: null,
+              venue_name: null,
+              location: null,
+              cover_url: null,
+            } as unknown as DraftExhibition;
           });
 
           And('展会描述为 {string}', (_ctx, description: string) => {
@@ -770,10 +774,10 @@ describeFeature(feature, ({
           });
 
           When('创建展览', async () => {
-            const { apiServer } = scenarioContext.fixtures.values;
+            const { apiServer } = featureContext;
             const exhibition = await createExhibition(
               apiServer,
-              scenarioContext.adminToken,
+              featureContext.adminToken,
               requireDraftExhibition(context) as Required<DraftExhibition>,
             );
             context.exhibition = exhibition;
@@ -820,10 +824,10 @@ describeFeature(feature, ({
           });
 
           When('更新展览信息', async () => {
-            const { apiServer } = scenarioContext.fixtures.values;
+            const { apiServer } = featureContext;
             const updated = await updateExhibition(
               apiServer,
-              scenarioContext.adminToken,
+              featureContext.adminToken,
               requireExhibition(context).id,
               context.draftUpdate!,
             );
@@ -851,18 +855,18 @@ describeFeature(feature, ({
         const { Given, When, Then, context } = s;
 
         Given('已创建展览', async () => {
-          const { apiServer } = scenarioContext.fixtures.values;
-          const [exhibition] = await createExhibitions(apiServer, scenarioContext.adminToken, 1);
-          Object.assign(context, { exhibition });
+          const { apiServer } = featureContext;
+          const [exhibition] = await createExhibitions(apiServer, featureContext.adminToken, 1);
+          context.exhibition = exhibition;
         });
 
         When('不提供任何参数更新展览', async () => {
-          const { apiServer } = scenarioContext.fixtures.values;
+          const { apiServer } = featureContext;
 
           try {
             await updateExhibition(
               apiServer,
-              scenarioContext.adminToken,
+              featureContext.adminToken,
               requireExhibition(context).id,
               {},
             );
@@ -887,20 +891,20 @@ describeFeature(feature, ({
         const { Given, When, Then, context } = s;
 
         Given('已创建展览', async () => {
-          const { apiServer } = scenarioContext.fixtures.values;
-          const [exhibition] = await createExhibitions(apiServer, scenarioContext.adminToken, 1);
-          Object.assign(context, { exhibition });
+          const { apiServer } = featureContext;
+          const [exhibition] = await createExhibitions(apiServer, featureContext.adminToken, 1);
+          context.exhibition = exhibition;
         });
 
         When('尝试更新展览开始和结束日期', async () => {
-          const { apiServer } = scenarioContext.fixtures.values;
+          const { apiServer } = featureContext;
 
           try {
             await patchJSON<Exhibition.Exhibition>(
               apiServer,
               `/exhibition/${requireExhibition(context).id}`,
               {
-                token: scenarioContext.adminToken,
+                token: featureContext.adminToken,
                 body: {
                   start_date: toDateLabel('5天后'),
                   end_date: toDateLabel('66天后'),
