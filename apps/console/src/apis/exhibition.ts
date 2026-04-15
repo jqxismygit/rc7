@@ -14,6 +14,7 @@ export type CreateExhibitionInput = Omit<
 export type ExhibitionListQuery = {
   limit?: number;
   offset?: number;
+  all?: boolean;
 };
 
 export type ExhibitionListResponse = {
@@ -26,7 +27,9 @@ export type ExhibitionListResponse = {
 export async function listExhibitionsApi(
   params: ExhibitionListQuery,
 ): Promise<ExhibitionListResponse> {
-  const raw = await request.get("/exhibition", { params });
+  const raw = await request.get("/exhibition", {
+    params: { ...params, all: true },
+  });
   return raw as unknown as ExhibitionListResponse;
 }
 
@@ -46,6 +49,16 @@ export async function updateExhibitionApi(
     data,
   );
   return raw as unknown as ExhibitionTypes.Exhibition;
+}
+
+/** 更新展览上下线状态，响应 204 */
+export async function updateExhibitionStatusApi(
+  eid: string,
+  status: ExhibitionTypes.ExhibitionStatus,
+): Promise<void> {
+  await request.patch(`/exhibition/${encodeURIComponent(eid)}/status`, {
+    status,
+  });
 }
 
 export async function getExhibitionSessionsApi(

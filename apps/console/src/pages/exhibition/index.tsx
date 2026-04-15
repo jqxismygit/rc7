@@ -18,14 +18,17 @@ import {
   Cascader,
   Form,
   Modal,
+  Popconfirm,
   Radio,
   Space,
+  Tag,
   Typography,
   Upload,
   message,
   theme,
 } from "antd";
 import {
+  CheckCircleOutlined,
   DeleteOutlined,
   EditOutlined,
   EyeOutlined,
@@ -48,6 +51,7 @@ import {
   createExhibitionApi,
   listExhibitionsApi,
   updateExhibitionApi,
+  updateExhibitionStatusApi,
   type CreateExhibitionInput,
 } from "@/apis/exhibition";
 import { uploadTopicImageApi } from "@/apis/topic";
@@ -74,6 +78,32 @@ type OtaPlatform = "ctrip" | "maoyan" | "damai";
 type DayjsLike = {
   format: (fmt: string) => string;
 };
+
+function getExhibitionStatusColor(
+  status: ExhibitionTypes.ExhibitionStatus | string,
+) {
+  switch (status) {
+    case "ENABLE":
+      return "success";
+    case "DISABLE":
+      return "default";
+    default:
+      return "processing";
+  }
+}
+
+function getExhibitionStatusText(
+  status: ExhibitionTypes.ExhibitionStatus | string,
+) {
+  switch (status) {
+    case "ENABLE":
+      return "已激活";
+    case "DISABLE":
+      return "未激活";
+    default:
+      return status || "未知状态";
+  }
+}
 
 function formatDayjsLike(value: unknown, fmt: string) {
   if (value && typeof value === "object" && "format" in value) {
@@ -351,6 +381,40 @@ const ExhibitionPage = () => {
     }
   }, [otaSyncRow, otaPlatform, syncToMaoyan, syncToDamai]);
 
+  const handleToggleExhibitionStatus = useCallback(
+    async (row: ExhibitionTypes.Exhibition) => {
+      try {
+        const listRes = await listExhibitionsApi({
+          limit: 100,
+          offset: 0,
+          all: true,
+        });
+        const otherEnabledExhibitions = (listRes.data || []).filter(
+          (item) => item.id !== row.id && item.status === "ENABLE",
+        );
+
+        if (otherEnabledExhibitions.length > 0) {
+          await Promise.all(
+            otherEnabledExhibitions.map((item) =>
+              updateExhibitionStatusApi(item.id, "DISABLE"),
+            ),
+          );
+        }
+        await updateExhibitionStatusApi(row.id, "ENABLE");
+        message.success(
+          otherEnabledExhibitions.length > 0
+            ? `已激活当前展会，并禁用其他 ${otherEnabledExhibitions.length} 个激活展会`
+            : "已激活当前展会",
+        );
+        actionRef.current?.reload();
+      } catch (error) {
+        const errMsg = error instanceof Error ? error.message : String(error);
+        message.error(errMsg ? `状态更新失败：${errMsg}` : "状态更新失败");
+      }
+    },
+    [],
+  );
+
   /** 弹窗挂载后再写入表单，避免 setFieldsValue 早于 Form 渲染导致校验失败、保存无反应 */
   useEffect(() => {
     if (!editOpen || !editingRow) return;
@@ -399,6 +463,17 @@ const ExhibitionPage = () => {
         dataIndex: "name",
         ellipsis: true,
         width: 200,
+      },
+      {
+        title: "状态",
+        dataIndex: "status",
+        search: false,
+        width: 120,
+        render: (_, row) => (
+          <Tag color={getExhibitionStatusColor(row.status)}>
+            {getExhibitionStatusText(row.status)}
+          </Tag>
+        ),
       },
       {
         title: "内容预览",
@@ -516,6 +591,24 @@ const ExhibitionPage = () => {
             >
               编辑
             </Button>
+            <Popconfirm
+              title="确认激活该展会？"
+              description="激活后会自动将其他已激活展会设为未激活，是否继续？"
+              okText="确认激活"
+              cancelText="取消"
+              onConfirm={() => handleToggleExhibitionStatus(row)}
+              disabled={row.status === "ENABLE"}
+            >
+              <Button
+                type="link"
+                size="small"
+                icon={<CheckCircleOutlined />}
+                style={{ padding: 0, height: "auto" }}
+                disabled={row.status === "ENABLE"}
+              >
+                激活
+              </Button>
+            </Popconfirm>
             <Button
               type="link"
               size="small"
@@ -539,7 +632,13 @@ const ExhibitionPage = () => {
         ),
       },
     ],
-    [rowIndexBase, navigate, openEditForRow, openOtaSyncForRow],
+    [
+      rowIndexBase,
+      navigate,
+      openEditForRow,
+      handleToggleExhibitionStatus,
+      openOtaSyncForRow,
+    ],
   );
 
   async function handleCreateModalFinish(values: ExhibitionCreateFormValues) {
