@@ -1,6 +1,6 @@
 import { addDays } from 'date-fns';
 import { Pool, PoolClient } from 'pg';
-import type { Order, Redeem } from '@cr7/types';
+import type { Redeem } from '@cr7/types';
 
 type DBClient = Pool | PoolClient;
 
@@ -9,8 +9,6 @@ const CODE_PREFIX = 'R';
 const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
 type RedemptionRow = Redeem.RedemptionCode;
-
-type RedemptionItemInput = Redeem.RedemptionCodeWithOrder['items'][number];
 
 type RedemptionListRow = {
   exhibit_id: string;
@@ -113,37 +111,6 @@ function randomBusinessPart(length: number) {
 function buildCandidateCode() {
   const payload = `${CODE_PREFIX}${randomBusinessPart(CODE_LENGTH - 3)}`;
   return `${payload}${buildLuhn2(payload)}`;
-}
-
-function buildRedemptionWithOrder(
-  row: RedemptionRow,
-  order: Order.OrderWithItems,
-  items: RedemptionItemInput[],
-): Redeem.RedemptionCodeWithOrder {
-  return {
-    exhibit_id: row.exhibit_id,
-    order_id: row.order_id,
-    code: row.code,
-    status: row.status,
-    quantity: row.quantity,
-    valid_from: row.valid_from,
-    valid_until: row.valid_until,
-    redeemed_at: row.redeemed_at,
-    redeemed_by: row.redeemed_by,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    order: {
-      id: order.id,
-      user_id: order.user_id,
-      source: order.source,
-      exhibit_id: order.exhibit_id,
-      session_id: order.session_id,
-      session_date: order.session_date,
-      total_amount: order.total_amount,
-      status: order.status,
-    },
-    items,
-  };
 }
 
 export async function getRedemptionRowByOrderId(
@@ -331,17 +298,7 @@ export async function redeemCode(
   exhibitId: string,
   code: string,
   redeemedBy: string,
-  order: Order.OrderWithItems,
-  items: RedemptionItemInput[],
-): Promise<Redeem.RedemptionCodeWithOrder> {
-  if (
-    order.status === 'REFUND_REQUESTED'
-    || order.status === 'REFUND_PROCESSING'
-    || order.status === 'REFUNDED'
-  ) {
-    throw new RedeemDataError('Order is in refund flow', 'ORDER_REFUND_IN_PROGRESS');
-  }
-
+): Promise<RedemptionRow> {
   const redemption = await getRedemptionRowByCode(client, schema, exhibitId, code);
 
   if (redemption.status === 'REDEEMED') {
@@ -367,7 +324,5 @@ export async function redeemCode(
     [exhibitId, code, redeemedBy],
   );
 
-  const updated = await getRedemptionRowByCode(client, schema, exhibitId, code);
-
-  return buildRedemptionWithOrder(updated, order, items);
+  return getRedemptionRowByCode(client, schema, exhibitId, code);
 }

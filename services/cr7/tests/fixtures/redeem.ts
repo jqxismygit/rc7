@@ -75,6 +75,8 @@ export function assertRedeem(data: unknown) {
   expect(data).toHaveProperty('created_at', expect.any(String));
   expect(data).toHaveProperty('updated_at', expect.any(String));
   expect(data).toHaveProperty('order', expect.any(Object));
+  expect(data).toHaveProperty('exhibition', expect.any(Object));
+  expect(data).toHaveProperty('session', expect.any(Object));
   expect(data).toHaveProperty('items', expect.any(Array));
   expect(data).not.toHaveProperty('id');
 
@@ -90,9 +92,23 @@ export function assertRedeem(data: unknown) {
   expect(redeem.order).toHaveProperty('user_id', expect.any(String));
   expect(redeem.order).toHaveProperty('exhibit_id', expect.any(String));
   expect(redeem.order).toHaveProperty('session_id', expect.any(String));
-  expect(redeem.order).toHaveProperty('session_date', expect.any(String));
   expect(redeem.order).toHaveProperty('total_amount', expect.any(Number));
   expect(redeem.order).toHaveProperty('status', expect.any(String));
+
+  expect(redeem.exhibition).toHaveProperty('id', expect.any(String));
+  expect(redeem.exhibition).toHaveProperty('name', expect.any(String));
+  expect(redeem.exhibition).toHaveProperty('description', expect.any(String));
+  expect(redeem.exhibition).toHaveProperty('location', expect.any(String));
+  expect(redeem.exhibition).toHaveProperty('city', expect.any(String));
+  expect(redeem.exhibition).toHaveProperty('venue_name', expect.any(String));
+  expect(redeem.exhibition).toHaveProperty('start_date', expect.any(String));
+  expect(redeem.exhibition).toHaveProperty('end_date', expect.any(String));
+
+  expect(redeem.session).toHaveProperty('id', expect.any(String));
+  expect(redeem.session).toHaveProperty('session_date', expect.any(String));
+  expect(redeem.session).toHaveProperty('opening_time', expect.any(String));
+  expect(redeem.session).toHaveProperty('closing_time', expect.any(String));
+  expect(redeem.session).toHaveProperty('last_entry_time', expect.any(String));
 
   for (const item of redeem.items) {
     expect(item).toHaveProperty('id', expect.any(String));

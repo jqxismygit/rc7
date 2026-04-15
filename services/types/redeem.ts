@@ -1,4 +1,5 @@
 import { OrderSource } from './order.js';
+import { Exhibition } from './index.js';
 
 export type RedemptionStatus = 'UNREDEEMED' | 'REDEEMED';
 
@@ -23,10 +24,19 @@ export interface RedemptionCodeWithOrder extends RedemptionCode {
     source: OrderSource;
     exhibit_id: string;
     session_id: string;
-    session_date: string;
     total_amount: number;
     status: string;
   };
+  exhibition: Pick<
+    Exhibition.Exhibition,
+    | 'id' | 'name' | 'description' | 'cover_url'
+    | 'location' | 'city' | 'venue_name'
+    | 'start_date' | 'end_date'
+  >;
+  session: Pick<
+    Exhibition.Exhibition,
+    'opening_time' | 'closing_time' | 'last_entry_time'
+  > & { id: string; session_date: string };
   items: Array<{
     id: string;
     ticket_category_id: string;

@@ -108,6 +108,40 @@ export async function getExhibitionById(
   return rows[0];
 }
 
+export async function getExhibitionsByIds(
+  client: DBClient,
+  schema: string,
+  exhibitionIds: string[],
+): Promise<Map<string, Exhibition.Exhibition>> {
+  if (exhibitionIds.length === 0) {
+    return new Map();
+  }
+
+  const { rows } = await client.query<Exhibition.Exhibition>(
+    `SELECT
+      id,
+      name,
+      description,
+      start_date,
+      end_date,
+      opening_time,
+      closing_time,
+      last_entry_time,
+      city,
+      venue_name,
+      location,
+      cover_url,
+      status,
+      created_at,
+      updated_at
+    FROM ${schema}.exhibitions
+    WHERE id = ANY($1::uuid[])`,
+    [[...new Set(exhibitionIds)]],
+  );
+
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
 export async function getExhibitions(
   client: Pool,
   schema: string,
@@ -603,4 +637,28 @@ export async function getSessionById(
   }
 
   return rows[0];
+}
+
+export async function getSessionsByIds(
+  client: DBClient,
+  schema: string,
+  sessionIds: string[],
+): Promise<Map<string, Exhibition.Session>> {
+  if (sessionIds.length === 0) {
+    return new Map();
+  }
+
+  const { rows } = await client.query<Exhibition.Session>(
+    `SELECT
+      id,
+      session_id AS exhibit_id,
+      session_date,
+      created_at,
+      updated_at
+    FROM ${schema}.exhibit_sessions
+    WHERE id = ANY($1::uuid[])`,
+    [[...new Set(sessionIds)]],
+  );
+
+  return new Map(rows.map((row) => [row.id, row]));
 }
