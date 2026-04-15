@@ -43,6 +43,39 @@
 - 说明：
   - 当未传分页参数时，服务端默认使用 `limit = 10`、`offset = 0`
   - 空数据时返回 `data: []`
+  - **仅返回状态为 `ENABLE` 的展览**；下线展览不出现在此列表中
+
+## 管理员获取全部展览列表
+
+- URL: `/admin/exhibition`
+- Method: `GET`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Query:
+  ```ts
+  {
+    limit?: number;   // 默认 10，最大 100
+    offset?: number;  // 默认 0
+  }
+  ```
+- Response Body:
+  ```ts
+  {
+    data: Exhibition.Exhibition[];
+    total: number;
+    limit: number;
+    offset: number;
+  }
+  ```
+- Response Status:
+  - `200 OK`：查询成功
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：无管理员权限
+- 说明：
+  - 返回**所有**展览，不区分 `status`（包括 `ENABLE` 和 `DISABLE`）
+  - 需要管理员权限
 
 ## 创建展览活动
 
@@ -179,6 +212,33 @@
   ```
 - 说明：
   - `eid` 来自路径参数，不需要在 body 中重复传递
+
+## 管理员更新展览上下线状态
+
+- URL: `/exhibition/:eid/status`
+- Method: `PATCH`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Params:
+  ```ts
+  { eid: string }
+  ```
+- Request Body:
+  ```ts
+  { status: Exhibition.ExhibitionStatus }  // 'ENABLE' | 'DISABLE'
+  ```
+- Response Status:
+  - `204 No Content`：更新成功
+  - `400 Bad Request`：参数不合法（`status` 值不在枚举范围内）
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：无管理员权限
+  - `404 Not Found`：展览不存在
+- 说明：
+  - 新建展览默认状态为 `DISABLE`（下线）
+  - 将展览设为 `ENABLE` 后，公开展览列表（`GET /exhibition`）将可以返回该展览
+  - 接口成功时无响应体
 
 ## 相关接口
 

@@ -15,6 +15,7 @@ import {
   createExhibition,
   addTicketCategory,
   createExhibitions,
+  getExhibition,
   getTicketCategories,
   getSessions,
   listAdminExhibitions,
@@ -269,23 +270,27 @@ describeFeature(feature, ({
 
       When('管理员将展览状态更新为 {string}', async (_ctx, status: string) => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const exhibition = await updateExhibitionStatus(
+        const eid = requireExhibition(context).id;
+        await updateExhibitionStatus(
           apiServer,
           scenarioContext.adminToken,
-          requireExhibition(context).id,
+          eid,
           status as Exhibition.ExhibitionStatus,
         );
+        const exhibition = await getExhibition(apiServer, eid, scenarioContext.adminToken);
         Object.assign(context, { exhibition });
       });
 
       When('管理员再次将展览状态更新为 {string}', async (_ctx, status: string) => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const exhibition = await updateExhibitionStatus(
+        const eid = requireExhibition(context).id;
+        await updateExhibitionStatus(
           apiServer,
           scenarioContext.adminToken,
-          requireExhibition(context).id,
+          eid,
           status as Exhibition.ExhibitionStatus,
         );
+        const exhibition = await getExhibition(apiServer, eid, scenarioContext.adminToken);
         Object.assign(context, { exhibition });
       });
 

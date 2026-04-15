@@ -347,16 +347,16 @@ export class ExhibitionService extends RC7BaseService {
   }
 
   async updateExhibitionStatus(
-    ctx: Context<{ eid: string; status: Exhibition.ExhibitionStatus }, { user: UserMeta }>
+    ctx: Context<{ eid: string; status: Exhibition.ExhibitionStatus }, { user: UserMeta; $statusCode?: number }>
   ) {
     const { eid, status } = ctx.params;
     const client = this.pool;
     const schema = await this.getSchema();
 
-    const exhibition = await updateExhibitionStatus(client, schema, eid, status)
+    await updateExhibitionStatus(client, schema, eid, status)
       .catch(handleExhibitionError);
 
-    return exhibition;
+    ctx.meta.$statusCode = 204;
   }
 
   async getSessionTickets(

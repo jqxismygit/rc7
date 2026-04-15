@@ -164,8 +164,8 @@ export async function updateExhibitionStatus(
   token: string,
   eid: string,
   status: Exhibition.ExhibitionStatus,
-) {
-  return patchJSON<Exhibition.Exhibition>(
+): Promise<void> {
+  await patchJSON<null>(
     server,
     `/exhibition/${eid}/status`,
     { body: { status }, token }

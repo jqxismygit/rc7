@@ -604,20 +604,7 @@ export async function updateExhibitionStatus(
       status = $2,
       updated_at = NOW()
     WHERE id = $1
-    RETURNING
-      id, name, description,
-      start_date,
-      end_date,
-      opening_time,
-      closing_time,
-      last_entry_time,
-      city,
-      venue_name,
-      location,
-      cover_url,
-      status,
-      created_at,
-      updated_at`,
+    RETURNING id, status`,
     [eid, status],
   );
 
