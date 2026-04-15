@@ -1,0 +1,1 @@
+export const HOME_EXHIBITION_ID = "061ea274-365f-4e4f-99c9-762fcc1972d9";
