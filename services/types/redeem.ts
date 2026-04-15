@@ -1,6 +1,6 @@
-import { OrderSource } from './order.js';
+import type { OrderSource } from "./order.js";
 
-export type RedemptionStatus = 'UNREDEEMED' | 'REDEEMED';
+export type RedemptionStatus = "UNREDEEMED" | "REDEEMED";
 
 export interface RedemptionCode {
   order_id: string;
