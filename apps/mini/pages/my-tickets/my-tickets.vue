@@ -69,11 +69,15 @@
               :src="ticket.eventCover || '/static/images/event-card.jpg'"
               mode="aspectFill"
             />
-            <view
-              class="ticket-status-pill"
-              :class="getStatusPillClass(ticket.status)"
-            >
-              <text class="pill-text">{{ getStatusText(ticket.status) }}</text>
+            <view class="ticket-status-wrap">
+              <view
+                v-for="(pill, index) in getTicketStatusPills(ticket)"
+                :key="`${ticket.id}-status-${index}-${pill.text}`"
+                class="ticket-status-pill"
+                :class="pill.className"
+              >
+                <text class="pill-text">{{ pill.text }}</text>
+              </view>
             </view>
           </view>
 
@@ -186,7 +190,6 @@ import { listOrders, hideOrder } from "@/services/order.js";
 import {
   loadExhibitionsMap,
   buildTicketRowFromOrder,
-  orderStatusToUi,
 } from "@/utils/orderDisplay.js";
 import { formatRedemptionValidityDateTimeLine } from "@/utils/ticketEventDisplay.js";
 
@@ -245,7 +248,9 @@ export default {
 
       try {
         const res = await listOrders({ page: 1, limit: 50 });
-        const redemptions = Array.isArray(res?.redemptions) ? res.redemptions : [];
+        const redemptions = Array.isArray(res?.redemptions)
+          ? res.redemptions
+          : [];
         const normalizedRows = redemptions.map((item) => {
           const order = item?.order || {};
           return {
@@ -277,14 +282,19 @@ export default {
             exMap[order.exhibit_id] || null,
           );
 
-          // 以 redemption.status 为准，避免仅用 order.status 导致状态偏差
-          if (row.redemption?.status === "REDEEMED") {
-            ticket.status = "used";
-          } else if (row.redemption?.status === "UNREDEEMED") {
-            ticket.status = "unused";
-          } else {
-            ticket.status = orderStatusToUi(order.status);
-          }
+          // 状态来源拆分：
+          // 1) redemption: 是否使用
+          // 2) order: 支付/退款
+          ticket.paymentStatus = this.resolvePaymentStatus(order.status);
+          ticket.usageStatus = this.resolveUsageStatus(
+            row.redemption?.status,
+            row.redemption?.valid_until,
+          );
+          // 兼容现有按钮逻辑
+          ticket.status = this.resolveDisplayStatus(
+            ticket.paymentStatus,
+            ticket.usageStatus,
+          );
 
           const validityText = formatRedemptionValidityDateTimeLine(
             row.redemption?.valid_from,
@@ -309,6 +319,80 @@ export default {
     ticketLineSummary(ticket) {
       const extra = ticket.refundRule || "开场前48小时可退";
       return `${ticket.ticketType} · ${extra}`;
+    },
+
+    resolvePaymentStatus(orderStatus) {
+      const map = {
+        PAID: "paid",
+        PENDING_PAYMENT: "pending_payment",
+        REFUNDED: "refunded",
+        EXPIRED: "expired",
+        CANCELLED: "cancelled",
+      };
+      return map[orderStatus] || "unknown";
+    },
+
+    resolveUsageStatus(redemptionStatus, validUntil) {
+      if (redemptionStatus === "REDEEMED") return "used";
+      if (redemptionStatus === "UNREDEEMED") {
+        if (validUntil && new Date(validUntil).getTime() <= Date.now()) {
+          return "expired";
+        }
+        return "unused";
+      }
+      return "unused";
+    },
+
+    resolveDisplayStatus(paymentStatus, usageStatus) {
+      if (paymentStatus === "refunded") return "refunded";
+      if (paymentStatus === "pending_payment") return "pending_payment";
+      if (paymentStatus === "expired") return "expired";
+      if (paymentStatus === "cancelled") return "cancelled";
+      if (usageStatus === "used") return "used";
+      if (usageStatus === "expired") return "expired";
+      return "unused";
+    },
+
+    getTicketStatusPills(ticket) {
+      const paymentStatus = ticket?.paymentStatus;
+      const usageStatus = ticket?.usageStatus;
+
+      // 已退款只显示一个状态
+      if (paymentStatus === "refunded") {
+        return [{ text: "已退款", className: "pill-refunded" }];
+      }
+
+      // 待支付只显示一个状态：待支付或已过期
+      if (paymentStatus === "pending_payment") {
+        return [{ text: "待支付", className: "pill-pending" }];
+      }
+      if (paymentStatus === "expired") {
+        return [{ text: "已过期", className: "pill-expired" }];
+      }
+
+      // 已支付始终显示两个状态：左侧(使用状态) + 右侧(支付状态)
+      return [
+        {
+          text: this.getUsageStatusText(usageStatus),
+          className: this.getUsageStatusPillClass(usageStatus),
+        },
+        {
+          text: "已支付",
+          className: "pill-active",
+        },
+      ];
+    },
+
+    getUsageStatusText(usageStatus) {
+      if (usageStatus === "used") return "已使用";
+      if (usageStatus === "expired") return "已过期";
+      return "待使用";
+    },
+
+    getUsageStatusPillClass(usageStatus) {
+      if (usageStatus === "used") return "pill-done";
+      if (usageStatus === "expired") return "pill-expired";
+      return "pill-active";
     },
 
     getStatusText(status) {
@@ -683,21 +767,26 @@ export default {
   height: 100%;
 }
 
-.ticket-status-pill {
+.ticket-status-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
   position: absolute;
   top: 24rpx;
   left: 24rpx;
+}
+
+.ticket-status-pill {
   padding: 8rpx 24rpx;
   border-radius: 999rpx;
 }
 
 .pill-active {
-  background: $cr7-gold;
+  background: #d8fc0f;
 }
 
 .pill-done {
-  // background: rgba(216, 252, 15, 0.4);
-  background: #787878;
+  background: #d8fc0f66;
 }
 
 .pill-refunding {
@@ -710,8 +799,7 @@ export default {
 }
 
 .pill-pending {
-  // background: rgba(243, 156, 18, 0.55);
-  background: $cr7-gold;
+  background: #eab308;
 }
 
 .pill-cancelled {
@@ -720,7 +808,7 @@ export default {
 }
 
 .pill-expired {
-  background: #787878;
+  background: #d8fc0f66;
 }
 
 .pill-text {
