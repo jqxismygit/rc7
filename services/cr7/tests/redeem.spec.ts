@@ -335,6 +335,10 @@ describeFeature(feature, ({
         expect(context.redemption.order.session_date).toBe(toDateLabel(sessionDate));
       });
 
+      And('核销码关联订单的来源为 {string}', (_ctx, source: string) => {
+        expect(context.redemption.order.source).toBe(source);
+      });
+
       And('核销码的有效期为场次当天', () => {
         const redemption = context.redemption;
         const validFrom = new Date(redemption.valid_from);

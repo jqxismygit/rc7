@@ -1,3 +1,5 @@
+import { OrderSource } from './order.js';
+
 export type RedemptionStatus = 'UNREDEEMED' | 'REDEEMED';
 
 export interface RedemptionCode {
@@ -18,6 +20,7 @@ export interface RedemptionCodeWithOrder extends RedemptionCode {
   order: {
     id: string;
     user_id: string;
+    source: OrderSource;
     exhibit_id: string;
     session_id: string;
     session_date: string;

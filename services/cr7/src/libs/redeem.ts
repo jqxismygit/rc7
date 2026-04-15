@@ -169,6 +169,7 @@ export class RedemptionService extends RC7BaseService {
       order: {
         id: order.id,
         user_id: order.user_id,
+        source: order.source,
         exhibit_id: order.exhibit_id,
         session_id: order.session_id,
         session_date: order.session_date,
@@ -233,6 +234,7 @@ export class RedemptionService extends RC7BaseService {
         order: {
           id: order.id,
           user_id: order.user_id,
+          source: order.source,
           exhibit_id: order.exhibit_id,
           session_id: order.session_id,
           session_date: order.session_date,
