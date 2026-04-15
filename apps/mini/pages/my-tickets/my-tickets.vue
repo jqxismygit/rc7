@@ -186,7 +186,9 @@ import { listOrders, hideOrder } from "@/services/order.js";
 import {
   loadExhibitionsMap,
   buildTicketRowFromOrder,
+  orderStatusToUi,
 } from "@/utils/orderDisplay.js";
+import { formatRedemptionValidityDateRangeLine } from "@/utils/ticketEventDisplay.js";
 
 export default {
   mixins: [createTabBarMixin(1)],
@@ -243,17 +245,60 @@ export default {
 
       try {
         const res = await listOrders({ page: 1, limit: 50 });
-        const orders = Array.isArray(res?.orders) ? res.orders : [];
-        orders.sort(
-          (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
+        const redemptions = Array.isArray(res?.redemptions) ? res.redemptions : [];
+        const normalizedRows = redemptions.map((item) => {
+          const order = item?.order || {};
+          return {
+            redemption: item,
+            order: {
+              ...order,
+              id: order?.id || item?.order_id,
+              exhibit_id: order?.exhibit_id || item?.exhibit_id,
+              items: Array.isArray(item?.items) ? item.items : [],
+              created_at: order?.created_at || item?.created_at,
+              updated_at: order?.updated_at || item?.updated_at,
+            },
+            createdAt: item?.created_at || order?.created_at,
+          };
+        });
+
+        normalizedRows.sort(
+          (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
         );
-        const exMap = await loadExhibitionsMap(orders.map((o) => o.exhibit_id));
-        this.tickets = orders.map((o) =>
-          buildTicketRowFromOrder(o, exMap[o.exhibit_id] || null),
+
+        const exMap = await loadExhibitionsMap(
+          normalizedRows.map((row) => row.order?.exhibit_id),
         );
+
+        this.tickets = normalizedRows.map((row) => {
+          const order = row.order || {};
+          const ticket = buildTicketRowFromOrder(
+            order,
+            exMap[order.exhibit_id] || null,
+          );
+
+          // 以 redemption.status 为准，避免仅用 order.status 导致状态偏差
+          if (row.redemption?.status === "REDEEMED") {
+            ticket.status = "used";
+          } else if (row.redemption?.status === "UNREDEEMED") {
+            ticket.status = "unused";
+          } else {
+            ticket.status = orderStatusToUi(order.status);
+          }
+
+          const validityText = formatRedemptionValidityDateRangeLine(
+            row.redemption?.valid_from,
+            row.redemption?.valid_until,
+          );
+          if (validityText) {
+            ticket.eventDate = validityText;
+          }
+
+          return ticket;
+        });
       } catch (e) {
-        console.error("listOrders", e);
-        uni.showToast({ title: "订单加载失败", icon: "none" });
+        console.error("listRedemptions", e);
+        uni.showToast({ title: "票券加载失败", icon: "none" });
         this.tickets = [];
       } finally {
         this.clearLoadingDelayTimer();
