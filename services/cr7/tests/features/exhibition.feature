@@ -137,7 +137,12 @@ Feature: manage exhibition
 
      When 更新票种信息
      Then 票种信息更新成功
+     When 管理员查看展会票种列表
       And 展览中的票种已更新为 "vip"
+      And 展览中的票种价格已更新为 199
+      And 展览中的票种有效期已更新为 30 天
+      And 展览中的票种退票策略已更新为不可退
+      And 展览中的票种准入人数已更新为 4
 
   Scenario: 更新票种时必须至少提供一个参数
     Given 已创建展览
