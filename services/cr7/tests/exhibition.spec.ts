@@ -107,41 +107,6 @@ function assertPermissionDenied(error: unknown) {
   expect((error as APIError).status).toBe(403);
 }
 
-function requireDraftExhibition(context: DraftExhibitionContext) {
-  expect(context.draftExhibition).toBeTruthy();
-  return context.draftExhibition!;
-}
-
-function requireExhibition(context: ExhibitionContext) {
-  expect(context.exhibition).toBeTruthy();
-  return context.exhibition!;
-}
-
-function requireDraftTicket(context: DraftTicketContext) {
-  expect(context.draftTicket).toBeTruthy();
-  return context.draftTicket!;
-}
-
-function requireTicket(context: TicketContext) {
-  expect(context.ticket).toBeTruthy();
-  return context.ticket!;
-}
-
-function requireSessions(context: SessionsContext) {
-  expect(context.sessions).toBeTruthy();
-  return context.sessions!;
-}
-
-function requireCreatedExhibitions(context: CreatedExhibitionsContext) {
-  expect(context.createdExhibitions).toBeTruthy();
-  return context.createdExhibitions!;
-}
-
-function requireListResult(context: ExhibitionListResultContext) {
-  expect(context.listResult).toBeTruthy();
-  return context.listResult!;
-}
-
 describeFeature(feature, ({
   BeforeAllScenarios,
   AfterAllScenarios,
@@ -201,43 +166,43 @@ describeFeature(feature, ({
       });
 
       And('展会描述为 {string}', (_ctx, description: string) => {
-        requireDraftExhibition(context).description = description;
+        context.draftExhibition!.description = description;
       });
 
       And('展会开始日期为 {string}', (_ctx, startDate: string) => {
-        requireDraftExhibition(context).start_date = toDateLabel(startDate);
+        context.draftExhibition!.start_date = toDateLabel(startDate);
       });
 
       And('展会结束日期为 {string}', (_ctx, endDate: string) => {
-        requireDraftExhibition(context).end_date = toDateLabel(endDate);
+        context.draftExhibition!.end_date = toDateLabel(endDate);
       });
 
       And('展会开放时间为 {string}', (_ctx, openingTime: string) => {
-        requireDraftExhibition(context).opening_time = openingTime;
+        context.draftExhibition!.opening_time = openingTime;
       });
 
       And('展会闭馆时间为 {string}', (_ctx, closingTime: string) => {
-        requireDraftExhibition(context).closing_time = closingTime;
+        context.draftExhibition!.closing_time = closingTime;
       });
 
       And('展会最晚入场时间为 {string}', (_ctx, lastEntryTime: string) => {
-        requireDraftExhibition(context).last_entry_time = lastEntryTime;
+        context.draftExhibition!.last_entry_time = lastEntryTime;
       });
 
       And('展会城市为 {string}', (_ctx, city: string) => {
-        requireDraftExhibition(context).city = city;
+        context.draftExhibition!.city = city;
       });
 
       And('展会场馆名称为 {string}', (_ctx, venueName: string) => {
-        requireDraftExhibition(context).venue_name = venueName;
+        context.draftExhibition!.venue_name = venueName;
       });
 
       And('展会地点为 {string}', (_ctx, location: string) => {
-        requireDraftExhibition(context).location = location;
+        context.draftExhibition!.location = location;
       });
 
       And('展会封面图为 {string}', (_ctx, coverUrl: string) => {
-        requireDraftExhibition(context).cover_url = coverUrl;
+        context.draftExhibition!.cover_url = coverUrl;
       });
 
       When('创建展览', async () => {
@@ -245,24 +210,27 @@ describeFeature(feature, ({
         const exhibition = await createExhibition(
           apiServer,
           featureContext.adminToken,
-          requireDraftExhibition(context),
+          context.draftExhibition!,
         );
         context.exhibition = exhibition;
       });
 
       Then('展览创建成功且票种列表为空', async () => {
-        const exhibition = requireExhibition(context);
+        const { exhibition } = context;
         expect(exhibition).toBeTruthy();
-        assertExhibition(exhibition);
-        expect(exhibition.name).toBe('cr7_life_museum');
+        assertExhibition(exhibition!);
+        expect(exhibition!.name).toBe('cr7_life_museum');
 
-        const { apiServer } = featureContext;
-        const categories = await getTicketCategories(apiServer, exhibition.id, featureContext.adminToken);
+        const { apiServer, adminToken } = featureContext;
+        const categories = await getTicketCategories(
+          apiServer, exhibition!.id, adminToken
+        );
         expect(categories).toEqual([]);
       });
 
       And('展览状态默认为下线', () => {
-        expect(requireExhibition(context).status).toBe('DISABLE');
+        const { exhibition } = context;
+        expect(exhibition!.status).toBe('DISABLE');
       });
     }
   );
@@ -280,7 +248,7 @@ describeFeature(feature, ({
 
       When('管理员将展览状态更新为 {string}', async (_ctx, status: string) => {
         const { apiServer } = featureContext;
-        const eid = requireExhibition(context).id;
+        const eid = context.exhibition!.id;
         await updateExhibitionStatus(
           apiServer,
           featureContext.adminToken,
@@ -293,7 +261,7 @@ describeFeature(feature, ({
 
       When('管理员再次将展览状态更新为 {string}', async (_ctx, status: string) => {
         const { apiServer } = featureContext;
-        const eid = requireExhibition(context).id;
+        const eid = context.exhibition!.id;
         await updateExhibitionStatus(
           apiServer,
           featureContext.adminToken,
@@ -305,11 +273,11 @@ describeFeature(feature, ({
       });
 
       Then('展览状态更新为 {string}', (_ctx, status: string) => {
-        expect(requireExhibition(context).status).toBe(status);
+        expect(context.exhibition!.status).toBe(status);
       });
 
       Then('展览状态再次更新为 {string}', (_ctx, status: string) => {
-        expect(requireExhibition(context).status).toBe(status);
+        expect(context.exhibition!.status).toBe(status);
       });
     },
   );
@@ -330,24 +298,24 @@ describeFeature(feature, ({
       });
 
       And('票价为 {int}', (_ctx, price: number) => {
-        requireDraftTicket(context).price = price;
+        context.draftTicket!.price = price;
       });
 
       And('有效期为 {int} 天', (_ctx, days: number) => {
-        requireDraftTicket(context).valid_duration_days = days;
+        context.draftTicket!.valid_duration_days = days;
       });
 
       And('退票策略为不可退', () => {
-        requireDraftTicket(context).refund_policy = 'NON_REFUNDABLE';
+        context.draftTicket!.refund_policy = 'NON_REFUNDABLE';
       });
 
       And('准入人数为 {int}', (_ctx, count: number) => {
-        requireDraftTicket(context).admittance = count;
+        context.draftTicket!.admittance = count;
       });
 
       When('向展览添加票种', async () => {
-        const exhibition = requireExhibition(context);
-        const draftTicket = requireDraftTicket(context);
+        const exhibition = context.exhibition!;
+        const draftTicket = context.draftTicket!;
         expect(exhibition).toBeTruthy();
         expect(draftTicket).toBeTruthy();
 
@@ -363,7 +331,7 @@ describeFeature(feature, ({
       });
 
       Then('票种 {string} 添加成功', (_ctx, categoryName: string) => {
-        const ticket = requireTicket(context);
+        const ticket = context.ticket!;
         assertTicketCategory(ticket);
         expect(ticket.name).toBe(categoryName);
         expect(ticket.price).toBe(100);
@@ -376,12 +344,12 @@ describeFeature(feature, ({
         const { apiServer } = featureContext;
         const categories = await getTicketCategories(
           apiServer,
-          requireExhibition(context).id,
+          context.exhibition!.id,
           featureContext.adminToken,
         );
         expect(categories).toHaveLength(count);
         expect(categories.some(item => item.name === categoryName)).toBe(true);
-        expect(categories[0]).toMatchObject(requireTicket(context));
+        expect(categories[0]).toMatchObject(context.ticket!);
       });
     }
   );
@@ -402,24 +370,24 @@ describeFeature(feature, ({
       });
 
       And('票价为 {int}', (_ctx, price: number) => {
-        requireDraftTicket(context).price = price;
+        context.draftTicket!.price = price;
       });
 
       And('有效期为 {int} 天', (_ctx, days: number) => {
-        requireDraftTicket(context).valid_duration_days = days;
+        context.draftTicket!.valid_duration_days = days;
       });
 
       And('退票策略为场次前 48 小时可退', () => {
-        requireDraftTicket(context).refund_policy = 'REFUNDABLE_48H_BEFORE';
+        context.draftTicket!.refund_policy = 'REFUNDABLE_48H_BEFORE';
       });
 
       And('准入人数为 {int}', (_ctx, count: number) => {
-        requireDraftTicket(context).admittance = count;
+        context.draftTicket!.admittance = count;
       });
 
       When('向展览添加票种', async () => {
-        const exhibition = requireExhibition(context);
-        const draftTicket = requireDraftTicket(context);
+        const exhibition = context.exhibition!;
+        const draftTicket = context.draftTicket!;
         expect(exhibition).toBeTruthy();
         expect(draftTicket).toBeTruthy();
 
@@ -435,7 +403,7 @@ describeFeature(feature, ({
       });
 
       Then('票种 {string} 添加成功', (_ctx, categoryName: string) => {
-        const ticket = requireTicket(context);
+        const ticket = context.ticket!;
         assertTicketCategory(ticket);
         expect(ticket.name).toBe(categoryName);
         expect(ticket.price).toBe(150);
@@ -450,12 +418,12 @@ describeFeature(feature, ({
           const { apiServer } = featureContext;
           const categories = await getTicketCategories(
             apiServer,
-            requireExhibition(context).id,
+            context.exhibition!.id,
             featureContext.adminToken,
           );
           expect(categories).toHaveLength(count);
           expect(categories.some(item => item.name === name)).toBe(true);
-          expect(categories[0]).toMatchObject(requireTicket(context));
+          expect(categories[0]).toMatchObject(context.ticket!);
         },
       );
     }
@@ -474,7 +442,7 @@ describeFeature(feature, ({
 
       Then('展览默认按天创建场次', async () => {
         const { apiServer } = featureContext;
-        const sessions = await getSessions(apiServer, requireExhibition(context).id, featureContext.adminToken);
+        const sessions = await getSessions(apiServer, context.exhibition!.id, featureContext.adminToken);
 
         expect(sessions.length).toBeGreaterThan(0);
         sessions.forEach(assertSession);
@@ -482,20 +450,20 @@ describeFeature(feature, ({
       });
 
       And('首个场次日期与展览开始日期一致', () => {
-        const exhibition = requireExhibition(context);
-        const sessions = requireSessions(context);
+        const exhibition = context.exhibition!;
+        const sessions = context.sessions!;
         expect(isSameDay(sessions[0].session_date, new Date(exhibition.start_date))).toBe(true);
       });
 
       And('最后场次日期与展览结束日期一致', () => {
-        const exhibition = requireExhibition(context);
-        const sessions = requireSessions(context);
+        const exhibition = context.exhibition!;
+        const sessions = context.sessions!;
         expect(isSameDay(sessions[sessions.length - 1].session_date, new Date(exhibition.end_date))).toBe(true);
       });
 
       And('场次数量等于展览持续天数', () => {
-        const exhibition = requireExhibition(context);
-        const sessions = requireSessions(context);
+        const exhibition = context.exhibition!;
+        const sessions = context.sessions!;
         const start = new Date(exhibition.start_date);
         const end = new Date(exhibition.end_date);
         const days = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -524,11 +492,11 @@ describeFeature(feature, ({
       });
 
       Then('返回 {int} 个展览', (_ctx, count: number) => {
-        expect(requireListResult(context).data).toHaveLength(count);
+        expect(context.listResult!.data).toHaveLength(count);
       });
 
       And('展览按 created_at 倒序排列', () => {
-        const listResult = requireListResult(context);
+        const listResult = context.listResult!;
         for (let i = 1; i < listResult.data.length; i++) {
           const previous = new Date(listResult.data[i - 1].created_at).getTime();
           const current = new Date(listResult.data[i].created_at).getTime();
@@ -558,11 +526,12 @@ describeFeature(feature, ({
       });
 
       Then('返回 {int} 个展览', (_ctx, count: number) => {
-        expect(requireListResult(context).data).toHaveLength(count);
+        expect(context.listResult!.data).toHaveLength(count);
       });
 
       And('返回的是第二个创建的展览', () => {
-        expect(requireListResult(context).data[0].id).toBe(requireCreatedExhibitions(context)[1].id);
+        const { createdExhibitions } = context;
+        expect(context.listResult!.data[0].id).toBe(createdExhibitions![1].id);
       });
     }
   );
@@ -582,7 +551,8 @@ describeFeature(feature, ({
 
       And('管理员将第 {int} 个展览状态更新为 {string}', async (_ctx, index: number, status: string) => {
         const { apiServer } = featureContext;
-        const target = requireCreatedExhibitions(context)[index - 1];
+        const { createdExhibitions } = context;
+        const target = createdExhibitions![index - 1];
         await updateExhibitionStatus(
           apiServer,
           featureContext.adminToken,
@@ -598,11 +568,12 @@ describeFeature(feature, ({
       });
 
       Then('返回 {int} 个展览', (_ctx, count: number) => {
-        expect(requireListResult(context).data).toHaveLength(count);
+        expect(context.listResult!.data).toHaveLength(count);
       });
 
       And('返回的是第 {int} 个创建的展览', (_ctx, index: number) => {
-        expect(requireListResult(context).data[0].id).toBe(requireCreatedExhibitions(context)[index - 1].id);
+        const { createdExhibitions } = context;
+        expect(context.listResult!.data[0].id).toBe(createdExhibitions![index - 1].id);
       });
     }
   );
@@ -619,7 +590,7 @@ describeFeature(feature, ({
       });
 
       Then('返回 {int} 个展览', (_ctx, count: number) => {
-        expect(requireListResult(context).data).toHaveLength(count);
+        expect(context.listResult!.data).toHaveLength(count);
       });
     }
   );
@@ -651,7 +622,7 @@ describeFeature(feature, ({
         };
 
         try {
-          await createExhibition(apiServer, context.regularUserToken!, requireDraftExhibition(context));
+          await createExhibition(apiServer, context.regularUserToken!, context.draftExhibition!);
         } catch (error) {
           rememberError(context, error);
         }
@@ -694,8 +665,8 @@ describeFeature(feature, ({
           await addTicketCategory(
             apiServer,
             context.regularUserToken!,
-            requireExhibition(context).id,
-            requireDraftTicket(context),
+            context.exhibition!.id,
+            context.draftTicket!,
           );
         } catch (error) {
           rememberError(context, error);
@@ -734,43 +705,43 @@ describeFeature(feature, ({
           });
 
           And('展会描述为 {string}', (_ctx, description: string) => {
-            requireDraftExhibition(context).description = description;
+            context.draftExhibition!.description = description;
           });
 
           And('展会开始日期为 {string}', (_ctx, startDate: string) => {
-            requireDraftExhibition(context).start_date = toDateLabel(startDate);
+            context.draftExhibition!.start_date = toDateLabel(startDate);
           });
 
           And('展会结束日期为 {string}', (_ctx, endDate: string) => {
-            requireDraftExhibition(context).end_date = toDateLabel(endDate);
+            context.draftExhibition!.end_date = toDateLabel(endDate);
           });
 
           And('展会开放时间为 {string}', (_ctx, openingTime: string) => {
-            requireDraftExhibition(context).opening_time = openingTime;
+            context.draftExhibition!.opening_time = openingTime;
           });
 
           And('展会闭馆时间为 {string}', (_ctx, closingTime: string) => {
-            requireDraftExhibition(context).closing_time = closingTime;
+            context.draftExhibition!.closing_time = closingTime;
           });
 
           And('展会最晚入场时间为 {string}', (_ctx, lastEntryTime: string) => {
-            requireDraftExhibition(context).last_entry_time = lastEntryTime;
+            context.draftExhibition!.last_entry_time = lastEntryTime;
           });
 
           And('展会城市为 {string}', (_ctx, city: string) => {
-            requireDraftExhibition(context).city = city;
+            context.draftExhibition!.city = city;
           });
 
           And('展会场馆名称为 {string}', (_ctx, venueName: string) => {
-            requireDraftExhibition(context).venue_name = venueName;
+            context.draftExhibition!.venue_name = venueName;
           });
 
           And('展会地点为 {string}', (_ctx, location: string) => {
-            requireDraftExhibition(context).location = location;
+            context.draftExhibition!.location = location;
           });
 
           And('展会封面图为 {string}', (_ctx, coverUrl: string) => {
-            requireDraftExhibition(context).cover_url = coverUrl;
+            context.draftExhibition!.cover_url = coverUrl;
           });
 
           When('创建展览', async () => {
@@ -778,13 +749,13 @@ describeFeature(feature, ({
             const exhibition = await createExhibition(
               apiServer,
               featureContext.adminToken,
-              requireDraftExhibition(context) as Required<DraftExhibition>,
+              context.draftExhibition! as Required<DraftExhibition>,
             );
             context.exhibition = exhibition;
           });
 
           Then('展览创建成功', () => {
-            assertExhibition(requireExhibition(context));
+            assertExhibition(context.exhibition!);
           });
 
           Given('准备更新展览名称为 {string}', (_ctx, name: string) => {
@@ -828,14 +799,14 @@ describeFeature(feature, ({
             const updated = await updateExhibition(
               apiServer,
               featureContext.adminToken,
-              requireExhibition(context).id,
+              context.exhibition!.id,
               context.draftUpdate!,
             );
             context.exhibition = updated;
           });
 
           Then('展览描述更新成功', () => {
-            const exhibition = requireExhibition(context);
+            const exhibition = context.exhibition!;
             assertExhibition(exhibition);
             expect(exhibition.description).toBe('updated description');
             expect(exhibition.cover_url).toBe('https://example.com/updated_cr7_life_museum.jpg');
@@ -867,7 +838,7 @@ describeFeature(feature, ({
             await updateExhibition(
               apiServer,
               featureContext.adminToken,
-              requireExhibition(context).id,
+              context.exhibition!.id,
               {},
             );
           } catch (error) {
@@ -902,7 +873,7 @@ describeFeature(feature, ({
           try {
             await patchJSON<Exhibition.Exhibition>(
               apiServer,
-              `/exhibition/${requireExhibition(context).id}`,
+              `/exhibition/${context.exhibition!.id}`,
               {
                 token: featureContext.adminToken,
                 body: {
