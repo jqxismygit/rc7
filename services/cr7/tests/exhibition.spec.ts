@@ -56,18 +56,6 @@ type DraftTicketContext = {
   draftTicket?: DraftTicket;
 };
 
-type TicketContext = {
-  ticket?: TicketCategory;
-};
-
-type SessionsContext = {
-  sessions?: SessionType[];
-};
-
-type CreatedExhibitionsContext = {
-  createdExhibitions?: ExhibitionType[];
-};
-
 type ExhibitionListResultContext = {
   listResult?: ExhibitionListResponse;
 };
@@ -76,14 +64,7 @@ type PermissionErrorContext = {
   lastError?: unknown;
 };
 
-type CreateExhibitionScenarioContext = DraftExhibitionContext & ExhibitionContext;
-type TicketCategoryScenarioContext = ExhibitionContext & DraftTicketContext & TicketContext;
-type SessionsScenarioContext = ExhibitionContext & SessionsContext;
-type ExhibitionListScenarioContext = CreatedExhibitionsContext & ExhibitionListResultContext;
 
-type NonAdminCreateScenarioContext = PermissionErrorContext & DraftExhibitionContext & {
-  regularUserToken?: string;
-};
 
 type NonAdminAddTicketScenarioContext = PermissionErrorContext & ExhibitionContext & DraftTicketContext & {
   regularUserToken?: string;
@@ -147,7 +128,10 @@ describeFeature(feature, ({
 
   Scenario(
     'create a new exhibition',
-    (s: StepTest<CreateExhibitionScenarioContext>) => {
+    (s: StepTest<{
+      draftExhibition?: DraftExhibition;
+      exhibition?: ExhibitionType;
+    }>) => {
       const { Given, When, Then, And, context } = s;
       Given('展览名称为 {word}', (_ctx, name: string) => {
         context.draftExhibition = {
@@ -284,7 +268,11 @@ describeFeature(feature, ({
 
   Scenario(
     'add non-refundable ticket category to exhibition',
-    (s: StepTest<TicketCategoryScenarioContext>) => {
+    (s: StepTest<{
+      exhibition: ExhibitionType;
+      draftTicket: DraftTicket;
+      ticket: TicketCategory;
+    }>) => {
       const { Given, When, Then, And, context } = s;
 
       Given('已创建展览', async () => {
@@ -356,7 +344,11 @@ describeFeature(feature, ({
 
   Scenario(
     'add a refundable ticket category',
-    (s: StepTest<TicketCategoryScenarioContext>) => {
+    (s: StepTest<{
+      exhibition: ExhibitionType;
+      draftTicket: DraftTicket;
+      ticket: TicketCategory;
+    }>) => {
       const { Given, When, Then, And, context } = s;
 
       Given('已创建展览', async () => {
@@ -431,7 +423,10 @@ describeFeature(feature, ({
 
   Scenario(
     'sessions was created when exhibition was created',
-    (s: StepTest<SessionsScenarioContext>) => {
+    (s: StepTest<{
+      exhibition: ExhibitionType;
+      sessions: SessionType[];
+    }>) => {
       const { Given, Then, And, context } = s;
 
       Given('已创建展览', async () => {
@@ -474,7 +469,10 @@ describeFeature(feature, ({
 
   Scenario(
     'list exhibitions with pagination',
-    (s: StepTest<ExhibitionListScenarioContext>) => {
+    (s: StepTest<{
+      createdExhibitions?: ExhibitionType[];
+      listResult?: ExhibitionListResponse;
+    }>) => {
       const { Given, When, Then, And, context } = s;
 
       Given('已为列表创建 {int} 个展览', async (_ctx, count: number) => {
@@ -508,7 +506,10 @@ describeFeature(feature, ({
 
   Scenario(
     'list exhibitions with limit and offset',
-    (s: StepTest<ExhibitionListScenarioContext>) => {
+    (s: StepTest<{
+      createdExhibitions?: ExhibitionType[];
+      listResult?: ExhibitionListResponse;
+    }>) => {
       const { Given, When, Then, And, context } = s;
 
       Given('已为列表创建 {int} 个展览', async (_ctx, count: number) => {
@@ -538,7 +539,10 @@ describeFeature(feature, ({
 
   Scenario(
     'list exhibitions only returns enabled records',
-    (s: StepTest<ExhibitionListScenarioContext>) => {
+    (s: StepTest<{
+      createdExhibitions: ExhibitionType[];
+      listResult?: ExhibitionListResponse;
+    }>) => {
       const { Given, When, Then, And, context } = s;
 
       Given('已为列表创建 {int} 个展览', async (_ctx, count: number) => {
@@ -597,7 +601,10 @@ describeFeature(feature, ({
 
   Scenario(
     'non-admin user cannot create exhibition',
-    (s: StepTest<NonAdminCreateScenarioContext>) => {
+    (s: StepTest<{
+      regularUserToken: string;
+      exhibitionCreatePromise: Promise<ExhibitionType>;
+    }>) => {
       const { Given, When, Then, context } = s;
 
       Given('普通用户已登录', async () => {
@@ -608,7 +615,8 @@ describeFeature(feature, ({
 
       When('普通用户尝试创建展览，名称为 {string}', async (_ctx, name: string) => {
         const { apiServer } = featureContext;
-        context.draftExhibition = {
+        const { regularUserToken } = context;
+        const draftExhibition = {
           name,
           description: 'unauthorized exhibition',
           start_date: toDateLabel('1天后'),
@@ -621,15 +629,15 @@ describeFeature(feature, ({
           location: 'Test Location',
         };
 
-        try {
-          await createExhibition(apiServer, context.regularUserToken!, context.draftExhibition!);
-        } catch (error) {
-          rememberError(context, error);
-        }
+        context.exhibitionCreatePromise = createExhibition(
+          apiServer, regularUserToken!, draftExhibition
+        );
       });
 
-      Then('返回权限不足错误', () => {
-        assertPermissionDenied(context.lastError);
+      Then('返回权限不足错误', async () => {
+        await expect(context.exhibitionCreatePromise).rejects.toMatchObject({
+          status: 403,
+        });
       });
     }
   );
