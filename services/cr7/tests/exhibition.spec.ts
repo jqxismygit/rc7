@@ -32,29 +32,14 @@ import {
   assertTicketCategory,
 } from './fixtures/exhibition.js';
 import { registerUser, prepareAdminToken } from './fixtures/user.js';
-import { APIError, patchJSON } from './lib/api.js';
+import { patchJSON } from './lib/api.js';
 
 const schema = 'test_exhibition';
 const services = ['api', 'cr7', 'user'];
 
 const feature = await loadFeature('tests/features/exhibition.feature');
 
-type ExhibitionType = Exhibition.Exhibition;
-type SessionType = Exhibition.Session;
-type TicketCategory = Exhibition.TicketCategory;
-type DraftTicket = DraftTicketCategory;
 
-type DraftExhibitionContext = {
-  draftExhibition?: DraftExhibition;
-};
-
-type ExhibitionContext = {
-  exhibition?: ExhibitionType;
-};
-
-type ExhibitionListResultContext = {
-  listResult?: ExhibitionListResponse;
-};
 
 interface FeatureContext {
   broker: ServiceBroker;
@@ -104,7 +89,7 @@ describeFeature(feature, ({
     'create a new exhibition',
     (s: StepTest<{
       draftExhibition?: DraftExhibition;
-      exhibition?: ExhibitionType;
+      exhibition?: Exhibition.Exhibition;
     }>) => {
       const { Given, When, Then, And, context } = s;
       Given('展览名称为 {word}', (_ctx, name: string) => {
@@ -195,7 +180,9 @@ describeFeature(feature, ({
 
   Scenario(
     'admin can update exhibition status by dedicated route',
-    (s: StepTest<ExhibitionContext>) => {
+    (s: StepTest<{
+      exhibition: Exhibition.Exhibition;
+    }>) => {
       const { Given, When, Then, context } = s;
 
       Given('已创建展览', async () => {
@@ -243,9 +230,9 @@ describeFeature(feature, ({
   Scenario(
     'add non-refundable ticket category to exhibition',
     (s: StepTest<{
-      exhibition: ExhibitionType;
-      draftTicket: DraftTicket;
-      ticket: TicketCategory;
+      exhibition: Exhibition.Exhibition;
+      draftTicket: DraftTicketCategory;
+      ticket: Exhibition.TicketCategory;
     }>) => {
       const { Given, When, Then, And, context } = s;
 
@@ -256,7 +243,7 @@ describeFeature(feature, ({
       });
 
       Given('为该展览准备票种草稿 {string}', (_ctx, categoryName: string) => {
-        context.draftTicket = { name: categoryName } as DraftTicket;
+        context.draftTicket = { name: categoryName } as DraftTicketCategory;
       });
 
       And('票价为 {int}', (_ctx, price: number) => {
@@ -319,9 +306,9 @@ describeFeature(feature, ({
   Scenario(
     'add a refundable ticket category',
     (s: StepTest<{
-      exhibition: ExhibitionType;
-      draftTicket: DraftTicket;
-      ticket: TicketCategory;
+      exhibition: Exhibition.Exhibition;
+      draftTicket: DraftTicketCategory;
+      ticket: Exhibition.TicketCategory;
     }>) => {
       const { Given, When, Then, And, context } = s;
 
@@ -332,7 +319,7 @@ describeFeature(feature, ({
       });
 
       Given('为该展览准备票种草稿 {string}', (_ctx, categoryName: string) => {
-        context.draftTicket = { name: categoryName } as DraftTicket;
+        context.draftTicket = { name: categoryName } as DraftTicketCategory;
       });
 
       And('票价为 {int}', (_ctx, price: number) => {
@@ -398,8 +385,8 @@ describeFeature(feature, ({
   Scenario(
     'sessions was created when exhibition was created',
     (s: StepTest<{
-      exhibition: ExhibitionType;
-      sessions: SessionType[];
+      exhibition: Exhibition.Exhibition;
+      sessions: Exhibition.Session[];
     }>) => {
       const { Given, Then, And, context } = s;
 
@@ -444,7 +431,7 @@ describeFeature(feature, ({
   Scenario(
     'list exhibitions with pagination',
     (s: StepTest<{
-      createdExhibitions?: ExhibitionType[];
+      createdExhibitions?: Exhibition.Exhibition[];
       listResult?: ExhibitionListResponse;
     }>) => {
       const { Given, When, Then, And, context } = s;
@@ -481,7 +468,7 @@ describeFeature(feature, ({
   Scenario(
     'list exhibitions with limit and offset',
     (s: StepTest<{
-      createdExhibitions?: ExhibitionType[];
+      createdExhibitions?: Exhibition.Exhibition[];
       listResult?: ExhibitionListResponse;
     }>) => {
       const { Given, When, Then, And, context } = s;
@@ -514,7 +501,7 @@ describeFeature(feature, ({
   Scenario(
     'list exhibitions only returns enabled records',
     (s: StepTest<{
-      createdExhibitions: ExhibitionType[];
+      createdExhibitions: Exhibition.Exhibition[];
       listResult?: ExhibitionListResponse;
     }>) => {
       const { Given, When, Then, And, context } = s;
@@ -558,7 +545,9 @@ describeFeature(feature, ({
 
   Scenario(
     'list exhibitions empty result',
-    (s: StepTest<ExhibitionListResultContext>) => {
+    (s: StepTest<{
+      listResult: ExhibitionListResponse;
+    }>) => {
       const { When, Then, context } = s;
 
       When('按 limit {int} 和 offset {int} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
@@ -577,7 +566,7 @@ describeFeature(feature, ({
     'non-admin user cannot create exhibition',
     (s: StepTest<{
       regularUserToken: string;
-      exhibitionCreatePromise: Promise<ExhibitionType>;
+      exhibitionCreatePromise: Promise<Exhibition.Exhibition>;
     }>) => {
       const { Given, When, Then, context } = s;
 
@@ -619,9 +608,9 @@ describeFeature(feature, ({
   Scenario(
     'non-admin user cannot add ticket category to exhibition',
     (s: StepTest<{
-      exhibition: ExhibitionType;
+      exhibition: Exhibition.Exhibition;
       regularUserToken: string;
-      ticketCreatePromise: Promise<TicketCategory>;
+      ticketCreatePromise: Promise<Exhibition.TicketCategory>;
     }>) => {
       const { Given, When, Then, context } = s;
 
@@ -639,7 +628,7 @@ describeFeature(feature, ({
 
       When('普通用户尝试为展览添加票种', async () => {
         const { apiServer } = featureContext;
-        const draftTicket: DraftTicket = {
+        const draftTicket: DraftTicketCategory = {
           name: 'unauthorized_ticket',
           price: 100,
           valid_duration_days: 1,
@@ -663,13 +652,13 @@ describeFeature(feature, ({
     }
   );
 
-    type UpdateExhibitionScenarioContext = DraftExhibitionContext & ExhibitionContext & {
-      draftUpdate?: Exhibition.ExhibitionPatch;
-    };
-
     Scenario(
       '可以更新展览的基本信息',
-      (s: StepTest<UpdateExhibitionScenarioContext>) => {
+      (s: StepTest<{
+        draftExhibition: Partial<DraftExhibition>;
+        exhibition: Exhibition.Exhibition;
+        draftUpdate: Partial<DraftExhibition>;
+      }>) => {
           const { Given, When, Then, And, context } = s;
 
           Given('展览名称为 {string}', (_ctx, name: string) => {
@@ -807,8 +796,8 @@ describeFeature(feature, ({
     Scenario(
       '更新展览时必须至少提供一个参数',
       (s: StepTest<{
-        exhibition: ExhibitionType;
-        exhibitionUpdatePromise: Promise<ExhibitionType>;
+        exhibition: Exhibition.Exhibition;
+        exhibitionUpdatePromise: Promise<Exhibition.Exhibition>;
       }>) => {
         const { Given, When, Then, context } = s;
 
@@ -840,8 +829,8 @@ describeFeature(feature, ({
     Scenario(
       '更新展览时不能修改开始和结束日期',
       (s: StepTest<{
-        exhibition: ExhibitionType;
-        exhibitionUpdatePromise: Promise<ExhibitionType>;
+        exhibition: Exhibition.Exhibition;
+        exhibitionUpdatePromise: Promise<Exhibition.Exhibition>;
       }>) => {
         const { Given, When, Then, context } = s;
 
