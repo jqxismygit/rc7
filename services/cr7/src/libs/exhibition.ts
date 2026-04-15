@@ -9,6 +9,7 @@ import {
   getSessionsByExhibitionId,
   createTicketCategory,
   updateExhibition,
+  updateExhibitionStatus,
   updateTicketCategoryOtaXcOptionId,
   listSessionInventoryByTicketAndDateRange,
   getSessionTicketCategoriesBySessionId,
@@ -35,6 +36,7 @@ const EXHIBITION_UPDATE_FIELDS = [
 
 interface UserMeta {
   uid: string;
+  roles?: string[];
 }
 
 /**
@@ -49,10 +51,10 @@ export class ExhibitionService extends RC7BaseService {
   actions_exhibition: ServiceSchema['actions'] = {
     'exhibition.list': {
       rest: 'GET /',
-      roles: ['admin'],
       params: {
         limit: { type: 'number', optional: true, default: 10, min: 1, max: 100, convert: true },
-        offset: { type: 'number', optional: true, default: 0, min: 0, convert: true }
+        offset: { type: 'number', optional: true, default: 0, min: 0, convert: true },
+        all: { type: 'boolean', optional: true, default: false, convert: true },
       },
       handler: this.listExhibitions
     },
@@ -142,6 +144,16 @@ export class ExhibitionService extends RC7BaseService {
       handler: this.updateExhibition
     },
 
+    'exhibition.updateStatus': {
+      rest: 'PATCH /:eid/status',
+      roles: ['admin'],
+      params: {
+        eid: 'string',
+        status: { type: 'enum', values: ['ENABLE', 'DISABLE'] },
+      },
+      handler: this.updateExhibitionStatus
+    },
+
     'exhibition.getSessionTickets': {
       rest: 'GET /:eid/sessions/:sid/tickets',
       params: {
@@ -208,7 +220,7 @@ export class ExhibitionService extends RC7BaseService {
   }
 
   async createExhibition(
-    ctx: Context<Omit<Exhibition.Exhibition, 'id' | 'created_at' | 'updated_at'>, { user: UserMeta }>
+    ctx: Context<Omit<Exhibition.Exhibition, 'id' | 'status' | 'created_at' | 'updated_at'>, { user: UserMeta }>
   ) {
     const client = this.pool;
     const schema = await this.getSchema();
@@ -219,13 +231,18 @@ export class ExhibitionService extends RC7BaseService {
   }
 
   async listExhibitions(
-    ctx: Context<{ limit?: number; offset?: number }, { user: UserMeta }>
+    ctx: Context<
+      { limit?: number; offset?: number; all?: boolean },
+      { user: UserMeta; roles?: string[] }
+    >
   ) {
-    const { limit = 10, offset = 0 } = ctx.params;
+    const { limit = 10, offset = 0, all = false } = ctx.params;
     const client = this.pool;
     const schema = await this.getSchema();
+    const isAdmin = (ctx.meta.roles ?? []).some((role) => role.toLowerCase() === 'admin');
+    const includeAll = all && isAdmin;
 
-    const { exhibitions, total } = await getExhibitions(client, schema, limit, offset);
+    const { exhibitions, total } = await getExhibitions(client, schema, includeAll, limit, offset);
 
     return { data: exhibitions, total, limit, offset };
   }
@@ -312,6 +329,19 @@ export class ExhibitionService extends RC7BaseService {
       .catch(handleExhibitionError);
 
     return exhibition;
+  }
+
+  async updateExhibitionStatus(
+    ctx: Context<{ eid: string; status: Exhibition.ExhibitionStatus }, { user: UserMeta; $statusCode?: number }>
+  ) {
+    const { eid, status } = ctx.params;
+    const client = this.pool;
+    const schema = await this.getSchema();
+
+    await updateExhibitionStatus(client, schema, eid, status)
+      .catch(handleExhibitionError);
+
+    ctx.meta.$statusCode = 204;
   }
 
   async getSessionTickets(

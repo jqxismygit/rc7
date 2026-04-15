@@ -1,3 +1,5 @@
+export type ExhibitionStatus = 'ENABLE' | 'DISABLE';
+
 export interface Exhibition {
   id: string;
   name: string;
@@ -11,6 +13,7 @@ export interface Exhibition {
   venue_name: string;
   location: string;
   cover_url?: string | null;
+  status: ExhibitionStatus;
   created_at: Date;
   updated_at: Date;
 }

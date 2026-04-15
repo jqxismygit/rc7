@@ -8,7 +8,7 @@ import { toDateLabel } from "../lib/relative-date.js";
 
 export type DraftExhibition = Omit<
   Exhibition.Exhibition,
-  'id' | 'created_at' | 'updated_at'
+  'id' | 'status' | 'created_at' | 'updated_at'
 >;
 
 export type DraftTicketCategory = Omit<
@@ -60,7 +60,7 @@ export async function getExhibition(
 export async function listExhibitions(
   server: Server,
   token: string,
-  options?: { limit?: number; offset?: number },
+  options?: { limit?: number; offset?: number; all?: boolean },
 ) {
   return getJSON<{
     data: Exhibition.Exhibition[]
@@ -73,6 +73,26 @@ export async function listExhibitions(
     {
       token,
       query: options,
+    }
+  );
+}
+
+export async function listAdminExhibitions(
+  server: Server,
+  token: string,
+  options?: { limit?: number; offset?: number },
+) {
+  return getJSON<{
+    data: Exhibition.Exhibition[]
+    total: number
+    limit: number
+    offset: number
+  }>(
+    server,
+    '/exhibition',
+    {
+      token,
+      query: { ...options, all: true },
     }
   );
 }
@@ -139,6 +159,19 @@ export async function updateExhibition(
   );
 }
 
+export async function updateExhibitionStatus(
+  server: Server,
+  token: string,
+  eid: string,
+  status: Exhibition.ExhibitionStatus,
+): Promise<void> {
+  await patchJSON<null>(
+    server,
+    `/exhibition/${eid}/status`,
+    { body: { status }, token }
+  );
+}
+
 export function assertExhibition(data: Exhibition.Exhibition) {
   expect(data).toBeTypeOf('object');
   expect(data).toHaveProperty('id', expect.any(String));
@@ -153,6 +186,7 @@ export function assertExhibition(data: Exhibition.Exhibition) {
   expect(data).toHaveProperty('venue_name', expect.any(String));
   expect(data).toHaveProperty('location', expect.any(String));
   expect(data).toHaveProperty('cover_url', expect.toBeOneOf([expect.any(String), null]));
+  expect(data).toHaveProperty('status', expect.stringMatching(/^(ENABLE|DISABLE)$/));
   expect(data).toHaveProperty('created_at', expect.any(String));
   expect(data).toHaveProperty('updated_at', expect.any(String));
 }

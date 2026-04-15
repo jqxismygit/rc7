@@ -29,6 +29,7 @@
   {
     limit?: number;   // 默认 10，最大 100
     offset?: number;  // 默认 0
+    all?: boolean;    // 默认 false；仅当当前用户包含 admin 角色且为 true 时返回全部展览
   }
   ```
 - Response Body:
@@ -43,6 +44,9 @@
 - 说明：
   - 当未传分页参数时，服务端默认使用 `limit = 10`、`offset = 0`
   - 空数据时返回 `data: []`
+  - 默认仅返回状态为 `ENABLE` 的展览；下线展览不出现在此列表中
+  - 当 `all = true` 且当前用户角色包含 `admin` 时，返回**所有**展览（`ENABLE` 与 `DISABLE`）
+  - 非管理员传 `all = true` 不会报错，但该参数不会生效，仍仅返回 `ENABLE` 展览
 
 ## 创建展览活动
 
@@ -179,6 +183,33 @@
   ```
 - 说明：
   - `eid` 来自路径参数，不需要在 body 中重复传递
+
+## 管理员更新展览上下线状态
+
+- URL: `/exhibition/:eid/status`
+- Method: `PATCH`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Params:
+  ```ts
+  { eid: string }
+  ```
+- Request Body:
+  ```ts
+  { status: Exhibition.ExhibitionStatus }  // 'ENABLE' | 'DISABLE'
+  ```
+- Response Status:
+  - `204 No Content`：更新成功
+  - `400 Bad Request`：参数不合法（`status` 值不在枚举范围内）
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：无管理员权限
+  - `404 Not Found`：展览不存在
+- 说明：
+  - 新建展览默认状态为 `DISABLE`（下线）
+  - 将展览设为 `ENABLE` 后，公开展览列表（`GET /exhibition`）将可以返回该展览
+  - 接口成功时无响应体
 
 ## 相关接口
 
