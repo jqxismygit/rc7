@@ -3,7 +3,6 @@ import type { Exhibition } from "@cr7/types";
 import {
   createExhibition,
   getExhibitionById,
-  getExhibitionsAdmin,
   getExhibitions,
   getTicketCategoryById,
   getTicketCategoriesByExhibitionId,
@@ -37,6 +36,7 @@ const EXHIBITION_UPDATE_FIELDS = [
 
 interface UserMeta {
   uid: string;
+  roles?: string[];
 }
 
 /**
@@ -53,18 +53,10 @@ export class ExhibitionService extends RC7BaseService {
       rest: 'GET /',
       params: {
         limit: { type: 'number', optional: true, default: 10, min: 1, max: 100, convert: true },
-        offset: { type: 'number', optional: true, default: 0, min: 0, convert: true }
+        offset: { type: 'number', optional: true, default: 0, min: 0, convert: true },
+        all: { type: 'boolean', optional: true, default: false, convert: true },
       },
       handler: this.listExhibitions
-    },
-
-    'exhibition.listAdmin': {
-      roles: ['admin'],
-      params: {
-        limit: { type: 'number', optional: true, default: 10, min: 1, max: 100, convert: true },
-        offset: { type: 'number', optional: true, default: 0, min: 0, convert: true }
-      },
-      handler: this.listAdminExhibitions
     },
 
     'exhibition.create': {
@@ -239,25 +231,18 @@ export class ExhibitionService extends RC7BaseService {
   }
 
   async listExhibitions(
-    ctx: Context<{ limit?: number; offset?: number }, { user: UserMeta }>
+    ctx: Context<
+      { limit?: number; offset?: number; all?: boolean },
+      { user: UserMeta; roles?: string[] }
+    >
   ) {
-    const { limit = 10, offset = 0 } = ctx.params;
+    const { limit = 10, offset = 0, all = false } = ctx.params;
     const client = this.pool;
     const schema = await this.getSchema();
+    const isAdmin = (ctx.meta.roles ?? []).some((role) => role.toLowerCase() === 'admin');
+    const includeAll = all && isAdmin;
 
-    const { exhibitions, total } = await getExhibitions(client, schema, limit, offset);
-
-    return { data: exhibitions, total, limit, offset };
-  }
-
-  async listAdminExhibitions(
-    ctx: Context<{ limit?: number; offset?: number }, { user: UserMeta }>
-  ) {
-    const { limit = 10, offset = 0 } = ctx.params;
-    const client = this.pool;
-    const schema = await this.getSchema();
-
-    const { exhibitions, total } = await getExhibitionsAdmin(client, schema, limit, offset);
+    const { exhibitions, total } = await getExhibitions(client, schema, includeAll, limit, offset);
 
     return { data: exhibitions, total, limit, offset };
   }

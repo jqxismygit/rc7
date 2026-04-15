@@ -29,6 +29,7 @@
   {
     limit?: number;   // 默认 10，最大 100
     offset?: number;  // 默认 0
+    all?: boolean;    // 默认 false；仅当当前用户包含 admin 角色且为 true 时返回全部展览
   }
   ```
 - Response Body:
@@ -43,39 +44,9 @@
 - 说明：
   - 当未传分页参数时，服务端默认使用 `limit = 10`、`offset = 0`
   - 空数据时返回 `data: []`
-  - **仅返回状态为 `ENABLE` 的展览**；下线展览不出现在此列表中
-
-## 管理员获取全部展览列表
-
-- URL: `/admin/exhibition`
-- Method: `GET`
-- Request Header:
-  ```ts
-  { Authorization: `Bearer ${token}` }
-  ```
-- Request Query:
-  ```ts
-  {
-    limit?: number;   // 默认 10，最大 100
-    offset?: number;  // 默认 0
-  }
-  ```
-- Response Body:
-  ```ts
-  {
-    data: Exhibition.Exhibition[];
-    total: number;
-    limit: number;
-    offset: number;
-  }
-  ```
-- Response Status:
-  - `200 OK`：查询成功
-  - `401 Unauthorized`：未认证
-  - `403 Forbidden`：无管理员权限
-- 说明：
-  - 返回**所有**展览，不区分 `status`（包括 `ENABLE` 和 `DISABLE`）
-  - 需要管理员权限
+  - 默认仅返回状态为 `ENABLE` 的展览；下线展览不出现在此列表中
+  - 当 `all = true` 且当前用户角色包含 `admin` 时，返回**所有**展览（`ENABLE` 与 `DISABLE`）
+  - 非管理员传 `all = true` 不会报错，但该参数不会生效，仍仅返回 `ENABLE` 展览
 
 ## 创建展览活动
 

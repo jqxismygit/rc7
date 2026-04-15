@@ -44,16 +44,21 @@ export class RC7BaseService extends Service {
    * 检查当前用户是否满足 action 所需角色
    */
   async checkUserRole(
-    ctx: Context<unknown, { roles?: Array<string> }>
+    ctx: Context<unknown, { user?: { uid?: string }; roles?: Array<string> }>
   ) {
     const requiredRoles: string[] = ctx.action?.roles || [];
-    if (requiredRoles.length === 0) {
+    if ((ctx.meta.user ?? null) === null) {
       return;
     }
 
     const resolvedRoles = ctx.meta.roles
       ?? (await ctx.call<User.UserRolesResult>('user.roles')).roles.map(role => role.name);
+    ctx.meta.roles = resolvedRoles;
     const roleSet = new Set(resolvedRoles.map(role => role.toLowerCase()));
+
+    if (requiredRoles.length === 0) {
+      return;
+    }
 
     const satisfy = requiredRoles.some(role => roleSet.has(role));
     if (satisfy === false) {

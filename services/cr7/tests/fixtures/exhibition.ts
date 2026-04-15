@@ -60,7 +60,7 @@ export async function getExhibition(
 export async function listExhibitions(
   server: Server,
   token: string,
-  options?: { limit?: number; offset?: number },
+  options?: { limit?: number; offset?: number; all?: boolean },
 ) {
   return getJSON<{
     data: Exhibition.Exhibition[]
@@ -89,10 +89,10 @@ export async function listAdminExhibitions(
     offset: number
   }>(
     server,
-    '/admin/exhibition',
+    '/exhibition',
     {
       token,
-      query: options,
+      query: { ...options, all: true },
     }
   );
 }

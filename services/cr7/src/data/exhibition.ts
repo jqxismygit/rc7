@@ -111,13 +111,16 @@ export async function getExhibitionById(
 export async function getExhibitions(
   client: Pool,
   schema: string,
+  includeAll: boolean = false,
   limit: number = 10,
   offset: number = 0
 ): Promise<{ exhibitions: Exhibition.Exhibition[]; total: number }> {
+  const filterByStatus = includeAll ? '' : "WHERE status = 'ENABLE'";
+
   const { rows: countRows } = await client.query(
     `SELECT COUNT(*) as total
     FROM ${schema}.exhibitions
-    WHERE status = 'ENABLE'`
+    ${filterByStatus}`
   );
 
   const total = parseInt(countRows[0].total, 10);
@@ -138,44 +141,7 @@ export async function getExhibitions(
       created_at,
       updated_at
     FROM ${schema}.exhibitions
-    WHERE status = 'ENABLE'
-    ORDER BY created_at DESC
-    LIMIT $1 OFFSET $2`,
-    [limit, offset]
-  );
-
-  return { exhibitions, total };
-}
-
-export async function getExhibitionsAdmin(
-  client: Pool,
-  schema: string,
-  limit: number = 10,
-  offset: number = 0
-): Promise<{ exhibitions: Exhibition.Exhibition[]; total: number }> {
-  const { rows: countRows } = await client.query(
-    `SELECT COUNT(*) as total
-    FROM ${schema}.exhibitions`
-  );
-
-  const total = parseInt(countRows[0].total, 10);
-
-  const { rows: exhibitions } = await client.query(
-    `SELECT
-      id, name, description,
-      start_date,
-      end_date,
-      opening_time,
-      closing_time,
-      last_entry_time,
-      city,
-      venue_name,
-      location,
-      cover_url,
-      status,
-      created_at,
-      updated_at
-    FROM ${schema}.exhibitions
+    ${filterByStatus}
     ORDER BY created_at DESC
     LIMIT $1 OFFSET $2`,
     [limit, offset]
