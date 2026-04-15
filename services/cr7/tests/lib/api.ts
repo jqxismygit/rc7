@@ -28,6 +28,10 @@ export class APIError extends Error {
   }
 }
 
+/**
+ *
+ * @deprecated 使用 `expect(...).rejects.toMatchObject(...)` 或 `expect(...).rejects.toThrow(...)` 代替
+ */
 export function assertAPIError(
   error: unknown,
   options: {

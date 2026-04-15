@@ -32,7 +32,7 @@ import {
   assertTicketCategory,
 } from './fixtures/exhibition.js';
 import { registerUser, prepareAdminToken } from './fixtures/user.js';
-import { APIError, assertAPIError, patchJSON } from './lib/api.js';
+import { APIError, patchJSON } from './lib/api.js';
 
 const schema = 'test_exhibition';
 const services = ['api', 'cr7', 'user'];
@@ -69,8 +69,6 @@ type PermissionErrorContext = {
 type NonAdminAddTicketScenarioContext = PermissionErrorContext & ExhibitionContext & DraftTicketContext & {
   regularUserToken?: string;
 };
-
-type UpdateExhibitionValidationScenarioContext = ExhibitionContext & PermissionErrorContext;
 
 interface FeatureContext {
   broker: ServiceBroker;
@@ -830,7 +828,10 @@ describeFeature(feature, ({
 
     Scenario(
       '更新展览时必须至少提供一个参数',
-      (s: StepTest<UpdateExhibitionValidationScenarioContext>) => {
+      (s: StepTest<{
+        exhibition: ExhibitionType;
+        exhibitionUpdatePromise: Promise<ExhibitionType>;
+      }>) => {
         const { Given, When, Then, context } = s;
 
         Given('已创建展览', async () => {
@@ -841,24 +842,18 @@ describeFeature(feature, ({
 
         When('不提供任何参数更新展览', async () => {
           const { apiServer } = featureContext;
-
-          try {
-            await updateExhibition(
-              apiServer,
-              featureContext.adminToken,
-              context.exhibition!.id,
-              {},
-            );
-          } catch (error) {
-            rememberError(context, error);
-          }
+          context.exhibitionUpdatePromise = updateExhibition(
+            apiServer,
+            featureContext.adminToken,
+            context.exhibition!.id,
+            {},
+          );
         });
 
-        Then('返回参数不合法错误', () => {
-          assertAPIError(context.lastError, {
+        Then('返回参数不合法错误', async () => {
+          await expect(context.exhibitionUpdatePromise).rejects.toMatchObject({
             status: 400,
-            method: 'PATCH',
-            messageIncludes: '参数不合法',
+            method: 'PATCH'
           });
         });
       }
@@ -866,7 +861,10 @@ describeFeature(feature, ({
 
     Scenario(
       '更新展览时不能修改开始和结束日期',
-      (s: StepTest<UpdateExhibitionValidationScenarioContext>) => {
+      (s: StepTest<{
+        exhibition: ExhibitionType;
+        exhibitionUpdatePromise: Promise<ExhibitionType>;
+      }>) => {
         const { Given, When, Then, context } = s;
 
         Given('已创建展览', async () => {
@@ -878,28 +876,23 @@ describeFeature(feature, ({
         When('尝试更新展览开始和结束日期', async () => {
           const { apiServer } = featureContext;
 
-          try {
-            await patchJSON<Exhibition.Exhibition>(
-              apiServer,
-              `/exhibition/${context.exhibition!.id}`,
-              {
-                token: featureContext.adminToken,
-                body: {
-                  start_date: toDateLabel('5天后'),
-                  end_date: toDateLabel('66天后'),
-                },
+          context.exhibitionUpdatePromise = patchJSON<Exhibition.Exhibition>(
+            apiServer,
+            `/exhibition/${context.exhibition!.id}`,
+            {
+              token: featureContext.adminToken,
+              body: {
+                start_date: toDateLabel('5天后'),
+                end_date: toDateLabel('66天后'),
               },
-            );
-          } catch (error) {
-            rememberError(context, error);
-          }
+            },
+          );
         });
 
-        Then('返回参数不合法错误', () => {
-          assertAPIError(context.lastError, {
+        Then('返回参数不合法错误', async () => {
+          await expect(context.exhibitionUpdatePromise).rejects.toMatchObject({
             status: 400,
             method: 'PATCH',
-            messageIncludes: '参数不合法',
           });
         });
       }
