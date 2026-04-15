@@ -15,8 +15,16 @@ Feature: manage exhibition
       And 展会场馆名称为 "上海展览中心"
       And 展会地点为 "ShangHai"
       And 展会封面图为 "https://example.com/cr7_life_museum.jpg"
-    When 创建展览
-    Then 展览创建成功且票种列表为空
+     When 创建展览
+     Then 展览创建成功且票种列表为空
+      And 展览状态默认为下线
+
+  Scenario: admin can update exhibition status by dedicated route
+    Given 已创建展览
+     When 管理员将展览状态更新为 "ENABLE"
+     Then 展览状态更新为 "ENABLE"
+     When 管理员再次将展览状态更新为 "DISABLE"
+     Then 展览状态再次更新为 "DISABLE"
 
   Scenario: sessions was created when exhibition was created
     Given 已创建展览
@@ -49,18 +57,25 @@ Feature: manage exhibition
 
   Scenario: list exhibitions with pagination
     Given 已为列表创建 3 个展览
-     When 按 limit 2 和 offset 0 查询展览列表
+     When 按 limit 2 和 offset 0 查询管理员展览列表
      Then 返回 2 个展览
       And 展览按 created_at 倒序排列
 
   Scenario: list exhibitions with limit and offset
     Given 已为列表创建 3 个展览
-     When 按 limit 1 和 offset 1 查询展览列表
+     When 按 limit 1 和 offset 1 查询管理员展览列表
      Then 返回 1 个展览
       And 返回的是第二个创建的展览
 
+  Scenario: list exhibitions only returns enabled records
+    Given 已为列表创建 3 个展览
+      And 管理员将第 2 个展览状态更新为 "ENABLE"
+     When 按 limit 10 和 offset 0 查询展览列表
+     Then 返回 1 个展览
+      And 返回的是第 2 个创建的展览
+
   Scenario: list exhibitions empty result
-     When 按 limit 10 和 offset 1000 查询展览列表
+     When 按 limit 10 和 offset 1000 查询管理员展览列表
      Then 返回 0 个展览
 
   Scenario: non-admin user cannot create exhibition

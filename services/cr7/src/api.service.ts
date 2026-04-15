@@ -194,6 +194,15 @@ const routes = [
     }
   ),
   routeConfig(
+    '/admin/exhibition',
+    ['cr7.exhibition.listAdmin'],
+    {
+      aliases: {
+        'GET /': 'cr7.exhibition.listAdmin',
+      },
+    }
+  ),
+  routeConfig(
     '/exhibition/:eid/redeem', ['cr7.redemption.redeem'], {
       aliases: {
         'POST /': 'cr7.redemption.redeem'

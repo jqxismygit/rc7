@@ -17,8 +17,10 @@ import {
   createExhibitions,
   getTicketCategories,
   getSessions,
+  listAdminExhibitions,
   listExhibitions,
   updateExhibition,
+  updateExhibitionStatus,
   ExhibitionListResponse,
   DraftExhibition,
   DraftTicketCategory,
@@ -247,7 +249,54 @@ describeFeature(feature, ({
         const categories = await getTicketCategories(apiServer, exhibition.id, scenarioContext.adminToken);
         expect(categories).toEqual([]);
       });
+
+      And('展览状态默认为下线', () => {
+        expect(requireExhibition(context).status).toBe('DISABLE');
+      });
     }
+  );
+
+  Scenario(
+    'admin can update exhibition status by dedicated route',
+    (s: StepTest<ExhibitionContext>) => {
+      const { Given, When, Then, context } = s;
+
+      Given('已创建展览', async () => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const [exhibition] = await createExhibitions(apiServer, scenarioContext.adminToken, 1);
+        Object.assign(context, { exhibition });
+      });
+
+      When('管理员将展览状态更新为 {string}', async (_ctx, status: string) => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const exhibition = await updateExhibitionStatus(
+          apiServer,
+          scenarioContext.adminToken,
+          requireExhibition(context).id,
+          status as Exhibition.ExhibitionStatus,
+        );
+        Object.assign(context, { exhibition });
+      });
+
+      When('管理员再次将展览状态更新为 {string}', async (_ctx, status: string) => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const exhibition = await updateExhibitionStatus(
+          apiServer,
+          scenarioContext.adminToken,
+          requireExhibition(context).id,
+          status as Exhibition.ExhibitionStatus,
+        );
+        Object.assign(context, { exhibition });
+      });
+
+      Then('展览状态更新为 {string}', (_ctx, status: string) => {
+        expect(requireExhibition(context).status).toBe(status);
+      });
+
+      Then('展览状态再次更新为 {string}', (_ctx, status: string) => {
+        expect(requireExhibition(context).status).toBe(status);
+      });
+    },
   );
 
   Scenario(
@@ -453,9 +502,9 @@ describeFeature(feature, ({
         Object.assign(context, { createdExhibitions });
       });
 
-      When('按 limit {int} 和 offset {int} 查询展览列表', async (_ctx, limit: number, offset: number) => {
+      When('按 limit {int} 和 offset {int} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const listResult = await listExhibitions(apiServer, scenarioContext.adminToken, { limit, offset });
+        const listResult = await listAdminExhibitions(apiServer, scenarioContext.adminToken, { limit, offset });
         Object.assign(context, { listResult });
       });
 
@@ -487,9 +536,9 @@ describeFeature(feature, ({
         Object.assign(context, { createdExhibitions });
       });
 
-      When('按 limit {int} 和 offset {int} 查询展览列表', async (_ctx, limit: number, offset: number) => {
+      When('按 limit {int} 和 offset {int} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
         const { apiServer } = scenarioContext.fixtures.values;
-        const listResult = await listExhibitions(apiServer, scenarioContext.adminToken, { limit, offset });
+        const listResult = await listAdminExhibitions(apiServer, scenarioContext.adminToken, { limit, offset });
         Object.assign(context, { listResult });
       });
 
@@ -504,13 +553,53 @@ describeFeature(feature, ({
   );
 
   Scenario(
-    'list exhibitions empty result',
-    (s: StepTest<ExhibitionListResultContext>) => {
-      const { When, Then, context } = s;
+    'list exhibitions only returns enabled records',
+    (s: StepTest<ExhibitionListScenarioContext>) => {
+      const { Given, When, Then, And, context } = s;
+
+      Given('已为列表创建 {int} 个展览', async (_ctx, count: number) => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const createdExhibitions = await createExhibitions(apiServer, scenarioContext.adminToken, count, {
+          namePrefix: 'list_exhibition',
+        });
+        Object.assign(context, { createdExhibitions });
+      });
+
+      And('管理员将第 {int} 个展览状态更新为 {string}', async (_ctx, index: number, status: string) => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const target = requireCreatedExhibitions(context)[index - 1];
+        await updateExhibitionStatus(
+          apiServer,
+          scenarioContext.adminToken,
+          target.id,
+          status as Exhibition.ExhibitionStatus,
+        );
+      });
 
       When('按 limit {int} 和 offset {int} 查询展览列表', async (_ctx, limit: number, offset: number) => {
         const { apiServer } = scenarioContext.fixtures.values;
         const listResult = await listExhibitions(apiServer, scenarioContext.adminToken, { limit, offset });
+        Object.assign(context, { listResult });
+      });
+
+      Then('返回 {int} 个展览', (_ctx, count: number) => {
+        expect(requireListResult(context).data).toHaveLength(count);
+      });
+
+      And('返回的是第 {int} 个创建的展览', (_ctx, index: number) => {
+        expect(requireListResult(context).data[0].id).toBe(requireCreatedExhibitions(context)[index - 1].id);
+      });
+    }
+  );
+
+  Scenario(
+    'list exhibitions empty result',
+    (s: StepTest<ExhibitionListResultContext>) => {
+      const { When, Then, context } = s;
+
+      When('按 limit {int} 和 offset {int} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
+        const { apiServer } = scenarioContext.fixtures.values;
+        const listResult = await listAdminExhibitions(apiServer, scenarioContext.adminToken, { limit, offset });
         Object.assign(context, { listResult });
       });
 
