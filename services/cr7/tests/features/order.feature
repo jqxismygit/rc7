@@ -19,6 +19,7 @@ Feature: Order ticket
   Scenario: 创建订单成功
     When 用户 "Alice" 预订 1 张该展会的 "3天后" 场次的 "成人票"
     Then 预订成功
+     And 订单来源为 "DIRECT"
      And 场次 "3天后" 的 "成人票" 库存为 2
 
   Scenario: 用户预订多个票种

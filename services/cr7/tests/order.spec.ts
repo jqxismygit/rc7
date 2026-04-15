@@ -369,6 +369,10 @@ describeFeature(feature, ({
       expect(context.order.status).toBe('PENDING_PAYMENT');
     });
 
+    And('订单来源为 {string}', (_ctx, source: string) => {
+      expect(context.order.source).toBe(source);
+    });
+
     And('场次 {string} 的 {string} 库存为 {int}', async (_ctx, sessionDate: string, ticketName: string, quantity: number) => {
       const availableQuantity = await availableInventoryByTicketName(featureContext, sessionDate, ticketName);
       expect(availableQuantity).toBe(quantity);
