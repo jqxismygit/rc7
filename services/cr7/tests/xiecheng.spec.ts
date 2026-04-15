@@ -279,9 +279,9 @@ describeFeature(feature, ({
       };
     });
 
-    And('指定库存数量为 {string}', (_ctx, quantityText: string) => {
+    And('指定库存数量为 {number}', (_ctx, quantity: number) => {
       expect(featureContext.pendingSync).toBeTruthy();
-      featureContext.pendingSync!.quantity = Number(quantityText);
+      featureContext.pendingSync!.quantity = quantity;
     });
 
     Given('票种 {string}，场次开始时间为 {string}，结束时间为 {string}', async (_ctx, ticketName: string, startDate: string, endDate: string) => {
@@ -429,9 +429,9 @@ describeFeature(feature, ({
       context.decryptedBody = featureContext.latestDecryptedBody as SessionPriceReqBody;
     });
 
-    And('包含 {string} 天的场次信息', (_ctx, days: string) => {
+    And('包含 {number} 天的场次信息', (_ctx, days: number) => {
       const { decryptedBody } = context;
-      expect(decryptedBody.prices).toHaveLength(Number(days));
+      expect(decryptedBody.prices).toHaveLength(days);
     });
 
     And('同步的场次起始时间为 {string}', (_ctx, dateLabel: string) => {
@@ -485,8 +485,8 @@ describeFeature(feature, ({
       );
     });
 
-    And('{string} 有 {string} 条携程价格同步记录', (_ctx, _ticketName: string, expectedCount: string) => {
-      expect(featureContext.syncLogs).toHaveLength(Number(expectedCount));
+    And('{string} 有 {number} 条携程价格同步记录', (_ctx, _ticketName: string, expectedCount: number) => {
+      expect(featureContext.syncLogs).toHaveLength(expectedCount);
     });
 
     And('同步结果为 {string}', (_ctx, resultText: string) => {
@@ -504,8 +504,8 @@ describeFeature(feature, ({
       expect(featureContext.syncLogs?.[0].service_name).toBe(serviceName);
     });
 
-    And('场次有 {string} 个', (_ctx, count: string) => {
-      expect(featureContext.syncLogs?.[0].sync_items).toHaveLength(Number(count));
+    And('场次有 {number} 个', (_ctx, count: number) => {
+      expect(featureContext.syncLogs?.[0].sync_items).toHaveLength(count);
     });
 
     And('起始场次时间为 {string}', (_ctx, dateLabel: string) => {
@@ -595,9 +595,9 @@ describeFeature(feature, ({
       expect(items.at(-1)?.date).toBe(toDateLabel(dateLabel));
     });
 
-    And('每个场次的库存数量为 {string} 的剩余库存数量', (_ctx, _ticketName: string) => {
+    And('每个场次的库存数量为 {string} 的库存 {number}', (_ctx, _ticketName: string, expectedQuantity: number) => {
       const items = featureContext.syncLog?.sync_items as Array<{ quantity: number }>;
-      expect(items.every(item => item.quantity === 2)).toBe(true);
+      expect(items.every(item => item.quantity === expectedQuantity)).toBe(true);
     });
   });
 
@@ -620,8 +620,7 @@ describeFeature(feature, ({
       expect(featureContext.latestDecryptedBody).toBeTruthy();
     });
 
-    And('库存数量为 {string}', (_ctx, quantityText: string) => {
-      const quantity = Number(quantityText);
+    And('库存数量为 {number}', (_ctx, quantity: number) => {
       const items = (featureContext.latestDecryptedBody as SessionInventoryReqBody | undefined)?.inventorys ?? [];
       expect(items.every(item => item.quantity === quantity)).toBe(true);
     });
@@ -641,8 +640,8 @@ describeFeature(feature, ({
       );
     });
 
-    And('{string} 有 {string} 条携程库存同步记录', (_ctx, _ticketName: string, expectedCount: string) => {
-      expect(featureContext.syncLogs).toHaveLength(Number(expectedCount));
+    And('{string} 有 {number} 条携程库存同步记录', (_ctx, _ticketName: string, expectedCount: number) => {
+      expect(featureContext.syncLogs).toHaveLength(expectedCount);
     });
 
     And('同步结果为 {string}', (_ctx, resultText: string) => {
@@ -660,8 +659,8 @@ describeFeature(feature, ({
       expect(featureContext.syncLogs?.[0].service_name).toBe(serviceName);
     });
 
-    And('场次有 {string} 个', (_ctx, count: string) => {
-      expect(featureContext.syncLogs?.[0].sync_items).toHaveLength(Number(count));
+    And('场次有 {number} 个', (_ctx, count: number) => {
+      expect(featureContext.syncLogs?.[0].sync_items).toHaveLength(count);
     });
 
     And('起始场次时间为 {string}', (_ctx, dateLabel: string) => {
@@ -674,9 +673,9 @@ describeFeature(feature, ({
       expect(items.at(-1)?.date).toBe(toDateLabel(dateLabel));
     });
 
-    And('每个场次的库存数量为 {string} 的剩余库存数量', (_ctx, _ticketName: string) => {
+    And('每个场次的库存数量为 {string} 的库存 {number}', (_ctx, _ticketName: string, expectedQuantity: number) => {
       const items = featureContext.syncLogs?.[0].sync_items as Array<{ quantity: number }>;
-      expect(items.every(item => item.quantity === 2)).toBe(true);
+      expect(items.every(item => item.quantity === expectedQuantity)).toBe(true);
     });
   });
 
