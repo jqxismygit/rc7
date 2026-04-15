@@ -126,6 +126,21 @@ Feature: manage exhibition
      When 尝试更新展览开始和结束日期
      Then 返回参数不合法错误
 
-# todo
-# - 更新 exhibition 基本信息
-# - 更新 ticket category
+  Scenario: 可以更新票种信息
+    Given 已创建展览
+      And 已为该展览创建票种 "regular"
+      And 准备更新票种名称为 "vip"
+      And 准备更新票种价格为 199
+      And 准备更新票种有效期为 30 天
+      And 准备更新票种退票策略为不可退
+      And 准备更新票种准入人数为 4
+
+     When 更新票种信息
+     Then 票种信息更新成功
+      And 展览中的票种已更新为 "vip"
+
+  Scenario: 更新票种时必须至少提供一个参数
+    Given 已创建展览
+      And 已为该展览创建票种 "regular"
+     When 不提供任何参数更新票种
+     Then 返回参数不合法错误

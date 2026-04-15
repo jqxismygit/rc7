@@ -50,6 +50,14 @@ export interface TicketCategory {
   updated_at: Date;
 }
 
+export type TicketCategoryPatch = Partial<Pick<TicketCategory,
+  'name' |
+  'price' |
+  'valid_duration_days' |
+  'refund_policy' |
+  'admittance'
+>>;
+
 export interface ExhibitionWithCategories extends Exhibition {
   ticket_categories: TicketCategory[];
 }

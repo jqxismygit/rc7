@@ -16,6 +16,8 @@ export type DraftTicketCategory = Omit<
   'id' | 'exhibit_id' | 'created_at' | 'updated_at'
 >;
 
+export type DraftTicketCategoryPatch = Exhibition.TicketCategoryPatch;
+
 export interface ExhibitionWithSessions {
   exhibition: Exhibition.Exhibition;
   sessions: Exhibition.Session[];
@@ -143,6 +145,20 @@ export async function addTicketCategory(
     server,
     `/exhibition/${eid}/tickets`,
     { body: category, token }
+  );
+}
+
+export async function updateTicketCategory(
+  server: Server,
+  token: string,
+  eid: string,
+  tid: string,
+  patch: DraftTicketCategoryPatch,
+) {
+  return patchJSON<Exhibition.TicketCategory>(
+    server,
+    `/exhibition/${eid}/tickets/${tid}`,
+    { body: patch, token }
   );
 }
 

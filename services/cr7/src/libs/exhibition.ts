@@ -8,6 +8,7 @@ import {
   getTicketCategoriesByExhibitionId,
   getSessionsByExhibitionId,
   createTicketCategory,
+  updateTicketCategory,
   updateExhibition,
   updateExhibitionStatus,
   updateTicketCategoryOtaXcOptionId,
@@ -32,6 +33,14 @@ const EXHIBITION_UPDATE_FIELDS = [
   'venue_name',
   'location',
   'cover_url',
+] as const;
+
+const TICKET_CATEGORY_UPDATE_FIELDS = [
+  'name',
+  'price',
+  'valid_duration_days',
+  'refund_policy',
+  'admittance',
 ] as const;
 
 interface UserMeta {
@@ -142,6 +151,25 @@ export class ExhibitionService extends RC7BaseService {
         cover_url: { type: 'url', optional: true, nullable: true },
       },
       handler: this.updateExhibition
+    },
+
+    'exhibition.updateTicketCategory': {
+      rest: 'PATCH /:eid/tickets/:tid',
+      roles: ['admin'],
+      params: {
+        eid: 'string',
+        tid: 'string',
+        name: { type: 'string', optional: true, min: 1 },
+        price: { type: 'number', optional: true },
+        valid_duration_days: { type: 'number', optional: true },
+        refund_policy: {
+          type: 'enum',
+          optional: true,
+          values: ['NON_REFUNDABLE', 'REFUNDABLE_48H_BEFORE'],
+        },
+        admittance: { type: 'number', optional: true },
+      },
+      handler: this.updateTicketCategory
     },
 
     'exhibition.updateStatus': {
@@ -329,6 +357,22 @@ export class ExhibitionService extends RC7BaseService {
       .catch(handleExhibitionError);
 
     return exhibition;
+  }
+
+  async updateTicketCategory(
+    ctx: Context<{ eid: string; tid: string } & Exhibition.TicketCategoryPatch, { user: UserMeta }>
+  ) {
+    const { eid, tid, ...patch } = ctx.params;
+
+    if (TICKET_CATEGORY_UPDATE_FIELDS.every(field => Object.hasOwn(patch, field) === false)) {
+      throw new MoleculerClientError('参数不合法', 400, 'INVALID_ARGUMENT');
+    }
+
+    const client = this.pool;
+    const schema = await this.getSchema();
+
+    return updateTicketCategory(client, schema, eid, tid, patch)
+      .catch(handleExhibitionError);
   }
 
   async updateExhibitionStatus(

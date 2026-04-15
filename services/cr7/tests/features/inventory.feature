@@ -21,7 +21,7 @@ Feature: manage inventory
       And 并将票种 "regular" 在该展览首场次的库存设置为 20
      When 查看该展览首场次的库存
      Then 票种 "early_bird" 在该展览首场次的库存应为 30
-        And 另一票种 "regular" 在该展览首场次的库存应为 20
+      And 另一票种 "regular" 在该展览首场次的库存应为 20
 
   Scenario: non-admin user cannot update inventory
     Given 普通用户已登录

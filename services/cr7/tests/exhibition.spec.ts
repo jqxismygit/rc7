@@ -23,10 +23,12 @@ import {
   listAdminExhibitions,
   listExhibitions,
   updateExhibition,
+  updateTicketCategory,
   updateExhibitionStatus,
   ExhibitionListResponse,
   DraftExhibition,
   DraftTicketCategory,
+  DraftTicketCategoryPatch,
   assertExhibition,
   assertSession,
   assertTicketCategory,
@@ -858,6 +860,144 @@ describeFeature(feature, ({
 
         Then('返回参数不合法错误', async () => {
           await expect(context.exhibitionUpdatePromise).rejects.toMatchObject({
+            status: 400,
+            method: 'PATCH',
+          });
+        });
+      }
+    );
+
+    Scenario(
+      '可以更新票种信息',
+      (s: StepTest<{
+        exhibition: Exhibition.Exhibition;
+        ticket: Exhibition.TicketCategory;
+        ticketPatch: DraftTicketCategoryPatch;
+      }>) => {
+        const { Given, When, Then, And, context } = s;
+
+        Given('已创建展览', async () => {
+          const { apiServer } = featureContext;
+          const [exhibition] = await createExhibitions(apiServer, featureContext.adminToken, 1);
+          context.exhibition = exhibition;
+        });
+
+        And('已为该展览创建票种 {string}', async (_ctx, ticketName: string) => {
+          const { apiServer } = featureContext;
+          context.ticket = await addTicketCategory(
+            apiServer,
+            featureContext.adminToken,
+            context.exhibition!.id,
+            {
+              name: ticketName,
+              price: 150,
+              valid_duration_days: 10,
+              refund_policy: 'REFUNDABLE_48H_BEFORE',
+              admittance: 2,
+            },
+          );
+          context.ticketPatch = {};
+        });
+
+        And('准备更新票种名称为 {string}', (_ctx, name: string) => {
+          context.ticketPatch!.name = name;
+        });
+
+        And('准备更新票种价格为 {int}', (_ctx, price: number) => {
+          context.ticketPatch!.price = price;
+        });
+
+        And('准备更新票种有效期为 {int} 天', (_ctx, validDurationDays: number) => {
+          context.ticketPatch!.valid_duration_days = validDurationDays;
+        });
+
+        And('准备更新票种退票策略为不可退', () => {
+          context.ticketPatch!.refund_policy = 'NON_REFUNDABLE';
+        });
+
+        And('准备更新票种准入人数为 {int}', (_ctx, admittance: number) => {
+          context.ticketPatch!.admittance = admittance;
+        });
+
+        When('更新票种信息', async () => {
+          const { apiServer } = featureContext;
+          context.ticket = await updateTicketCategory(
+            apiServer,
+            featureContext.adminToken,
+            context.exhibition!.id,
+            context.ticket!.id,
+            context.ticketPatch!,
+          );
+        });
+
+        Then('票种信息更新成功', () => {
+          const ticket = context.ticket!;
+          assertTicketCategory(ticket);
+          expect(ticket.name).toBe('vip');
+          expect(ticket.price).toBe(199);
+          expect(ticket.valid_duration_days).toBe(30);
+          expect(ticket.refund_policy).toBe('NON_REFUNDABLE');
+          expect(ticket.admittance).toBe(4);
+        });
+
+        And('展览中的票种已更新为 {string}', async (_ctx, ticketName: string) => {
+          const { apiServer } = featureContext;
+          const categories = await getTicketCategories(
+            apiServer,
+            context.exhibition!.id,
+            featureContext.adminToken,
+          );
+          expect(categories).toHaveLength(1);
+          expect(categories[0]).toMatchObject(context.ticket!);
+          expect(categories[0].name).toBe(ticketName);
+        });
+      }
+    );
+
+    Scenario(
+      '更新票种时必须至少提供一个参数',
+      (s: StepTest<{
+        exhibition: Exhibition.Exhibition;
+        ticket: Exhibition.TicketCategory;
+        ticketUpdatePromise: Promise<Exhibition.TicketCategory>;
+      }>) => {
+        const { Given, And, When, Then, context } = s;
+
+        Given('已创建展览', async () => {
+          const { apiServer } = featureContext;
+          const [exhibition] = await createExhibitions(apiServer, featureContext.adminToken, 1);
+          context.exhibition = exhibition;
+        });
+
+        And('已为该展览创建票种 {string}', async (_ctx, ticketName: string) => {
+          const { apiServer } = featureContext;
+          context.ticket = await addTicketCategory(
+            apiServer,
+            featureContext.adminToken,
+            context.exhibition!.id,
+            {
+              name: ticketName,
+              price: 150,
+              valid_duration_days: 10,
+              refund_policy: 'REFUNDABLE_48H_BEFORE',
+              admittance: 2,
+            },
+          );
+        });
+
+        When('不提供任何参数更新票种', async () => {
+          const { apiServer } = featureContext;
+          context.ticketUpdatePromise = updateTicketCategory(
+            apiServer,
+            featureContext.adminToken,
+            context.exhibition!.id,
+            context.ticket!.id,
+            {},
+          );
+        });
+
+        Then('返回参数不合法错误', async () => {
+          await expect(context.ticketUpdatePromise).rejects.toMatchObject({
             status: 400,
             method: 'PATCH',
           });

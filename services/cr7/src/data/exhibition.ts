@@ -477,6 +477,70 @@ export async function updateTicketCategoryInventoryMax(
   );
 }
 
+export async function updateTicketCategory(
+  client: Pool,
+  schema: string,
+  eid: string,
+  tid: string,
+  patch: Exhibition.TicketCategoryPatch,
+): Promise<Exhibition.TicketCategory> {
+  const fields: string[] = [];
+  const values: unknown[] = [tid, eid];
+  let idx = 3;
+
+  if ('name' in patch) {
+    fields.push(`name = $${idx++}`);
+    values.push(patch.name);
+  }
+  if ('price' in patch) {
+    fields.push(`price = $${idx++}`);
+    values.push(patch.price);
+  }
+  if ('valid_duration_days' in patch) {
+    fields.push(`valid_duration_days = $${idx++}`);
+    values.push(patch.valid_duration_days);
+  }
+  if ('refund_policy' in patch) {
+    fields.push(`refund_policy = $${idx++}`);
+    values.push(patch.refund_policy);
+  }
+  if ('admittance' in patch) {
+    fields.push(`admittance = $${idx++}`);
+    values.push(patch.admittance);
+  }
+
+  if (fields.length === 0) {
+    return getTicketCategoryById(client, schema, eid, tid);
+  }
+
+  fields.push('updated_at = NOW()');
+
+  const { rows } = await client.query<Exhibition.TicketCategory>(
+    `UPDATE ${schema}.exhibit_ticket_categories
+    SET ${fields.join(', ')}
+    WHERE id = $1
+      AND eid = $2
+    RETURNING
+      id,
+      eid AS exhibit_id,
+      name,
+      price,
+      valid_duration_days,
+      refund_policy,
+      admittance,
+      ota_xc_option_id,
+      created_at,
+      updated_at`,
+    values,
+  );
+
+  if (rows.length === 0) {
+    throw new ExhibitionDataError('Ticket category not found', 'TICKET_CATEGORY_NOT_FOUND');
+  }
+
+  return rows[0];
+}
+
 export async function updateExhibition(
   client: Pool,
   schema: string,
