@@ -753,11 +753,12 @@ describeFeature(feature, ({
       );
     });
 
-    Given('用户已发起退款请求，订单状态为 "退款已受理"', async () => {
+    Given('用户已发起退款请求，退款原因是 {string}，订单状态为 "退款已受理"', async (_ctx, reason: string) => {
       const { refundRecord } = await requestRefundWithMock(
         scenarioContext.fixtures.values.apiServer,
         requireOrder(context),
         scenarioContext.userToken,
+        reason,
       );
       Object.assign(context, { refundRecord });
       const order = await refreshOrder(context);
@@ -807,6 +808,10 @@ describeFeature(feature, ({
 
     And('退款记录中的退款请求状态为 "退款已受理"', () => {
       expect(context.refundRecord!.status).toBe('REQUESTED');
+    });
+
+    And('退款记录中的退款原因是 {string}', (_ctx, reason: string) => {
+      expect(context.refundRecord!.reason).toBe(reason);
     });
 
     And('退款记录中的订单金额为订单金额，单位为分', () => {
