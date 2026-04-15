@@ -188,7 +188,7 @@ import {
   buildTicketRowFromOrder,
   orderStatusToUi,
 } from "@/utils/orderDisplay.js";
-import { formatRedemptionValidityDateRangeLine } from "@/utils/ticketEventDisplay.js";
+import { formatRedemptionValidityDateTimeLine } from "@/utils/ticketEventDisplay.js";
 
 export default {
   mixins: [createTabBarMixin(1)],
@@ -286,7 +286,7 @@ export default {
             ticket.status = orderStatusToUi(order.status);
           }
 
-          const validityText = formatRedemptionValidityDateRangeLine(
+          const validityText = formatRedemptionValidityDateTimeLine(
             row.redemption?.valid_from,
             row.redemption?.valid_until,
           );

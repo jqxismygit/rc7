@@ -86,3 +86,15 @@ export function formatRedemptionValidityDateRangeLine(validFrom, validUntil) {
   }
   return `${start.format("YYYY.MM.DD")}-${end.format("YYYY.MM.DD")}`;
 }
+
+/** 核销码有效期：日期+时间，如 2026.05.01 9:00-17:00（按 Asia/Shanghai 时区） */
+export function formatRedemptionValidityDateTimeLine(validFrom, validUntil) {
+  const start = parseShanghai(validFrom);
+  const end = parseShanghai(validUntil);
+  if (!start || !end) return "";
+  const startDate = start.format("YYYY.MM.DD");
+  if (start.isSame(end, "day")) {
+    return `${startDate} ${start.format("H:mm")}-${end.format("H:mm")}`;
+  }
+  return `${startDate} ${start.format("H:mm")}-${end.format("YYYY.MM.DD H:mm")}`;
+}
