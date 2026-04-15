@@ -583,11 +583,12 @@ describeFeature(feature, ({
       );
     });
 
-    When('用户发起退款请求', async () => {
+    When('用户发起退款请求, 退款原因 {string}', async (_ctx, reason: string) => {
       const { refundRecord, requestPayload } = await requestRefundWithMock(
         scenarioContext.fixtures.values.apiServer,
         requireOrder(context),
         scenarioContext.userToken,
+        reason,
       );
       Object.assign(context, { refundRecord });
       refundApplyRequest = requestPayload;
@@ -628,8 +629,8 @@ describeFeature(feature, ({
       expect(amount.currency).toBe('CNY');
     });
 
-    And('微信支付服务收到的退款原因是 "用户发起退款"', () => {
-      expect(refundApplyRequest!.body.reason).toBe('用户发起退款');
+    And('微信支付服务收到的退款原因是 {string}', (_ctx, reason: string) => {
+      expect(refundApplyRequest!.body.reason).toBe(reason);
     });
 
     Then('微信支付服务通知 cr7 支付服务退款状态为 "退款处理中"', async () => {
