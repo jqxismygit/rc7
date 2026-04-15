@@ -52,38 +52,14 @@ type ExhibitionContext = {
   exhibition?: ExhibitionType;
 };
 
-type DraftTicketContext = {
-  draftTicket?: DraftTicket;
-};
-
 type ExhibitionListResultContext = {
   listResult?: ExhibitionListResponse;
-};
-
-type PermissionErrorContext = {
-  lastError?: unknown;
-};
-
-
-
-type NonAdminAddTicketScenarioContext = PermissionErrorContext & ExhibitionContext & DraftTicketContext & {
-  regularUserToken?: string;
 };
 
 interface FeatureContext {
   broker: ServiceBroker;
   apiServer: Server;
   adminToken: string;
-}
-
-function rememberError(context: PermissionErrorContext, error: unknown) {
-  context.lastError = error;
-}
-
-function assertPermissionDenied(error: unknown) {
-  expect(error).toBeTruthy();
-  expect(error).toBeInstanceOf(APIError);
-  expect((error as APIError).status).toBe(403);
 }
 
 describeFeature(feature, ({
@@ -642,7 +618,11 @@ describeFeature(feature, ({
 
   Scenario(
     'non-admin user cannot add ticket category to exhibition',
-    (s: StepTest<NonAdminAddTicketScenarioContext>) => {
+    (s: StepTest<{
+      exhibition: ExhibitionType;
+      regularUserToken: string;
+      ticketCreatePromise: Promise<TicketCategory>;
+    }>) => {
       const { Given, When, Then, context } = s;
 
       Given('管理员已创建展览', async () => {
@@ -659,7 +639,7 @@ describeFeature(feature, ({
 
       When('普通用户尝试为展览添加票种', async () => {
         const { apiServer } = featureContext;
-        context.draftTicket = {
+        const draftTicket: DraftTicket = {
           name: 'unauthorized_ticket',
           price: 100,
           valid_duration_days: 1,
@@ -667,20 +647,18 @@ describeFeature(feature, ({
           admittance: 1,
         };
 
-        try {
-          await addTicketCategory(
-            apiServer,
-            context.regularUserToken!,
-            context.exhibition!.id,
-            context.draftTicket!,
-          );
-        } catch (error) {
-          rememberError(context, error);
-        }
+        context.ticketCreatePromise = addTicketCategory(
+          apiServer,
+          context.regularUserToken!,
+          context.exhibition!.id,
+          draftTicket,
+        );
       });
 
-      Then('返回权限不足错误', () => {
-        assertPermissionDenied(context.lastError);
+      Then('返回权限不足错误', async () => {
+        await expect(context.ticketCreatePromise).rejects.toMatchObject({
+          status: 403,
+        });
       });
     }
   );
