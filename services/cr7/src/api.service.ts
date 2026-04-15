@@ -317,6 +317,7 @@ const routes = [
       'cr7.topics.getArticle',
     ],
     {
+      authorization: false,
       autoAliases: true,
     }
   ),
