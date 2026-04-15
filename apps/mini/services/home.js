@@ -132,9 +132,21 @@ function mapSessionOptions(rows) {
     .filter((row) => row.id && row.date);
 }
 
-export async function loadHomeTicketSection() {
-  const eid = HOME_EXHIBITION_ID;
+export async function loadActiveExhibition() {
+  const result = await request.get(`/exhibition`, {
+    params: { all: true },
+  });
+  //找到当前为enable的第一个展会
+  const activeExhibition = result?.data?.find(
+    (item) => item.status === "ENABLE",
+  );
+  return activeExhibition;
+}
 
+export async function loadHomeTicketSection() {
+  const activeExhibition = await loadActiveExhibition();
+  const eid = activeExhibition.id;
+  console.log("eid ===>>", eid);
   const [exhibition, sessions] = await Promise.all([
     request.get(`/exhibition/${eid}`),
     request.get(`/exhibition/${eid}/sessions`),

@@ -44,15 +44,38 @@ export function cancelOrder(orderId) {
 export function listOrders(params = {}) {
   const q = {};
   if (params.status != null && params.status !== "") {
-    q.status = params.status;
+    // 兼容旧调用：票夹页旧状态 unused/used 映射为核销状态
+    if (params.status === "unused") {
+      q.status = "UNREDEEMED";
+    } else if (params.status === "used") {
+      q.status = "REDEEMED";
+    } else {
+      q.status = params.status;
+    }
   }
   if (params.page != null) {
     q.page = params.page;
   }
-  if (params.limit != null) {
-    q.limit = params.limit;
-  }
-  return request.get("/orders", { params: q });
+  // 按需求固定拉取 1000 条
+  q.limit = 1000;
+  return request.get("/redemptions", { params: q }).then((res) => {
+    const redemptions = Array.isArray(res?.redemptions) ? res.redemptions : [];
+    const orders = redemptions.map((item) => ({
+      ...(item?.order || {}),
+      id: item?.order?.id || item?.order_id,
+      exhibit_id: item?.order?.exhibit_id || item?.exhibit_id,
+      created_at: item?.created_at,
+      updated_at: item?.updated_at,
+      items: Array.isArray(item?.items) ? item.items : [],
+    }));
+    return {
+      orders,
+      total: res?.total ?? orders.length,
+      page: res?.page ?? q.page ?? 1,
+      limit: res?.limit ?? 1000,
+      redemptions,
+    };
+  });
 }
 
 /**
