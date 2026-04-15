@@ -32,6 +32,7 @@
 
 - URL: `POST /orders/:oid/refund`
 - 权限：已登录用户，且为该订单归属人
+- Request Body: `{ reason?: string }` — 可选退款原因，默认为 `"用户发起退款"`，透传至微信退款申请
 - 关键特性：
   - 仅允许已支付订单发起退款
   - `out_refund_no` 使用系统退款记录 ID，确保唯一与幂等
