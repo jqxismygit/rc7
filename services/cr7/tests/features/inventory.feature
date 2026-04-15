@@ -1,6 +1,7 @@
 Feature: manage inventory
 
   Background:
+    Given cr7 服务已启动
     Given 系统管理员已经创建并登录
     Given 已创建一个包含 2 个场次的展览
     Given 已为该展览创建 2 个票种
