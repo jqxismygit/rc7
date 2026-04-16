@@ -21,6 +21,26 @@ interface UserMeta {
   uid: string;
 }
 
+const createOrderItemsParamsSchema = {
+  type: 'array',
+  min: 1,
+  max: 3,
+  items: {
+    type: 'object',
+    props: {
+      ticket_category_id: 'string|min:1',
+      quantity: {
+        type: 'number',
+        min: 1,
+        max: 6,
+        integer: true,
+        positive: true,
+        convert: true,
+      },
+    },
+  },
+};
+
 export class OrderService extends RC7BaseService {
   constructor(broker: ServiceBroker) {
     super(broker);
@@ -36,7 +56,7 @@ export class OrderService extends RC7BaseService {
       params: {
         eid: 'string',
         sid: 'string',
-        items: 'array',
+        items: createOrderItemsParamsSchema,
       },
       handler: this.createWechatPayOrder,
     },
@@ -50,7 +70,7 @@ export class OrderService extends RC7BaseService {
         user_id: 'string',
         eid: 'string',
         sid: 'string',
-        items: 'array',
+        items: createOrderItemsParamsSchema,
         source: {
           type: 'enum',
           values: ['CTRIP', 'MOP', 'DAMAI'],

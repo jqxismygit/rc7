@@ -78,7 +78,8 @@
 
 <script>
 import { redeemTicket } from "@/services/redeem.js";
-import { HOME_EXHIBITION_ID } from "@/config/home-exhibition-id.js";
+// import { HOME_EXHIBITION_ID } from "@/config/home-exhibition-id.js";
+import { loadActiveExhibition } from "@/services/home.js";
 
 export default {
   data() {
@@ -92,6 +93,7 @@ export default {
       scanLocked: false,
       bannerTimer: null,
       scanUnlockTimer: null,
+      activeExhibition: null,
     };
   },
 
@@ -128,6 +130,9 @@ export default {
     this.statusBarHeight = sys.statusBarHeight || 0;
     const winW = sys.windowWidth || 375;
     this.navInnerPx = (88 * winW) / 750;
+    loadActiveExhibition().then((res) => {
+      this.activeExhibition = res;
+    });
   },
 
   methods: {
@@ -239,15 +244,15 @@ export default {
         uni.showToast({ title: "未识别到有效券码", icon: "none" });
         return;
       }
-      // if (!eid) {
-      //   this.releaseScanLock(1800);
-      //   this.showRedeemBanner("failed");
-      //   uni.showToast({ title: "二维码缺少展会信息，无法核销", icon: "none" });
-      //   return;
-      // }
+      if (!this.activeExhibition?.id) {
+        this.releaseScanLock(1800);
+        this.showRedeemBanner("failed");
+        uni.showToast({ title: "二维码缺少展会信息，无法核销", icon: "none" });
+        return;
+      }
       try {
         uni.showLoading({ title: "核销中...", mask: true });
-        await redeemTicket(HOME_EXHIBITION_ID, { code: redeemCode });
+        await redeemTicket(this.activeExhibition.id, { code: redeemCode });
         uni.hideLoading();
         this.showRedeemBanner("success");
         this.releaseScanLock(800);

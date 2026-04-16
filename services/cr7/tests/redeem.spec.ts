@@ -332,7 +332,11 @@ describeFeature(feature, ({
       });
 
       And('核销码关联订单的场次日期为 {string}', (_ctx, sessionDate: string) => {
-        expect(context.redemption.order.session_date).toBe(toDateLabel(sessionDate));
+        expect(context.redemption.session.session_date).toBe(toDateLabel(sessionDate));
+      });
+
+      And('核销码关联订单的来源为 {string}', (_ctx, source: string) => {
+        expect(context.redemption.order.source).toBe(source);
       });
 
       And('核销码的有效期为场次当天', () => {
@@ -442,7 +446,7 @@ describeFeature(feature, ({
       });
 
       And('按状态筛选结果中的订单场次日期为 {string}', (_ctx, sessionDate: string) => {
-        expect(context.redemptionList.redemptions[0].order.session_date).toBe(toDateLabel(sessionDate));
+        expect(context.redemptionList.redemptions[0].session.session_date).toBe(toDateLabel(sessionDate));
       });
     },
   );

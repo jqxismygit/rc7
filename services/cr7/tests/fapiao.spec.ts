@@ -320,7 +320,7 @@ describeFeature(feature, ({
         featureContext.fapiaoResponseResolver = resolve;
         setTimeout(() => {
           reject(new Error('Fapiao response timeout'));
-        }, 1000);
+        }, 2000);
       });
 
       const requestHandler = vi.fn(async () => {

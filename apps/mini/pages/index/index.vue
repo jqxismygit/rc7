@@ -219,7 +219,7 @@ import { fetchTopicWithArticles } from "@/services/topic.js";
 import { mapArticlesToPartnerBrands } from "@/utils/partner-articles.js";
 import createTabBarMixin from "@/mixins/tabBar.js";
 import { HOME_TICKET_SECTION_EVENT } from "@/utils/eventBus.js";
-import { formatTicketEventCardMetaLine } from "@/utils/ticketEventDisplay.js";
+import { formatHomeTicketEventCardLine } from "@/utils/ticketEventDisplay.js";
 
 /** 首页 CR7 News 预览条数 */
 const NEWS_HOME_PREVIEW_LIMIT = 3;
@@ -234,7 +234,7 @@ export default {
       return useUserStore();
     },
     ticketEventCardLine() {
-      const line = formatTicketEventCardMetaLine(
+      const line = formatHomeTicketEventCardLine(
         this.ticketSection.ticketEvent,
       );
       return line || "-";
