@@ -5,4 +5,4 @@ Description=CR7 expired order reconciliation job.
 Type=oneshot
 WorkingDirectory=/var/lib/cr7
 Environment=NODE_ENV=production
-ExecStart=/usr/bin/pnpm -w s cr7 expire-orders -c production --schema cr7
+ExecStart=/usr/bin/pnpm -w s cr7 expire-orders -c production
