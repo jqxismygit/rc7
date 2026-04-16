@@ -56,13 +56,13 @@
         <view class="detail-row">
           <text class="detail-label">订单总额</text>
           <text class="detail-value"
-            >¥ {{ formatPrice(getOrderAmount()) }}</text
+            >¥ {{ formatPrice(getOrderAmount()) * 0.01 }}</text
           >
         </view>
         <view class="detail-row detail-row-last">
           <text class="detail-label">退款金额</text>
           <text class="detail-value refund-amount"
-            >¥ {{ formatPrice(getRefundAmount()) }}</text
+            >¥ {{ formatPrice(getRefundAmount()) * 0.01 }}</text
           >
         </view>
       </view>
@@ -114,26 +114,42 @@
         <button
           class="submit-btn btn-gold"
           :loading="submitting"
-          @click="submitRefund"
+          @click="openRefundConfirm"
         >
           立即提交
         </button>
       </view>
     </view>
+
+    <refund-confirm-dialog
+      :show="refundDialogVisible"
+      :title="REFUND_CONFIRM_TITLE"
+      :subtitle="REFUND_CONFIRM_SUBTITLE"
+      :reason-options="REFUND_REASON_OPTIONS"
+      @cancel="onRefundDialogCancel"
+      @confirm="onRefundDialogConfirm"
+    />
   </view>
 </template>
 
 <script>
 import Cr7NavBar from "@/components/cr7-nav-bar/cr7-nav-bar.vue";
+import RefundConfirmDialog from "@/components/refund-confirm-dialog/refund-confirm-dialog.vue";
 import { getNavBarInsetPx } from "@/utils/navBar.js";
 import { getOrderDetail } from "@/services/order.js";
 import { initiateRefund } from "@/services/payment.js";
 import request from "@/utils/request.js";
 import { buildTicketDetailFromOrder } from "@/utils/orderDisplay.js";
+import {
+  REFUND_CONFIRM_SUBTITLE,
+  REFUND_CONFIRM_TITLE,
+  REFUND_REASON_OPTIONS,
+} from "@/config/refund-reasons.js";
 
 export default {
   components: {
     Cr7NavBar,
+    RefundConfirmDialog,
   },
 
   data() {
@@ -142,6 +158,10 @@ export default {
       ticket: {},
       submitting: false,
       navInsetPx: 0,
+      refundDialogVisible: false,
+      REFUND_CONFIRM_TITLE,
+      REFUND_CONFIRM_SUBTITLE,
+      REFUND_REASON_OPTIONS,
     };
   },
 
@@ -199,7 +219,25 @@ export default {
         .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     },
 
-    async submitRefund() {
+    openRefundConfirm() {
+      if (this.submitting) return;
+      if (!this.ticket?.id) {
+        uni.showToast({ title: "票券数据异常", icon: "none" });
+        return;
+      }
+      this.refundDialogVisible = true;
+    },
+
+    onRefundDialogCancel() {
+      this.refundDialogVisible = false;
+    },
+
+    onRefundDialogConfirm({ value }) {
+      this.refundDialogVisible = false;
+      this.submitRefund(value);
+    },
+
+    async submitRefund(reason) {
       if (this.submitting) return;
       if (!this.ticket?.id) {
         uni.showToast({ title: "票券数据异常", icon: "none" });
@@ -207,7 +245,7 @@ export default {
       }
       this.submitting = true;
       try {
-        await initiateRefund(this.ticket.id);
+        await initiateRefund(this.ticket.id, { reason });
         this.ticket.status = "refunding";
         uni.showModal({
           title: "退票成功",
