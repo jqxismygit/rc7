@@ -184,6 +184,7 @@
 </template>
 
 <script>
+import dayjs from "dayjs";
 import { mockHomeCards } from "@/utils/mockData.js";
 import createTabBarMixin from "@/mixins/tabBar.js";
 import { listOrders, hideOrder } from "@/services/order.js";
@@ -264,9 +265,10 @@ export default {
               updated_at: order?.updated_at || item?.updated_at,
             },
             createdAt: item?.created_at || order?.created_at,
+            session: item?.session,
           };
         });
-
+        console.log("normalizedRows", normalizedRows);
         normalizedRows.sort(
           (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
         );
@@ -296,10 +298,17 @@ export default {
             ticket.usageStatus,
           );
 
-          const validityText = formatRedemptionValidityDateTimeLine(
-            row.redemption?.valid_from,
-            row.redemption?.valid_until,
-          );
+          // const validityText = formatRedemptionValidityDateTimeLine(
+          //   row.redemption?.valid_from,
+          //   row.redemption?.valid_until,
+          // );
+          const openingTime = dayjs(
+            row.session?.session_date + " " + row.session?.opening_time,
+          ).format("HH:mm");
+          const closingTime = dayjs(
+            row.session?.session_date + " " + row.session?.closing_time,
+          ).format("HH:mm");
+          const validityText = `${row.session?.session_date} ${openingTime} ~ ${closingTime}`;
           if (validityText) {
             ticket.eventDate = validityText;
           }
