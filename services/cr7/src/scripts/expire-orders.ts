@@ -55,20 +55,9 @@ export async function expireOrders(
 }
 
 export async function handler(argv?: {
-  dir?: string;
-  conf?: string;
-  schema: string;
   batchSize?: number;
   verbose?: boolean;
 }) {
-  const { dir, conf } = argv ?? {};
-
-  if (dir) {
-    process.env['NODE_CONFIG_DIR'] = dir;
-  }
-  if (conf) {
-    process.env['NODE_ENV'] = conf;
-  }
 
   const { default: config } = await import('config');
   const pool = new Pool(config.pg);
