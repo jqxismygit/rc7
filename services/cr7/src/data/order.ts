@@ -743,7 +743,14 @@ export async function releaseOrderInventory(
   schema: string,
   orderId: string,
   sessionId: string,
+  options: {
+    cancelOrder?: boolean;
+    refundOrder?: boolean;
+  } = {},
 ) {
+  const cancelOrder = options.cancelOrder ?? false;
+  const refundOrder = options.refundOrder ?? false;
+
   await client.query(
     `WITH item_quantities AS (
       SELECT
@@ -752,15 +759,34 @@ export async function releaseOrderInventory(
       FROM ${schema}.exhibit_order_items
       WHERE order_id = $1
       GROUP BY ticket_category_id
+    ), updated_inventory AS (
+      UPDATE ${schema}.exhibit_session_inventories inventory
+      SET
+        reserved_quantity = GREATEST(inventory.reserved_quantity - item_quantities.quantity, 0),
+        updated_at = NOW()
+      FROM item_quantities
+      WHERE inventory.session_id = $2
+        AND inventory.ticket_category_id = item_quantities.ticket_category_id
+        AND (SELECT released_at FROM ${schema}.exhibit_orders WHERE id = $1) IS NULL
+      RETURNING inventory.ticket_category_id
+    ), updated_order AS (
+      UPDATE ${schema}.exhibit_orders
+      SET
+        released_at = COALESCE(released_at, NOW()),
+        refunded_at = CASE
+          WHEN $4::boolean THEN COALESCE(refunded_at, NOW())
+          ELSE refunded_at
+        END,
+        cancelled_at = CASE
+          WHEN $3::boolean THEN COALESCE(cancelled_at, NOW())
+          ELSE cancelled_at
+        END,
+        updated_at = NOW()
+      WHERE id = $1
+      RETURNING id
     )
-    UPDATE ${schema}.exhibit_session_inventories inventory
-    SET
-      reserved_quantity = GREATEST(inventory.reserved_quantity - item_quantities.quantity, 0),
-      updated_at = NOW()
-    FROM item_quantities
-    WHERE inventory.session_id = $2
-      AND inventory.ticket_category_id = item_quantities.ticket_category_id`,
-    [orderId, sessionId],
+    SELECT id FROM updated_order`,
+    [orderId, sessionId, cancelOrder, refundOrder],
   );
 }
 
@@ -864,14 +890,12 @@ export async function markOrderRefundedDirect(
     paid_at: Date | null;
     cancelled_at: Date | null;
     refunded_at: Date | null;
-    released_at: Date | null;
     session_id: string;
   }>(
     `SELECT
       paid_at,
       cancelled_at,
       refunded_at,
-      released_at,
       session_id
     FROM ${schema}.exhibit_orders
     WHERE id = $1
@@ -892,18 +916,12 @@ export async function markOrderRefundedDirect(
     throw new OrderDataError('Order status invalid', 'ORDER_STATUS_INVALID');
   }
 
-  if (order.released_at === null) {
-    await releaseOrderInventory(client, schema, orderId, order.session_id);
-  }
+  await releaseOrderInventory(client, schema, orderId, order.session_id, {
+    refundOrder: true,
+  });
 
   const { rows: [res] } = await client.query<{ refunded_at: Date }>(
-    `UPDATE ${schema}.exhibit_orders
-    SET
-      refunded_at = COALESCE(refunded_at, NOW()),
-      released_at = COALESCE(released_at, NOW()),
-      updated_at = NOW()
-    WHERE id = $1
-    RETURNING refunded_at`,
+    `SELECT refunded_at FROM ${schema}.exhibit_orders WHERE id = $1`,
     [orderId],
   );
 
@@ -919,18 +937,13 @@ export async function cancelOrder(
   const order = await lockOrderForCancel(client, schema, orderId, userId);
 
   if (order.status === 'PENDING_PAYMENT') {
-    if (order.released_at === null) {
-      await releaseOrderInventory(client, schema, order.id, order.session_id);
+    if (order.released_at !== null) {
+      return;
     }
 
-    await client.query(
-      `UPDATE ${schema}.exhibit_orders
-      SET
-        cancelled_at = COALESCE(cancelled_at, NOW()),
-        released_at = COALESCE(released_at, NOW()),
-        updated_at = NOW()
-      WHERE id = $1`,
-      [order.id]
+    await releaseOrderInventory(
+      client, schema, order.id, order.session_id,
+      { cancelOrder: true }
     );
 
     return;
@@ -977,15 +990,6 @@ export async function releaseExpiredOrders(
 
   for (const order of orders) {
     await releaseOrderInventory(client, schema, order.id, order.session_id);
-
-    await client.query(
-      `UPDATE ${schema}.exhibit_orders
-      SET
-        released_at = COALESCE(released_at, NOW()),
-        updated_at = NOW()
-      WHERE id = $1`,
-      [order.id]
-    );
   }
 
   return orders.length;
