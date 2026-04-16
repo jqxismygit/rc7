@@ -703,91 +703,86 @@ export async function releaseOrderInventory(
   const cancelOrder = options.cancelOrder ?? false;
   const refundOrder = options.refundOrder ?? false;
 
-  const { rows: orderRows } = await client.query<{
-    released_at: Date | null;
-    paid_at: Date | null;
-    cancelled_at: Date | null;
-    refunded_at: Date | null;
+  const { rows: [result] } = await client.query<{
+    status: 'OK' | 'ORDER_NOT_FOUND' | 'ORDER_STATUS_INVALID' | 'ALREADY_REFUNDED';
   }>(
-    `SELECT
-      released_at,
-      paid_at,
-      cancelled_at,
-      refunded_at
-    FROM ${schema}.exhibit_orders
-    WHERE id = $1
-    FOR UPDATE`,
-    [orderId],
+    `WITH locked_order AS (
+      SELECT
+        released_at,
+        paid_at,
+        cancelled_at,
+        refunded_at
+      FROM ${schema}.exhibit_orders
+      WHERE id = $1
+      FOR UPDATE
+    ), validation AS (
+      SELECT
+        CASE
+          WHEN NOT EXISTS (SELECT 1 FROM locked_order) THEN 'ORDER_NOT_FOUND'
+          WHEN $3::boolean AND EXISTS (SELECT 1 FROM locked_order WHERE refunded_at IS NOT NULL)
+            THEN 'ALREADY_REFUNDED'
+          WHEN $3::boolean
+            AND EXISTS (SELECT 1 FROM locked_order WHERE paid_at IS NULL OR cancelled_at IS NOT NULL)
+            THEN 'ORDER_STATUS_INVALID'
+          ELSE 'OK'
+        END AS status,
+        (SELECT released_at FROM locked_order LIMIT 1) AS released_at
+    ), item_quantities AS (
+      SELECT
+        ticket_category_id,
+        SUM(quantity)::int AS quantity
+      FROM ${schema}.exhibit_order_items
+      WHERE order_id = $1
+      GROUP BY ticket_category_id
+    ), locked_inventory AS (
+      SELECT inventory.ticket_category_id
+      FROM ${schema}.exhibit_session_inventories inventory
+      JOIN item_quantities ON item_quantities.ticket_category_id = inventory.ticket_category_id
+      JOIN validation ON validation.status = 'OK' AND validation.released_at IS NULL
+      WHERE inventory.session_id = $2
+      FOR UPDATE
+    ), updated_inventory AS (
+      UPDATE ${schema}.exhibit_session_inventories inventory
+      SET
+        reserved_quantity = GREATEST(inventory.reserved_quantity - item_quantities.quantity, 0),
+        updated_at = NOW()
+      FROM item_quantities
+      WHERE inventory.session_id = $2
+        AND inventory.ticket_category_id = item_quantities.ticket_category_id
+        AND EXISTS (
+          SELECT 1
+          FROM locked_inventory
+          WHERE locked_inventory.ticket_category_id = inventory.ticket_category_id
+        )
+      RETURNING inventory.ticket_category_id
+    ), updated_order AS (
+      UPDATE ${schema}.exhibit_orders
+      SET
+        released_at = COALESCE(released_at, NOW()),
+        refunded_at = CASE
+          WHEN $3::boolean THEN COALESCE(refunded_at, NOW())
+          ELSE refunded_at
+        END,
+        cancelled_at = CASE
+          WHEN $4::boolean THEN COALESCE(cancelled_at, NOW())
+          ELSE cancelled_at
+        END,
+        updated_at = NOW()
+      WHERE id = $1
+        AND (SELECT status FROM validation) = 'OK'
+      RETURNING id
+    )
+    SELECT status FROM validation`,
+    [orderId, sessionId, refundOrder, cancelOrder],
   );
 
-  if (orderRows.length === 0) {
+  if (result.status === 'ORDER_NOT_FOUND') {
     throw new OrderDataError('Order not found', 'ORDER_NOT_FOUND');
   }
 
-  const order = orderRows[0];
-
-  if (refundOrder) {
-    if (order.refunded_at !== null) {
-      return;
-    }
-
-    if (order.paid_at === null || order.cancelled_at !== null) {
-      throw new OrderDataError('Order status invalid', 'ORDER_STATUS_INVALID');
-    }
+  if (result.status === 'ORDER_STATUS_INVALID') {
+    throw new OrderDataError('Order status invalid', 'ORDER_STATUS_INVALID');
   }
-
-  const { rows: itemQuantities } = await client.query<AggregatedItem>(
-    `SELECT
-      ticket_category_id,
-      SUM(quantity)::int AS quantity
-    FROM ${schema}.exhibit_order_items
-    WHERE order_id = $1
-    GROUP BY ticket_category_id
-    ORDER BY ticket_category_id`,
-    [orderId],
-  );
-
-  if (order.released_at === null) {
-    for (const item of itemQuantities) {
-      await client.query(
-        `WITH locked_inventory AS (
-          SELECT ticket_category_id
-          FROM ${schema}.exhibit_session_inventories
-          WHERE session_id = $1
-            AND ticket_category_id = $2
-          FOR UPDATE
-        ), updated_inventory AS (
-          UPDATE ${schema}.exhibit_session_inventories inventory
-          SET
-            reserved_quantity = GREATEST(inventory.reserved_quantity - $3::int, 0),
-            updated_at = NOW()
-          WHERE inventory.session_id = $1
-            AND inventory.ticket_category_id = $2
-            AND EXISTS (SELECT 1 FROM locked_inventory)
-          RETURNING inventory.ticket_category_id
-        )
-        SELECT ticket_category_id FROM updated_inventory`,
-        [sessionId, item.ticket_category_id, item.quantity],
-      );
-    }
-  }
-
-  await client.query(
-    `UPDATE ${schema}.exhibit_orders
-    SET
-      released_at = COALESCE(released_at, NOW()),
-      refunded_at = CASE
-        WHEN $3::boolean THEN COALESCE(refunded_at, NOW())
-        ELSE refunded_at
-      END,
-      cancelled_at = CASE
-        WHEN $2::boolean THEN COALESCE(cancelled_at, NOW())
-        ELSE cancelled_at
-      END,
-      updated_at = NOW()
-    WHERE id = $1`,
-    [orderId, cancelOrder, refundOrder],
-  );
 }
 
 export async function setOrderCurrentRefund(
