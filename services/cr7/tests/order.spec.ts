@@ -874,6 +874,25 @@ describeFeature(feature, ({
     });
   });
 
+  Scenario('用户创建单个票数量超过 6 的订单项失败', (s: StepTest<ErrorContext>) => {
+    const { When, Then, context } = s;
+
+    When('用户 {string} 预订 7 张该展会的 {string} 场次的 {string}', async (_ctx, userName: string, sessionDate: string, ticketName: string) => {
+      try {
+        await createOrderWithItems(featureContext, sessionDate, [{ ticketName, quantity: 7 }], getUserTokenByName(featureContext, userName));
+      } catch (error) {
+        context.lastError = error;
+      }
+    });
+
+    Then('创建失败，提示参数不合法', () => {
+      assertAPIError(context.lastError, {
+        status: 422,
+        messageIncludes: 'Parameters validation error',
+      });
+    });
+  });
+
   Scenario('管理员可以查看所有订单列表', (s: StepTest<OrderListContext & OrderResultContext>) => {
     const { Given, When, Then, And, context } = s;
 

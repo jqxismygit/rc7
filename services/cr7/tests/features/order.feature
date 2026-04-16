@@ -114,6 +114,10 @@ Feature: Order ticket
     When 用户 "Alice" 预订 0 张该展会的 "3天后" 场次的 "成人票"
     Then 创建失败，提示参数不合法
 
+  Scenario: 用户创建单个票数量超过 6 的订单项失败
+    When 用户 "Alice" 预订 7 张该展会的 "3天后" 场次的 "成人票"
+    Then 创建失败，提示参数不合法
+
   Scenario: 管理员可以查看所有订单列表
    Given 用户 "Alice" 已成功预订 1 张该展会的 "3天后" 场次的 "成人票"
     When 管理员查看订单列表
