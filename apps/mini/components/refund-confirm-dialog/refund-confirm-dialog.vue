@@ -18,7 +18,10 @@
             @click="selectIndex(index)"
           >
             <text class="rcd-reason-label">{{ item.label }}</text>
-            <view class="rcd-radio" :class="{ checked: selectedIndex === index }">
+            <view
+              class="rcd-radio"
+              :class="{ checked: selectedIndex === index }"
+            >
               <view v-if="selectedIndex === index" class="rcd-radio-dot" />
             </view>
           </view>
@@ -29,7 +32,6 @@
         <button
           class="rcd-btn rcd-btn-cancel"
           hover-class="none"
-          plain
           @click="onCancel"
         >
           {{ cancelText }}
@@ -37,7 +39,6 @@
         <button
           class="rcd-btn rcd-btn-confirm"
           hover-class="none"
-          plain
           @click="onConfirm"
         >
           {{ confirmText }}
@@ -187,14 +188,12 @@ export default {
   border-radius: 28rpx;
   display: flex;
   flex-direction: column;
-  gap: 60rpx;
 }
 
 .rcd-header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0;
   flex-shrink: 0;
 }
 
@@ -220,8 +219,9 @@ export default {
 .rcd-reason-wrap {
   flex-shrink: 0;
   width: 100%;
-  max-height: 640rpx;
   overflow-y: auto;
+  margin-top: 46rpx;
+  margin-bottom: 60rpx;
 }
 
 .rcd-reason-list {
@@ -238,6 +238,7 @@ export default {
   padding: 28rpx 21rpx;
   box-sizing: border-box;
   border-radius: 16rpx;
+  border: 1rpx solid #2a2a2a;
 }
 
 .rcd-reason-row.is-selected {
@@ -257,8 +258,8 @@ export default {
 }
 
 .rcd-radio {
-  width: 42rpx;
-  height: 42rpx;
+  width: 35rpx;
+  height: 35rpx;
   border-radius: 50%;
   border: 2rpx solid #ffffff;
   box-sizing: border-box;
@@ -273,8 +274,8 @@ export default {
 }
 
 .rcd-radio-dot {
-  width: 22rpx;
-  height: 22rpx;
+  width: 25rpx;
+  height: 25rpx;
   border-radius: 50%;
   background: $cr7-gold;
 }
@@ -287,30 +288,34 @@ export default {
 }
 
 .rcd-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: 1;
   height: 81rpx;
-  line-height: 81rpx;
-  border-radius: 30rpx;
+  border-radius: 52rpx;
   font-size: 32rpx;
   font-weight: 500;
   font-family: "PingFang SC", sans-serif;
   padding: 0;
   margin: 0;
+  line-height: 1;
 }
 
 .rcd-btn::after {
-  border: none;
+  display: none;
 }
 
 .rcd-btn-cancel {
-  color: $cr7-gold;
-  background: transparent;
-  border: 3rpx solid $cr7-gold;
+  color: $cr7-gold !important;
+  background: transparent !important;
+  border: 3rpx solid $cr7-gold !important;
 }
 
 .rcd-btn-confirm {
-  color: $cr7-black;
-  background: $cr7-gold;
+  color: $cr7-black !important;
+  background: $cr7-gold !important;
+  border: none !important;
   box-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.05);
 }
 </style>
