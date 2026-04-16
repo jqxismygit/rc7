@@ -15,6 +15,8 @@ pnpm -w s build
 echo "deploy to $SERVER";
 rsync -aP  etc                                                           "$SERVER:";
 rsync -aP  etc/cr7.service                                               "$SERVER:.config/systemd/user/";
+rsync -aP  etc/cr7-expire-orders.service                                 "$SERVER:.config/systemd/user/";
+rsync -aP  etc/cr7-expire-orders.timer                                   "$SERVER:.config/systemd/user/";
 rsync -aP ./{pnpm-workspace.yaml,pnpm-lock.yaml,package.json}            "$SERVER:";
 
 echo "install dependence...";

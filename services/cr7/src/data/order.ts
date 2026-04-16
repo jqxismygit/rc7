@@ -32,11 +32,6 @@ type OrderLockRow = {
   status: Order.OrderStatus;
 };
 
-type RefundSettlementRow = {
-  session_id: string;
-  released_at: string | null;
-};
-
 type ExpiredOrderRow = {
   id: string;
   session_id: string;
@@ -590,8 +585,7 @@ export async function hideOrder(
     LEFT JOIN ${schema}.order_refunds current_refund
       ON current_refund.out_refund_no = o.current_refund_out_refund_no
     WHERE o.id = $1
-      AND o.user_id = $2
-    FOR UPDATE OF o`,
+      AND o.user_id = $2`,
     [orderId, userId]
   );
 
@@ -703,48 +697,54 @@ export async function createOrder(
   return getOrderById(client, schema, createdOrder.id);
 }
 
-async function lockOrderForCancel(
-  client: DBClient,
-  schema: string,
-  orderId: string,
-  userId: string
-): Promise<OrderLockRow> {
-  const { rows } = await client.query<OrderLockRow>(
-    `SELECT
-      o.id,
-      o.user_id,
-      o.session_id,
-      o.released_at,
-      ${getOrderStatusCase({
-        refundedAtExpr: 'o.refunded_at',
-        refundStatusExpr: 'current_refund.status',
-        paidAtExpr: 'o.paid_at',
-        cancelledAtExpr: 'o.cancelled_at',
-        expiresAtExpr: 'o.expires_at',
-      })} AS status
-    FROM ${schema}.exhibit_orders o
-    LEFT JOIN ${schema}.order_refunds current_refund
-      ON current_refund.out_refund_no = o.current_refund_out_refund_no
-    WHERE o.id = $1
-      AND o.user_id = $2
-    FOR UPDATE OF o`,
-    [orderId, userId]
-  );
-
-  if (rows.length === 0) {
-    throw new OrderDataError('Order not found', 'ORDER_NOT_FOUND');
-  }
-
-  return rows[0];
-}
 
 export async function releaseOrderInventory(
   client: DBClient,
   schema: string,
   orderId: string,
   sessionId: string,
+  options: {
+    cancelOrder?: boolean;
+    refundOrder?: boolean;
+  } = {},
 ) {
-  const { rows: items } = await client.query<AggregatedItem>(
+  const cancelOrder = options.cancelOrder ?? false;
+  const refundOrder = options.refundOrder ?? false;
+
+  const { rows: orderRows } = await client.query<{
+    released_at: Date | null;
+    paid_at: Date | null;
+    cancelled_at: Date | null;
+    refunded_at: Date | null;
+  }>(
+    `SELECT
+      released_at,
+      paid_at,
+      cancelled_at,
+      refunded_at
+    FROM ${schema}.exhibit_orders
+    WHERE id = $1
+    FOR UPDATE`,
+    [orderId],
+  );
+
+  if (orderRows.length === 0) {
+    throw new OrderDataError('Order not found', 'ORDER_NOT_FOUND');
+  }
+
+  const order = orderRows[0];
+
+  if (refundOrder) {
+    if (order.refunded_at !== null) {
+      return;
+    }
+
+    if (order.paid_at === null || order.cancelled_at !== null) {
+      throw new OrderDataError('Order status invalid', 'ORDER_STATUS_INVALID');
+    }
+  }
+
+  const { rows: itemQuantities } = await client.query<AggregatedItem>(
     `SELECT
       ticket_category_id,
       SUM(quantity)::int AS quantity
@@ -752,27 +752,50 @@ export async function releaseOrderInventory(
     WHERE order_id = $1
     GROUP BY ticket_category_id
     ORDER BY ticket_category_id`,
-    [orderId]
+    [orderId],
   );
 
-  if (items.length === 0) {
-    return;
+  if (order.released_at === null) {
+    for (const item of itemQuantities) {
+      await client.query(
+        `WITH locked_inventory AS (
+          SELECT ticket_category_id
+          FROM ${schema}.exhibit_session_inventories
+          WHERE session_id = $1
+            AND ticket_category_id = $2
+          FOR UPDATE
+        ), updated_inventory AS (
+          UPDATE ${schema}.exhibit_session_inventories inventory
+          SET
+            reserved_quantity = GREATEST(inventory.reserved_quantity - $3::int, 0),
+            updated_at = NOW()
+          WHERE inventory.session_id = $1
+            AND inventory.ticket_category_id = $2
+            AND EXISTS (SELECT 1 FROM locked_inventory)
+          RETURNING inventory.ticket_category_id
+        )
+        SELECT ticket_category_id FROM updated_inventory`,
+        [sessionId, item.ticket_category_id, item.quantity],
+      );
+    }
   }
 
-  const ticketCategoryIds = items.map(item => item.ticket_category_id);
-  await lockInventories(client, schema, sessionId, ticketCategoryIds);
-
-  for (const item of items) {
-    await client.query(
-      `UPDATE ${schema}.exhibit_session_inventories
-      SET
-        reserved_quantity = GREATEST(reserved_quantity - $3, 0),
-        updated_at = NOW()
-      WHERE session_id = $1
-        AND ticket_category_id = $2`,
-      [sessionId, item.ticket_category_id, item.quantity]
-    );
-  }
+  await client.query(
+    `UPDATE ${schema}.exhibit_orders
+    SET
+      released_at = COALESCE(released_at, NOW()),
+      refunded_at = CASE
+        WHEN $3::boolean THEN COALESCE(refunded_at, NOW())
+        ELSE refunded_at
+      END,
+      cancelled_at = CASE
+        WHEN $2::boolean THEN COALESCE(cancelled_at, NOW())
+        ELSE cancelled_at
+      END,
+      updated_at = NOW()
+    WHERE id = $1`,
+    [orderId, cancelOrder, refundOrder],
+  );
 }
 
 export async function setOrderCurrentRefund(
@@ -789,42 +812,6 @@ export async function setOrderCurrentRefund(
     WHERE id = $1`,
     [orderId, outRefundNo],
   );
-}
-
-export async function markOrderRefunded(
-  client: DBClient,
-  schema: string,
-  orderId: string,
-  outRefundNo: string,
-): Promise<RefundSettlementRow | null> {
-  const { rows } = await client.query<RefundSettlementRow>(
-    `WITH locked_order AS (
-      SELECT
-        session_id,
-        released_at
-      FROM ${schema}.exhibit_orders
-      WHERE id = $1
-        AND current_refund_out_refund_no = $2
-      FOR UPDATE
-    ), updated_order AS (
-      UPDATE ${schema}.exhibit_orders
-      SET
-        refunded_at = COALESCE(refunded_at, NOW()),
-        released_at = COALESCE(released_at, NOW()),
-        updated_at = NOW()
-      WHERE id = $1
-        AND current_refund_out_refund_no = $2
-      RETURNING id
-    )
-    SELECT
-      locked_order.session_id,
-      locked_order.released_at
-    FROM locked_order
-    JOIN updated_order ON TRUE`,
-    [orderId, outRefundNo],
-  );
-
-  return rows[0] ?? null;
 }
 
 export async function markOrderPaid(
@@ -871,50 +858,23 @@ export async function markOrderRefundedDirect(
   schema: string,
   orderId: string,
 ): Promise<{ refunded_at: Date }> {
-  const { rows } = await client.query<{
-    paid_at: Date | null;
-    cancelled_at: Date | null;
-    refunded_at: Date | null;
-    released_at: Date | null;
-    session_id: string;
-  }>(
-    `SELECT
-      paid_at,
-      cancelled_at,
-      refunded_at,
-      released_at,
-      session_id
+  const { rows: [order] = [null] } = await client.query<{ session_id: string }>(
+    `SELECT session_id
     FROM ${schema}.exhibit_orders
-    WHERE id = $1
-    FOR UPDATE`,
+    WHERE id = $1`,
     [orderId],
   );
 
-  if (rows.length === 0) {
+  if (order === null) {
     throw new OrderDataError('Order not found', 'ORDER_NOT_FOUND');
   }
 
-  const order = rows[0];
-  if (order.refunded_at !== null) {
-    return { refunded_at: order.refunded_at };
-  }
-
-  if (order.paid_at === null || order.cancelled_at !== null) {
-    throw new OrderDataError('Order status invalid', 'ORDER_STATUS_INVALID');
-  }
-
-  if (order.released_at === null) {
-    await releaseOrderInventory(client, schema, orderId, order.session_id);
-  }
+  await releaseOrderInventory(client, schema, orderId, order.session_id, {
+    refundOrder: true,
+  });
 
   const { rows: [res] } = await client.query<{ refunded_at: Date }>(
-    `UPDATE ${schema}.exhibit_orders
-    SET
-      refunded_at = COALESCE(refunded_at, NOW()),
-      released_at = COALESCE(released_at, NOW()),
-      updated_at = NOW()
-    WHERE id = $1
-    RETURNING refunded_at`,
+    `SELECT refunded_at FROM ${schema}.exhibit_orders WHERE id = $1`,
     [orderId],
   );
 
@@ -927,38 +887,34 @@ export async function cancelOrder(
   orderId: string,
   userId: string,
 ) {
-  const order = await lockOrderForCancel(client, schema, orderId, userId);
-
-  if (order.status === 'PENDING_PAYMENT') {
-    if (order.released_at === null) {
-      await releaseOrderInventory(client, schema, order.id, order.session_id);
-    }
-
-    await client.query(
-      `UPDATE ${schema}.exhibit_orders
-      SET
-        cancelled_at = COALESCE(cancelled_at, NOW()),
-        released_at = COALESCE(released_at, NOW()),
-        updated_at = NOW()
-      WHERE id = $1`,
-      [order.id]
-    );
-
-    return;
+  const order = await getOrderById(client, schema, orderId);
+  if (order.user_id !== userId) {
+    throw new OrderDataError('Order not found', 'ORDER_NOT_FOUND');
   }
 
   if (order.status === 'CANCELLED') {
     return;
   }
 
-  throw new OrderDataError('Order status invalid', 'ORDER_STATUS_INVALID');
+  if (order.status !== 'PENDING_PAYMENT') {
+    throw new OrderDataError('Order status invalid', 'ORDER_STATUS_INVALID');
+  }
+
+  if (order.released_at !== null) {
+    return;
+  }
+
+  await releaseOrderInventory(
+    client, schema, order.id, order.session_id,
+    { cancelOrder: true }
+  );
 }
 
-async function lockExpiredOrders(
+async function listExpiredOrders(
   client: DBClient,
   schema: string,
-  now: Date,
-  batchSize: number,
+  now: Date = new Date(),
+  batchSize: number = 100,
 ): Promise<ExpiredOrderRow[]> {
   const { rows } = await client.query<ExpiredOrderRow>(
     `SELECT
@@ -972,7 +928,7 @@ async function lockExpiredOrders(
     ORDER BY expires_at
     LIMIT $2
     FOR UPDATE SKIP LOCKED`,
-    [now.toISOString(), batchSize]
+    [now, batchSize]
   );
 
   return rows;
@@ -981,22 +937,13 @@ async function lockExpiredOrders(
 export async function releaseExpiredOrders(
   client: DBClient,
   schema: string,
-  now: Date,
-  batchSize: number,
+  now: Date = new Date(),
+  batchSize: number = 100,
 ): Promise<number> {
-  const orders = await lockExpiredOrders(client, schema, now, batchSize);
+  const orders = await listExpiredOrders(client, schema, now, batchSize);
 
   for (const order of orders) {
     await releaseOrderInventory(client, schema, order.id, order.session_id);
-
-    await client.query(
-      `UPDATE ${schema}.exhibit_orders
-      SET
-        released_at = COALESCE(released_at, NOW()),
-        updated_at = NOW()
-      WHERE id = $1`,
-      [order.id]
-    );
   }
 
   return orders.length;
