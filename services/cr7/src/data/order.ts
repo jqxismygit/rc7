@@ -697,39 +697,6 @@ export async function createOrder(
   return getOrderById(client, schema, createdOrder.id);
 }
 
-async function lockOrderForCancel(
-  client: DBClient,
-  schema: string,
-  orderId: string,
-  userId: string
-): Promise<OrderLockRow> {
-  const { rows } = await client.query<OrderLockRow>(
-    `SELECT
-      o.id,
-      o.user_id,
-      o.session_id,
-      o.released_at,
-      ${getOrderStatusCase({
-        refundedAtExpr: 'o.refunded_at',
-        refundStatusExpr: 'current_refund.status',
-        paidAtExpr: 'o.paid_at',
-        cancelledAtExpr: 'o.cancelled_at',
-        expiresAtExpr: 'o.expires_at',
-      })} AS status
-    FROM ${schema}.exhibit_orders o
-    LEFT JOIN ${schema}.order_refunds current_refund
-      ON current_refund.out_refund_no = o.current_refund_out_refund_no
-    WHERE o.id = $1
-      AND o.user_id = $2`,
-    [orderId, userId]
-  );
-
-  if (rows.length === 0) {
-    throw new OrderDataError('Order not found', 'ORDER_NOT_FOUND');
-  }
-
-  return rows[0];
-}
 
 export async function releaseOrderInventory(
   client: DBClient,
@@ -920,33 +887,34 @@ export async function cancelOrder(
   orderId: string,
   userId: string,
 ) {
-  const order = await lockOrderForCancel(client, schema, orderId, userId);
-
-  if (order.status === 'PENDING_PAYMENT') {
-    if (order.released_at !== null) {
-      return;
-    }
-
-    await releaseOrderInventory(
-      client, schema, order.id, order.session_id,
-      { cancelOrder: true }
-    );
-
-    return;
+  const order = await getOrderById(client, schema, orderId);
+  if (order.user_id !== userId) {
+    throw new OrderDataError('Order not found', 'ORDER_NOT_FOUND');
   }
 
   if (order.status === 'CANCELLED') {
     return;
   }
 
-  throw new OrderDataError('Order status invalid', 'ORDER_STATUS_INVALID');
+  if (order.status !== 'PENDING_PAYMENT') {
+    throw new OrderDataError('Order status invalid', 'ORDER_STATUS_INVALID');
+  }
+
+  if (order.released_at !== null) {
+    return;
+  }
+
+  await releaseOrderInventory(
+    client, schema, order.id, order.session_id,
+    { cancelOrder: true }
+  );
 }
 
-async function lockExpiredOrders(
+async function listExpiredOrders(
   client: DBClient,
   schema: string,
-  now: Date,
-  batchSize: number,
+  now: Date = new Date(),
+  batchSize: number = 100,
 ): Promise<ExpiredOrderRow[]> {
   const { rows } = await client.query<ExpiredOrderRow>(
     `SELECT
@@ -960,7 +928,7 @@ async function lockExpiredOrders(
     ORDER BY expires_at
     LIMIT $2
     FOR UPDATE SKIP LOCKED`,
-    [now.toISOString(), batchSize]
+    [now, batchSize]
   );
 
   return rows;
@@ -969,10 +937,10 @@ async function lockExpiredOrders(
 export async function releaseExpiredOrders(
   client: DBClient,
   schema: string,
-  now: Date,
-  batchSize: number,
+  now: Date = new Date(),
+  batchSize: number = 100,
 ): Promise<number> {
-  const orders = await lockExpiredOrders(client, schema, now, batchSize);
+  const orders = await listExpiredOrders(client, schema, now, batchSize);
 
   for (const order of orders) {
     await releaseOrderInventory(client, schema, order.id, order.session_id);
