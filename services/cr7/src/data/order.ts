@@ -24,14 +24,6 @@ type InventoryRow = {
   reserved_quantity: number;
 };
 
-type OrderLockRow = {
-  id: string;
-  user_id: string;
-  session_id: string;
-  released_at: string | null;
-  status: Order.OrderStatus;
-};
-
 type ExpiredOrderRow = {
   id: string;
   session_id: string;
