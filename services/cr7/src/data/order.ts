@@ -744,35 +744,24 @@ export async function releaseOrderInventory(
   orderId: string,
   sessionId: string,
 ) {
-  const { rows: items } = await client.query<AggregatedItem>(
-    `SELECT
-      ticket_category_id,
-      SUM(quantity)::int AS quantity
-    FROM ${schema}.exhibit_order_items
-    WHERE order_id = $1
-    GROUP BY ticket_category_id
-    ORDER BY ticket_category_id`,
-    [orderId]
+  await client.query(
+    `WITH item_quantities AS (
+      SELECT
+        ticket_category_id,
+        SUM(quantity)::int AS quantity
+      FROM ${schema}.exhibit_order_items
+      WHERE order_id = $1
+      GROUP BY ticket_category_id
+    )
+    UPDATE ${schema}.exhibit_session_inventories inventory
+    SET
+      reserved_quantity = GREATEST(inventory.reserved_quantity - item_quantities.quantity, 0),
+      updated_at = NOW()
+    FROM item_quantities
+    WHERE inventory.session_id = $2
+      AND inventory.ticket_category_id = item_quantities.ticket_category_id`,
+    [orderId, sessionId],
   );
-
-  if (items.length === 0) {
-    return;
-  }
-
-  const ticketCategoryIds = items.map(item => item.ticket_category_id);
-  await lockInventories(client, schema, sessionId, ticketCategoryIds);
-
-  for (const item of items) {
-    await client.query(
-      `UPDATE ${schema}.exhibit_session_inventories
-      SET
-        reserved_quantity = GREATEST(reserved_quantity - $3, 0),
-        updated_at = NOW()
-      WHERE session_id = $1
-        AND ticket_category_id = $2`,
-      [sessionId, item.ticket_category_id, item.quantity]
-    );
-  }
 }
 
 export async function setOrderCurrentRefund(
