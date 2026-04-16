@@ -849,8 +849,8 @@ describeFeature(feature, ({
 
     Then('创建失败，提示参数不合法', () => {
       assertAPIError(context.lastError, {
-        status: 400,
-        messageIncludes: '参数不合法',
+        status: 422,
+        messageIncludes: 'Parameters validation error',
       });
     });
   });
@@ -868,8 +868,8 @@ describeFeature(feature, ({
 
     Then('创建失败，提示参数不合法', () => {
       assertAPIError(context.lastError, {
-        status: 400,
-        messageIncludes: '参数不合法',
+        status: 422,
+        messageIncludes: 'Parameters validation error',
       });
     });
   });
