@@ -49,6 +49,8 @@ interface FeatureContext {
   adminToken: string;
   draftExhibition?: DraftExhibition;
   exhibition?: Exhibition.Exhibition;
+  draftTicket?: DraftTicketCategory;
+  ticket?: Exhibition.TicketCategory;
 }
 
 describeFeature(feature, ({
@@ -179,6 +181,69 @@ describeFeature(feature, ({
       const [exhibition] = await createExhibitions(apiServer, adminToken, 1);
       featureContext.exhibition = exhibition;
     });
+
+    Given('为该展览准备票种草稿 {string}', (_ctx, categoryName: string) => {
+      featureContext.draftTicket = { name: categoryName } as DraftTicketCategory;
+    });
+
+    And('票价为 {number}', (_ctx, price: number) => {
+      const { draftTicket } = featureContext;
+      expect(draftTicket).toBeTruthy();
+      draftTicket!.price = price;
+    });
+
+    And('有效期为 {number} 天', (_ctx, days: number) => {
+      const { draftTicket } = featureContext;
+      expect(draftTicket).toBeTruthy();
+      draftTicket!.valid_duration_days = days;
+    });
+
+    And('退票策略为不可退', () => {
+      const { draftTicket } = featureContext;
+      expect(draftTicket).toBeTruthy();
+      draftTicket!.refund_policy = 'NON_REFUNDABLE';
+    });
+
+    And('退票策略为场次前 48 小时可退', () => {
+      const { draftTicket } = featureContext;
+      expect(draftTicket).toBeTruthy();
+      draftTicket!.refund_policy = 'REFUNDABLE_48H_BEFORE';
+    });
+
+    And('准入人数为 {number}', (_ctx, count: number) => {
+      const { draftTicket } = featureContext;
+      expect(draftTicket).toBeTruthy();
+      draftTicket!.admittance = count;
+    });
+
+    When('向展览添加票种', async () => {
+      const { apiServer, adminToken, exhibition, draftTicket } = featureContext;
+      expect(exhibition).toBeTruthy();
+      expect(draftTicket).toBeTruthy();
+
+      featureContext.ticket = await addTicketCategory(
+        apiServer,
+        adminToken,
+        exhibition!.id,
+        draftTicket!,
+      );
+    });
+
+    And('已为该展览创建票种 {string}', async (_ctx, ticketName: string) => {
+      const { exhibition, apiServer, adminToken } = featureContext;
+      featureContext.ticket = await addTicketCategory(
+        apiServer,
+        adminToken,
+        exhibition!.id,
+        {
+          name: ticketName,
+          price: 150,
+          valid_duration_days: 10,
+          refund_policy: 'REFUNDABLE_48H_BEFORE',
+          admittance: 2,
+        },
+      );
+    });
   });
 
   Scenario(
@@ -255,61 +320,23 @@ describeFeature(feature, ({
     'add non-refundable ticket category to exhibition',
     (s: StepTest<{
       exhibition: Exhibition.Exhibition;
-      draftTicket: DraftTicketCategory;
       ticket: Exhibition.TicketCategory;
     }>) => {
-      const { Given, When, Then, And, context } = s;
-
-      Given('为该展览准备票种草稿 {string}', (_ctx, categoryName: string) => {
-        context.draftTicket = { name: categoryName } as DraftTicketCategory;
-      });
-
-      And('票价为 {number}', (_ctx, price: number) => {
-        context.draftTicket!.price = price;
-      });
-
-      And('有效期为 {number} 天', (_ctx, days: number) => {
-        context.draftTicket!.valid_duration_days = days;
-      });
-
-      And('退票策略为不可退', () => {
-        context.draftTicket!.refund_policy = 'NON_REFUNDABLE';
-      });
-
-      And('准入人数为 {number}', (_ctx, count: number) => {
-        context.draftTicket!.admittance = count;
-      });
-
-      When('向展览添加票种', async () => {
-        const { exhibition } = featureContext;
-        const { draftTicket } = context;
-        expect(exhibition).toBeTruthy();
-        expect(draftTicket).toBeTruthy();
-
-        const { apiServer } = featureContext;
-        const category = await addTicketCategory(
-          apiServer,
-          featureContext.adminToken,
-          exhibition!.id,
-          draftTicket,
-        );
-
-        context.ticket = category;
-      });
+      const { Then, And } = s;
 
       Then('票种 {string} 添加成功', (_ctx, categoryName: string) => {
-        const ticket = context.ticket!;
-        assertTicketCategory(ticket);
-        expect(ticket.name).toBe(categoryName);
-        expect(ticket.price).toBe(100);
-        expect(ticket.valid_duration_days).toBe(1);
-        expect(ticket.refund_policy).toBe('NON_REFUNDABLE');
-        expect(ticket.admittance).toBe(1);
+        const { ticket } = featureContext;
+        assertTicketCategory(ticket!);
+        expect(ticket!.name).toBe(categoryName);
+        expect(ticket!.price).toBe(100);
+        expect(ticket!.valid_duration_days).toBe(1);
+        expect(ticket!.refund_policy).toBe('NON_REFUNDABLE');
+        expect(ticket!.admittance).toBe(1);
       });
 
       And('展览包含 {number} 个票种 {string}', async (_ctx, count: number, categoryName: string) => {
         const { exhibition } = featureContext;
-        const { ticket } = context;
+        const { ticket } = featureContext;
         const { apiServer } = featureContext;
         const categories = await getTicketCategories(
           apiServer,
@@ -327,63 +354,25 @@ describeFeature(feature, ({
     'add a refundable ticket category',
     (s: StepTest<{
       exhibition: Exhibition.Exhibition;
-      draftTicket: DraftTicketCategory;
       ticket: Exhibition.TicketCategory;
     }>) => {
-      const { Given, When, Then, And, context } = s;
-
-      Given('为该展览准备票种草稿 {string}', (_ctx, categoryName: string) => {
-        context.draftTicket = { name: categoryName } as DraftTicketCategory;
-      });
-
-      And('票价为 {number}', (_ctx, price: number) => {
-        context.draftTicket!.price = price;
-      });
-
-      And('有效期为 {number} 天', (_ctx, days: number) => {
-        context.draftTicket!.valid_duration_days = days;
-      });
-
-      And('退票策略为场次前 48 小时可退', () => {
-        context.draftTicket!.refund_policy = 'REFUNDABLE_48H_BEFORE';
-      });
-
-      And('准入人数为 {number}', (_ctx, count: number) => {
-        context.draftTicket!.admittance = count;
-      });
-
-      When('向展览添加票种', async () => {
-        const { exhibition } = featureContext;
-        const { draftTicket } = context;
-        expect(exhibition).toBeTruthy();
-        expect(draftTicket).toBeTruthy();
-
-        const { apiServer } = featureContext;
-        const ticket = await addTicketCategory(
-          apiServer,
-          featureContext.adminToken,
-          exhibition!.id,
-          draftTicket,
-        );
-
-        context.ticket = ticket;
-      });
+      const { Then, And } = s;
 
       Then('票种 {string} 添加成功', (_ctx, categoryName: string) => {
-        const ticket = context.ticket!;
-        assertTicketCategory(ticket);
-        expect(ticket.name).toBe(categoryName);
-        expect(ticket.price).toBe(150);
-        expect(ticket.valid_duration_days).toBe(10);
-        expect(ticket.refund_policy).toBe('REFUNDABLE_48H_BEFORE');
-        expect(ticket.admittance).toBe(2);
+        const { ticket } = featureContext;
+        assertTicketCategory(ticket!);
+        expect(ticket!.name).toBe(categoryName);
+        expect(ticket!.price).toBe(150);
+        expect(ticket!.valid_duration_days).toBe(10);
+        expect(ticket!.refund_policy).toBe('REFUNDABLE_48H_BEFORE');
+        expect(ticket!.admittance).toBe(2);
       });
 
       And(
         '展览包含 {number} 个票种 {string}',
         async (_ctx, count: number, name: string) => {
           const { exhibition } = featureContext;
-          const { ticket } = context;
+          const { ticket } = featureContext;
           const { apiServer } = featureContext;
           const categories = await getTicketCategories(
             apiServer,
@@ -806,47 +795,35 @@ describeFeature(feature, ({
       }>) => {
         const { And, When, Then, context } = s;
 
-        And('已为该展览创建票种 {string}', async (_ctx, ticketName: string) => {
-          const { exhibition } = featureContext;
-          const { apiServer, adminToken } = featureContext;
-          context.ticket = await addTicketCategory(
-            apiServer,
-            adminToken,
-            exhibition!.id,
-            {
-              name: ticketName,
-              price: 150,
-              valid_duration_days: 10,
-              refund_policy: 'REFUNDABLE_48H_BEFORE',
-              admittance: 2,
-            },
-          );
-          context.ticketPatch = {};
-        });
-
         And('准备更新票种名称为 {string}', (_ctx, name: string) => {
+          context.ticketPatch ??= {};
           context.ticketPatch!.name = name;
         });
 
         And('准备更新票种价格为 {number}', (_ctx, price: number) => {
+          context.ticketPatch ??= {};
           context.ticketPatch!.price = price;
         });
 
         And('准备更新票种有效期为 {number} 天', (_ctx, validDurationDays: number) => {
+          context.ticketPatch ??= {};
           context.ticketPatch!.valid_duration_days = validDurationDays;
         });
 
         And('准备更新票种退票策略为不可退', () => {
+          context.ticketPatch ??= {};
           context.ticketPatch!.refund_policy = 'NON_REFUNDABLE';
         });
 
         And('准备更新票种准入人数为 {number}', (_ctx, admittance: number) => {
+          context.ticketPatch ??= {};
           context.ticketPatch!.admittance = admittance;
         });
 
         When('更新票种信息', async () => {
           const { exhibition } = featureContext;
-          const { ticket, ticketPatch } = context;
+          const { ticket } = featureContext;
+          const { ticketPatch } = context;
           const { apiServer, adminToken } = featureContext;
           context.ticket = await updateTicketCategory(
             apiServer,
@@ -858,13 +835,13 @@ describeFeature(feature, ({
         });
 
         Then('票种信息更新成功', () => {
-          const ticket = context.ticket!;
-          assertTicketCategory(ticket);
-          expect(ticket.name).toBe('vip');
-          expect(ticket.price).toBe(199);
-          expect(ticket.valid_duration_days).toBe(30);
-          expect(ticket.refund_policy).toBe('NON_REFUNDABLE');
-          expect(ticket.admittance).toBe(4);
+          const { ticket } = context;
+          assertTicketCategory(ticket!);
+          expect(ticket!.name).toBe('vip');
+          expect(ticket!.price).toBe(199);
+          expect(ticket!.valid_duration_days).toBe(30);
+          expect(ticket!.refund_policy).toBe('NON_REFUNDABLE');
+          expect(ticket!.admittance).toBe(4);
         });
 
         When('管理员查看展会票种列表', async () => {
@@ -915,26 +892,9 @@ describeFeature(feature, ({
       }>) => {
         const { And, When, Then, context } = s;
 
-        And('已为该展览创建票种 {string}', async (_ctx, ticketName: string) => {
-          const { exhibition } = featureContext;
-          const { apiServer, adminToken } = featureContext;
-          context.ticket = await addTicketCategory(
-            apiServer,
-            adminToken,
-            exhibition!.id,
-            {
-              name: ticketName,
-              price: 150,
-              valid_duration_days: 10,
-              refund_policy: 'REFUNDABLE_48H_BEFORE',
-              admittance: 2,
-            },
-          );
-        });
-
         When('不提供任何参数更新票种', async () => {
           const { exhibition } = featureContext;
-          const { ticket } = context;
+          const { ticket } = featureContext;
           const { apiServer, adminToken } = featureContext;
           context.ticketUpdatePromise = updateTicketCategory(
             apiServer,
