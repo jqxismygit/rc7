@@ -47,8 +47,8 @@
   - Request Body:
   ```ts
   {
-    sessionDateStart?: string; // yyyy-MM-dd
-    sessionDateEnd?: string;   // yyyy-MM-dd
+    start_session_date?: string; // yyyy-MM-dd
+    end_session_date?: string;   // yyyy-MM-dd
   }
   ```
 - Response Status:
@@ -81,8 +81,8 @@
 - Request Body:
   ```ts
   {
-    sessionDateStart?: string; // yyyy-MM-dd
-    sessionDateEnd?: string;   // yyyy-MM-dd
+    start_session_date?: string; // yyyy-MM-dd
+    end_session_date?: string;   // yyyy-MM-dd
   }
   ```
 - Response Status:
@@ -93,7 +93,7 @@
 - 关键特性：
   - 仅管理员可执行该接口
   - 同步请求会推送到 MOP `sku/push` 接口
-  - 支持按场次日期范围筛选同步：`sessionDateStart` 到 `sessionDateEnd`（闭区间）
+  - 支持按场次日期范围筛选同步：`start_session_date` 到 `end_session_date`（闭区间）
   - 每个推送 sku 都包含对应场次 ID（`otShowId`）
   - `otSkuId` 使用 CR7 票种 ID，`name` 使用 CR7 票种名称
   - `otSkuStatus` 固定为有效（`1`）
@@ -118,8 +118,8 @@
 - Request Body:
   ```ts
   {
-    sessionDateStart?: string; // yyyy-MM-dd
-    sessionDateEnd?: string;   // yyyy-MM-dd
+    start_session_date?: string; // yyyy-MM-dd
+    end_session_date?: string;   // yyyy-MM-dd
   }
   ```
 - Response Status:
@@ -131,7 +131,7 @@
 - 关键特性：
   - 仅管理员可执行该接口
   - 同步请求会推送到 MOP `stock/push` 接口
-  - 支持按场次日期范围筛选同步：`sessionDateStart` 到 `sessionDateEnd`（闭区间）
+  - 支持按场次日期范围筛选同步：`start_session_date` 到 `end_session_date`（闭区间）
   - `otShowId` 使用 CR7 场次 ID，`otSkuId` 使用 CR7 票种 ID
   - `inventoryType` 固定为共享库存（`1`）
   - `stock` 取自对应场次下票种的当前可售库存数量
@@ -152,8 +152,8 @@
 - Request Body:
   ```ts
   {
-    sessionDateStart?: string; // yyyy-MM-dd
-    sessionDateEnd?: string;   // yyyy-MM-dd
+    start_session_date?: string; // yyyy-MM-dd
+    end_session_date?: string;   // yyyy-MM-dd
   }
   ```
 - Response Status:

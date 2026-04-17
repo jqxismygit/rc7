@@ -314,16 +314,16 @@ function getHeaderValue(headers: MopRequestHeaders, key: string): string | null 
 }
 
 function parseSessionDateRange(
-  sessionDateStart?: string,
-  sessionDateEnd?: string,
-): { sessionDateStartLabel: string | null; sessionDateEndLabel: string | null } {
-  const sessionDateStartLabel = sessionDateStart ? toDateLabel(sessionDateStart) : null;
-  const sessionDateEndLabel = sessionDateEnd ? toDateLabel(sessionDateEnd) : null;
+  start_session_date?: string,
+  end_session_date?: string,
+): { start_session_dateLabel: string | null; end_session_dateLabel: string | null } {
+  const start_session_dateLabel = start_session_date ? toDateLabel(start_session_date) : null;
+  const end_session_dateLabel = end_session_date ? toDateLabel(end_session_date) : null;
 
   if (
-    sessionDateStartLabel !== null &&
-    sessionDateEndLabel !== null &&
-    sessionDateStartLabel.localeCompare(sessionDateEndLabel) > 0
+    start_session_dateLabel !== null &&
+    end_session_dateLabel !== null &&
+    start_session_dateLabel.localeCompare(end_session_dateLabel) > 0
   ) {
     throw new MoleculerClientError(
       '场次日期范围不合法: 开始日期不能晚于结束日期',
@@ -332,20 +332,20 @@ function parseSessionDateRange(
     );
   }
 
-  return { sessionDateStartLabel, sessionDateEndLabel };
+  return { start_session_dateLabel, end_session_dateLabel };
 }
 
 function filterSessionsByDateRange(
   sessions: Exhibition.Session[],
-  sessionDateStartLabel: string | null,
-  sessionDateEndLabel: string | null,
+  start_session_dateLabel: string | null,
+  end_session_dateLabel: string | null,
 ): Exhibition.Session[] {
   return sessions.filter((session) => {
     const sessionDate = toDateLabel(session.session_date);
-    if (sessionDateStartLabel !== null && sessionDate.localeCompare(sessionDateStartLabel) < 0) {
+    if (start_session_dateLabel !== null && sessionDate.localeCompare(start_session_dateLabel) < 0) {
       return false;
     }
-    if (sessionDateEndLabel !== null && sessionDate.localeCompare(sessionDateEndLabel) > 0) {
+    if (end_session_dateLabel !== null && sessionDate.localeCompare(end_session_dateLabel) > 0) {
       return false;
     }
     return true;
@@ -403,8 +403,8 @@ export default class MoeService extends RC7BaseService {
           roles: ['admin'],
           params: {
             eid: 'string',
-            sessionDateStart: { type: 'string', optional: true },
-            sessionDateEnd: { type: 'string', optional: true },
+            start_session_date: { type: 'string', optional: true },
+            end_session_date: { type: 'string', optional: true },
           },
           handler: this.syncTicketsToMop,
         },
@@ -413,8 +413,8 @@ export default class MoeService extends RC7BaseService {
           roles: ['admin'],
           params: {
             eid: 'string',
-            sessionDateStart: { type: 'string', optional: true },
-            sessionDateEnd: { type: 'string', optional: true },
+            start_session_date: { type: 'string', optional: true },
+            end_session_date: { type: 'string', optional: true },
           },
           handler: this.syncStocksToMop,
         },
@@ -424,8 +424,8 @@ export default class MoeService extends RC7BaseService {
           params: {
             eid: 'string',
             tid: 'string',
-            sessionDateStart: { type: 'string', optional: true },
-            sessionDateEnd: { type: 'string', optional: true },
+            start_session_date: { type: 'string', optional: true },
+            end_session_date: { type: 'string', optional: true },
           },
           handler: this.syncTicketCalendarToMop,
         },
@@ -575,13 +575,13 @@ export default class MoeService extends RC7BaseService {
     ctx: Context<
       {
         eid: string;
-        sessionDateStart?: string;
-        sessionDateEnd?: string;
+        start_session_date?: string;
+        end_session_date?: string;
       },
       UserMeta & { $statusCode?: number }
     >
   ): Promise<void> {
-    const { eid, sessionDateStart, sessionDateEnd } = ctx.params;
+    const { eid, start_session_date, end_session_date } = ctx.params;
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
       'cr7.exhibition.get',
       { eid }
@@ -595,15 +595,15 @@ export default class MoeService extends RC7BaseService {
       { eid }
     );
 
-    const { sessionDateStartLabel, sessionDateEndLabel } = parseSessionDateRange(
-      sessionDateStart,
-      sessionDateEnd,
+    const { start_session_dateLabel, end_session_dateLabel } = parseSessionDateRange(
+      start_session_date,
+      end_session_date,
     );
 
     const filteredSessions = filterSessionsByDateRange(
       sessions,
-      sessionDateStartLabel,
-      sessionDateEndLabel,
+      start_session_dateLabel,
+      end_session_dateLabel,
     );
 
     const sortedSessions = sortSessionsByDateAndId(filteredSessions);
@@ -646,13 +646,13 @@ export default class MoeService extends RC7BaseService {
     ctx: Context<
       {
         eid: string;
-        sessionDateStart?: string;
-        sessionDateEnd?: string;
+        start_session_date?: string;
+        end_session_date?: string;
       },
       UserMeta & { $statusCode?: number }
     >
   ): Promise<void> {
-    const { eid, sessionDateStart, sessionDateEnd } = ctx.params;
+    const { eid, start_session_date, end_session_date } = ctx.params;
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
       'cr7.exhibition.get',
       { eid }
@@ -666,15 +666,15 @@ export default class MoeService extends RC7BaseService {
       { eid }
     );
 
-    const { sessionDateStartLabel, sessionDateEndLabel } = parseSessionDateRange(
-      sessionDateStart,
-      sessionDateEnd,
+    const { start_session_dateLabel, end_session_dateLabel } = parseSessionDateRange(
+      start_session_date,
+      end_session_date,
     );
 
     const filteredSessions = filterSessionsByDateRange(
       sessions,
-      sessionDateStartLabel,
-      sessionDateEndLabel,
+      start_session_dateLabel,
+      end_session_dateLabel,
     );
 
     const sortedSessions = sortSessionsByDateAndId(filteredSessions);
@@ -724,13 +724,13 @@ export default class MoeService extends RC7BaseService {
       {
         eid: string;
         tid: string;
-        sessionDateStart?: string;
-        sessionDateEnd?: string;
+        start_session_date?: string;
+        end_session_date?: string;
       },
       UserMeta & { $statusCode?: number }
     >
   ): Promise<void> {
-    const { eid, tid, sessionDateStart, sessionDateEnd } = ctx.params;
+    const { eid, tid, start_session_date, end_session_date } = ctx.params;
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>('cr7.exhibition.get', { eid });
     const ticket = await ctx.call<Exhibition.TicketCategory, { eid: string; tid: string }>(
       'cr7.exhibition.getTicket',
@@ -738,14 +738,14 @@ export default class MoeService extends RC7BaseService {
     );
     const sessions = await ctx.call<Exhibition.Session[], { eid: string }>('cr7.exhibition.getSessions', { eid });
 
-    const { sessionDateStartLabel, sessionDateEndLabel } = parseSessionDateRange(
-      sessionDateStart,
-      sessionDateEnd,
+    const { start_session_dateLabel, end_session_dateLabel } = parseSessionDateRange(
+      start_session_date,
+      end_session_date,
     );
     const filteredSessions = filterSessionsByDateRange(
       sessions,
-      sessionDateStartLabel,
-      sessionDateEndLabel,
+      start_session_dateLabel,
+      end_session_dateLabel,
     );
     const sortedSessions = sortSessionsByDateAndId(filteredSessions);
 

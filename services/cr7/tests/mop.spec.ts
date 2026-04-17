@@ -1361,8 +1361,8 @@ describeFeature(feature, ({
         featureContext.adminToken,
         featureContext.exhibition.id,
         {
-          sessionDateStart: toDateLabel(startDateLabel),
-          sessionDateEnd: toDateLabel(endDateLabel),
+          start_session_date: toDateLabel(startDateLabel),
+          end_session_date: toDateLabel(endDateLabel),
         },
       );
     });
@@ -1382,8 +1382,8 @@ describeFeature(feature, ({
         featureContext.adminToken,
         featureContext.exhibition.id,
         {
-          sessionDateStart: toDateLabel(startDateLabel),
-          sessionDateEnd: toDateLabel(endDateLabel),
+          start_session_date: toDateLabel(startDateLabel),
+          end_session_date: toDateLabel(endDateLabel),
         },
       );
     });
@@ -1408,8 +1408,8 @@ describeFeature(feature, ({
         featureContext.exhibition.id,
         ticket.id,
         {
-          sessionDateStart: toDateLabel(startDateLabel),
-          sessionDateEnd: toDateLabel(endDateLabel),
+          start_session_date: toDateLabel(startDateLabel),
+          end_session_date: toDateLabel(endDateLabel),
         },
       );
     });

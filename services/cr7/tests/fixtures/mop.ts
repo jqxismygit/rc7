@@ -172,8 +172,8 @@ export async function syncTicketsToMop(
   token: string,
   eid: string,
   options: {
-    sessionDateStart?: string;
-    sessionDateEnd?: string;
+    start_session_date?: string;
+    end_session_date?: string;
   } = {},
 ) {
   return postJSON<void>(
@@ -191,8 +191,8 @@ export async function syncStocksToMop(
   token: string,
   eid: string,
   options: {
-    sessionDateStart?: string;
-    sessionDateEnd?: string;
+    start_session_date?: string;
+    end_session_date?: string;
   } = {},
 ) {
   return postJSON<void>(
@@ -211,8 +211,8 @@ export async function syncTicketCalendarToMop(
   eid: string,
   tid: string,
   options: {
-    sessionDateStart?: string;
-    sessionDateEnd?: string;
+    start_session_date?: string;
+    end_session_date?: string;
   } = {},
 ) {
   return postJSON<void>(
