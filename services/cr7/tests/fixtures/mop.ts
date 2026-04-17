@@ -205,6 +205,26 @@ export async function syncStocksToMop(
   );
 }
 
+export async function syncTicketCalendarToMop(
+  server: Server,
+  token: string,
+  eid: string,
+  tid: string,
+  options: {
+    sessionDateStart?: string;
+    sessionDateEnd?: string;
+  } = {},
+) {
+  return postJSON<void>(
+    server,
+    `/exhibition/${eid}/tickets/${tid}/ota/mop/sync/calendar`,
+    {
+      token,
+      body: options,
+    },
+  );
+}
+
 export async function syncMopOrderToCr7(
   server: Server,
   body: MopOrderCreateRequest,

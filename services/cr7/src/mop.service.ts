@@ -313,6 +313,58 @@ function getHeaderValue(headers: MopRequestHeaders, key: string): string | null 
   return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
+function parseSessionDateRange(
+  sessionDateStart?: string,
+  sessionDateEnd?: string,
+): { sessionDateStartLabel: string | null; sessionDateEndLabel: string | null } {
+  const sessionDateStartLabel = sessionDateStart ? toDateLabel(sessionDateStart) : null;
+  const sessionDateEndLabel = sessionDateEnd ? toDateLabel(sessionDateEnd) : null;
+
+  if (
+    sessionDateStartLabel !== null &&
+    sessionDateEndLabel !== null &&
+    sessionDateStartLabel.localeCompare(sessionDateEndLabel) > 0
+  ) {
+    throw new MoleculerClientError(
+      '场次日期范围不合法: 开始日期不能晚于结束日期',
+      400,
+      'MOP_SESSION_DATE_RANGE_INVALID'
+    );
+  }
+
+  return { sessionDateStartLabel, sessionDateEndLabel };
+}
+
+function filterSessionsByDateRange(
+  sessions: Exhibition.Session[],
+  sessionDateStartLabel: string | null,
+  sessionDateEndLabel: string | null,
+): Exhibition.Session[] {
+  return sessions.filter((session) => {
+    const sessionDate = toDateLabel(session.session_date);
+    if (sessionDateStartLabel !== null && sessionDate.localeCompare(sessionDateStartLabel) < 0) {
+      return false;
+    }
+    if (sessionDateEndLabel !== null && sessionDate.localeCompare(sessionDateEndLabel) > 0) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function sortSessionsByDateAndId(sessions: Exhibition.Session[]): Exhibition.Session[] {
+  return [...sessions].sort((left, right) => {
+    const leftDate = toDateLabel(left.session_date);
+    const rightDate = toDateLabel(right.session_date);
+    const comparedDate = leftDate.localeCompare(rightDate);
+    if (comparedDate !== 0) {
+      return comparedDate;
+    }
+
+    return left.id.localeCompare(right.id);
+  });
+}
+
 export default class MoeService extends RC7BaseService {
   constructor(broker: ServiceBroker) {
     super(broker);
@@ -365,6 +417,17 @@ export default class MoeService extends RC7BaseService {
             sessionDateEnd: { type: 'string', optional: true },
           },
           handler: this.syncStocksToMop,
+        },
+        syncTicketCalendarToMop: {
+          rest: 'POST /:eid/tickets/:tid/ota/mop/sync/calendar',
+          roles: ['admin'],
+          params: {
+            eid: 'string',
+            tid: 'string',
+            sessionDateStart: { type: 'string', optional: true },
+            sessionDateEnd: { type: 'string', optional: true },
+          },
+          handler: this.syncTicketCalendarToMop,
         },
         receiveOrderFromMop: {
           rest: 'POST /order',
@@ -532,41 +595,18 @@ export default class MoeService extends RC7BaseService {
       { eid }
     );
 
-    const sessionDateStartLabel = sessionDateStart ? toDateLabel(sessionDateStart) : null;
-    const sessionDateEndLabel = sessionDateEnd ? toDateLabel(sessionDateEnd) : null;
+    const { sessionDateStartLabel, sessionDateEndLabel } = parseSessionDateRange(
+      sessionDateStart,
+      sessionDateEnd,
+    );
 
-    if (
-      sessionDateStartLabel !== null &&
-      sessionDateEndLabel !== null &&
-      sessionDateStartLabel.localeCompare(sessionDateEndLabel) > 0
-    ) {
-      throw new MoleculerClientError(
-        '场次日期范围不合法: 开始日期不能晚于结束日期',
-        400,
-        'MOP_SESSION_DATE_RANGE_INVALID'
-      );
-    }
+    const filteredSessions = filterSessionsByDateRange(
+      sessions,
+      sessionDateStartLabel,
+      sessionDateEndLabel,
+    );
 
-    const filteredSessions = sessions.filter((session) => {
-      const sessionDate = toDateLabel(session.session_date);
-      if (sessionDateStartLabel !== null && sessionDate.localeCompare(sessionDateStartLabel) < 0) {
-        return false;
-      }
-      if (sessionDateEndLabel !== null && sessionDate.localeCompare(sessionDateEndLabel) > 0) {
-        return false;
-      }
-      return true;
-    });
-
-    const sortedSessions = [...filteredSessions].sort((left, right) => {
-      const leftDate = toDateLabel(left.session_date);
-      const rightDate = toDateLabel(right.session_date);
-      const comparedDate = leftDate.localeCompare(rightDate);
-      if (comparedDate !== 0) {
-        return comparedDate;
-      }
-      return left.id.localeCompare(right.id);
-    });
+    const sortedSessions = sortSessionsByDateAndId(filteredSessions);
 
     const request: MopSkuSyncRequest = {
       otProjectId: exhibition.id,
@@ -626,41 +666,18 @@ export default class MoeService extends RC7BaseService {
       { eid }
     );
 
-    const sessionDateStartLabel = sessionDateStart ? toDateLabel(sessionDateStart) : null;
-    const sessionDateEndLabel = sessionDateEnd ? toDateLabel(sessionDateEnd) : null;
+    const { sessionDateStartLabel, sessionDateEndLabel } = parseSessionDateRange(
+      sessionDateStart,
+      sessionDateEnd,
+    );
 
-    if (
-      sessionDateStartLabel !== null &&
-      sessionDateEndLabel !== null &&
-      sessionDateStartLabel.localeCompare(sessionDateEndLabel) > 0
-    ) {
-      throw new MoleculerClientError(
-        '场次日期范围不合法: 开始日期不能晚于结束日期',
-        400,
-        'MOP_SESSION_DATE_RANGE_INVALID'
-      );
-    }
+    const filteredSessions = filterSessionsByDateRange(
+      sessions,
+      sessionDateStartLabel,
+      sessionDateEndLabel,
+    );
 
-    const filteredSessions = sessions.filter((session) => {
-      const sessionDate = toDateLabel(session.session_date);
-      if (sessionDateStartLabel !== null && sessionDate.localeCompare(sessionDateStartLabel) < 0) {
-        return false;
-      }
-      if (sessionDateEndLabel !== null && sessionDate.localeCompare(sessionDateEndLabel) > 0) {
-        return false;
-      }
-      return true;
-    });
-
-    const sortedSessions = [...filteredSessions].sort((left, right) => {
-      const leftDate = toDateLabel(left.session_date);
-      const rightDate = toDateLabel(right.session_date);
-      const comparedDate = leftDate.localeCompare(rightDate);
-      if (comparedDate !== 0) {
-        return comparedDate;
-      }
-      return left.id.localeCompare(right.id);
-    });
+    const sortedSessions = sortSessionsByDateAndId(filteredSessions);
 
     const stocks: MopStock[] = [];
 
@@ -697,6 +714,116 @@ export default class MoeService extends RC7BaseService {
       privateKey,
       responsePublicKey: publicKey,
       body: request,
+    });
+
+    ctx.meta.$statusCode = 204;
+  }
+
+  async syncTicketCalendarToMop(
+    ctx: Context<
+      {
+        eid: string;
+        tid: string;
+        sessionDateStart?: string;
+        sessionDateEnd?: string;
+      },
+      UserMeta & { $statusCode?: number }
+    >
+  ): Promise<void> {
+    const { eid, tid, sessionDateStart, sessionDateEnd } = ctx.params;
+    const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>('cr7.exhibition.get', { eid });
+    const ticket = await ctx.call<Exhibition.TicketCategory, { eid: string; tid: string }>(
+      'cr7.exhibition.getTicket',
+      { eid, tid }
+    );
+    const sessions = await ctx.call<Exhibition.Session[], { eid: string }>('cr7.exhibition.getSessions', { eid });
+
+    const { sessionDateStartLabel, sessionDateEndLabel } = parseSessionDateRange(
+      sessionDateStart,
+      sessionDateEnd,
+    );
+    const filteredSessions = filterSessionsByDateRange(
+      sessions,
+      sessionDateStartLabel,
+      sessionDateEndLabel,
+    );
+    const sortedSessions = sortSessionsByDateAndId(filteredSessions);
+
+    const showRequest: MopShowSyncRequest = {
+      otProjectId: exhibition.id,
+      shows: sortedSessions.map((session) => ({
+        otShowId: session.id,
+        otShowStatus: MOP_SHOW_STATUS_VALID,
+        startTime: formatMopDateTime(session.session_date, exhibition.opening_time),
+        endTime: formatMopDateTime(session.session_date, exhibition.closing_time),
+        offSaleTime: formatMopDateTime(session.session_date, exhibition.last_entry_time),
+        showType: MOP_SHOW_TYPE_SINGLE,
+        fetchTicketWay: [MOP_FETCH_TICKET_WAY_E_TICKET],
+        maxBuyLimitPerOrder: MOP_SHOW_MAX_BUY_LIMIT_PER_ORDER,
+      })),
+    };
+
+    const skuRequest: MopSkuSyncRequest = {
+      otProjectId: exhibition.id,
+      isOta: MOP_SKU_IS_OTA,
+      skus: sortedSessions.map((session) => ({
+        otShowId: session.id,
+        otSkuId: ticket.id,
+        otSkuStatus: MOP_SKU_STATUS_VALID,
+        name: ticket.name,
+        skuPrice: toYuanString(ticket.price),
+        sellPrice: toYuanString(ticket.price),
+        onSaleTime: formatMopDateTime(exhibition.start_date, exhibition.opening_time),
+        offSaleTime: formatMopDateTime(exhibition.end_date, exhibition.closing_time),
+        inventoryType: MOP_INVENTORY_TYPE_SHARED,
+      })),
+    };
+
+    const stocks: MopStock[] = [];
+    for (const session of sortedSessions) {
+      const sessionTickets = await ctx.call<
+        Inventory.SessionTicketsInventory[],
+        { eid: string; sid: string }
+      >('cr7.exhibition.getSessionTickets', { eid, sid: session.id });
+      const stock = sessionTickets.find((sessionTicket) => sessionTicket.id === ticket.id)?.quantity ?? 0;
+      stocks.push({
+        otShowId: session.id,
+        otSkuId: ticket.id,
+        inventoryType: MOP_INVENTORY_TYPE_SHARED,
+        stock,
+      });
+    }
+
+    const stockRequest: MopStockSyncRequest = {
+      otProjectId: exhibition.id,
+      stocks,
+    };
+
+    const privateKey = await readKey(config.mop.private_key_path);
+    const publicKey = await readKey(config.mop.public_key_path);
+
+    await mopPostJSON(new URL('/supply/open/mop/show/push', config.mop.base_url).toString(), {
+      supplier: config.mop.supplier,
+      aesKey: config.mop.aes_key,
+      privateKey,
+      responsePublicKey: publicKey,
+      body: showRequest,
+    });
+
+    await mopPostJSON(new URL('/supply/open/mop/sku/push', config.mop.base_url).toString(), {
+      supplier: config.mop.supplier,
+      aesKey: config.mop.aes_key,
+      privateKey,
+      responsePublicKey: publicKey,
+      body: skuRequest,
+    });
+
+    await mopPostJSON(new URL('/supply/open/mop/stock/push', config.mop.base_url).toString(), {
+      supplier: config.mop.supplier,
+      aesKey: config.mop.aes_key,
+      privateKey,
+      responsePublicKey: publicKey,
+      body: stockRequest,
     });
 
     ctx.meta.$statusCode = 204;

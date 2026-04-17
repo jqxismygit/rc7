@@ -1,15 +1,3 @@
-# 猫眼 MOP 对接接口
-
-本文档描述 CR7 与猫眼 MOP 的对接接口，分为两类：
-
-- A 类：CR7 主动调用猫眼（管理端触发同步）
-- B 类：猫眼回调 CR7（如下单、查单等）
-
-## 实现状态
-
-- 已实现：项目同步、场次同步、票种同步、库存同步
-- 文档先行（待实现）：创建订单回调等 B 类接口
-
 ## 通用协议
 
 - 请求头使用 `supplier`、`timestamp`、`version`、`sign`
@@ -147,6 +135,38 @@
   - `otShowId` 使用 CR7 场次 ID，`otSkuId` 使用 CR7 票种 ID
   - `inventoryType` 固定为共享库存（`1`）
   - `stock` 取自对应场次下票种的当前可售库存数量
+  - 接口本身不返回业务体，成功仅返回 `204`
+
+## 同步票种日历库存价格到 MOP
+
+- URL: `/exhibition/:eid/tickets/:tid/ota/mop/sync/calendar`
+- Method: `POST`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Params:
+  ```ts
+  { eid: string; tid: string }
+  ```
+- Request Body:
+  ```ts
+  {
+    sessionDateStart?: string; // yyyy-MM-dd
+    sessionDateEnd?: string;   // yyyy-MM-dd
+  }
+  ```
+- Response Status:
+  - `204 No Content`：同步请求发送成功
+  - `400 Bad Request`：场次日期范围非法（`MOP_SESSION_DATE_RANGE_INVALID`）
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：非管理员权限
+  - `404 Not Found`：展览或票种不存在
+- 关键特性：
+  - 以展会票种为核心，按场次日期范围（闭区间）同步到猫眼
+  - 单次调用顺序推送三类消息：场次（`show/push`）→ 票种（`sku/push`）→ 库存（`stock/push`）
+  - 场次消息仅包含指定日期范围内的场次；票种与库存仅包含指定 `tid` 对应票种
+  - 场次状态/类型/取票方式、票种 OTA 类型与库存模式沿用现有 MOP 同步规则
   - 接口本身不返回业务体，成功仅返回 `204`
 
 ## 创建订单回调（猫眼调用 CR7）
