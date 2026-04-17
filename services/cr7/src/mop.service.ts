@@ -338,6 +338,16 @@ function sortSessionsByDateAndId(sessions: Exhibition.Session[]): Exhibition.Ses
   });
 }
 
+function validateSessionDateRange(start_session_date: Date, end_session_date: Date): void {
+  if (isAfter(start_session_date, end_session_date)) {
+    throw new MoleculerClientError(
+      '场次日期范围不合法: 开始日期不能晚于结束日期',
+      400,
+      'MOP_SESSION_DATE_RANGE_INVALID'
+    );
+  }
+}
+
 export default class MoeService extends RC7BaseService {
   constructor(broker: ServiceBroker) {
     super(broker);
@@ -459,6 +469,129 @@ export default class MoeService extends RC7BaseService {
     });
   }
 
+  async getExhibitionAndSortedSessions(
+    ctx: Context,
+    params: {
+      eid: string;
+      start_session_date: Date;
+      end_session_date: Date;
+    }
+  ): Promise<{ exhibition: Exhibition.Exhibition; sortedSessions: Exhibition.Session[] }> {
+    const { eid, start_session_date, end_session_date } = params;
+    validateSessionDateRange(start_session_date, end_session_date);
+
+    const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
+      'cr7.exhibition.get',
+      { eid }
+    );
+    const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
+      'cr7.exhibition.getSessions',
+      { eid }
+    );
+
+    const filteredSessions = filterSessionsByDateRange(
+      sessions,
+      start_session_date,
+      end_session_date,
+    );
+
+    return {
+      exhibition,
+      sortedSessions: sortSessionsByDateAndId(filteredSessions),
+    };
+  }
+
+  buildShowSyncRequest(
+    exhibition: Exhibition.Exhibition,
+    sessions: Exhibition.Session[]
+  ): MopShowSyncRequest {
+    return {
+      otProjectId: exhibition.id,
+      shows: sessions.map((session) => ({
+        otShowId: session.id,
+        otShowStatus: MOP_SHOW_STATUS_VALID,
+        startTime: formatMopDateTime(session.session_date, exhibition.opening_time),
+        endTime: formatMopDateTime(session.session_date, exhibition.closing_time),
+        offSaleTime: formatMopDateTime(session.session_date, exhibition.last_entry_time),
+        showType: MOP_SHOW_TYPE_SINGLE,
+        fetchTicketWay: [MOP_FETCH_TICKET_WAY_E_TICKET],
+        maxBuyLimitPerOrder: MOP_SHOW_MAX_BUY_LIMIT_PER_ORDER,
+      })),
+    };
+  }
+
+  buildSkuSyncRequest(
+    exhibition: Exhibition.Exhibition,
+    sessions: Exhibition.Session[],
+    ticketCategories: Exhibition.TicketCategory[]
+  ): MopSkuSyncRequest {
+    return {
+      otProjectId: exhibition.id,
+      isOta: MOP_SKU_IS_OTA,
+      skus: sessions.flatMap((session) =>
+        ticketCategories.map((ticket) => ({
+          otShowId: session.id,
+          otSkuId: ticket.id,
+          otSkuStatus: MOP_SKU_STATUS_VALID,
+          name: ticket.name,
+          skuPrice: toYuanString(ticket.price),
+          sellPrice: toYuanString(ticket.price),
+          onSaleTime: formatMopDateTime(exhibition.start_date, exhibition.opening_time),
+          offSaleTime: formatMopDateTime(session.session_date, exhibition.closing_time),
+          inventoryType: MOP_INVENTORY_TYPE_SHARED,
+        }))
+      ),
+    };
+  }
+
+  async buildStockSyncRequest(
+    ctx: Context,
+    params: {
+      eid: string;
+      exhibitionId: string;
+      sessions: Exhibition.Session[];
+      ticketCategories: Exhibition.TicketCategory[];
+    }
+  ): Promise<MopStockSyncRequest> {
+    const { eid, exhibitionId, sessions, ticketCategories } = params;
+    const stocks: MopStock[] = [];
+
+    for (const session of sessions) {
+      const sessionTickets = await ctx.call<
+        Inventory.SessionTicketsInventory[],
+        { eid: string; sid: string }
+      >('cr7.exhibition.getSessionTickets', { eid, sid: session.id });
+
+      const stockByTicketId = new Map(sessionTickets.map((ticket) => [ticket.id, ticket.quantity]));
+      for (const ticketCategory of ticketCategories) {
+        stocks.push({
+          otShowId: session.id,
+          otSkuId: ticketCategory.id,
+          inventoryType: MOP_INVENTORY_TYPE_SHARED,
+          stock: stockByTicketId.get(ticketCategory.id) ?? 0,
+        });
+      }
+    }
+
+    return {
+      otProjectId: exhibitionId,
+      stocks,
+    };
+  }
+
+  async pushMopSyncRequest(uri: string, body: unknown): Promise<void> {
+    const privateKey = await readKey(config.mop.private_key_path);
+    const publicKey = await readKey(config.mop.public_key_path);
+
+    await mopPostJSON(new URL(uri, config.mop.base_url).toString(), {
+      supplier: config.mop.supplier,
+      aesKey: config.mop.aes_key,
+      privateKey,
+      responsePublicKey: publicKey,
+      body,
+    });
+  }
+
   async syncExhibitionToMop(
     ctx: Context<{ eid: string }, UserMeta & { $statusCode?: number }>
   ): Promise<void> {
@@ -509,58 +642,16 @@ export default class MoeService extends RC7BaseService {
     >
   ): Promise<void> {
     const { eid, start_session_date, end_session_date } = ctx.params;
-
-    if (isAfter(start_session_date, end_session_date)) {
-      throw new MoleculerClientError(
-        '场次日期范围不合法: 开始日期不能晚于结束日期',
-        400,
-        'MOP_SESSION_DATE_RANGE_INVALID'
-      );
-    }
-
-    const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
-      'cr7.exhibition.get',
-      { eid }
-    );
-    const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
-      'cr7.exhibition.getSessions',
-      { eid }
-    );
-
-    const filteredSessions = filterSessionsByDateRange(
-      sessions,
+    const { exhibition, sortedSessions } = await this.getExhibitionAndSortedSessions(ctx, {
+      eid,
       start_session_date,
       end_session_date,
-    );
-
-    const sortedSessions = sortSessionsByDateAndId(filteredSessions);
-
-    const request: MopShowSyncRequest = {
-      otProjectId: exhibition.id,
-      shows: sortedSessions.map((session) => ({
-        otShowId: session.id,
-        otShowStatus: MOP_SHOW_STATUS_VALID,
-        startTime: formatMopDateTime(session.session_date, exhibition.opening_time),
-        endTime: formatMopDateTime(session.session_date, exhibition.closing_time),
-        offSaleTime: formatMopDateTime(session.session_date, exhibition.last_entry_time),
-        showType: MOP_SHOW_TYPE_SINGLE,
-        fetchTicketWay: [MOP_FETCH_TICKET_WAY_E_TICKET],
-        maxBuyLimitPerOrder: MOP_SHOW_MAX_BUY_LIMIT_PER_ORDER,
-      })),
-    };
-
-    const privateKey = await readKey(config.mop.private_key_path);
-    const publicKey = await readKey(config.mop.public_key_path);
-
-    const syncUrl = new URL('/supply/open/mop/show/push', config.mop.base_url).toString();
-
-    await mopPostJSON(syncUrl, {
-      supplier: config.mop.supplier,
-      aesKey: config.mop.aes_key,
-      privateKey,
-      responsePublicKey: publicKey,
-      body: request,
     });
+
+    await this.pushMopSyncRequest(
+      '/supply/open/mop/show/push',
+      this.buildShowSyncRequest(exhibition, sortedSessions),
+    );
 
     ctx.meta.$statusCode = 204;
   }
@@ -576,65 +667,20 @@ export default class MoeService extends RC7BaseService {
     >
   ): Promise<void> {
     const { eid, start_session_date, end_session_date } = ctx.params;
-    if (isAfter(start_session_date, end_session_date)) {
-      throw new MoleculerClientError(
-        '场次日期范围不合法: 开始日期不能晚于结束日期',
-        400,
-        'MOP_SESSION_DATE_RANGE_INVALID'
-      );
-    }
-
-    const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
-      'cr7.exhibition.get',
-      { eid }
-    );
-    const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
-      'cr7.exhibition.getSessions',
-      { eid }
-    );
+    const { exhibition, sortedSessions } = await this.getExhibitionAndSortedSessions(ctx, {
+      eid,
+      start_session_date,
+      end_session_date,
+    });
     const ticketCategories = await ctx.call<Exhibition.TicketCategory[], { eid: string }>(
       'cr7.exhibition.getTicketCategories',
       { eid }
     );
 
-    const filteredSessions = filterSessionsByDateRange(
-      sessions,
-      start_session_date,
-      end_session_date,
+    await this.pushMopSyncRequest(
+      '/supply/open/mop/sku/push',
+      this.buildSkuSyncRequest(exhibition, sortedSessions, ticketCategories),
     );
-
-    const sortedSessions = sortSessionsByDateAndId(filteredSessions);
-
-    const request: MopSkuSyncRequest = {
-      otProjectId: exhibition.id,
-      isOta: MOP_SKU_IS_OTA,
-      skus: sortedSessions.flatMap((session) =>
-        ticketCategories.map((ticket) => ({
-          otShowId: session.id,
-          otSkuId: ticket.id,
-          otSkuStatus: MOP_SKU_STATUS_VALID,
-          name: ticket.name,
-          skuPrice: toYuanString(ticket.price),
-          sellPrice: toYuanString(ticket.price),
-          onSaleTime: formatMopDateTime(exhibition.start_date, exhibition.opening_time),
-          offSaleTime: formatMopDateTime(session.session_date, exhibition.closing_time),
-          inventoryType: MOP_INVENTORY_TYPE_SHARED,
-        }))
-      ),
-    };
-
-    const privateKey = await readKey(config.mop.private_key_path);
-    const publicKey = await readKey(config.mop.public_key_path);
-
-    const syncUrl = new URL('/supply/open/mop/sku/push', config.mop.base_url).toString();
-
-    await mopPostJSON(syncUrl, {
-      supplier: config.mop.supplier,
-      aesKey: config.mop.aes_key,
-      privateKey,
-      responsePublicKey: publicKey,
-      body: request,
-    });
 
     ctx.meta.$statusCode = 204;
   }
@@ -650,71 +696,25 @@ export default class MoeService extends RC7BaseService {
     >
   ): Promise<void> {
     const { eid, start_session_date, end_session_date } = ctx.params;
-    if (isAfter(start_session_date, end_session_date)) {
-      throw new MoleculerClientError(
-        '场次日期范围不合法: 开始日期不能晚于结束日期',
-        400,
-        'MOP_SESSION_DATE_RANGE_INVALID'
-      );
-    }
-
-    const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
-      'cr7.exhibition.get',
-      { eid }
-    );
-    const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
-      'cr7.exhibition.getSessions',
-      { eid }
-    );
+    const { exhibition, sortedSessions } = await this.getExhibitionAndSortedSessions(ctx, {
+      eid,
+      start_session_date,
+      end_session_date,
+    });
     const ticketCategories = await ctx.call<Exhibition.TicketCategory[], { eid: string }>(
       'cr7.exhibition.getTicketCategories',
       { eid }
     );
 
-    const filteredSessions = filterSessionsByDateRange(
-      sessions,
-      start_session_date,
-      end_session_date,
+    await this.pushMopSyncRequest(
+      '/supply/open/mop/stock/push',
+      await this.buildStockSyncRequest(ctx, {
+        eid,
+        exhibitionId: exhibition.id,
+        sessions: sortedSessions,
+        ticketCategories,
+      }),
     );
-
-    const sortedSessions = sortSessionsByDateAndId(filteredSessions);
-
-    const stocks: MopStock[] = [];
-
-    for (const session of sortedSessions) {
-      const sessionTickets = await ctx.call<
-        Inventory.SessionTicketsInventory[],
-        { eid: string; sid: string }
-      >('cr7.exhibition.getSessionTickets', { eid, sid: session.id });
-
-      const stockByTicketId = new Map(sessionTickets.map((ticket) => [ticket.id, ticket.quantity]));
-      for (const ticketCategory of ticketCategories) {
-        stocks.push({
-          otShowId: session.id,
-          otSkuId: ticketCategory.id,
-          inventoryType: MOP_INVENTORY_TYPE_SHARED,
-          stock: stockByTicketId.get(ticketCategory.id) ?? 0,
-        });
-      }
-    }
-
-    const request: MopStockSyncRequest = {
-      otProjectId: exhibition.id,
-      stocks,
-    };
-
-    const privateKey = await readKey(config.mop.private_key_path);
-    const publicKey = await readKey(config.mop.public_key_path);
-
-    const syncUrl = new URL('/supply/open/mop/stock/push', config.mop.base_url).toString();
-
-    await mopPostJSON(syncUrl, {
-      supplier: config.mop.supplier,
-      aesKey: config.mop.aes_key,
-      privateKey,
-      responsePublicKey: publicKey,
-      body: request,
-    });
 
     ctx.meta.$statusCode = 204;
   }
@@ -731,104 +731,35 @@ export default class MoeService extends RC7BaseService {
     >
   ): Promise<void> {
     const { eid, tid, start_session_date, end_session_date } = ctx.params;
-    if (isAfter(start_session_date, end_session_date)) {
-      throw new MoleculerClientError(
-        '场次日期范围不合法: 开始日期不能晚于结束日期',
-        400,
-        'MOP_SESSION_DATE_RANGE_INVALID'
-      );
-    }
-
-    const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>('cr7.exhibition.get', { eid });
+    const { exhibition, sortedSessions } = await this.getExhibitionAndSortedSessions(ctx, {
+      eid,
+      start_session_date,
+      end_session_date,
+    });
     const ticket = await ctx.call<Exhibition.TicketCategory, { eid: string; tid: string }>(
       'cr7.exhibition.getTicket',
       { eid, tid }
     );
-    const sessions = await ctx.call<Exhibition.Session[], { eid: string }>('cr7.exhibition.getSessions', { eid });
 
-    const filteredSessions = filterSessionsByDateRange(
-      sessions,
-      start_session_date,
-      end_session_date,
+    await this.pushMopSyncRequest(
+      '/supply/open/mop/show/push',
+      this.buildShowSyncRequest(exhibition, sortedSessions),
     );
-    const sortedSessions = sortSessionsByDateAndId(filteredSessions);
 
-    const showRequest: MopShowSyncRequest = {
-      otProjectId: exhibition.id,
-      shows: sortedSessions.map((session) => ({
-        otShowId: session.id,
-        otShowStatus: MOP_SHOW_STATUS_VALID,
-        startTime: formatMopDateTime(session.session_date, exhibition.opening_time),
-        endTime: formatMopDateTime(session.session_date, exhibition.closing_time),
-        offSaleTime: formatMopDateTime(session.session_date, exhibition.last_entry_time),
-        showType: MOP_SHOW_TYPE_SINGLE,
-        fetchTicketWay: [MOP_FETCH_TICKET_WAY_E_TICKET],
-        maxBuyLimitPerOrder: MOP_SHOW_MAX_BUY_LIMIT_PER_ORDER,
-      })),
-    };
+    await this.pushMopSyncRequest(
+      '/supply/open/mop/sku/push',
+      this.buildSkuSyncRequest(exhibition, sortedSessions, [ticket]),
+    );
 
-    const skuRequest: MopSkuSyncRequest = {
-      otProjectId: exhibition.id,
-      isOta: MOP_SKU_IS_OTA,
-      skus: sortedSessions.map((session) => ({
-        otShowId: session.id,
-        otSkuId: ticket.id,
-        otSkuStatus: MOP_SKU_STATUS_VALID,
-        name: ticket.name,
-        skuPrice: toYuanString(ticket.price),
-        sellPrice: toYuanString(ticket.price),
-        onSaleTime: formatMopDateTime(exhibition.start_date, exhibition.opening_time),
-        offSaleTime: formatMopDateTime(session.session_date, exhibition.closing_time),
-        inventoryType: MOP_INVENTORY_TYPE_SHARED,
-      })),
-    };
-
-    const stocks: MopStock[] = [];
-    for (const session of sortedSessions) {
-      const sessionTickets = await ctx.call<
-        Inventory.SessionTicketsInventory[],
-        { eid: string; sid: string }
-      >('cr7.exhibition.getSessionTickets', { eid, sid: session.id });
-      const stock = sessionTickets.find((sessionTicket) => sessionTicket.id === ticket.id)?.quantity ?? 0;
-      stocks.push({
-        otShowId: session.id,
-        otSkuId: ticket.id,
-        inventoryType: MOP_INVENTORY_TYPE_SHARED,
-        stock,
-      });
-    }
-
-    const stockRequest: MopStockSyncRequest = {
-      otProjectId: exhibition.id,
-      stocks,
-    };
-
-    const privateKey = await readKey(config.mop.private_key_path);
-    const publicKey = await readKey(config.mop.public_key_path);
-
-    await mopPostJSON(new URL('/supply/open/mop/show/push', config.mop.base_url).toString(), {
-      supplier: config.mop.supplier,
-      aesKey: config.mop.aes_key,
-      privateKey,
-      responsePublicKey: publicKey,
-      body: showRequest,
-    });
-
-    await mopPostJSON(new URL('/supply/open/mop/sku/push', config.mop.base_url).toString(), {
-      supplier: config.mop.supplier,
-      aesKey: config.mop.aes_key,
-      privateKey,
-      responsePublicKey: publicKey,
-      body: skuRequest,
-    });
-
-    await mopPostJSON(new URL('/supply/open/mop/stock/push', config.mop.base_url).toString(), {
-      supplier: config.mop.supplier,
-      aesKey: config.mop.aes_key,
-      privateKey,
-      responsePublicKey: publicKey,
-      body: stockRequest,
-    });
+    await this.pushMopSyncRequest(
+      '/supply/open/mop/stock/push',
+      await this.buildStockSyncRequest(ctx, {
+        eid,
+        exhibitionId: exhibition.id,
+        sessions: sortedSessions,
+        ticketCategories: [ticket],
+      }),
+    );
 
     ctx.meta.$statusCode = 204;
   }
