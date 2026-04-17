@@ -1223,7 +1223,7 @@ describeFeature(feature, ({
         const session = sessionsByDate.get(sessionDate);
         expect(session).toBeTruthy();
 
-        const ticketName = extractQuotedValue(row['票种及 ID'], '票种及 ID');
+        const ticketName = row['票种及 ID'];
         const ticket = ticketByName[ticketName];
         expect(ticket).toBeTruthy();
 
@@ -1305,15 +1305,6 @@ describeFeature(feature, ({
         sessions.map(session => [toSessionDateLabel(session.session_date), session]),
       );
 
-      function getColumnValue(row: Record<string, string>, columnName: string): string {
-        const normalizedColumnName = columnName.replace(/\s+/g, '');
-        const matchedColumnName = Object.keys(row).find(
-          key => key.replace(/\s+/g, '') === normalizedColumnName,
-        );
-        expect(matchedColumnName, `列不存在: ${columnName}`).toBeTruthy();
-        return row[matchedColumnName!];
-      }
-
       function extractQuotedValue(value: string, fieldName: string): string {
         const match = value.match(/^"(.+)"/);
         expect(match, `${fieldName} 格式不合法: ${value}`).toBeTruthy();
@@ -1325,16 +1316,15 @@ describeFeature(feature, ({
       dataTable.forEach((row, index) => {
         const stock = body.stocks[index];
 
-        const sessionIdValue = getColumnValue(row, '场次 ID');
-        const ticketIdValue = getColumnValue(row, '票种 ID');
-        const stockValue = Number(getColumnValue(row, '可售库存数量').trim());
+        const sessionIdValue = row['场次 ID'];
+        const ticketName = row['票种 ID'];
+        const stockValue = Number(row['可售库存数量'].trim());
 
         const sessionRelativeLabel = extractQuotedValue(sessionIdValue, '场次 ID');
         const sessionDate = toDateLabel(sessionRelativeLabel);
         const session = sessionsByDate.get(sessionDate);
         expect(session).toBeTruthy();
 
-        const ticketName = extractQuotedValue(ticketIdValue, '票种 ID');
         const ticket = ticketByName[ticketName];
         expect(ticket).toBeTruthy();
 
