@@ -866,6 +866,25 @@ describeFeature(feature, ({
       );
     });
 
+    And('展会入场时间 {string} 到 {string}, 最晚入场时间是 {string}', async (
+      _ctx,
+      openingTime: string,
+      closingTime: string,
+      lastEntryTime: string,
+    ) => {
+      const { apiServer, adminToken, exhibition } = featureContext;
+      featureContext.exhibition = await updateExhibition(
+        apiServer,
+        adminToken,
+        exhibition.id,
+        {
+          opening_time: openingTime,
+          closing_time: closingTime,
+          last_entry_time: lastEntryTime,
+        },
+      );
+    });
+
     Given('猫眼 OTA 已启动', async () => {
       const mopRequestHandler = vi.fn().mockResolvedValue({
         code: 10000,
@@ -1029,91 +1048,11 @@ describeFeature(feature, ({
       );
     });
 
-    And('场次同步消息中的首个场次日期与展会开始日期一致', () => {
-      const request = getMopRequestArg(featureContext.mopRequestHandler);
-      const body = request.body as SyncSessionsToMopRequest;
-      const exhibitionStartDate = toSessionDateLabel(featureContext.exhibition.start_date);
-      expect(body.shows[0].startTime.startsWith(exhibitionStartDate)).toBe(true);
-    });
-
-    And('场次同步消息中的最后一个场次日期与展会结束日期一致', () => {
-      const request = getMopRequestArg(featureContext.mopRequestHandler);
-      const body = request.body as SyncSessionsToMopRequest;
-      const lastShow = body.shows.at(-1);
-      expect(lastShow).toBeTruthy();
-      const exhibitionEndDate = toSessionDateLabel(featureContext.exhibition.end_date);
-      expect(lastShow?.startTime.startsWith(exhibitionEndDate)).toBe(true);
-    });
-
-    And('场次同步消息中每个场次的 ID 是 cr7 场次 ID', async () => {
-      const request = getMopRequestArg(featureContext.mopRequestHandler);
-      const body = request.body as SyncSessionsToMopRequest;
-      const expectedIds = context.sessions.map(session => session.id).sort();
-      const actualIds = body.shows.map(show => show.otShowId).sort();
-      expect(actualIds).toEqual(expectedIds);
-    });
-
     And('场次同步消息中每个场次的状态是有效，值为 {int}', (_ctx, status: number) => {
       const request = getMopRequestArg(featureContext.mopRequestHandler);
       const body = request.body as SyncSessionsToMopRequest;
       body.shows.forEach(show => {
         expect(show.otShowStatus).toBe(status);
-      });
-    });
-
-    And('场次同步消息中每个场次的开始时间是 cr7 场次的日期和开始时间的组合', async () => {
-      const request = getMopRequestArg(featureContext.mopRequestHandler);
-      const body = request.body as SyncSessionsToMopRequest;
-      const expectedTime = normalizeTimeLabel(featureContext.exhibition.opening_time);
-      const expectedBySessionId = new Map(
-        context.sessions.map(session => [
-          session.id,
-          `${toSessionDateLabel(session.session_date)} ${expectedTime}`,
-        ])
-      );
-
-      body.shows.forEach(show => {
-        expect(show.startTime).toMatch(DATETIME_LABEL_RE);
-        expect(show.startTime).toBe(expectedBySessionId.get(show.otShowId));
-      });
-    });
-
-    And('场次同步消息中每个场次的结束时间是 cr7 场次的日期和结束时间的组合', async () => {
-      const request = getMopRequestArg(featureContext.mopRequestHandler);
-      const body = request.body as SyncSessionsToMopRequest;
-      const sessions = await getSessions(
-        featureContext.apiServer,
-        featureContext.exhibition.id,
-        featureContext.adminToken,
-      );
-      const expectedTime = normalizeTimeLabel(featureContext.exhibition.closing_time);
-      const expectedBySessionId = new Map(
-        sessions.map(session => [
-          session.id,
-          `${toSessionDateLabel(session.session_date)} ${expectedTime}`,
-        ])
-      );
-
-      body.shows.forEach(show => {
-        expect(show.endTime).toMatch(DATETIME_LABEL_RE);
-        expect(show.endTime).toBe(expectedBySessionId.get(show.otShowId));
-      });
-    });
-
-    And('场次同步消息中每个场次的停售时间是 cr7 场次的日期和停止入场时间的组合', async () => {
-      const request = getMopRequestArg(featureContext.mopRequestHandler);
-      const body = request.body as SyncSessionsToMopRequest;
-      const expectedTime = normalizeTimeLabel(featureContext.exhibition.last_entry_time);
-      const expectedBySessionId = new Map(
-        context.sessions.map(session => [
-          session.id,
-          `${toSessionDateLabel(session.session_date)} ${expectedTime}`,
-        ])
-      );
-
-      body.shows.forEach(show => {
-        expect(show.offSaleTime).toMatch(DATETIME_LABEL_RE);
-        expect(show.offSaleTime).toBe(expectedBySessionId.get(show.otShowId));
       });
     });
 
@@ -1138,6 +1077,58 @@ describeFeature(feature, ({
       const body = request.body as SyncSessionsToMopRequest;
       body.shows.forEach(show => {
         expect(show.maxBuyLimitPerOrder).toBe(limit);
+      });
+    });
+
+    And('每个场次的时间信息正确', (
+      _ctx,
+      dataTable: Array<Record<string, string>>,
+    ) => {
+      const request = getMopRequestArg(featureContext.mopRequestHandler);
+      const body = request.body as SyncSessionsToMopRequest;
+      expect(context.sessions).toBeTruthy();
+
+      const showsById = new Map(body.shows.map(show => [show.otShowId, show]));
+      const sessionsByDate = new Map(
+        context.sessions.map(session => [toSessionDateLabel(session.session_date), session]),
+      );
+
+      const extractQuotedValue = (value: string, fieldName: string): string => {
+        const match = value.match(/^"(.+)"/);
+        expect(match, `${fieldName} 格式不合法: ${value}`).toBeTruthy();
+        return match![1];
+      };
+
+      const parseDatetimeCell = (value: string, fieldName: string): string => {
+        const match = value.match(/^"(.+)"\s+(\d{2}:\d{2}(?::\d{2})?)$/);
+        expect(match, `${fieldName} 格式不合法: ${value}`).toBeTruthy();
+        const sessionDate = toDateLabel(match![1]);
+        const time = normalizeTimeLabel(match![2]);
+        return `${sessionDate} ${time}`;
+      };
+
+      expect(dataTable).toHaveLength(body.shows.length);
+
+      dataTable.forEach((row) => {
+        const sessionDateLabel = extractQuotedValue(row['场次 ID'], '场次 ID');
+        const sessionDate = toDateLabel(sessionDateLabel);
+        const session = sessionsByDate.get(sessionDate);
+        expect(session).toBeTruthy();
+
+        const show = showsById.get(session!.id);
+        expect(show).toBeTruthy();
+
+        const expectedStartTime = parseDatetimeCell(row['场次开始时间'], '场次开始时间');
+        const expectedEndTime = parseDatetimeCell(row['场次结束时间'], '场次结束时间');
+        const expectedOffSaleTime = parseDatetimeCell(row['场次停止入场时间'], '场次停止入场时间');
+
+        expect(show!.startTime).toMatch(DATETIME_LABEL_RE);
+        expect(show!.endTime).toMatch(DATETIME_LABEL_RE);
+        expect(show!.offSaleTime).toMatch(DATETIME_LABEL_RE);
+
+        expect(show!.startTime).toBe(expectedStartTime);
+        expect(show!.endTime).toBe(expectedEndTime);
+        expect(show!.offSaleTime).toBe(expectedOffSaleTime);
       });
     });
 

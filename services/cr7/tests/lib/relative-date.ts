@@ -1,7 +1,7 @@
 import { addDays, format, subDays } from 'date-fns';
 
-const RELATIVE_DATE_AFTER_RE = /^(\d+)天后$/;
-const RELATIVE_DATE_BEFORE_RE = /^(\d+)天前$/;
+const RELATIVE_DATE_AFTER_RE = /^(\d+)\s*天后$/;
+const RELATIVE_DATE_BEFORE_RE = /^(\d+)\s*天前$/;
 
 export function Text2Date(dateText: string): Date {
   if (dateText === '今天') {
