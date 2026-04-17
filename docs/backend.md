@@ -34,7 +34,10 @@
 
 - 使用 TypeScript 进行开发，所有代码都需要有类型定义，并且遵循项目的 tsconfig 配置。
 - 数据库操作通过 data 层封装，服务层调用 data 提供的方法进行数据访问，避免直接操作数据库。
+- 定义 Moleculer action 时，所有输入参数都必须在 `params` schema 中声明并完成校验，优先复用框架能力，避免在业务代码里重复造参数校验轮子。
+- 对于 HTTP 输入参数，按需使用 schema 的 `convert` 能力完成类型转换，让格式校验与类型转换统一在 schema 层处理。
 - 时间与日期处理必须统一使用 `date-fns`，禁止手写字符串拼接（如 `yyyy-MM-dd HH:mm:ss`、`yyyyMMdd`）或直接做毫秒换算。
+- 日期参数应在 `params` schema 中声明为 `type: 'date'`（面向 HTTP 输入时加上 `convert: true`）；进入业务函数后只处理业务约束（例如开始日期不能晚于结束日期），不再重复做字符串格式解析校验。
 
 ### 服务层结构
 
