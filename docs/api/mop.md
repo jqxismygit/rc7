@@ -44,21 +44,23 @@
   ```ts
   { eid: string }
   ```
-  - Request Body:
+- Request Body:
   ```ts
   {
-    start_session_date?: string; // yyyy-MM-dd
-    end_session_date?: string;   // yyyy-MM-dd
+    start_session_date: string; // yyyy-MM-dd
+    end_session_date: string;   // yyyy-MM-dd
   }
   ```
 - Response Status:
   - `204 No Content`：同步请求发送成功
+  - `400 Bad Request`：参数错误或场次日期范围非法（`MOP_SESSION_DATE_RANGE_INVALID`）
   - `401 Unauthorized`：未认证
   - `403 Forbidden`：非管理员权限
   - `404 Not Found`：展览不存在
 - 关键特性：
   - 仅管理员可执行该接口
   - 同步请求基于展会场次列表推送到 MOP `show/push` 接口
+  - 需传入 `start_session_date` 与 `end_session_date`，仅同步该闭区间内场次
   - 每个场次的 `otShowId` 使用 CR7 场次 ID
   - 场次状态固定为有效（`otShowStatus = 1`）
   - 场次类型固定为单场票（`showType = 1`）
@@ -81,19 +83,20 @@
 - Request Body:
   ```ts
   {
-    start_session_date?: string; // yyyy-MM-dd
-    end_session_date?: string;   // yyyy-MM-dd
+    start_session_date: string; // yyyy-MM-dd
+    end_session_date: string;   // yyyy-MM-dd
   }
   ```
 - Response Status:
   - `204 No Content`：同步请求发送成功
+  - `400 Bad Request`：参数错误或场次日期范围非法（`MOP_SESSION_DATE_RANGE_INVALID`）
   - `401 Unauthorized`：未认证
   - `403 Forbidden`：非管理员权限
   - `404 Not Found`：展览不存在
 - 关键特性：
   - 仅管理员可执行该接口
   - 同步请求会推送到 MOP `sku/push` 接口
-  - 支持按场次日期范围筛选同步：`start_session_date` 到 `end_session_date`（闭区间）
+  - 必须传入 `start_session_date` 与 `end_session_date`，按闭区间筛选场次
   - 每个推送 sku 都包含对应场次 ID（`otShowId`）
   - `otSkuId` 使用 CR7 票种 ID，`name` 使用 CR7 票种名称
   - `otSkuStatus` 固定为有效（`1`）
@@ -118,20 +121,20 @@
 - Request Body:
   ```ts
   {
-    start_session_date?: string; // yyyy-MM-dd
-    end_session_date?: string;   // yyyy-MM-dd
+    start_session_date: string; // yyyy-MM-dd
+    end_session_date: string;   // yyyy-MM-dd
   }
   ```
 - Response Status:
   - `204 No Content`：同步请求发送成功
-  - `400 Bad Request`：场次日期范围非法（`MOP_SESSION_DATE_RANGE_INVALID`）
+  - `400 Bad Request`：参数错误或场次日期范围非法（`MOP_SESSION_DATE_RANGE_INVALID`）
   - `401 Unauthorized`：未认证
   - `403 Forbidden`：非管理员权限
   - `404 Not Found`：展览不存在
 - 关键特性：
   - 仅管理员可执行该接口
   - 同步请求会推送到 MOP `stock/push` 接口
-  - 支持按场次日期范围筛选同步：`start_session_date` 到 `end_session_date`（闭区间）
+  - 必须传入 `start_session_date` 与 `end_session_date`，按闭区间筛选场次
   - `otShowId` 使用 CR7 场次 ID，`otSkuId` 使用 CR7 票种 ID
   - `inventoryType` 固定为共享库存（`1`）
   - `stock` 取自对应场次下票种的当前可售库存数量
@@ -152,18 +155,18 @@
 - Request Body:
   ```ts
   {
-    start_session_date?: string; // yyyy-MM-dd
-    end_session_date?: string;   // yyyy-MM-dd
+    start_session_date: string; // yyyy-MM-dd
+    end_session_date: string;   // yyyy-MM-dd
   }
   ```
 - Response Status:
   - `204 No Content`：同步请求发送成功
-  - `400 Bad Request`：场次日期范围非法（`MOP_SESSION_DATE_RANGE_INVALID`）
+  - `400 Bad Request`：参数错误或场次日期范围非法（`MOP_SESSION_DATE_RANGE_INVALID`）
   - `401 Unauthorized`：未认证
   - `403 Forbidden`：非管理员权限
   - `404 Not Found`：展览或票种不存在
 - 关键特性：
-  - 以展会票种为核心，按场次日期范围（闭区间）同步到猫眼
+  - 以展会票种为核心，必须传入场次日期范围（闭区间）同步到猫眼
   - 单次调用顺序推送三类消息：场次（`show/push`）→ 票种（`sku/push`）→ 库存（`stock/push`）
   - 场次消息仅包含指定日期范围内的场次；票种与库存仅包含指定 `tid` 对应票种
   - 场次状态/类型/取票方式、票种 OTA 类型与库存模式沿用现有 MOP 同步规则

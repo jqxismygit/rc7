@@ -1338,11 +1338,19 @@ describeFeature(feature, ({
   Scenario('同步场次信息到猫眼', (s: StepTest<void>) => {
     const { Given } = s;
 
-    Given('cr7 将场次信息同步到猫眼', async () => {
+    Given('cr7 将场次信息同步到猫眼, 场次开始时间是从 {string} 到 {string} 的场次', async (
+      _ctx,
+      startDateLabel: string,
+      endDateLabel: string,
+    ) => {
       await syncSessionsToMop(
         featureContext.apiServer,
         featureContext.adminToken,
         featureContext.exhibition.id,
+        {
+          start_session_date: toDateLabel(startDateLabel),
+          end_session_date: toDateLabel(endDateLabel),
+        },
       );
     });
 

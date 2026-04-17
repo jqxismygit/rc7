@@ -159,11 +159,18 @@ export async function syncSessionsToMop(
   server: Server,
   token: string,
   eid: string,
+  options: {
+    start_session_date: string;
+    end_session_date: string;
+  },
 ) {
   return postJSON<void>(
     server,
     `/exhibition/${eid}/ota/mop/sync/sessions`,
-    { token },
+    {
+      token,
+      body: options,
+    },
   );
 }
 
@@ -172,9 +179,9 @@ export async function syncTicketsToMop(
   token: string,
   eid: string,
   options: {
-    start_session_date?: string;
-    end_session_date?: string;
-  } = {},
+    start_session_date: string;
+    end_session_date: string;
+  },
 ) {
   return postJSON<void>(
     server,
@@ -191,9 +198,9 @@ export async function syncStocksToMop(
   token: string,
   eid: string,
   options: {
-    start_session_date?: string;
-    end_session_date?: string;
-  } = {},
+    start_session_date: string;
+    end_session_date: string;
+  },
 ) {
   return postJSON<void>(
     server,
@@ -211,9 +218,9 @@ export async function syncTicketCalendarToMop(
   eid: string,
   tid: string,
   options: {
-    start_session_date?: string;
-    end_session_date?: string;
-  } = {},
+    start_session_date: string;
+    end_session_date: string;
+  },
 ) {
   return postJSON<void>(
     server,
