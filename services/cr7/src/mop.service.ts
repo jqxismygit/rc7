@@ -620,7 +620,7 @@ export default class MoeService extends RC7BaseService {
           skuPrice: toYuanString(ticket.price),
           sellPrice: toYuanString(ticket.price),
           onSaleTime: formatMopDateTime(exhibition.start_date, exhibition.opening_time),
-          offSaleTime: formatMopDateTime(exhibition.end_date, exhibition.closing_time),
+          offSaleTime: formatMopDateTime(session.session_date, exhibition.closing_time),
           inventoryType: MOP_INVENTORY_TYPE_SHARED,
         }))
       ),
@@ -774,7 +774,7 @@ export default class MoeService extends RC7BaseService {
         skuPrice: toYuanString(ticket.price),
         sellPrice: toYuanString(ticket.price),
         onSaleTime: formatMopDateTime(exhibition.start_date, exhibition.opening_time),
-        offSaleTime: formatMopDateTime(exhibition.end_date, exhibition.closing_time),
+        offSaleTime: formatMopDateTime(session.session_date, exhibition.closing_time),
         inventoryType: MOP_INVENTORY_TYPE_SHARED,
       })),
     };

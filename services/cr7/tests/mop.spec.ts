@@ -496,8 +496,6 @@ describeFeature(feature, ({
       const sessionsByDate = new Map(
         sessions.map(session => [toSessionDateLabel(session.session_date), session]),
       );
-      const defaultOnSaleTime = `${toSessionDateLabel(exhibition.start_date)} ${normalizeTimeLabel(exhibition.opening_time)}`;
-      const defaultOffSaleTime = `${toSessionDateLabel(exhibition.end_date)} ${normalizeTimeLabel(exhibition.closing_time)}`;
 
       expect(dataTable).toHaveLength(count);
       featureContext.ticketsSize = count;
@@ -526,8 +524,8 @@ describeFeature(feature, ({
           otSkuId: ticket!.id,
           skuPrice: expectedPayloadPrice.toFixed(2),
           sellPrice: expectedPayloadPrice.toFixed(2),
-          onSaleTime: expect.stringMatching(new RegExp(`^(${expectedOnSaleTime}|${defaultOnSaleTime})$`)),
-          offSaleTime: expect.stringMatching(new RegExp(`^(${expectedOffSaleTime}|${defaultOffSaleTime})$`)),
+          onSaleTime: expectedOnSaleTime,
+          offSaleTime: expectedOffSaleTime,
         });
       });
 
@@ -535,16 +533,7 @@ describeFeature(feature, ({
         mopRequestCallTime!,
         expect.objectContaining({
           body: expect.objectContaining({
-            skus: Array.from({ length: count }, () => expect.anything()),
-          }),
-          uri: expect.anything(),
-        }),
-      );
-      expect(mopRequestHandler).toHaveBeenNthCalledWith(
-        mopRequestCallTime!,
-        expect.objectContaining({
-          body: expect.objectContaining({
-            skus: expect.arrayContaining(expectedSkus),
+            skus: expectedSkus,
           }),
           uri: expect.anything(),
         }),
@@ -610,16 +599,7 @@ describeFeature(feature, ({
         mopRequestCallTime!,
         expect.objectContaining({
           body: expect.objectContaining({
-            stocks: Array.from({ length: count }, () => expect.anything()),
-          }),
-          uri: expect.anything(),
-        }),
-      );
-      expect(mopRequestHandler).toHaveBeenNthCalledWith(
-        mopRequestCallTime!,
-        expect.objectContaining({
-          body: expect.objectContaining({
-            stocks: expect.arrayContaining(expectedStocks),
+            stocks: expectedStocks,
           }),
           uri: expect.anything(),
         }),
