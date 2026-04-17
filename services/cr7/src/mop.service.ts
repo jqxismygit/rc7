@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import config from 'config';
-import { format, isAfter, isDate, parse, parseISO } from 'date-fns';
+import { format, isAfter, isDate, parse, parseISO, isWithinInterval, startOfDay } from 'date-fns';
 import { Context, Errors, ServiceBroker } from 'moleculer';
 import { Exhibition, Inventory, Mop, Order, Payment, Redeem } from '@cr7/types';
 import { RC7BaseService } from './libs/cr7.base.js';
@@ -313,39 +313,16 @@ function getHeaderValue(headers: MopRequestHeaders, key: string): string | null 
   return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
-function parseSessionDateRange(
-  start_session_date: Date,
-  end_session_date: Date,
-): { start_session_dateLabel: string; end_session_dateLabel: string } {
-  const start_session_dateLabel = format(start_session_date, 'yyyy-MM-dd');
-  const end_session_dateLabel = format(end_session_date, 'yyyy-MM-dd');
-
-  if (isAfter(start_session_date, end_session_date)) {
-    throw new MoleculerClientError(
-      '场次日期范围不合法: 开始日期不能晚于结束日期',
-      400,
-      'MOP_SESSION_DATE_RANGE_INVALID'
-    );
-  }
-
-  return { start_session_dateLabel, end_session_dateLabel };
-}
-
 function filterSessionsByDateRange(
   sessions: Exhibition.Session[],
-  start_session_dateLabel: string,
-  end_session_dateLabel: string,
+  start_session_date: Date,
+  end_session_date: Date,
 ): Exhibition.Session[] {
-  return sessions.filter((session) => {
-    const sessionDate = toDateLabel(session.session_date);
-    if (sessionDate.localeCompare(start_session_dateLabel) < 0) {
-      return false;
-    }
-    if (sessionDate.localeCompare(end_session_dateLabel) > 0) {
-      return false;
-    }
-    return true;
-  });
+  const start = startOfDay(start_session_date);
+  const end = startOfDay(end_session_date);
+  return sessions.filter((session) =>
+    isWithinInterval(startOfDay(session.session_date), { start, end })
+  );
 }
 
 function sortSessionsByDateAndId(sessions: Exhibition.Session[]): Exhibition.Session[] {
@@ -532,6 +509,15 @@ export default class MoeService extends RC7BaseService {
     >
   ): Promise<void> {
     const { eid, start_session_date, end_session_date } = ctx.params;
+
+    if (isAfter(start_session_date, end_session_date)) {
+      throw new MoleculerClientError(
+        '场次日期范围不合法: 开始日期不能晚于结束日期',
+        400,
+        'MOP_SESSION_DATE_RANGE_INVALID'
+      );
+    }
+
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
       'cr7.exhibition.get',
       { eid }
@@ -541,15 +527,10 @@ export default class MoeService extends RC7BaseService {
       { eid }
     );
 
-    const { start_session_dateLabel, end_session_dateLabel } = parseSessionDateRange(
-      start_session_date,
-      end_session_date,
-    );
-
     const filteredSessions = filterSessionsByDateRange(
       sessions,
-      start_session_dateLabel,
-      end_session_dateLabel,
+      start_session_date,
+      end_session_date,
     );
 
     const sortedSessions = sortSessionsByDateAndId(filteredSessions);
@@ -595,6 +576,14 @@ export default class MoeService extends RC7BaseService {
     >
   ): Promise<void> {
     const { eid, start_session_date, end_session_date } = ctx.params;
+    if (isAfter(start_session_date, end_session_date)) {
+      throw new MoleculerClientError(
+        '场次日期范围不合法: 开始日期不能晚于结束日期',
+        400,
+        'MOP_SESSION_DATE_RANGE_INVALID'
+      );
+    }
+
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
       'cr7.exhibition.get',
       { eid }
@@ -608,15 +597,10 @@ export default class MoeService extends RC7BaseService {
       { eid }
     );
 
-    const { start_session_dateLabel, end_session_dateLabel } = parseSessionDateRange(
-      start_session_date,
-      end_session_date,
-    );
-
     const filteredSessions = filterSessionsByDateRange(
       sessions,
-      start_session_dateLabel,
-      end_session_dateLabel,
+      start_session_date,
+      end_session_date,
     );
 
     const sortedSessions = sortSessionsByDateAndId(filteredSessions);
@@ -666,6 +650,14 @@ export default class MoeService extends RC7BaseService {
     >
   ): Promise<void> {
     const { eid, start_session_date, end_session_date } = ctx.params;
+    if (isAfter(start_session_date, end_session_date)) {
+      throw new MoleculerClientError(
+        '场次日期范围不合法: 开始日期不能晚于结束日期',
+        400,
+        'MOP_SESSION_DATE_RANGE_INVALID'
+      );
+    }
+
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
       'cr7.exhibition.get',
       { eid }
@@ -679,15 +671,10 @@ export default class MoeService extends RC7BaseService {
       { eid }
     );
 
-    const { start_session_dateLabel, end_session_dateLabel } = parseSessionDateRange(
-      start_session_date,
-      end_session_date,
-    );
-
     const filteredSessions = filterSessionsByDateRange(
       sessions,
-      start_session_dateLabel,
-      end_session_dateLabel,
+      start_session_date,
+      end_session_date,
     );
 
     const sortedSessions = sortSessionsByDateAndId(filteredSessions);
@@ -744,6 +731,14 @@ export default class MoeService extends RC7BaseService {
     >
   ): Promise<void> {
     const { eid, tid, start_session_date, end_session_date } = ctx.params;
+    if (isAfter(start_session_date, end_session_date)) {
+      throw new MoleculerClientError(
+        '场次日期范围不合法: 开始日期不能晚于结束日期',
+        400,
+        'MOP_SESSION_DATE_RANGE_INVALID'
+      );
+    }
+
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>('cr7.exhibition.get', { eid });
     const ticket = await ctx.call<Exhibition.TicketCategory, { eid: string; tid: string }>(
       'cr7.exhibition.getTicket',
@@ -751,14 +746,10 @@ export default class MoeService extends RC7BaseService {
     );
     const sessions = await ctx.call<Exhibition.Session[], { eid: string }>('cr7.exhibition.getSessions', { eid });
 
-    const { start_session_dateLabel, end_session_dateLabel } = parseSessionDateRange(
-      start_session_date,
-      end_session_date,
-    );
     const filteredSessions = filterSessionsByDateRange(
       sessions,
-      start_session_dateLabel,
-      end_session_dateLabel,
+      start_session_date,
+      end_session_date,
     );
     const sortedSessions = sortSessionsByDateAndId(filteredSessions);
 
