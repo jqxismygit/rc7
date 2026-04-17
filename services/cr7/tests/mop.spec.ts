@@ -12,7 +12,7 @@ import {
 import { format, isDate, parse, parseISO } from 'date-fns';
 import { Exhibition, Inventory, Mop, Order, Payment, Redeem, User } from '@cr7/types';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
-import { listUsers, prepareAdminToken } from './fixtures/user.js';
+import { listUsers, prepareAdminToken, suUserToken } from './fixtures/user.js';
 import {
   getSessions,
   prepareExhibition,
@@ -20,7 +20,7 @@ import {
   updateExhibition,
 } from './fixtures/exhibition.js';
 import { getSessionTickets, updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
-import { redeemCode } from './fixtures/redeem.js';
+import { getOrderRedemption, redeemCode } from './fixtures/redeem.js';
 import { getCityMetaByName, getCityMetaById } from '@/libs/city.js';
 import {
   MopEncryptedResponse,
@@ -688,14 +688,10 @@ describeFeature(feature, ({
     });
 
     And('cr7 订单生成了核销码', async () => {
-      const { broker, order } = featureContext;
-      expect(order).toBeTruthy();
-      featureContext.orderRedemption = await broker.call<
-        Redeem.RedemptionCodeWithOrder, { oid: string }
-      >(
-        'cr7.redemption.getByOrder',
-        { oid: order!.id },
-        { meta: { user: { uid: order!.user_id } } },
+      const { apiServer, order, adminToken } = featureContext;
+      const userToken = await suUserToken(apiServer, adminToken!, order!.user_id);
+      featureContext.orderRedemption = await getOrderRedemption(
+        apiServer, order!.id, userToken
       );
     });
 
@@ -788,16 +784,14 @@ describeFeature(feature, ({
     });
 
     And('cr7 订单的核销码失效', async () => {
-      const { broker, order } = featureContext;
-      expect(order).toBeTruthy();
-      await expect(
-        broker.call('cr7.redemption.getByOrder',
-          { oid: order!.id },
-          { meta: { user: { uid: order!.user_id } } },
-        )
-      ).rejects.toMatchObject({
-        code: 410,
-        type: 'ORDER_NOT_REDEEMABLE',
+      const { apiServer, order, adminToken } = featureContext;
+      const userToken = await suUserToken(apiServer, adminToken!, order!.user_id);
+      await expect(getOrderRedemption(apiServer, order!.id, userToken))
+      .rejects.toMatchObject({
+        status: 410,
+        body: {
+          type: 'ORDER_NOT_REDEEMABLE',
+        }
       });
     });
 
@@ -1516,15 +1510,14 @@ describeFeature(feature, ({
     });
 
     And('cr7 订单的核销码的创建时间没有变化', async () => {
-      const { broker, order, orderRedemption } = featureContext;
-      const currentRedemption = await broker.call<
-        Redeem.RedemptionCodeWithOrder, { oid: string }
-      >(
-        'cr7.redemption.getByOrder',
-        { oid: order!.id },
-        { meta: { user: { uid: order!.user_id } } },
+      const { apiServer, adminToken, order, orderRedemption } = featureContext;
+      const userToken = await suUserToken(apiServer, adminToken!, order!.user_id);
+      const currentRedemption = await getOrderRedemption(
+        apiServer, order!.id, userToken
       );
-      expect(new Date(currentRedemption.created_at).getTime()).toBe(new Date(orderRedemption!.created_at).getTime());
+      expect(
+        new Date(currentRedemption.created_at).getTime()
+      ).toBe(new Date(orderRedemption!.created_at).getTime());
     });
 
     And('订单支付结果中的第 {int} 个订单项的检票码仍然是 cr7 订单的核销码', (_ctx, index: number) => {
@@ -1551,13 +1544,10 @@ describeFeature(feature, ({
     });
 
     Then('cr7 核销码状态变成已核销', async () => {
-      const { broker, order } = featureContext;
-      const redemption = await broker.call<
-        Redeem.RedemptionCodeWithOrder, { oid: string }
-      >(
-        'cr7.redemption.getByOrder',
-        { oid: order!.id },
-        { meta: { user: { uid: order!.user_id } } },
+      const { apiServer, adminToken, broker, order } = featureContext;
+      const userToken = await suUserToken(apiServer, adminToken!, order!.user_id);
+      const redemption = await getOrderRedemption(
+        apiServer, order!.id, userToken
       );
       expect(redemption.status).toBe('REDEEMED');
     });
