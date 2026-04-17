@@ -1,0 +1,11 @@
+[Unit]
+Description=Run CR7 expired order reconciliation every minute.
+
+[Timer]
+Unit=cr7-expire-orders.service
+OnCalendar=*-*-* *:*:00
+AccuracySec=1s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

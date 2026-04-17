@@ -36,11 +36,11 @@
         <!-- 活动主卡片 -->
         <view class="event-main-card">
           <view class="event-card-inner card-dark">
-            <image
+            <!-- <image
               :src="ticket.eventCover || '/static/images/event-card.jpg'"
               mode="aspectFill"
               class="event-cover"
-            />
+            /> -->
             <view class="event-info-wrap">
               <text class="event-title">{{ ticket.eventName }}</text>
               <view class="event-meta-item">

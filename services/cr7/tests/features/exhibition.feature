@@ -5,7 +5,7 @@ Feature: manage exhibition
     Given 系统管理员已经创建并登录
 
   Scenario: create a new exhibition
-    Given 展览名称为 cr7_life_museum
+    Given 展览名称为 "cr7_life_museum"
       And 展会描述为 "welcome to cr7 life museum"
       And 展会开始日期为 "3天后"
       And 展会结束日期为 "60天后"
@@ -21,21 +21,21 @@ Feature: manage exhibition
       And 展览状态默认为下线
 
   Scenario: admin can update exhibition status by dedicated route
-    Given 已创建展览
+    Given 管理员已创建展览
      When 管理员将展览状态更新为 "ENABLE"
      Then 展览状态更新为 "ENABLE"
      When 管理员再次将展览状态更新为 "DISABLE"
      Then 展览状态再次更新为 "DISABLE"
 
   Scenario: sessions was created when exhibition was created
-    Given 已创建展览
+    Given 管理员已创建展览
      Then 展览默认按天创建场次
       And 首个场次日期与展览开始日期一致
       And 最后场次日期与展览结束日期一致
       And 场次数量等于展览持续天数
 
   Scenario: add non-refundable ticket category to exhibition
-    Given 已创建展览
+    Given 管理员已创建展览
     Given 为该展览准备票种草稿 "early_bird"
       And 票价为 100
       And 有效期为 1 天
@@ -46,7 +46,7 @@ Feature: manage exhibition
       And 展览包含 1 个票种 "early_bird"
 
   Scenario: add a refundable ticket category
-    Given 已创建展览
+    Given 管理员已创建展览
     Given 为该展览准备票种草稿 "regular"
       And 票价为 150
       And 有效期为 10 天
@@ -117,15 +117,35 @@ Feature: manage exhibition
      Then 展览描述更新成功
 
   Scenario: 更新展览时必须至少提供一个参数
-    Given 已创建展览
+    Given 管理员已创建展览
      When 不提供任何参数更新展览
      Then 返回参数不合法错误
 
   Scenario: 更新展览时不能修改开始和结束日期
-    Given 已创建展览
+    Given 管理员已创建展览
      When 尝试更新展览开始和结束日期
      Then 返回参数不合法错误
 
-# todo
-# - 更新 exhibition 基本信息
-# - 更新 ticket category
+  Scenario: 可以更新票种信息
+    Given 管理员已创建展览
+      And 已为该展览创建票种 "regular"
+      And 准备更新票种名称为 "vip"
+      And 准备更新票种价格为 199
+      And 准备更新票种有效期为 30 天
+      And 准备更新票种退票策略为不可退
+      And 准备更新票种准入人数为 4
+
+     When 更新票种信息
+     Then 票种信息更新成功
+     When 管理员查看展会票种列表
+      And 展览中的票种已更新为 "vip"
+      And 展览中的票种价格已更新为 199
+      And 展览中的票种有效期已更新为 30 天
+      And 展览中的票种退票策略已更新为不可退
+      And 展览中的票种准入人数已更新为 4
+
+  Scenario: 更新票种时必须至少提供一个参数
+    Given 管理员已创建展览
+      And 已为该展览创建票种 "regular"
+     When 不提供任何参数更新票种
+     Then 返回参数不合法错误
