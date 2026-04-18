@@ -51,11 +51,7 @@
                   :height="28"
                   color="#ADADAD"
                 />
-                <text class="meta-text">{{
-                  ticket.eventEntryTimeRange ||
-                  ticket.eventStartTime ||
-                  ticket.eventDate
-                }}</text>
+                <text class="meta-text">{{ validityText }}</text>
               </view>
               <view class="event-meta-item">
                 <sx-svg
@@ -199,6 +195,7 @@ import { buildTicketDetailFromOrder } from "@/utils/orderDisplay.js";
 import Cr7NavBar from "@/components/cr7-nav-bar/cr7-nav-bar.vue";
 import { getNavBarInsetPx } from "@/utils/navBar.js";
 import { useUserStore } from "@/stores/user";
+import dayjs from "dayjs";
 
 const ticketColorConfig = [
   {
@@ -243,6 +240,7 @@ export default {
     return {
       ticketId: "",
       ticket: {},
+      validityText: "",
       redemption: null,
       redemptionError: "",
       noticeList: NOTICE_LIST,
@@ -349,6 +347,19 @@ export default {
       if (!order || order.status !== "PAID") return;
       try {
         this.redemption = await getOrderRedemption(order.id);
+
+        const openingTime = dayjs(
+          this.redemption.session?.session_date +
+            " " +
+            this.redemption.session?.opening_time,
+        ).format("HH:mm");
+        const closingTime = dayjs(
+          this.redemption.session?.session_date +
+            " " +
+            this.redemption.session?.closing_time,
+        ).format("HH:mm");
+        this.validityText = `${this.redemption.session?.session_date} ${openingTime} ~ ${closingTime}`;
+
         const categoryName = this.redemption?.items[0]?.category_name;
         if (categoryName) {
           this.qrcodeStyle =

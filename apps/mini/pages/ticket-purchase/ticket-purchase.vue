@@ -421,12 +421,6 @@ export default {
           this.sessionOptions = Array.isArray(section.sessions)
             ? section.sessions
             : [];
-          console.log(
-            "this.sessionOptions=======》》》",
-            section,
-            this.sessionOptions,
-            section.sessions,
-          );
           const initialSessionId = section.sessionId || "";
           this.sessionId = initialSessionId;
           this.initDateSelection();
@@ -549,10 +543,7 @@ export default {
       );
       if (matched) {
         this.selectedTicket = matched;
-        const max = Math.min(
-          MAX_TICKETS_PER_ORDER,
-          matched.stock || 1,
-        );
+        const max = Math.min(MAX_TICKETS_PER_ORDER, matched.stock || 1);
         if (this.quantity > max) this.quantity = max;
         if (this.quantity < 1) this.quantity = 1;
         return;
