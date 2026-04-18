@@ -24,11 +24,38 @@ export async function updateTicketCategoryMaxInventory(
   eid: string,
   tid: string,
   quantity: number,
+  range?: {
+    start_session_date: string;
+    end_session_date: string;
+  },
 ) {
   return putJSON(
     server,
     `/exhibition/${eid}/sessions/tickets/${tid}/inventory/max`,
-    { body: { quantity }, token }
+    {
+      body: {
+        quantity,
+        ...(range ?? {}),
+      },
+      token,
+    }
+  );
+}
+
+export async function getTicketCalendarInventory(
+  server: Server,
+  token: string,
+  eid: string,
+  tid: string,
+  range: {
+    start_session_date: string;
+    end_session_date: string;
+  },
+) {
+  return getJSON<Inventory.TicketCalendarInventory[]>(
+    server,
+    `/exhibition/${eid}/tickets/${tid}/calendar`,
+    { token, query: range },
   );
 }
 

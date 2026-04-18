@@ -17,6 +17,7 @@ export default [
         ecmaVersion: 2023,
         sourceType: 'module',
         project: './tsconfig.json',
+        tsconfigRootDir: import.meta.dirname,
       },
     },
     rules: {
@@ -53,6 +54,7 @@ export default [
         ecmaVersion: 2023,
         sourceType: 'module',
         project: './tests/tsconfig.json',
+        tsconfigRootDir: `${import.meta.dirname}/`,
       },
     },
     rules: {
@@ -61,7 +63,7 @@ export default [
         {
           argsIgnorePattern: '^_',
           varsIgnorePattern: '^_',
-          catchIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
         },
       ],
       '@typescript-eslint/no-explicit-any': 'warn',

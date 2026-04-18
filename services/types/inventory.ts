@@ -13,3 +13,10 @@ export interface SessionTicketsInventory extends TicketCategory {
   session_id: string;
   quantity: number;
 }
+
+export interface TicketCalendarInventory {
+  session_id: string;
+  session_date: string;
+  quantity: number;
+  price: number;
+}
