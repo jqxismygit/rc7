@@ -14,29 +14,11 @@ import {
   releaseExpiredOrders,
 } from '../data/order.js';
 import { handleOrderError } from './errors.js';
+import { parseSelectedSessionId, HALF_SESSION_ID_REGEX } from './session-id.js';
 
 const { MoleculerClientError } = Errors;
-
-const UUID_PATTERN = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
-const SESSION_ID_PATTERN = `${UUID_PATTERN}-(AM|PM)`;
-const HALF_SESSION_ID_REGEX = new RegExp(`^(${UUID_PATTERN})-(AM|PM)$`, 'i');
 interface UserMeta {
   uid: string;
-}
-
-function parseSessionSelection(sid: string): { sessionId: string; sessionHalf: Order.OrderSessionHalf | null } {
-  const matched = sid.match(HALF_SESSION_ID_REGEX);
-  if (!matched) {
-    return {
-      sessionId: sid,
-      sessionHalf: null,
-    };
-  }
-
-  return {
-    sessionId: matched[1],
-    sessionHalf: matched[2].toUpperCase() as Order.OrderSessionHalf,
-  };
 }
 
 const createOrderItemsParamsSchema = {
@@ -89,7 +71,7 @@ export class OrderService extends RC7BaseService {
         eid: 'uuid',
         sid: [
           'uuid',
-          { type: 'string', pattern: SESSION_ID_PATTERN },
+          { type: 'string', pattern: HALF_SESSION_ID_REGEX.source },
         ],
         items: createOrderItemsParamsSchema,
         source: {
@@ -284,7 +266,7 @@ export class OrderService extends RC7BaseService {
   }) {
     const schema = await this.getSchema();
     const dbClient = await this.pool.connect();
-    const { sessionId, sessionHalf } = parseSessionSelection(params.sid);
+    const { sessionId, sessionHalf } = parseSelectedSessionId(params.sid);
 
     try {
       await dbClient.query('BEGIN');
