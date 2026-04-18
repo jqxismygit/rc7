@@ -43,7 +43,6 @@ function normalizeTimeLabel(time: string): string {
 function extractQuotedValue(value: string, fieldName: string): string {
   const match = value.match(/^"(.+)"/);
   expect(match, `${fieldName} 格式不合法: ${value}`).toBeTruthy();
-  console.log({ match })
   return match![1];
 }
 
@@ -164,7 +163,6 @@ describeFeature(feature, ({
 
       const expectSessions = dataTable.map((row) => {
         const sessionDateLabel = toDateLabel(extractQuotedValue(row['场次名称'], '场次名称'));
-        console.log('期望的场次名称:', sessionDateLabel);
 
         const expectedStartTime = parseDatetimeCell(row['场次开始时间'], '场次开始时间');
         const expectedEndTime = parseDatetimeCell(row['场次结束时间'], '场次结束时间');
