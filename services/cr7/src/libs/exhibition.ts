@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { Context, Errors, ServiceBroker, ServiceSchema } from "moleculer";
 import type { Exhibition } from "@cr7/types";
 import {
@@ -310,15 +311,21 @@ export class ExhibitionService extends RC7BaseService {
     const client = this.pool;
     const schema = await this.getSchema();
 
-    const sessions = await getSessionsByExhibitionId(
-      client,
-      schema,
-      eid,
-      start_session_date,
-      end_session_date,
+    const exhibition = await getExhibitionById(client, schema, eid);
+    const rawSessions = await getSessionsByExhibitionId(
+      client, schema, eid, start_session_date, end_session_date
     );
 
-    return sessions;
+    return rawSessions.map((session) => {
+      const dateStr = format(session.session_date, 'yyyy-MM-dd');
+      return {
+        ...session,
+        name: dateStr,
+        opening_time: `${dateStr} ${exhibition.opening_time}`,
+        closing_time: `${dateStr} ${exhibition.closing_time}`,
+        last_entry_time: `${dateStr} ${exhibition.last_entry_time}`,
+      };
+    });
   }
 
   async addTicketCategory(

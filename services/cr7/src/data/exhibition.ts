@@ -301,13 +301,18 @@ export async function listSessionInventoryByTicketAndDateRange(
   return rows;
 }
 
+export type RawSession = Pick<
+  Exhibition.Session,
+  'id' | 'exhibit_id' | 'session_date' | 'created_at' | 'updated_at'
+>;
+
 export async function getSessionsByExhibitionId(
   client: DBClient,
   schema: string,
   eid: string,
   startDate?: Date,
   endDate?: Date,
-): Promise<Exhibition.Session[]> {
+): Promise<RawSession[]> {
   const values: unknown[] = [eid];
   const filters = ['session_id = $1'];
 
@@ -321,10 +326,10 @@ export async function getSessionsByExhibitionId(
     filters.push(`session_date <= $${values.length}::date`);
   }
 
-  const { rows } = await client.query(
+  const { rows } = await client.query<RawSession>(
     `SELECT
       id,
-      session_id as exhibit_id,
+      session_id AS exhibit_id,
       session_date,
       created_at,
       updated_at

@@ -5,6 +5,7 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
+import { format, parse } from 'date-fns';
 import { expect, vi } from 'vitest';
 import { Exhibition } from '@cr7/types';
 import { ServiceBroker } from 'moleculer';
@@ -24,6 +25,37 @@ const schema = 'test_calendar';
 const services = ['api', 'cr7', 'user'];
 
 const feature = await loadFeature('tests/features/calendar.feature');
+
+function normalizeTimeLabel(time: string): string {
+  const secondPrecision = parse(time, 'HH:mm:ss', new Date());
+  if (!Number.isNaN(secondPrecision.getTime()) && format(secondPrecision, 'HH:mm:ss') === time) {
+    return time;
+  }
+
+  const minutePrecision = parse(time, 'HH:mm', new Date());
+  if (!Number.isNaN(minutePrecision.getTime()) && format(minutePrecision, 'HH:mm') === time) {
+    return format(minutePrecision, 'HH:mm:ss');
+  }
+
+  return time;
+}
+
+function extractQuotedValue(value: string, fieldName: string): string {
+  const match = value.match(/^"(.+)"/);
+  expect(match, `${fieldName} 格式不合法: ${value}`).toBeTruthy();
+  console.log({ match })
+  return match![1];
+}
+
+function parseDatetimeCell(value: string, fieldName: string): string {
+  const match = value.match(/^"(.+)"\s+(\d{2}:\d{2}(?::\d{2})?)$/);
+  expect(match, `${fieldName} 格式不合法: ${value}`).toBeTruthy();
+  const sessionDate = toDateLabel(match![1]);
+  const time = normalizeTimeLabel(match![2]);
+  return `${sessionDate} ${time}`;
+}
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface ExhibitionContext {
   ticketByName: Record<string, Exhibition.TicketCategory>;
@@ -125,9 +157,29 @@ describeFeature(feature, ({
       });
     });
 
-    Then('场次列表有 {int} 个场次', (_ctx, expectedCount: number) => {
+    Then('场次列表有 {int} 个场次', (_ctx, expectedCount: number, dataTable: Array<Record<string, string>>) => {
       const { sessions } = featureContext;
       expect(sessions).toHaveLength(expectedCount);
+      expect(dataTable).toHaveLength(expectedCount);
+
+      const expectSessions = dataTable.map((row) => {
+        const sessionDateLabel = toDateLabel(extractQuotedValue(row['场次名称'], '场次名称'));
+        console.log('期望的场次名称:', sessionDateLabel);
+
+        const expectedStartTime = parseDatetimeCell(row['场次开始时间'], '场次开始时间');
+        const expectedEndTime = parseDatetimeCell(row['场次结束时间'], '场次结束时间');
+        const expectedLastEntryTime = parseDatetimeCell(row['场次最晚入场时间'], '场次最晚入场时间');
+
+        return expect.objectContaining({
+          id: expect.stringMatching(UUID_REGEX),
+          name: sessionDateLabel,
+          opening_time: expectedStartTime,
+          closing_time: expectedEndTime,
+          last_entry_time: expectedLastEntryTime,
+        });
+      });
+
+      expect(sessions).toEqual(expectSessions);
     });
   });
 });
