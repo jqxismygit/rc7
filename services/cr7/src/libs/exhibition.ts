@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { format, isBefore, parse, subMinutes } from 'date-fns';
 import { Context, Errors, ServiceBroker, ServiceSchema } from "moleculer";
 import type { Exhibition } from "@cr7/types";
 import {
@@ -47,6 +47,29 @@ const TICKET_CATEGORY_UPDATE_FIELDS = [
 interface UserMeta {
   uid: string;
   roles?: string[];
+}
+
+type SessionMode = 'DAY' | 'HALF_DAY';
+
+const AM_SESSION_END_TIME = '12:59:00';
+const PM_SESSION_START_TIME = '13:00:00';
+
+function parseClockTime(value: string): Date {
+  const secondPrecision = parse(value, 'HH:mm:ss', new Date());
+  if (!Number.isNaN(secondPrecision.getTime()) && format(secondPrecision, 'HH:mm:ss') === value) {
+    return secondPrecision;
+  }
+
+  const minutePrecision = parse(value, 'HH:mm', new Date());
+  if (!Number.isNaN(minutePrecision.getTime()) && format(minutePrecision, 'HH:mm') === value) {
+    return minutePrecision;
+  }
+
+  throw new MoleculerClientError('参数不合法', 400, 'INVALID_ARGUMENT');
+}
+
+function formatClockTime(value: Date): string {
+  return format(value, 'HH:mm:ss');
 }
 
 /**
@@ -108,6 +131,12 @@ export class ExhibitionService extends RC7BaseService {
       rest: 'GET /:eid/sessions',
       params: {
         eid: 'string',
+        session_mode: {
+          type: 'enum',
+          values: ['DAY', 'HALF_DAY'],
+          optional: true,
+          default: 'HALF_DAY',
+        },
         start_session_date: {
           type: 'date',
           convert: true,
@@ -303,11 +332,17 @@ export class ExhibitionService extends RC7BaseService {
   async getSessions(
     ctx: Context<{
       eid: string;
+      session_mode?: SessionMode;
       start_session_date?: Date;
       end_session_date?: Date;
     }, { user: UserMeta }>
   ) {
-    const { eid, start_session_date, end_session_date } = ctx.params;
+    const {
+      eid,
+      session_mode = 'HALF_DAY',
+      start_session_date,
+      end_session_date,
+    } = ctx.params;
     const client = this.pool;
     const schema = await this.getSchema();
 
@@ -316,7 +351,7 @@ export class ExhibitionService extends RC7BaseService {
       client, schema, eid, start_session_date, end_session_date
     );
 
-    return rawSessions.map((session) => {
+    const daySessions = rawSessions.map((session) => {
       const dateStr = format(session.session_date, 'yyyy-MM-dd');
       return {
         ...session,
@@ -325,6 +360,48 @@ export class ExhibitionService extends RC7BaseService {
         closing_time: `${dateStr} ${exhibition.closing_time}`,
         last_entry_time: `${dateStr} ${exhibition.last_entry_time}`,
       };
+    });
+
+    if (session_mode === 'DAY') {
+      return daySessions;
+    }
+
+    const amSessionEndTime = parseClockTime(AM_SESSION_END_TIME);
+    const pmSessionStartTime = parseClockTime(PM_SESSION_START_TIME);
+    const exhibitionOpeningTime = formatClockTime(parseClockTime(exhibition.opening_time));
+    const exhibitionClosingTime = parseClockTime(exhibition.closing_time);
+
+    let pmSessionLastEntryTime = subMinutes(exhibitionClosingTime, 30);
+    if (isBefore(pmSessionLastEntryTime, pmSessionStartTime)) {
+      pmSessionLastEntryTime = pmSessionStartTime;
+    }
+
+    const amSessionEndTimeText = formatClockTime(amSessionEndTime);
+    const pmSessionStartTimeText = formatClockTime(pmSessionStartTime);
+    const pmSessionClosingTimeText = formatClockTime(exhibitionClosingTime);
+    const pmSessionLastEntryTimeText = formatClockTime(pmSessionLastEntryTime);
+
+    return daySessions.flatMap((session) => {
+      const dateStr = format(session.session_date, 'yyyy-MM-dd');
+
+      return [
+        {
+          ...session,
+          id: `${session.id}-AM`,
+          name: '上午场',
+          opening_time: `${dateStr} ${exhibitionOpeningTime}`,
+          closing_time: `${dateStr} ${amSessionEndTimeText}`,
+          last_entry_time: `${dateStr} ${amSessionEndTimeText}`,
+        },
+        {
+          ...session,
+          id: `${session.id}-PM`,
+          name: '下午场',
+          opening_time: `${dateStr} ${pmSessionStartTimeText}`,
+          closing_time: `${dateStr} ${pmSessionClosingTimeText}`,
+          last_entry_time: `${dateStr} ${pmSessionLastEntryTimeText}`,
+        },
+      ];
     });
   }
 

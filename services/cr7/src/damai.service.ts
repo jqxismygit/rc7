@@ -716,7 +716,12 @@ class DamaiService extends RC7BaseService {
       'cr7.exhibition.get',
       { eid },
     );
-    const query: { eid: string; start_session_date?: Date; end_session_date?: Date } = { eid };
+    const query: {
+      eid: string;
+      session_mode: 'DAY';
+      start_session_date?: Date;
+      end_session_date?: Date;
+    } = { eid, session_mode: 'DAY' };
     if (start_session_date) {
       query.start_session_date = start_session_date;
     }
@@ -726,7 +731,7 @@ class DamaiService extends RC7BaseService {
 
     const sessions = await ctx.call<
       Exhibition.Session[],
-      { eid: string; start_session_date?: Date; end_session_date?: Date }
+      { eid: string; session_mode: 'DAY'; start_session_date?: Date; end_session_date?: Date }
     >('cr7.exhibition.getSessions', query);
     const sortedSessions = [...sessions].sort((left, right) => {
       const leftDate = toDateLabel(left.session_date);
@@ -768,7 +773,10 @@ class DamaiService extends RC7BaseService {
       { eid },
     );
 
-    const sessions = await ctx.call<Exhibition.Session[], { eid: string }>('cr7.exhibition.getSessions', { eid });
+    const sessions = await ctx.call<Exhibition.Session[], { eid: string; session_mode: 'DAY' }>(
+      'cr7.exhibition.getSessions',
+      { eid, session_mode: 'DAY' },
+    );
     const session = sessions.find(item => item.id === sid);
 
     if (!session) {
@@ -890,9 +898,9 @@ class DamaiService extends RC7BaseService {
       return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20015', '项目状态异常'));
     }
 
-    const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
+    const sessions = await ctx.call<Exhibition.Session[], { eid: string; session_mode: 'DAY' }>(
       'cr7.exhibition.getSessions',
-      { eid: projectId },
+      { eid: projectId, session_mode: 'DAY' },
     );
     const session = sessions.find(item => item.id === performId) ?? null;
     if (!session) {

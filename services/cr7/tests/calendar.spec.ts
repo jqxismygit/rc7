@@ -40,12 +40,6 @@ function normalizeTimeLabel(time: string): string {
   return time;
 }
 
-function extractQuotedValue(value: string, fieldName: string): string {
-  const match = value.match(/^"(.+)"/);
-  expect(match, `${fieldName} 格式不合法: ${value}`).toBeTruthy();
-  return match![1];
-}
-
 function parseDatetimeCell(value: string, fieldName: string): string {
   const match = value.match(/^"(.+)"\s+(\d{2}:\d{2}(?::\d{2})?)$/);
   expect(match, `${fieldName} 格式不合法: ${value}`).toBeTruthy();
@@ -54,7 +48,18 @@ function parseDatetimeCell(value: string, fieldName: string): string {
   return `${sessionDate} ${time}`;
 }
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function normalizeSessionName(value: string): string {
+  if (/^\d+天后$/.test(value) || value === '今天') {
+    return toDateLabel(value);
+  }
+
+  return value;
+}
+
+const UUID_PATTERN = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+const UUID_REGEX = new RegExp(`^${UUID_PATTERN}$`, 'i');
+const UUID_AM_REGEX = new RegExp(`^${UUID_PATTERN}-AM$`, 'i');
+const UUID_PM_REGEX = new RegExp(`^${UUID_PATTERN}-PM$`, 'i');
 
 interface ExhibitionContext {
   ticketByName: Record<string, Exhibition.TicketCategory>;
@@ -148,36 +153,65 @@ describeFeature(feature, ({
   Scenario('获取展会的场次信息', (s: StepTest<void>) => {
     const { When, Then } = s;
 
-    When('管理员获取展会场次列表', async () => {
+    When('管理员获取展会场次列表, 日场次模式', async () => {
       const { apiServer, adminToken, exhibition } = featureContext;
       featureContext.sessions = await getSessions(apiServer, exhibition.id, adminToken, {
+        session_mode: 'DAY',
         start_session_date: toDateLabel('今天'),
         end_session_date: toDateLabel('1天后'),
       });
     });
 
-    Then('场次列表有 {int} 个场次', (_ctx, expectedCount: number, dataTable: Array<Record<string, string>>) => {
+    When('管理员获取展会场次列表, 默认模式，单日分上下午场次', async () => {
+      const { apiServer, adminToken, exhibition } = featureContext;
+      featureContext.sessions = await getSessions(apiServer, exhibition.id, adminToken, {
+        session_mode: 'HALF_DAY',
+        start_session_date: toDateLabel('今天'),
+        end_session_date: toDateLabel('1天后'),
+      });
+    });
+
+    const assertSessionTable = (
+      _ctx: unknown,
+      expectedCount: number,
+      dataTable: Array<Record<string, string>>,
+    ) => {
       const { sessions } = featureContext;
-      expect(sessions).toHaveLength(expectedCount);
+      expect(sessions).toBeDefined();
+      const actualSessions = sessions ?? [];
+
+      expect(actualSessions).toHaveLength(expectedCount);
       expect(dataTable).toHaveLength(expectedCount);
 
-      const expectSessions = dataTable.map((row) => {
-        const sessionDateLabel = toDateLabel(extractQuotedValue(row['场次名称'], '场次名称'));
+      const expectedRows = dataTable.map((row) => ({
+        sessionIdType: row['场次 ID'],
+        sessionDate: toDateLabel(row['场次日期']),
+        name: normalizeSessionName(row['场次名称']),
+        opening_time: parseDatetimeCell(row['场次开始时间'], '场次开始时间'),
+        closing_time: parseDatetimeCell(row['场次结束时间'], '场次结束时间'),
+        last_entry_time: parseDatetimeCell(row['场次最晚入场时间'], '场次最晚入场时间'),
+      }));
 
-        const expectedStartTime = parseDatetimeCell(row['场次开始时间'], '场次开始时间');
-        const expectedEndTime = parseDatetimeCell(row['场次结束时间'], '场次结束时间');
-        const expectedLastEntryTime = parseDatetimeCell(row['场次最晚入场时间'], '场次最晚入场时间');
+      actualSessions.forEach((session, index) => {
+        const expectedSession = expectedRows[index];
 
-        return expect.objectContaining({
-          id: expect.stringMatching(UUID_REGEX),
-          name: sessionDateLabel,
-          opening_time: expectedStartTime,
-          closing_time: expectedEndTime,
-          last_entry_time: expectedLastEntryTime,
-        });
+        if (expectedSession.sessionIdType === 'uuid-AM') {
+          expect(session.id).toMatch(UUID_AM_REGEX);
+        } else if (expectedSession.sessionIdType === 'uuid-PM') {
+          expect(session.id).toMatch(UUID_PM_REGEX);
+        } else {
+          expect(session.id).toMatch(UUID_REGEX);
+        }
+
+        expect(format(new Date(session.session_date), 'yyyy-MM-dd')).toBe(expectedSession.sessionDate);
+        expect(session.name).toBe(expectedSession.name);
+        expect(session.opening_time).toBe(expectedSession.opening_time);
+        expect(session.closing_time).toBe(expectedSession.closing_time);
+        expect(session.last_entry_time).toBe(expectedSession.last_entry_time);
       });
+    };
 
-      expect(sessions).toEqual(expectSessions);
-    });
+    Then('场次列表有 {int} 个场次', assertSessionTable);
+    Then('默认模式场次列表有 {int} 个场次', assertSessionTable);
   });
 });
