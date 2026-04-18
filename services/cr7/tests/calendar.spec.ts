@@ -15,6 +15,7 @@ import { prepareAPIServer, prepareServices } from './fixtures/services.js';
 import {
   getTicketCalendarInventory,
   updateTicketCategoryMaxInventory,
+  updateTicketCalendarPrice,
 } from './fixtures/inventory.js';
 import {
   getSessions,
@@ -71,12 +72,16 @@ interface ExhibitionContext {
   sessions?: Exhibition.Session[];
 }
 
+interface TicketCalendarContext {
+  ticketCalendar: Array<Inventory.TicketCalendarInventory>;
+}
+
 interface FeatureContext extends
-  ExhibitionContext {
+  ExhibitionContext,
+  Partial<TicketCalendarContext> {
   broker: ServiceBroker;
   apiServer: Server;
   adminToken: string;
-  stockRowsByFetchIndex: Record<number, Inventory.TicketCalendarInventory[]>;
 }
 
 describeFeature(feature, ({
@@ -105,14 +110,66 @@ describeFeature(feature, ({
     await dropSchema({ schema });
   });
 
-  defineSteps(({ Given }) => {
-    Given('展会添加票种 {string}', async (_ctx, ticketName: string) => {
+  defineSteps(({ Given, When, Then }) => {
+    Given('展会添加票种 {string}, 价格为 {int}', async (_ctx, ticketName: string, price: number) => {
       const { apiServer, adminToken, exhibition, ticketByName } = featureContext;
       const ticket = await prepareTicketCategory(apiServer, adminToken, exhibition.id, {
         name: ticketName,
+        price,
       });
       ticketByName[ticketName] = ticket;
       featureContext.ticketByName = ticketByName;
+    });
+
+    When(
+      '管理员第 {int} 次获取 {string} 场次库存价格列表',
+      async (
+        _ctx, _idx: number, ticketName: string,
+      ) => {
+      const { apiServer, adminToken, exhibition, ticketByName } = featureContext;
+      const ticket = ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+
+      featureContext.ticketCalendar = await getTicketCalendarInventory(
+        apiServer,
+        adminToken,
+        exhibition.id,
+        ticket.id,
+        {
+          start_session_date: toDateLabel('今天'),
+          end_session_date: toDateLabel('1天后'),
+        },
+      );
+    });
+
+    Then('第 {int} 次场次库存价格列表有 {int} 个场次库存价格数据', (
+      _ctx,
+      _fetchIndex: number,
+      expectedCount: number,
+      dataTable: Array<Record<string, string>>,
+    ) => {
+      const { ticketCalendar } = featureContext;
+      expect(ticketCalendar).toHaveLength(expectedCount);
+      expect(dataTable).toHaveLength(expectedCount);
+
+      const expectedRows = dataTable.map((row) => {
+        const obj: Record<string, unknown> = {
+          session_id: expect.stringMatching(UUID_REGEX),
+          session_date: toDateLabel(row['场次日期']),
+        };
+        if ('价格' in row) {
+          obj.price = Number(row['价格'])
+        } else if ('库存' in row) {
+          obj.quantity = Number(row['库存']);
+        } else {
+          throw new Error('数据表必须包含 "价格" 或 "库存" 列');
+        }
+        return obj;
+      });
+
+      expect(ticketCalendar).toEqual(
+        expectedRows.map((expectedRow) => expect.objectContaining(expectedRow))
+      );
     });
   });
 
@@ -123,8 +180,6 @@ describeFeature(feature, ({
       featureContext.adminToken = await prepareAdminToken(apiServer, schema);
       expect(featureContext.adminToken).toBeTruthy();
       featureContext.ticketByName = {};
-      featureContext.sessions = undefined;
-      featureContext.stockRowsByFetchIndex = {};
     });
 
     Given(
@@ -227,45 +282,7 @@ describeFeature(feature, ({
   });
 
   Scenario('设置票种的日历库存', (s: StepTest<void>) => {
-    const { Given, When, Then } = s;
-
-    const fetchTicketCalendarStock = async (fetchIndex: number, ticketName: string) => {
-      const { apiServer, adminToken, exhibition, ticketByName } = featureContext;
-      const ticket = ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
-
-      featureContext.stockRowsByFetchIndex[fetchIndex] = await getTicketCalendarInventory(
-        apiServer,
-        adminToken,
-        exhibition.id,
-        ticket.id,
-        {
-          start_session_date: toDateLabel('今天'),
-          end_session_date: toDateLabel('1天后'),
-        },
-      );
-    };
-
-    const assertTicketCalendarStock = (
-      fetchIndex: number,
-      expectedCount: number,
-      dataTable: Array<Record<string, string>>,
-    ) => {
-      const rows = featureContext.stockRowsByFetchIndex[fetchIndex];
-      expect(rows).toBeTruthy();
-      expect(rows).toHaveLength(expectedCount);
-      expect(dataTable).toHaveLength(expectedCount);
-
-      const expectedRows = dataTable.map((row) => ({
-        session_id: expect.stringMatching(UUID_REGEX),
-        session_date: toDateLabel(row['场次日期']),
-        quantity: Number(row['库存']),
-      }));
-
-      expect(rows).toEqual(
-        expectedRows.map((expectedRow) => expect.objectContaining(expectedRow))
-      );
-    };
+    const { Given } = s;
 
     Given('设置 {string} 场次库存为 {int}', async (_ctx, ticketName: string, quantity: number) => {
       const { apiServer, adminToken, exhibition, ticketByName } = featureContext;
@@ -304,34 +321,34 @@ describeFeature(feature, ({
         }
       );
     });
+  });
 
-    When('管理员第 {int} 次获取 {string} 场次库存价格列表', async (
+  Scenario('设置票种的日历价格', (s: StepTest<void>) => {
+    const { Given } = s;
+
+    Given('管理员设置 {string} 的 {string} 到 {string} 的场次价格为 {int}', async (
       _ctx,
-      fetchIndex: number,
       ticketName: string,
+      startDateLabel: string,
+      endDateLabel: string,
+      price: number,
     ) => {
-      await fetchTicketCalendarStock(fetchIndex, ticketName);
-    });
+      const { apiServer, adminToken, exhibition, ticketByName } = featureContext;
+      const ticket = ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
 
-    When('管理员第 2 次获取 {string} 场次库存价格列表', async (_ctx, ticketName: string) => {
-      await fetchTicketCalendarStock(2, ticketName);
-    });
-
-    Then('第 {int} 次场次库存列表有 {int} 个场次库存价格数据', (
-      _ctx,
-      fetchIndex: number,
-      expectedCount: number,
-      dataTable: Array<Record<string, string>>,
-    ) => {
-      assertTicketCalendarStock(fetchIndex, expectedCount, dataTable);
-    });
-
-    Then('第 2 次场次库存列表有 {int} 个场次库存价格数据', (
-      _ctx,
-      expectedCount: number,
-      dataTable: Array<Record<string, string>>,
-    ) => {
-      assertTicketCalendarStock(2, expectedCount, dataTable);
+      await updateTicketCalendarPrice(
+        apiServer,
+        adminToken,
+        exhibition.id,
+        ticket.id,
+        price,
+        {
+          start_session_date: toDateLabel(startDateLabel),
+          end_session_date: toDateLabel(endDateLabel),
+        }
+      );
     });
   });
+
 });

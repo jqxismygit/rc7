@@ -66,4 +66,33 @@
   ```ts
   Inventory.TicketCalendarInventory[]
   ```
+## 设置票种在指定日期范围的场次价格
+
+- URL: `/exhibition/:eid/tickets/:tid/calendar/price`
+- Method: `PUT`
+- 权限：仅管理员
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Params:
+  ```ts
+  { eid: string; tid: string }
+  ```
+- Request Body:
+  ```ts
+  {
+    price: number;            // 场次价格（分），最小值 0
+    start_session_date: string; // yyyy-MM-dd，闭区间起始
+    end_session_date: string;   // yyyy-MM-dd，闭区间结束
+  }
+  ```
+- Response status:
+  - `204 No Content`
+  - `400 Bad Request`：参数不合法或日期区间非法
+  - `404 Not Found`：展览或票种不存在
+- 关键特性：
+  - 按闭区间对指定票种在各场次设置独立价格（覆盖票种默认价格）
+  - 未设置场次价格的场次继续使用票种默认价格
+  - 可通过 `GET /:eid/tickets/:tid/calendar` 查看各场次实际生效价格
 

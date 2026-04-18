@@ -59,6 +59,30 @@ export async function getTicketCalendarInventory(
   );
 }
 
+export async function updateTicketCalendarPrice(
+  server: Server,
+  token: string,
+  eid: string,
+  tid: string,
+  price: number,
+  range: {
+    start_session_date: string;
+    end_session_date: string;
+  },
+) {
+  return putJSON(
+    server,
+    `/exhibition/${eid}/tickets/${tid}/calendar/price`,
+    {
+      body: {
+        price,
+        ...range,
+      },
+      token,
+    }
+  );
+}
+
 export function assertSessionTickets(data: Inventory.SessionTicketsInventory) {
   expect(data).toBeTypeOf('object');
   expect(data).toHaveProperty('session_id', expect.any(String));

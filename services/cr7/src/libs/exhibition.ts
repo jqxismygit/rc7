@@ -19,6 +19,7 @@ import {
   getSessionTicketCategoriesBySessionId,
   getSessionInventoryBySessionId,
   updateTicketCategoryInventoryMax,
+  updateTicketCalendarSessionPrice,
   getTicketCategoryByIdGlobal,
 } from "../data/exhibition.js";
 import { handleExhibitionError } from './errors.js';
@@ -325,6 +326,25 @@ export class ExhibitionService extends RC7BaseService {
         },
       },
       handler: this.listTicketCalendarInventory,
+    },
+
+    'exhibition.updateTicketCalendarPrice': {
+      roles: ['admin'],
+      rest: 'PUT /:eid/tickets/:tid/calendar/price',
+      params: {
+        eid: 'uuid',
+        tid: 'uuid',
+        price: 'number|integer|min:0',
+        start_session_date: {
+          type: 'date',
+          convert: true,
+        },
+        end_session_date: {
+          type: 'date',
+          convert: true,
+        },
+      },
+      handler: this.updateTicketCalendarPrice,
     },
 
     'exhibition.getTicket': {
@@ -662,6 +682,38 @@ export class ExhibitionService extends RC7BaseService {
       start_session_date,
       end_session_date,
     );
+  }
+
+  async updateTicketCalendarPrice(
+    ctx: Context<
+      {
+        eid: string;
+        tid: string;
+        price: number;
+        start_session_date: Date;
+        end_session_date: Date;
+      },
+      { user: UserMeta; $statusCode?: number }
+    >
+  ) {
+    const { eid, tid, price, start_session_date, end_session_date } = ctx.params;
+
+    if (isBefore(end_session_date, start_session_date)) {
+      throw new MoleculerClientError('参数不合法', 400, 'INVALID_ARGUMENT');
+    }
+
+    const schema = await this.getSchema();
+    await updateTicketCalendarSessionPrice(
+      this.pool,
+      schema,
+      eid,
+      tid,
+      price,
+      start_session_date,
+      end_session_date,
+    ).catch(handleExhibitionError);
+
+    ctx.meta.$statusCode = 204;
   }
 
   async getTicketByIdGlobal(ctx: Context<{ tid: string }>) {

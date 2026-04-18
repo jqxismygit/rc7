@@ -316,7 +316,7 @@ export async function listTicketCalendarInventoryByDateRange(
       s.id AS session_id,
       s.session_date::text AS session_date,
       COALESCE((i.quantity - i.reserved_quantity), 0)::integer AS quantity,
-      tc.price
+      COALESCE(i.session_price, tc.price) AS price
     FROM ${schema}.exhibit_sessions s
     JOIN ${schema}.exhibit_ticket_categories tc
       ON tc.id = $2
@@ -331,6 +331,46 @@ export async function listTicketCalendarInventoryByDateRange(
   );
 
   return rows;
+}
+
+export async function updateTicketCalendarSessionPrice(
+  client: DBClient,
+  schema: string,
+  eid: string,
+  tid: string,
+  price: number,
+  startDate: Date,
+  endDate: Date,
+) {
+  const { rows } = await client.query(
+    `INSERT INTO ${schema}.exhibit_session_inventories (
+      session_id,
+      ticket_category_id,
+      session_price
+    )
+    SELECT
+      s.id,
+      $2,
+      $5
+    FROM ${schema}.exhibit_sessions s
+    JOIN ${schema}.exhibit_ticket_categories tc
+      ON tc.id = $2 AND tc.eid = s.session_id
+    WHERE s.session_id = $1
+      AND s.session_date BETWEEN $3 AND $4
+    ON CONFLICT (session_id, ticket_category_id)
+    DO UPDATE SET
+      session_price = EXCLUDED.session_price,
+      updated_at = NOW()
+    RETURNING id`,
+    [eid, tid, startDate, endDate, price]
+  );
+
+  if (rows.length === 0) {
+    throw new ExhibitionDataError(
+      'Ticket category or exhibition sessions not found',
+      'TICKET_CATEGORY_NOT_FOUND'
+    );
+  }
 }
 
 export type RawSession = Pick<
