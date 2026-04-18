@@ -379,6 +379,48 @@ describeFeature(feature, ({
     });
   });
 
+  Scenario('用户可使用半场场次 ID 预订', (s: StepTest<OrderResultContext>) => {
+    const { When, Then, And, context } = s;
+
+    When('用户 {string} 使用 {string} 场次的下午场 ID 预订 {int} 张该展会的 {string}', async (_ctx, userName: string, sessionDate: string, quantity: number, ticketName: string) => {
+      const { exhibition, sessions, ticketByName, fixtures } = featureContext;
+      const { apiServer } = fixtures.values;
+      const token = getUserTokenByName(featureContext, userName);
+      const session = getSessionByDate(sessions, sessionDate);
+
+      context.order = await createOrderByApi(
+        apiServer,
+        exhibition.id,
+        `${session.id}-PM`,
+        [{
+          ticket_category_id: ticketByName[ticketName].id,
+          quantity,
+        }],
+        token,
+      );
+    });
+
+    Then('预订成功', () => {
+      expect(context.order).toBeTruthy();
+      expect(context.order.status).toBe('PENDING_PAYMENT');
+    });
+
+    And('订单场次 ID 为 {string} 的原始场次 ID', (_ctx, sessionDate: string) => {
+      const session = getSessionByDate(featureContext.sessions, sessionDate);
+      expect(context.order.session_id).toBe(session.id);
+    });
+
+    And('订单场次的半场状态是下午场，值为 {string}', (_ctx, expectedHalf: string) => {
+      expect(expectedHalf).toBe('PM');
+      expect(context.order.session_half).toBe(expectedHalf);
+    });
+
+    And('场次 {string} 的 {string} 库存为 {int}', async (_ctx, sessionDate: string, ticketName: string, quantity: number) => {
+      const availableQuantity = await availableInventoryByTicketName(featureContext, sessionDate, ticketName);
+      expect(availableQuantity).toBe(quantity);
+    });
+  });
+
   Scenario('用户预订多个票种', (s: StepTest<OrderResultContext>) => {
     const { Given, When, Then, And, context } = s;
 

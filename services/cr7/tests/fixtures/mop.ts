@@ -30,20 +30,6 @@ export interface SyncExhibitionToMoeResponse {
   };
 }
 
-export interface SyncSessionsToMopRequest {
-  otProjectId: string;
-  shows: Array<{
-    otShowId: string;
-    otShowStatus: number;
-    startTime: string;
-    endTime: string;
-    offSaleTime: string;
-    showType: number;
-    fetchTicketWay: number[];
-    maxBuyLimitPerOrder: number;
-  }>;
-}
-
 export interface SyncTicketsToMopRequest {
   otProjectId: string;
   isOta: number;
@@ -57,16 +43,6 @@ export interface SyncTicketsToMopRequest {
     onSaleTime: string;
     offSaleTime: string;
     inventoryType: number;
-  }>;
-}
-
-export interface SyncStocksToMopRequest {
-  otProjectId: string;
-  stocks: Array<{
-    otShowId: string;
-    otSkuId: string;
-    inventoryType: number;
-    stock: number;
   }>;
 }
 

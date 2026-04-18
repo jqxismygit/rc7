@@ -44,9 +44,7 @@ import {
   syncSessionsToMop,
   syncStocksToMop,
   syncTicketsToMop,
-  SyncStocksToMopRequest,
   SyncTicketsToMopRequest,
-  SyncSessionsToMopRequest,
 } from './fixtures/mop.js';
 import { toDateLabel } from './lib/relative-date.js';
 import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
@@ -729,6 +727,31 @@ describeFeature(feature, ({
       expect(featureContext.mopOrderDraft).toBeTruthy();
       featureContext.mopOrderDraft!.projectShowCode = expectedSession!.id;
     });
+
+    And(
+      '猫眼订单中的场次 ID 是 {string} {string} 的 ID',
+      async (_ctx, dayLabel: string, sessionLabel: string) => {
+      const targetDate = toDateLabel(dayLabel);
+      const sessions = await getSessions(
+        featureContext.apiServer,
+        featureContext.exhibition.id,
+        featureContext.adminToken,
+        {
+          session_mode: 'HALF_DAY',
+          start_session_date: targetDate,
+          end_session_date: targetDate,
+        },
+      );
+      const expectedSession = sessions.find((item) => (
+        toSessionDateLabel(item.session_date) === targetDate
+        && item.id.endsWith(sessionLabel === '上午场' ? '-AM' : '-PM')
+      ));
+      expect(expectedSession).toBeTruthy();
+      expect(featureContext.mopOrderDraft).toBeTruthy();
+      featureContext.mopOrderDraft!.projectShowCode = expectedSession!.id;
+    });
+
+
 
     And('猫眼订单中的购买人信息是 {string}', (_ctx, buyerName: string) => {
       expect(featureContext.mopOrderDraft).toBeTruthy();

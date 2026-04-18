@@ -9,8 +9,9 @@ type CreateOrderInput = {
   user_id: string;
   exhibit_id: string;
   session_id: string;
+  session_half?: Order.OrderSessionHalf | null;
   items: Order.CreateOrderItem[];
-  source?: Order.OrderSource;
+  source: Order.OrderSource;
 };
 
 type AggregatedItem = {
@@ -251,6 +252,7 @@ export async function getOrderById(
       o.user_id,
       o.exhibit_id,
       o.session_id,
+      o.session_half,
       s.session_date,
       o.current_refund_out_refund_no,
       ${getOrderStatusCase({
@@ -306,6 +308,7 @@ export async function getOrdersByIdsForUser(
       o.user_id,
       o.exhibit_id,
       o.session_id,
+      o.session_half,
       s.session_date,
       o.current_refund_out_refund_no,
       ${getOrderStatusCase({
@@ -392,6 +395,7 @@ export async function getOrders(
         o.user_id,
         o.exhibit_id,
         o.session_id,
+        o.session_half,
         s.session_date,
         o.current_refund_out_refund_no,
         ${getOrderStatusCase({
@@ -422,6 +426,7 @@ export async function getOrders(
       user_id,
       exhibit_id,
       session_id,
+      session_half,
       session_date,
       current_refund_out_refund_no,
       status,
@@ -497,6 +502,7 @@ export async function getOrdersAdmin(
         o.user_id,
         o.exhibit_id,
         o.session_id,
+        o.session_half,
         s.session_date,
         o.current_refund_out_refund_no,
         ${getOrderStatusCase({
@@ -525,6 +531,7 @@ export async function getOrdersAdmin(
       user_id,
       exhibit_id,
       session_id,
+      session_half,
       session_date,
       current_refund_out_refund_no,
       status,
@@ -650,13 +657,26 @@ export async function createOrder(
       user_id,
       exhibit_id,
       session_id,
+      session_half,
       total_amount,
       source,
       expires_at
     )
-    VALUES (COALESCE($5::uuid, GEN_RANDOM_UUID()), $1, $2, $3, $4, $6, NOW() + INTERVAL '30 minutes')
+    VALUES (
+      COALESCE($6::uuid, GEN_RANDOM_UUID()),
+      $1, $2, $3, $4, $5, $7,
+      NOW() + INTERVAL '30 minutes'
+    )
     RETURNING id`,
-    [input.user_id, input.exhibit_id, input.session_id, totalAmount, input.id ?? null, input.source ?? 'DIRECT']
+    [
+      input.user_id,
+      input.exhibit_id,
+      input.session_id,
+      input.session_half ?? null,
+      totalAmount,
+      input.id ?? null,
+      input.source,
+    ]
   );
 
   for (const item of aggregatedItems) {
