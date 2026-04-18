@@ -257,6 +257,7 @@ export default class XiechengService extends RC7BaseService {
 
     const sessions = await ctx.call('cr7.exhibition.getSessions', {
       eid,
+      session_mode: 'DAY',
       start_session_date: startSessionDate,
       end_session_date: endSessionDate,
     }) as Exhibition.Session[];
@@ -793,8 +794,8 @@ export default class XiechengService extends RC7BaseService {
       return this.failAndPersist(header, orderBody, '1009', '日期错误', firstSuccessRecord);
     }
 
-    const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
-      'cr7.exhibition.getSessions', { eid: exhibitId }
+    const sessions = await ctx.call<Exhibition.Session[], { eid: string; session_mode: 'DAY' }>(
+      'cr7.exhibition.getSessions', { eid: exhibitId, session_mode: 'DAY' }
     );
     const matchSession = sessions
     .find(s => format(new Date(s.session_date), 'yyyy-MM-dd') === item.useStartDate) ?? null;

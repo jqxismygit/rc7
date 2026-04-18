@@ -17,8 +17,26 @@ import { handleOrderError } from './errors.js';
 
 const { MoleculerClientError } = Errors;
 
+const UUID_PATTERN = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+const SESSION_ID_PATTERN = `${UUID_PATTERN}-(AM|PM)`;
+const HALF_SESSION_ID_REGEX = new RegExp(`^(${UUID_PATTERN})-(AM|PM)$`, 'i');
 interface UserMeta {
   uid: string;
+}
+
+function parseSessionSelection(sid: string): { sessionId: string; sessionHalf: Order.OrderSessionHalf | null } {
+  const matched = sid.match(HALF_SESSION_ID_REGEX);
+  if (!matched) {
+    return {
+      sessionId: sid,
+      sessionHalf: null,
+    };
+  }
+
+  return {
+    sessionId: matched[1],
+    sessionHalf: matched[2].toUpperCase() as Order.OrderSessionHalf,
+  };
 }
 
 const createOrderItemsParamsSchema = {
@@ -64,12 +82,15 @@ export class OrderService extends RC7BaseService {
       rest: 'POST /:eid/sessions/:sid/orders',
       params: {
         id: {
-          type: 'string',
+          type: 'uuid',
           optional: true,
         },
-        user_id: 'string',
-        eid: 'string',
-        sid: 'string',
+        user_id: 'uuid',
+        eid: 'uuid',
+        sid: [
+          'uuid',
+          { type: 'string', pattern: SESSION_ID_PATTERN },
+        ],
         items: createOrderItemsParamsSchema,
         source: {
           type: 'enum',
@@ -263,6 +284,7 @@ export class OrderService extends RC7BaseService {
   }) {
     const schema = await this.getSchema();
     const dbClient = await this.pool.connect();
+    const { sessionId, sessionHalf } = parseSessionSelection(params.sid);
 
     try {
       await dbClient.query('BEGIN');
@@ -270,7 +292,8 @@ export class OrderService extends RC7BaseService {
         id: params.id,
         user_id: params.user_id,
         exhibit_id: params.eid,
-        session_id: params.sid,
+        session_id: sessionId,
+        session_half: sessionHalf,
         items: params.items,
         source: params.source,
       });

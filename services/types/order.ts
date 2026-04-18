@@ -9,12 +9,14 @@ export type OrderStatus =
   | 'EXPIRED';          // 已过期
 
 export type OrderSource = 'DIRECT' | 'CTRIP' | 'MOP' | 'DAMAI';
+export type OrderSessionHalf = 'AM' | 'PM';
 
 export interface Order {
   id: string;
   user_id: string;
   exhibit_id: string;
   session_id: string;
+  session_half: OrderSessionHalf | null;
   session_date: string;
   current_refund_out_refund_no: string | null;
   status: OrderStatus;

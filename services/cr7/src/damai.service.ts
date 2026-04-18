@@ -716,7 +716,12 @@ class DamaiService extends RC7BaseService {
       'cr7.exhibition.get',
       { eid },
     );
-    const query: { eid: string; start_session_date?: Date; end_session_date?: Date } = { eid };
+    const query: {
+      eid: string;
+      session_mode: 'DAY';
+      start_session_date?: Date;
+      end_session_date?: Date;
+    } = { eid, session_mode: 'DAY' };
     if (start_session_date) {
       query.start_session_date = start_session_date;
     }
@@ -726,7 +731,7 @@ class DamaiService extends RC7BaseService {
 
     const sessions = await ctx.call<
       Exhibition.Session[],
-      { eid: string; start_session_date?: Date; end_session_date?: Date }
+      { eid: string; session_mode: 'DAY'; start_session_date?: Date; end_session_date?: Date }
     >('cr7.exhibition.getSessions', query);
     const sortedSessions = [...sessions].sort((left, right) => {
       const leftDate = toDateLabel(left.session_date);
@@ -768,8 +773,12 @@ class DamaiService extends RC7BaseService {
       { eid },
     );
 
-    const sessions = await ctx.call<Exhibition.Session[], { eid: string }>('cr7.exhibition.getSessions', { eid });
-    const session = sessions.find(item => item.id === sid);
+    const session = await ctx
+      .call<Exhibition.Session, { eid: string; sid: string }>(
+        'cr7.exhibition.getSession',
+        { eid, sid },
+      )
+      .catch(() => null);
 
     if (!session) {
       throw new MoleculerClientError('场次不存在', 404, 'SESSION_NOT_FOUND');
@@ -890,11 +899,12 @@ class DamaiService extends RC7BaseService {
       return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20015', '项目状态异常'));
     }
 
-    const sessions = await ctx.call<Exhibition.Session[], { eid: string }>(
-      'cr7.exhibition.getSessions',
-      { eid: projectId },
-    );
-    const session = sessions.find(item => item.id === performId) ?? null;
+    const session = await ctx
+      .call<Exhibition.Session, { eid: string; sid: string }>(
+        'cr7.exhibition.getSession',
+        { eid: projectId, sid: performId },
+      )
+      .catch(() => null);
     if (!session) {
       return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20013', '场次状态异常'));
     }
