@@ -5,7 +5,7 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
-import { format, parse } from 'date-fns';
+import { format, parse, parseISO } from 'date-fns';
 import { expect, vi } from 'vitest';
 import { Exhibition } from '@cr7/types';
 import { ServiceBroker } from 'moleculer';
@@ -171,47 +171,52 @@ describeFeature(feature, ({
       });
     });
 
-    const assertSessionTable = (
+    Then('每日单场次列表有 {int} 个场次', (
       _ctx: unknown,
       expectedCount: number,
       dataTable: Array<Record<string, string>>,
     ) => {
       const { sessions } = featureContext;
-      expect(sessions).toBeDefined();
-      const actualSessions = sessions ?? [];
-
-      expect(actualSessions).toHaveLength(expectedCount);
+      expect(sessions).toHaveLength(expectedCount);
       expect(dataTable).toHaveLength(expectedCount);
 
       const expectedRows = dataTable.map((row) => ({
-        sessionIdType: row['场次 ID'],
-        sessionDate: toDateLabel(row['场次日期']),
+        id: expect.stringMatching(UUID_REGEX),
+        session_date: parseISO(toDateLabel(row['场次日期'])),
+        name: normalizeSessionName(row['场次名称']),
+        opening_time: parseDatetimeCell(row['场次开始时间'], '场次开始时间'),
+        closing_time: parseDatetimeCell(row['场次结束时间'], '场次结束时间'),
+        last_entry_time: parseDatetimeCell(row['场次最晚入场时间'], '场次最晚入场时间'),
+      }));
+      expect(sessions).toEqual(
+        expectedRows.map((expectedSession) => expect.objectContaining(expectedSession))
+      );
+    });
+
+    Then('每日两场次列表有 {int} 个场次', (
+      _ctx: unknown,
+      expectedCount: number,
+      dataTable: Array<Record<string, string>>,
+    ) => {
+      const { sessions } = featureContext;
+
+      expect(sessions).toHaveLength(expectedCount);
+      expect(dataTable).toHaveLength(expectedCount);
+
+      const expectedRows = dataTable.map((row) => ({
+        id: row['场次 ID'] === 'uuid-AM'
+            ? expect.stringMatching(UUID_AM_REGEX)
+            : expect.stringMatching(UUID_PM_REGEX),
+        session_date: parseISO(toDateLabel(row['场次日期'])),
         name: normalizeSessionName(row['场次名称']),
         opening_time: parseDatetimeCell(row['场次开始时间'], '场次开始时间'),
         closing_time: parseDatetimeCell(row['场次结束时间'], '场次结束时间'),
         last_entry_time: parseDatetimeCell(row['场次最晚入场时间'], '场次最晚入场时间'),
       }));
 
-      actualSessions.forEach((session, index) => {
-        const expectedSession = expectedRows[index];
-
-        if (expectedSession.sessionIdType === 'uuid-AM') {
-          expect(session.id).toMatch(UUID_AM_REGEX);
-        } else if (expectedSession.sessionIdType === 'uuid-PM') {
-          expect(session.id).toMatch(UUID_PM_REGEX);
-        } else {
-          expect(session.id).toMatch(UUID_REGEX);
-        }
-
-        expect(format(new Date(session.session_date), 'yyyy-MM-dd')).toBe(expectedSession.sessionDate);
-        expect(session.name).toBe(expectedSession.name);
-        expect(session.opening_time).toBe(expectedSession.opening_time);
-        expect(session.closing_time).toBe(expectedSession.closing_time);
-        expect(session.last_entry_time).toBe(expectedSession.last_entry_time);
-      });
-    };
-
-    Then('场次列表有 {int} 个场次', assertSessionTable);
-    Then('默认模式场次列表有 {int} 个场次', assertSessionTable);
+      expect(sessions).toEqual(
+        expectedRows.map((expectedSession) => expect.objectContaining(expectedSession))
+      );
+    });
   });
 });
