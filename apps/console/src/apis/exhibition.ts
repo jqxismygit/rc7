@@ -75,6 +75,8 @@ export type CreateTicketCategoryInput = Omit<
   "id" | "exhibit_id" | "created_at" | "updated_at"
 >;
 
+export type UpdateTicketCategoryInput = ExhibitionTypes.TicketCategoryPatch;
+
 export async function listExhibitionTicketsApi(
   eid: string,
 ): Promise<ExhibitionTypes.TicketCategory[]> {
@@ -90,6 +92,18 @@ export async function createExhibitionTicketCategoryApi(
 ): Promise<ExhibitionTypes.TicketCategory> {
   const raw = await request.post(
     `/exhibition/${encodeURIComponent(eid)}/tickets`,
+    data,
+  );
+  return raw as unknown as ExhibitionTypes.TicketCategory;
+}
+
+export async function updateExhibitionTicketCategoryApi(
+  eid: string,
+  tid: string,
+  data: UpdateTicketCategoryInput,
+): Promise<ExhibitionTypes.TicketCategory> {
+  const raw = await request.patch(
+    `/exhibition/${encodeURIComponent(eid)}/tickets/${encodeURIComponent(tid)}`,
     data,
   );
   return raw as unknown as ExhibitionTypes.TicketCategory;
