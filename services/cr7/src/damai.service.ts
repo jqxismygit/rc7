@@ -11,7 +11,6 @@ import {
   listDamaiOrderSyncRecordsByOrderId,
   updateDamaiOrderSyncRecord,
 } from './data/damai.js';
-import { getExhibitionById, getSessionById } from './data/exhibition.js';
 
 const { MoleculerClientError } = Errors;
 
@@ -1291,7 +1290,6 @@ class DamaiService extends RC7BaseService {
       return buildDamaiGetETicketInfoError('10001', '参数异常');
     }
 
-    const schema = await this.getSchema();
     const order = await ctx.call(
       'cr7.order.getAdmin', { oid: orderId }, { meta: { roles: ['admin'] } }
     )
@@ -1304,15 +1302,21 @@ class DamaiService extends RC7BaseService {
       return buildDamaiGetETicketInfoError('20030', '订单未支付');
     }
 
-    const [exhibition, session, redemption] = await Promise.all([
-      getExhibitionById(this.pool, schema, order.exhibit_id).catch(() => null),
-      getSessionById(this.pool, schema, order.session_id).catch(() => null),
-      ctx.call<Redeem.RedemptionCodeWithOrder, { oid: string }>(
-        'cr7.redemption.getByOrder',
-        { oid: order.id },
-        { meta: { user: { uid: order.user_id } } },
-      ).catch(() => null),
-    ]);
+    const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
+      'cr7.exhibition.get',
+      { eid: order.exhibit_id },
+    ).catch(() => null);
+
+    const session = await ctx.call<Exhibition.Session, { eid: string; sid: string }>(
+      'cr7.exhibition.getSession',
+      { eid: order.exhibit_id, sid: order.session_id },
+    ).catch(() => null);
+
+    const redemption = await ctx.call<Redeem.RedemptionCodeWithOrder, { oid: string }>(
+      'cr7.redemption.getByOrder',
+      { oid: order.id },
+      { meta: { user: { uid: order.user_id } } },
+    ).catch(() => null);
 
     if (!exhibition || !session || !redemption?.code) {
       return buildDamaiGetETicketInfoError('20030', '获取电子票失败');
