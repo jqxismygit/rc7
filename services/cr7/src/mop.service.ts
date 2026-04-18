@@ -169,9 +169,6 @@ type MopDecryptResult<T> = { ok: true; body: T } | { ok: false; response: MopRes
 
 type SessionMode = 'DAY' | 'HALF_DAY';
 
-function toInventorySessionId(sessionId: string): string {
-  return sessionId.replace(/-(AM|PM)$/, '');
-}
 
 const MOP_PROJECT_CATEGORY_LEISURE_EXHIBITION = {
   label: '休闲展览',
@@ -610,11 +607,10 @@ export default class MoeService extends RC7BaseService {
     const stocks: MopStock[] = [];
 
     for (const session of sessions) {
-      const sessionIdForInventory = toInventorySessionId(session.id);
-      const sessionTickets = await ctx.call<
-        Inventory.SessionTicketsInventory[],
-        { eid: string; sid: string }
-      >('cr7.exhibition.getSessionTickets', { eid, sid: sessionIdForInventory });
+        const sessionTickets = await ctx.call<
+          Inventory.SessionTicketsInventory[],
+          { eid: string; sid: string }
+        >('cr7.exhibition.getSessionTickets', { eid, sid: session.id });
 
       const stockByTicketId = new Map(sessionTickets.map((ticket) => [ticket.id, ticket.quantity]));
       for (const ticketCategory of ticketCategories) {

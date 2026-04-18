@@ -542,8 +542,9 @@ export class ExhibitionService extends RC7BaseService {
     const client = this.pool;
     const schema = await this.getSchema();
 
-    const tickets = await getSessionTicketCategoriesBySessionId(client, schema, eid, sid);
-    const inventory = await getSessionInventoryBySessionId(client, schema, eid, sid);
+    const daySessionId = sid.replace(/-(AM|PM)$/, '');
+    const tickets = await getSessionTicketCategoriesBySessionId(client, schema, eid, daySessionId);
+    const inventory = await getSessionInventoryBySessionId(client, schema, eid, daySessionId);
 
     const quantityByTicketCategoryId = new Map(
       inventory.map(item => [item.ticket_category_id, item.quantity])
