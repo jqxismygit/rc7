@@ -80,7 +80,7 @@ export async function getExhibitionById(
   client: Pool,
   schema: string,
   eid: string
-): Promise<Exhibition.Exhibition> {
+): Promise<Exhibition.Exhibition & { start_date: Date; end_date: Date }> {
   const { rows } = await client.query(
     `SELECT
       id, name, description,
@@ -301,6 +301,38 @@ export async function listSessionInventoryByTicketAndDateRange(
   return rows;
 }
 
+export async function listTicketCalendarInventoryByDateRange(
+  client: DBClient,
+  schema: string,
+  eid: string,
+  tid: string,
+  startDate: Date,
+  endDate: Date,
+): Promise<Inventory.TicketCalendarInventory[]> {
+  await getTicketCategoryById(client, schema, eid, tid);
+
+  const { rows } = await client.query<Inventory.TicketCalendarInventory>(
+    `SELECT
+      s.id AS session_id,
+      s.session_date::text AS session_date,
+      COALESCE((i.quantity - i.reserved_quantity), 0)::integer AS quantity,
+      tc.price
+    FROM ${schema}.exhibit_sessions s
+    JOIN ${schema}.exhibit_ticket_categories tc
+      ON tc.id = $2
+      AND tc.eid = s.session_id
+    LEFT JOIN ${schema}.exhibit_session_inventories i
+      ON i.session_id = s.id
+      AND i.ticket_category_id = tc.id
+    WHERE s.session_id = $1
+      AND s.session_date BETWEEN $3::date AND $4::date
+    ORDER BY s.session_date`,
+    [eid, tid, startDate, endDate],
+  );
+
+  return rows;
+}
+
 export type RawSession = Pick<
   Exhibition.Session,
   'id' | 'exhibit_id' | 'session_date' | 'created_at' | 'updated_at'
@@ -478,25 +510,15 @@ export async function getSessionInventoryBySessionId(
 }
 
 export async function updateTicketCategoryInventoryMax(
-  client: Pool,
+  client: DBClient,
   schema: string,
   eid: string,
   tid: string,
-  quantity: number
+  quantity: number,
+  startDate: Date,
+  endDate: Date
 ) {
-  const { rows: ticketCategoryRows } = await client.query(
-    `SELECT id
-    FROM ${schema}.exhibit_ticket_categories
-    WHERE id = $1
-      AND eid = $2`,
-    [tid, eid]
-  );
-
-  if (ticketCategoryRows.length === 0) {
-    throw new ExhibitionDataError('Ticket category not found', 'TICKET_CATEGORY_NOT_FOUND');
-  }
-
-  await client.query(
+  const { rows } = await client.query(
     `INSERT INTO ${schema}.exhibit_session_inventories (
       session_id,
       ticket_category_id,
@@ -505,15 +527,26 @@ export async function updateTicketCategoryInventoryMax(
     SELECT
       s.id,
       $2,
-      $3
+      $5
     FROM ${schema}.exhibit_sessions s
+    JOIN ${schema}.exhibit_ticket_categories tc
+      ON tc.id = $2 AND tc.eid = s.session_id
     WHERE s.session_id = $1
+      AND s.session_date BETWEEN $3 AND $4
     ON CONFLICT (session_id, ticket_category_id)
     DO UPDATE SET
       quantity = EXCLUDED.quantity,
-      updated_at = NOW()`,
-    [eid, tid, quantity]
+      updated_at = NOW()
+    RETURNING id`,
+    [eid, tid, startDate, endDate, quantity]
   );
+
+  if (rows.length === 0) {
+    throw new ExhibitionDataError(
+      'Ticket category or exhibition sessions not found',
+      'TICKET_CATEGORY_NOT_FOUND'
+    );
+  }
 }
 
 export async function updateTicketCategory(

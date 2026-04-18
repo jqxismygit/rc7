@@ -1,4 +1,4 @@
-import { format, isBefore, parse, subMinutes } from 'date-fns';
+import { format, isBefore, parse, parseISO, subMinutes } from 'date-fns';
 import { Context, Errors, ServiceBroker, ServiceSchema } from "moleculer";
 import type { Exhibition } from "@cr7/types";
 import {
@@ -15,6 +15,7 @@ import {
   updateExhibitionStatus,
   updateTicketCategoryOtaXcOptionId,
   listSessionInventoryByTicketAndDateRange,
+  listTicketCalendarInventoryByDateRange,
   getSessionTicketCategoriesBySessionId,
   getSessionInventoryBySessionId,
   updateTicketCategoryInventoryMax,
@@ -293,9 +294,37 @@ export class ExhibitionService extends RC7BaseService {
       params: {
         eid: 'uuid',
         tid: 'uuid',
-        quantity: 'number|min:0'
+        quantity: 'number|min:0',
+        start_session_date: {
+          type: 'date',
+          convert: true,
+          optional: true,
+        },
+        end_session_date: {
+          type: 'date',
+          convert: true,
+          optional: true,
+        },
       },
       handler: this.updateTicketCategoryInventoryMax
+    },
+
+    'exhibition.listTicketCalendarInventory': {
+      roles: ['admin'],
+      rest: 'GET /:eid/tickets/:tid/calendar',
+      params: {
+        eid: 'uuid',
+        tid: 'uuid',
+        start_session_date: {
+          type: 'date',
+          convert: true,
+        },
+        end_session_date: {
+          type: 'date',
+          convert: true,
+        },
+      },
+      handler: this.listTicketCalendarInventory,
     },
 
     'exhibition.getTicket': {
@@ -551,15 +580,44 @@ export class ExhibitionService extends RC7BaseService {
 
   async updateTicketCategoryInventoryMax(
     ctx: Context<
-      { eid: string; tid: string; quantity: number },
+      {
+        eid: string;
+        tid: string;
+        quantity: number;
+        start_session_date?: Date;
+        end_session_date?: Date;
+      },
       { user: UserMeta, $statusCode?: number }
     >
   ) {
-    const { eid, tid, quantity } = ctx.params;
+    const {
+      eid,
+      tid,
+      quantity,
+      start_session_date,
+      end_session_date,
+    } = ctx.params;
     const client = this.pool;
     const schema = await this.getSchema();
+    const exhibition = await getExhibitionById(client, schema, eid)
+      .catch(handleExhibitionError);
 
-    await updateTicketCategoryInventoryMax(client, schema, eid, tid, quantity);
+    const effectiveStartDate = start_session_date ?? exhibition.start_date;
+    const effectiveEndDate = end_session_date ?? exhibition.end_date;
+
+    if (isBefore(effectiveEndDate, effectiveStartDate)) {
+      throw new MoleculerClientError('参数不合法', 400, 'INVALID_ARGUMENT');
+    }
+
+    await updateTicketCategoryInventoryMax(
+      client,
+      schema,
+      eid,
+      tid,
+      quantity,
+      effectiveStartDate,
+      effectiveEndDate
+    );
 
     ctx.meta.$statusCode = 204;
   }
@@ -584,6 +642,26 @@ export class ExhibitionService extends RC7BaseService {
     const { eid, tid, start_session_date, end_session_date } = ctx.params;
     const schema = await this.getSchema();
     return listSessionInventoryByTicketAndDateRange(this.pool, schema, eid, tid, start_session_date, end_session_date);
+  }
+
+  async listTicketCalendarInventory(
+    ctx: Context<{ eid: string; tid: string; start_session_date: Date; end_session_date: Date }>
+  ) {
+    const { eid, tid, start_session_date, end_session_date } = ctx.params;
+
+    if (start_session_date.getTime() > end_session_date.getTime()) {
+      throw new MoleculerClientError('参数不合法', 400, 'INVALID_ARGUMENT');
+    }
+
+    const schema = await this.getSchema();
+    return listTicketCalendarInventoryByDateRange(
+      this.pool,
+      schema,
+      eid,
+      tid,
+      start_session_date,
+      end_session_date,
+    );
   }
 
   async getTicketByIdGlobal(ctx: Context<{ tid: string }>) {
