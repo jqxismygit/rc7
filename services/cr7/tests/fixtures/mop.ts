@@ -162,6 +162,7 @@ export async function syncSessionsToMop(
   options: {
     start_session_date: string;
     end_session_date: string;
+    session_mode?: 'DAY' | 'HALF_DAY';
   },
 ) {
   return postJSON<void>(
@@ -181,6 +182,7 @@ export async function syncTicketsToMop(
   options: {
     start_session_date: string;
     end_session_date: string;
+    session_mode?: 'DAY' | 'HALF_DAY';
   },
 ) {
   return postJSON<void>(
@@ -200,6 +202,7 @@ export async function syncStocksToMop(
   options: {
     start_session_date: string;
     end_session_date: string;
+    session_mode?: 'DAY' | 'HALF_DAY';
   },
 ) {
   return postJSON<void>(
@@ -220,6 +223,7 @@ export async function syncTicketCalendarToMop(
   options: {
     start_session_date: string;
     end_session_date: string;
+    session_mode?: 'DAY' | 'HALF_DAY';
   },
 ) {
   return postJSON<void>(

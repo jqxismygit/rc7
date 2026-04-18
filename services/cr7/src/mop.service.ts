@@ -167,6 +167,12 @@ type MopSignValidationResult = { ok: true } | { ok: false; response: MopResponse
 
 type MopDecryptResult<T> = { ok: true; body: T } | { ok: false; response: MopResponseEnvelope };
 
+type SessionMode = 'DAY' | 'HALF_DAY';
+
+function toInventorySessionId(sessionId: string): string {
+  return sessionId.replace(/-(AM|PM)$/, '');
+}
+
 const MOP_PROJECT_CATEGORY_LEISURE_EXHIBITION = {
   label: '休闲展览',
   value: 9,
@@ -291,6 +297,24 @@ function formatMopDateTime(sessionDate: string | Date, time: string): string {
   return format(parsed, 'yyyy-MM-dd HH:mm:ss');
 }
 
+function formatMopDateTimeValue(value: string): string {
+  const parsed = parse(value, 'yyyy-MM-dd HH:mm:ss', new Date());
+  if (!Number.isNaN(parsed.getTime())) {
+    return format(parsed, 'yyyy-MM-dd HH:mm:ss');
+  }
+
+  const isoParsed = parseISO(value);
+  if (!Number.isNaN(isoParsed.getTime())) {
+    return format(isoParsed, 'yyyy-MM-dd HH:mm:ss');
+  }
+
+  throw new MoleculerClientError(
+    `场次时间格式不合法: ${value}`,
+    400,
+    'MOP_SESSION_DATETIME_INVALID'
+  );
+}
+
 function toYuanString(cents: number): string {
   return (cents / 100).toFixed(2);
 }
@@ -380,6 +404,12 @@ export default class MoeService extends RC7BaseService {
             eid: 'string',
             start_session_date: { type: 'date', convert: true, optional: false },
             end_session_date: { type: 'date', convert: true, optional: false },
+            session_mode: {
+              type: 'enum',
+              values: ['DAY', 'HALF_DAY'],
+              optional: true,
+              default: 'HALF_DAY',
+            },
           },
           handler: this.syncSessionsToMop,
         },
@@ -390,6 +420,12 @@ export default class MoeService extends RC7BaseService {
             eid: 'string',
             start_session_date: { type: 'date', convert: true, optional: false },
             end_session_date: { type: 'date', convert: true, optional: false },
+            session_mode: {
+              type: 'enum',
+              values: ['DAY', 'HALF_DAY'],
+              optional: true,
+              default: 'HALF_DAY',
+            },
           },
           handler: this.syncTicketsToMop,
         },
@@ -400,6 +436,12 @@ export default class MoeService extends RC7BaseService {
             eid: 'string',
             start_session_date: { type: 'date', convert: true, optional: false },
             end_session_date: { type: 'date', convert: true, optional: false },
+            session_mode: {
+              type: 'enum',
+              values: ['DAY', 'HALF_DAY'],
+              optional: true,
+              default: 'HALF_DAY',
+            },
           },
           handler: this.syncStocksToMop,
         },
@@ -411,6 +453,11 @@ export default class MoeService extends RC7BaseService {
             tid: 'string',
             start_session_date: { type: 'date', convert: true, optional: false },
             end_session_date: { type: 'date', convert: true, optional: false },
+            session_mode: {
+              type: 'enum',
+              values: ['DAY', 'HALF_DAY'],
+              default: 'HALF_DAY',
+            },
           },
           handler: this.syncTicketCalendarToMop,
         },
@@ -475,18 +522,24 @@ export default class MoeService extends RC7BaseService {
       eid: string;
       start_session_date: Date;
       end_session_date: Date;
+      session_mode?: SessionMode;
     }
   ): Promise<{ exhibition: Exhibition.Exhibition; sortedSessions: Exhibition.Session[] }> {
-    const { eid, start_session_date, end_session_date } = params;
+    const {
+      eid,
+      start_session_date,
+      end_session_date,
+      session_mode = 'DAY',
+    } = params;
     validateSessionDateRange(start_session_date, end_session_date);
 
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
       'cr7.exhibition.get',
       { eid }
     );
-    const sessions = await ctx.call<Exhibition.Session[], { eid: string; session_mode: 'DAY' }>(
+    const sessions = await ctx.call<Exhibition.Session[], { eid: string; session_mode: SessionMode }>(
       'cr7.exhibition.getSessions',
-      { eid, session_mode: 'DAY' }
+      { eid, session_mode }
     );
 
     const filteredSessions = filterSessionsByDateRange(
@@ -510,9 +563,9 @@ export default class MoeService extends RC7BaseService {
       shows: sessions.map((session) => ({
         otShowId: session.id,
         otShowStatus: MOP_SHOW_STATUS_VALID,
-        startTime: formatMopDateTime(session.session_date, exhibition.opening_time),
-        endTime: formatMopDateTime(session.session_date, exhibition.closing_time),
-        offSaleTime: formatMopDateTime(session.session_date, exhibition.last_entry_time),
+        startTime: formatMopDateTimeValue(session.opening_time),
+        endTime: formatMopDateTimeValue(session.closing_time),
+        offSaleTime: formatMopDateTimeValue(session.last_entry_time),
         showType: MOP_SHOW_TYPE_SINGLE,
         fetchTicketWay: [MOP_FETCH_TICKET_WAY_E_TICKET],
         maxBuyLimitPerOrder: MOP_SHOW_MAX_BUY_LIMIT_PER_ORDER,
@@ -537,7 +590,7 @@ export default class MoeService extends RC7BaseService {
           skuPrice: toYuanString(ticket.price),
           sellPrice: toYuanString(ticket.price),
           onSaleTime: formatMopDateTime(exhibition.start_date, exhibition.opening_time),
-          offSaleTime: formatMopDateTime(session.session_date, exhibition.closing_time),
+          offSaleTime: formatMopDateTimeValue(session.closing_time),
           inventoryType: MOP_INVENTORY_TYPE_SHARED,
         }))
       ),
@@ -557,10 +610,11 @@ export default class MoeService extends RC7BaseService {
     const stocks: MopStock[] = [];
 
     for (const session of sessions) {
+      const sessionIdForInventory = toInventorySessionId(session.id);
       const sessionTickets = await ctx.call<
         Inventory.SessionTicketsInventory[],
         { eid: string; sid: string }
-      >('cr7.exhibition.getSessionTickets', { eid, sid: session.id });
+      >('cr7.exhibition.getSessionTickets', { eid, sid: sessionIdForInventory });
 
       const stockByTicketId = new Map(sessionTickets.map((ticket) => [ticket.id, ticket.quantity]));
       for (const ticketCategory of ticketCategories) {
@@ -637,15 +691,22 @@ export default class MoeService extends RC7BaseService {
         eid: string;
         start_session_date: Date;
         end_session_date: Date;
+        session_mode?: SessionMode;
       },
       UserMeta & { $statusCode?: number }
     >
   ): Promise<void> {
-    const { eid, start_session_date, end_session_date } = ctx.params;
+    const {
+      eid,
+      start_session_date,
+      end_session_date,
+      session_mode = 'HALF_DAY',
+    } = ctx.params;
     const { exhibition, sortedSessions } = await this.getExhibitionAndSortedSessions(ctx, {
       eid,
       start_session_date,
       end_session_date,
+      session_mode,
     });
 
     await this.pushMopSyncRequest(
@@ -662,15 +723,22 @@ export default class MoeService extends RC7BaseService {
         eid: string;
         start_session_date: Date;
         end_session_date: Date;
+        session_mode?: SessionMode;
       },
       UserMeta & { $statusCode?: number }
     >
   ): Promise<void> {
-    const { eid, start_session_date, end_session_date } = ctx.params;
+    const {
+      eid,
+      start_session_date,
+      end_session_date,
+      session_mode = 'HALF_DAY',
+    } = ctx.params;
     const { exhibition, sortedSessions } = await this.getExhibitionAndSortedSessions(ctx, {
       eid,
       start_session_date,
       end_session_date,
+      session_mode,
     });
     const ticketCategories = await ctx.call<Exhibition.TicketCategory[], { eid: string }>(
       'cr7.exhibition.getTicketCategories',
@@ -691,15 +759,22 @@ export default class MoeService extends RC7BaseService {
         eid: string;
         start_session_date: Date;
         end_session_date: Date;
+        session_mode?: SessionMode;
       },
       UserMeta & { $statusCode?: number }
     >
   ): Promise<void> {
-    const { eid, start_session_date, end_session_date } = ctx.params;
+    const {
+      eid,
+      start_session_date,
+      end_session_date,
+      session_mode = 'HALF_DAY',
+    } = ctx.params;
     const { exhibition, sortedSessions } = await this.getExhibitionAndSortedSessions(ctx, {
       eid,
       start_session_date,
       end_session_date,
+      session_mode,
     });
     const ticketCategories = await ctx.call<Exhibition.TicketCategory[], { eid: string }>(
       'cr7.exhibition.getTicketCategories',
@@ -726,15 +801,23 @@ export default class MoeService extends RC7BaseService {
         tid: string;
         start_session_date: Date;
         end_session_date: Date;
+        session_mode?: SessionMode;
       },
       UserMeta & { $statusCode?: number }
     >
   ): Promise<void> {
-    const { eid, tid, start_session_date, end_session_date } = ctx.params;
+    const {
+      eid,
+      tid,
+      start_session_date,
+      end_session_date,
+      session_mode = 'HALF_DAY',
+    } = ctx.params;
     const { exhibition, sortedSessions } = await this.getExhibitionAndSortedSessions(ctx, {
       eid,
       start_session_date,
       end_session_date,
+      session_mode,
     });
     const ticket = await ctx.call<Exhibition.TicketCategory, { eid: string; tid: string }>(
       'cr7.exhibition.getTicket',

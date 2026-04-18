@@ -61,7 +61,8 @@ const feature = await loadFeature('tests/features/mop.feature');
 
 type TicketByName = Record<string, Exhibition.TicketCategory>;
 
-type MopShow = SyncSessionsToMopRequest['shows'][number];
+type SessionMode = 'DAY' | 'HALF_DAY';
+type SessionIdSuffix = '' | '-AM' | '-PM';
 
 function normalizeTimeLabel(time: string): string {
   const secondPrecision = parse(time, 'HH:mm:ss', new Date());
@@ -88,10 +89,41 @@ function toSessionDateLabel(value: Date | string): string {
 
 
 
-function extractQuotedValue(value: string, fieldName: string): string {
-  const match = value.match(/^"(.+)"/);
+function parseSessionReference(value: string, fieldName: string): {
+  sessionDate: string;
+  suffix: SessionIdSuffix;
+} {
+  const match = value.match(/^"(.+)"\s*的场次 ID(?:(-AM|-PM))?$/);
   expect(match, `${fieldName} 格式不合法: ${value}`).toBeTruthy();
-  return match![1];
+  return {
+    sessionDate: toDateLabel(match![1]),
+    suffix: (match![2] ?? '') as SessionIdSuffix,
+  };
+}
+
+function getSessionIdSuffix(sessionId: string): SessionIdSuffix {
+  if (sessionId.endsWith('-AM')) {
+    return '-AM';
+  }
+  if (sessionId.endsWith('-PM')) {
+    return '-PM';
+  }
+
+  return '';
+}
+
+function findSessionByReference(
+  sessions: Exhibition.Session[],
+  fieldValue: string,
+  fieldName: string,
+): Exhibition.Session | undefined {
+  const { sessionDate, suffix } = parseSessionReference(fieldValue, fieldName);
+  const session = sessions.find(session => (
+    toSessionDateLabel(session.session_date) === sessionDate
+    && getSessionIdSuffix(session.id) === suffix
+  ));
+  expect(session, `未找到与 ${fieldName} "${fieldValue}" 匹配的场次`).toBeTruthy();
+  return session;
 }
 
 function parseDatetimeCell(value: string, fieldName: string): string {
@@ -144,6 +176,7 @@ interface OrderStatusChangeContext {
 }
 
 interface CalendarContext {
+  sessionMode: SessionMode;
   mopRequestCallTime: number | null;
   showsSize: number;
   ticketsSize: number;
@@ -346,24 +379,23 @@ describeFeature(feature, ({
       count: number,
       dataTable: Array<Record<string, string>>,
     ) => {
-      const { mopRequestHandler, mopRequestCallTime } = featureContext;
+      const {
+        apiServer, adminToken, exhibition,
+        mopRequestHandler, mopRequestCallTime,
+        sessionMode
+      } = featureContext;
 
       const sessions = await getSessions(
-        featureContext.apiServer,
-        featureContext.exhibition.id,
-        featureContext.adminToken,
-      );
-      const sessionsByDate = new Map(
-        sessions.map(session => [toSessionDateLabel(session.session_date), session]),
+        apiServer,
+        exhibition.id,
+        adminToken,
+        { session_mode: sessionMode },
       );
 
       expect(dataTable).toHaveLength(count);
       featureContext.showsSize = count;
       const expectedShows = dataTable.map((row) => {
-        const sessionDateLabel = extractQuotedValue(row['场次 ID'], '场次 ID');
-        const sessionDate = toDateLabel(sessionDateLabel);
-        const session = sessionsByDate.get(sessionDate);
-        expect(session).toBeTruthy();
+        const session = findSessionByReference(sessions, row['场次 ID'], '场次 ID');
 
         const expectedStartTime = parseDatetimeCell(row['场次开始时间'], '场次开始时间');
         const expectedEndTime = parseDatetimeCell(row['场次结束时间'], '场次结束时间');
@@ -374,6 +406,7 @@ describeFeature(feature, ({
         expect(expectedOffSaleTime).toMatch(DATETIME_LABEL_RE);
 
         return expect.objectContaining({
+          otShowId: session!.id,
           startTime: expectedStartTime,
           endTime: expectedEndTime,
           offSaleTime: expectedOffSaleTime
@@ -486,24 +519,19 @@ describeFeature(feature, ({
     ) => {
       const { mopRequestHandler, mopRequestCallTime } = featureContext;
       expect(mopRequestCallTime).not.toBeNull();
-      const { ticketByName, exhibition } = featureContext;
+      const { apiServer, adminToken, ticketByName, exhibition, sessionMode } = featureContext;
 
       const sessions = await getSessions(
-        featureContext.apiServer,
+        apiServer,
         exhibition.id,
-        featureContext.adminToken,
-      );
-      const sessionsByDate = new Map(
-        sessions.map(session => [toSessionDateLabel(session.session_date), session]),
+        adminToken,
+        { session_mode: sessionMode },
       );
 
       expect(dataTable).toHaveLength(count);
       featureContext.ticketsSize = count;
       const expectedSkus = dataTable.map((row) => {
-        const sessionRelativeLabel = extractQuotedValue(row['场次 ID'], '场次 ID');
-        const sessionDate = toDateLabel(sessionRelativeLabel);
-        const session = sessionsByDate.get(sessionDate);
-        expect(session).toBeTruthy();
+        const session = findSessionByReference(sessions, row['场次 ID'], '场次 ID');
 
         const ticketName = row['票种及 ID'];
         const ticket = ticketByName[ticketName];
@@ -562,15 +590,13 @@ describeFeature(feature, ({
     ) => {
       const { mopRequestHandler, mopRequestCallTime } = featureContext;
       expect(mopRequestCallTime).not.toBeNull();
-      const { ticketByName, exhibition } = featureContext;
+      const { apiServer, adminToken, ticketByName, exhibition, sessionMode } = featureContext;
 
       const sessions = await getSessions(
-        featureContext.apiServer,
+        apiServer,
         exhibition.id,
-        featureContext.adminToken,
-      );
-      const sessionsByDate = new Map(
-        sessions.map(session => [toSessionDateLabel(session.session_date), session]),
+        adminToken,
+        { session_mode: sessionMode },
       );
 
       expect(dataTable).toHaveLength(count);
@@ -580,10 +606,7 @@ describeFeature(feature, ({
         const ticketName = row['票种 ID'];
         const stockValue = Number(row['可售库存数量'].trim());
 
-        const sessionRelativeLabel = extractQuotedValue(sessionIdValue, '场次 ID');
-        const sessionDate = toDateLabel(sessionRelativeLabel);
-        const session = sessionsByDate.get(sessionDate);
-        expect(session).toBeTruthy();
+        const session = findSessionByReference(sessions, sessionIdValue, '场次 ID');
 
         const ticket = ticketByName[ticketName];
         expect(ticket).toBeTruthy();
@@ -1343,6 +1366,7 @@ describeFeature(feature, ({
       startDateLabel: string,
       endDateLabel: string,
     ) => {
+      const session_mode = 'DAY';
       await syncSessionsToMop(
         featureContext.apiServer,
         featureContext.adminToken,
@@ -1350,8 +1374,10 @@ describeFeature(feature, ({
         {
           start_session_date: toDateLabel(startDateLabel),
           end_session_date: toDateLabel(endDateLabel),
+          session_mode,
         },
       );
+      featureContext.sessionMode = session_mode;
     });
 
   });
@@ -1364,6 +1390,7 @@ describeFeature(feature, ({
       startDateLabel: string,
       endDateLabel: string,
     ) => {
+      const session_mode = 'DAY';
       await syncTicketsToMop(
         featureContext.apiServer,
         featureContext.adminToken,
@@ -1371,8 +1398,10 @@ describeFeature(feature, ({
         {
           start_session_date: toDateLabel(startDateLabel),
           end_session_date: toDateLabel(endDateLabel),
+          session_mode,
         },
       );
+      featureContext.sessionMode = session_mode;
     });
 
   });
@@ -1385,6 +1414,7 @@ describeFeature(feature, ({
       startDateLabel: string,
       endDateLabel: string,
     ) => {
+      const session_mode = 'DAY';
       await syncStocksToMop(
         featureContext.apiServer,
         featureContext.adminToken,
@@ -1392,8 +1422,10 @@ describeFeature(feature, ({
         {
           start_session_date: toDateLabel(startDateLabel),
           end_session_date: toDateLabel(endDateLabel),
+          session_mode,
         },
       );
+      featureContext.sessionMode = session_mode;
     });
 
   });
@@ -1407,6 +1439,7 @@ describeFeature(feature, ({
       startDateLabel: string,
       endDateLabel: string,
     ) => {
+      const session_mode = 'DAY';
       const ticket = featureContext.ticketByName[ticketName];
       expect(ticket).toBeTruthy();
 
@@ -1418,8 +1451,38 @@ describeFeature(feature, ({
         {
           start_session_date: toDateLabel(startDateLabel),
           end_session_date: toDateLabel(endDateLabel),
+          session_mode,
         },
       );
+      featureContext.sessionMode = session_mode;
+    });
+  });
+
+  Scenario('同步日历库存价格到猫眼，半日模式, 默认模式', (s: StepTest<void>) => {
+    const { Given } = s;
+
+    Given('cr7 将 {string} 的 {string} 到 {string} 的半日场次模式的库存价格信息同步到猫眼', async (
+      _ctx,
+      ticketName: string,
+      startDateLabel: string,
+      endDateLabel: string,
+    ) => {
+      const session_mode = 'HALF_DAY';
+      const ticket = featureContext.ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+
+      await syncTicketCalendarToMop(
+        featureContext.apiServer,
+        featureContext.adminToken,
+        featureContext.exhibition.id,
+        ticket.id,
+        {
+          start_session_date: toDateLabel(startDateLabel),
+          end_session_date: toDateLabel(endDateLabel),
+          session_mode,
+        },
+      );
+      featureContext.sessionMode = session_mode;
     });
   });
 
