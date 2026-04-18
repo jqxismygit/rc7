@@ -1051,15 +1051,12 @@ export default class MoeService extends RC7BaseService {
       return this.finishWithMopResponse(recordId, 30003, '项目状态异常');
     }
 
-    const sessionMode = /-AM|-PM$/.test(projectShowCode) ? 'HALF_DAY' : 'DAY';
-    const sessions = await ctx.call<
-      Exhibition.Session[],
-      { eid: string; session_mode: 'DAY' | 'HALF_DAY' }
-    >(
-      'cr7.exhibition.getSessions',
-      { eid: projectCode, session_mode: sessionMode }
-    );
-    const session = sessions.find((item) => item.id === projectShowCode) ?? null;
+    const session = await ctx
+      .call<Exhibition.Session, { eid: string; sid: string }>(
+        'cr7.exhibition.getSession',
+        { eid: projectCode, sid: projectShowCode }
+      )
+      .catch(() => null);
 
     if (!session) {
       return this.finishWithMopResponse(recordId, 30004, '场次状态异常');

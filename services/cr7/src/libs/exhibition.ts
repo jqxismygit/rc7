@@ -5,6 +5,7 @@ import {
   createExhibition,
   getExhibitionById,
   getExhibitions,
+  getSessionById,
   getTicketCategoryById,
   getTicketCategoriesByExhibitionId,
   getSessionsByExhibitionId,
@@ -50,9 +51,12 @@ interface UserMeta {
 }
 
 type SessionMode = 'DAY' | 'HALF_DAY';
+type HalfDaySession = 'AM' | 'PM';
 
 const AM_SESSION_END_TIME = '12:59:00';
 const PM_SESSION_START_TIME = '13:00:00';
+const SESSION_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:-(AM|PM))?$/i;
 
 function parseClockTime(value: string): Date {
   const secondPrecision = parse(value, 'HH:mm:ss', new Date());
@@ -70,6 +74,61 @@ function parseClockTime(value: string): Date {
 
 function formatClockTime(value: Date): string {
   return format(value, 'HH:mm:ss');
+}
+
+function buildDaySession(
+  session: { id: string; exhibit_id: string; session_date: Date; created_at: Date; updated_at: Date },
+  exhibition: Exhibition.Exhibition,
+): Exhibition.Session {
+  const dateStr = format(session.session_date, 'yyyy-MM-dd');
+  return {
+    ...session,
+    name: dateStr,
+    opening_time: `${dateStr} ${exhibition.opening_time}`,
+    closing_time: `${dateStr} ${exhibition.closing_time}`,
+    last_entry_time: `${dateStr} ${exhibition.last_entry_time}`,
+  };
+}
+
+function buildHalfDaySessions(
+  session: Exhibition.Session,
+  exhibition: Exhibition.Exhibition,
+): Exhibition.Session[] {
+  const amSessionEndTime = parseClockTime(AM_SESSION_END_TIME);
+  const pmSessionStartTime = parseClockTime(PM_SESSION_START_TIME);
+  const exhibitionOpeningTime = formatClockTime(parseClockTime(exhibition.opening_time));
+  const exhibitionClosingTime = parseClockTime(exhibition.closing_time);
+
+  let pmSessionLastEntryTime = subMinutes(exhibitionClosingTime, 30);
+  if (isBefore(pmSessionLastEntryTime, pmSessionStartTime)) {
+    pmSessionLastEntryTime = pmSessionStartTime;
+  }
+
+  const amSessionEndTimeText = formatClockTime(amSessionEndTime);
+  const pmSessionStartTimeText = formatClockTime(pmSessionStartTime);
+  const pmSessionClosingTimeText = formatClockTime(exhibitionClosingTime);
+  const pmSessionLastEntryTimeText = formatClockTime(pmSessionLastEntryTime);
+
+  const dateStr = format(session.session_date, 'yyyy-MM-dd');
+
+  return [
+    {
+      ...session,
+      id: `${session.id}-AM`,
+      name: '上午场',
+      opening_time: `${dateStr} ${exhibitionOpeningTime}`,
+      closing_time: `${dateStr} ${amSessionEndTimeText}`,
+      last_entry_time: `${dateStr} ${amSessionEndTimeText}`,
+    },
+    {
+      ...session,
+      id: `${session.id}-PM`,
+      name: '下午场',
+      opening_time: `${dateStr} ${pmSessionStartTimeText}`,
+      closing_time: `${dateStr} ${pmSessionClosingTimeText}`,
+      last_entry_time: `${dateStr} ${pmSessionLastEntryTimeText}`,
+    },
+  ];
 }
 
 /**
@@ -149,6 +208,18 @@ export class ExhibitionService extends RC7BaseService {
         },
       },
       handler: this.getSessions
+    },
+
+    'exhibition.getSession': {
+      visibility: 'protected',
+      params: {
+        eid: 'string',
+        sid: {
+          type: 'string',
+          pattern: SESSION_ID_PATTERN,
+        },
+      },
+      handler: this.getSession,
     },
 
     'exhibition.addTicketCategory': {
@@ -351,58 +422,50 @@ export class ExhibitionService extends RC7BaseService {
       client, schema, eid, start_session_date, end_session_date
     );
 
-    const daySessions = rawSessions.map((session) => {
-      const dateStr = format(session.session_date, 'yyyy-MM-dd');
-      return {
-        ...session,
-        name: dateStr,
-        opening_time: `${dateStr} ${exhibition.opening_time}`,
-        closing_time: `${dateStr} ${exhibition.closing_time}`,
-        last_entry_time: `${dateStr} ${exhibition.last_entry_time}`,
-      };
-    });
+    const daySessions = rawSessions.map((session) => buildDaySession(session, exhibition));
 
     if (session_mode === 'DAY') {
       return daySessions;
     }
 
-    const amSessionEndTime = parseClockTime(AM_SESSION_END_TIME);
-    const pmSessionStartTime = parseClockTime(PM_SESSION_START_TIME);
-    const exhibitionOpeningTime = formatClockTime(parseClockTime(exhibition.opening_time));
-    const exhibitionClosingTime = parseClockTime(exhibition.closing_time);
+    return daySessions.flatMap((session) => buildHalfDaySessions(session, exhibition));
+  }
 
-    let pmSessionLastEntryTime = subMinutes(exhibitionClosingTime, 30);
-    if (isBefore(pmSessionLastEntryTime, pmSessionStartTime)) {
-      pmSessionLastEntryTime = pmSessionStartTime;
+  async getSession(
+    ctx: Context<{ eid: string; sid: string }, { user: UserMeta }>
+  ) {
+    const { eid, sid } = ctx.params;
+    const client = this.pool;
+    const schema = await this.getSchema();
+
+    const exhibition = await getExhibitionById(client, schema, eid)
+      .catch(handleExhibitionError);
+
+    const sidParts = sid.split('-');
+    const maybeHalfDay = sidParts[sidParts.length - 1] as HalfDaySession | undefined;
+    const isHalfDay = maybeHalfDay === 'AM' || maybeHalfDay === 'PM';
+    const daySessionId = isHalfDay ? sid.slice(0, -3) : sid;
+
+    const rawSession = await getSessionById(client, schema, daySessionId)
+      .catch(handleExhibitionError);
+
+    if (rawSession.exhibit_id !== eid) {
+      throw new MoleculerClientError('场次不存在', 404, 'SESSION_NOT_FOUND');
     }
 
-    const amSessionEndTimeText = formatClockTime(amSessionEndTime);
-    const pmSessionStartTimeText = formatClockTime(pmSessionStartTime);
-    const pmSessionClosingTimeText = formatClockTime(exhibitionClosingTime);
-    const pmSessionLastEntryTimeText = formatClockTime(pmSessionLastEntryTime);
+    const daySession = buildDaySession(rawSession, exhibition);
+    if (!isHalfDay || maybeHalfDay === undefined) {
+      return daySession;
+    }
 
-    return daySessions.flatMap((session) => {
-      const dateStr = format(session.session_date, 'yyyy-MM-dd');
+    const targetSession = buildHalfDaySessions(daySession, exhibition)
+      .find((session) => session.id === sid);
 
-      return [
-        {
-          ...session,
-          id: `${session.id}-AM`,
-          name: '上午场',
-          opening_time: `${dateStr} ${exhibitionOpeningTime}`,
-          closing_time: `${dateStr} ${amSessionEndTimeText}`,
-          last_entry_time: `${dateStr} ${amSessionEndTimeText}`,
-        },
-        {
-          ...session,
-          id: `${session.id}-PM`,
-          name: '下午场',
-          opening_time: `${dateStr} ${pmSessionStartTimeText}`,
-          closing_time: `${dateStr} ${pmSessionClosingTimeText}`,
-          last_entry_time: `${dateStr} ${pmSessionLastEntryTimeText}`,
-        },
-      ];
-    });
+    if (!targetSession) {
+      throw new MoleculerClientError('场次不存在', 404, 'SESSION_NOT_FOUND');
+    }
+
+    return targetSession;
   }
 
   async addTicketCategory(

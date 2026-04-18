@@ -773,11 +773,12 @@ class DamaiService extends RC7BaseService {
       { eid },
     );
 
-    const sessions = await ctx.call<Exhibition.Session[], { eid: string; session_mode: 'DAY' }>(
-      'cr7.exhibition.getSessions',
-      { eid, session_mode: 'DAY' },
-    );
-    const session = sessions.find(item => item.id === sid);
+    const session = await ctx
+      .call<Exhibition.Session, { eid: string; sid: string }>(
+        'cr7.exhibition.getSession',
+        { eid, sid },
+      )
+      .catch(() => null);
 
     if (!session) {
       throw new MoleculerClientError('场次不存在', 404, 'SESSION_NOT_FOUND');
@@ -898,11 +899,12 @@ class DamaiService extends RC7BaseService {
       return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20015', '项目状态异常'));
     }
 
-    const sessions = await ctx.call<Exhibition.Session[], { eid: string; session_mode: 'DAY' }>(
-      'cr7.exhibition.getSessions',
-      { eid: projectId, session_mode: 'DAY' },
-    );
-    const session = sessions.find(item => item.id === performId) ?? null;
+    const session = await ctx
+      .call<Exhibition.Session, { eid: string; sid: string }>(
+        'cr7.exhibition.getSession',
+        { eid: projectId, sid: performId },
+      )
+      .catch(() => null);
     if (!session) {
       return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20013', '场次状态异常'));
     }
