@@ -22,6 +22,7 @@ import {
 } from "../data/exhibition.js";
 import { handleExhibitionError } from './errors.js';
 import { RC7BaseService } from "./cr7.base.js";
+import { HALF_SESSION_ID_REGEX, parseSelectedSessionId } from './session-id.js';
 
 const { MoleculerClientError } = Errors;
 
@@ -51,12 +52,9 @@ interface UserMeta {
 }
 
 type SessionMode = 'DAY' | 'HALF_DAY';
-type HalfDaySession = 'AM' | 'PM';
 
 const AM_SESSION_END_TIME = '12:59:00';
 const PM_SESSION_START_TIME = '13:00:00';
-const SESSION_ID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:-(AM|PM))?$/i;
 
 function parseClockTime(value: string): Date {
   const secondPrecision = parse(value, 'HH:mm:ss', new Date());
@@ -214,10 +212,7 @@ export class ExhibitionService extends RC7BaseService {
       visibility: 'protected',
       params: {
         eid: 'uuid',
-        sid: {
-          type: 'string',
-          pattern: SESSION_ID_PATTERN,
-        },
+        sid: ['uuid', { type: 'string', pattern: HALF_SESSION_ID_REGEX.source }],
       },
       handler: this.getSession,
     },
@@ -287,7 +282,7 @@ export class ExhibitionService extends RC7BaseService {
       rest: 'GET /:eid/sessions/:sid/tickets',
       params: {
         eid: 'uuid',
-        sid: { type: 'string', pattern: SESSION_ID_PATTERN },
+        sid: ['uuid', { type: 'string', pattern: HALF_SESSION_ID_REGEX.source }],
       },
       handler: this.getSessionTickets
     },
@@ -441,10 +436,7 @@ export class ExhibitionService extends RC7BaseService {
     const exhibition = await getExhibitionById(client, schema, eid)
       .catch(handleExhibitionError);
 
-    const sidParts = sid.split('-');
-    const maybeHalfDay = sidParts[sidParts.length - 1] as HalfDaySession | undefined;
-    const isHalfDay = maybeHalfDay === 'AM' || maybeHalfDay === 'PM';
-    const daySessionId = isHalfDay ? sid.slice(0, -3) : sid;
+    const { sessionId: daySessionId, sessionHalf } = parseSelectedSessionId(sid);
 
     const rawSession = await getSessionById(client, schema, daySessionId)
       .catch(handleExhibitionError);
@@ -454,12 +446,12 @@ export class ExhibitionService extends RC7BaseService {
     }
 
     const daySession = buildDaySession(rawSession, exhibition);
-    if (!isHalfDay || maybeHalfDay === undefined) {
+    if (sessionHalf === null) {
       return daySession;
     }
 
     const targetSession = buildHalfDaySessions(daySession, exhibition)
-      .find((session) => session.id === sid);
+      .find((session) => session.id === `${daySession.id}-${sessionHalf}`);
 
     if (!targetSession) {
       throw new MoleculerClientError('场次不存在', 404, 'SESSION_NOT_FOUND');

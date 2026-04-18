@@ -715,19 +715,6 @@ describeFeature(feature, ({
       featureContext.mopOrderDraft!.projectCode = featureContext.exhibition.id;
     });
 
-    And('猫眼订单中的场次 ID 是 {string} 的场次 ID', async (_ctx, dayLabel: string) => {
-      const sessions = await getSessions(
-        featureContext.apiServer,
-        featureContext.exhibition.id,
-        featureContext.adminToken,
-      );
-      const expectedDate = toDateLabel(dayLabel);
-      const expectedSession = sessions.find(item => toSessionDateLabel(item.session_date) === expectedDate);
-      expect(expectedSession).toBeTruthy();
-      expect(featureContext.mopOrderDraft).toBeTruthy();
-      featureContext.mopOrderDraft!.projectShowCode = expectedSession!.id;
-    });
-
     And(
       '猫眼订单中的场次 ID 是 {string} {string} 的 ID',
       async (_ctx, dayLabel: string, sessionLabel: string) => {
@@ -750,8 +737,6 @@ describeFeature(feature, ({
       expect(featureContext.mopOrderDraft).toBeTruthy();
       featureContext.mopOrderDraft!.projectShowCode = expectedSession!.id;
     });
-
-
 
     And('猫眼订单中的购买人信息是 {string}', (_ctx, buyerName: string) => {
       expect(featureContext.mopOrderDraft).toBeTruthy();
@@ -919,6 +904,12 @@ describeFeature(feature, ({
       expect(order.status).toEqual('PENDING_PAYMENT');
       expect(order.source).toEqual(source);
       featureContext.order = order;
+    });
+
+    And('订单场次的半场状态是 {string}，值为 {string}', (_ctx, _sessionLabel: string, expectedHalf: string) => {
+      const { order } = featureContext;
+      expect(order).toBeTruthy();
+      expect(order!.session_half).toBe(expectedHalf);
     });
 
     And(
