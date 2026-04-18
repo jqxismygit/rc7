@@ -22,6 +22,13 @@ Feature: Order ticket
      And 订单来源为 "DIRECT"
      And 场次 "3天后" 的 "成人票" 库存为 2
 
+  Scenario: 用户可使用半场场次 ID 预订
+    When 用户 "Alice" 使用 "3天后" 场次的下午场 ID 预订 1 张该展会的 "成人票"
+    Then 预订成功
+     And 订单场次 ID 为 "3天后" 的原始场次 ID
+     And 订单场次的半场状态是下午场，值为 "PM"
+     And 场次 "3天后" 的 "成人票" 库存为 2
+
   Scenario: 用户预订多个票种
    Given 该展览已追加票种 "儿童票"
      And "儿童票" 所有场次库存为 3

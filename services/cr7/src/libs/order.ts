@@ -14,9 +14,9 @@ import {
   releaseExpiredOrders,
 } from '../data/order.js';
 import { handleOrderError } from './errors.js';
+import { parseSelectedSessionId, HALF_SESSION_ID_REGEX } from './session-id.js';
 
 const { MoleculerClientError } = Errors;
-
 interface UserMeta {
   uid: string;
 }
@@ -64,12 +64,15 @@ export class OrderService extends RC7BaseService {
       rest: 'POST /:eid/sessions/:sid/orders',
       params: {
         id: {
-          type: 'string',
+          type: 'uuid',
           optional: true,
         },
-        user_id: 'string',
-        eid: 'string',
-        sid: 'string',
+        user_id: 'uuid',
+        eid: 'uuid',
+        sid: [
+          'uuid',
+          { type: 'string', pattern: HALF_SESSION_ID_REGEX.source },
+        ],
         items: createOrderItemsParamsSchema,
         source: {
           type: 'enum',
@@ -263,6 +266,7 @@ export class OrderService extends RC7BaseService {
   }) {
     const schema = await this.getSchema();
     const dbClient = await this.pool.connect();
+    const { sessionId, sessionHalf } = parseSelectedSessionId(params.sid);
 
     try {
       await dbClient.query('BEGIN');
@@ -270,7 +274,8 @@ export class OrderService extends RC7BaseService {
         id: params.id,
         user_id: params.user_id,
         exhibit_id: params.eid,
-        session_id: params.sid,
+        session_id: sessionId,
+        session_half: sessionHalf,
         items: params.items,
         source: params.source,
       });

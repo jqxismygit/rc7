@@ -123,14 +123,20 @@ export async function getSessions(
   eid: string,
   token?: string,
   range?: {
+    session_mode?: 'DAY' | 'HALF_DAY';
     start_session_date?: string;
     end_session_date?: string;
   },
 ) {
+  const query = {
+    session_mode: 'DAY' as const,
+    ...range,
+  };
+
   return getJSON<Exhibition.Session[]>(
     server,
     `/exhibition/${eid}/sessions`,
-    { token, query: range }
+    { token, query }
   )
   .then((res) => res.map(r => Object.assign(r, { session_date: new Date(r.session_date) })));
 }

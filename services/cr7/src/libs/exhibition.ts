@@ -1,9 +1,11 @@
+import { format, isBefore, parse, subMinutes } from 'date-fns';
 import { Context, Errors, ServiceBroker, ServiceSchema } from "moleculer";
 import type { Exhibition } from "@cr7/types";
 import {
   createExhibition,
   getExhibitionById,
   getExhibitions,
+  getSessionById,
   getTicketCategoryById,
   getTicketCategoriesByExhibitionId,
   getSessionsByExhibitionId,
@@ -20,6 +22,7 @@ import {
 } from "../data/exhibition.js";
 import { handleExhibitionError } from './errors.js';
 import { RC7BaseService } from "./cr7.base.js";
+import { HALF_SESSION_ID_REGEX, parseSelectedSessionId } from './session-id.js';
 
 const { MoleculerClientError } = Errors;
 
@@ -46,6 +49,84 @@ const TICKET_CATEGORY_UPDATE_FIELDS = [
 interface UserMeta {
   uid: string;
   roles?: string[];
+}
+
+type SessionMode = 'DAY' | 'HALF_DAY';
+
+const AM_SESSION_END_TIME = '12:59:00';
+const PM_SESSION_START_TIME = '13:00:00';
+
+function parseClockTime(value: string): Date {
+  const secondPrecision = parse(value, 'HH:mm:ss', new Date());
+  if (!Number.isNaN(secondPrecision.getTime()) && format(secondPrecision, 'HH:mm:ss') === value) {
+    return secondPrecision;
+  }
+
+  const minutePrecision = parse(value, 'HH:mm', new Date());
+  if (!Number.isNaN(minutePrecision.getTime()) && format(minutePrecision, 'HH:mm') === value) {
+    return minutePrecision;
+  }
+
+  throw new MoleculerClientError('参数不合法', 400, 'INVALID_ARGUMENT');
+}
+
+function formatClockTime(value: Date): string {
+  return format(value, 'HH:mm:ss');
+}
+
+function buildDaySession(
+  session: { id: string; exhibit_id: string; session_date: Date; created_at: Date; updated_at: Date },
+  exhibition: Exhibition.Exhibition,
+): Exhibition.Session {
+  const dateStr = format(session.session_date, 'yyyy-MM-dd');
+  return {
+    ...session,
+    name: dateStr,
+    opening_time: `${dateStr} ${exhibition.opening_time}`,
+    closing_time: `${dateStr} ${exhibition.closing_time}`,
+    last_entry_time: `${dateStr} ${exhibition.last_entry_time}`,
+  };
+}
+
+function buildHalfDaySessions(
+  session: Exhibition.Session,
+  exhibition: Exhibition.Exhibition,
+): Exhibition.Session[] {
+  const amSessionEndTime = parseClockTime(AM_SESSION_END_TIME);
+  const pmSessionStartTime = parseClockTime(PM_SESSION_START_TIME);
+  const exhibitionOpeningTime = formatClockTime(parseClockTime(exhibition.opening_time));
+  const exhibitionClosingTime = parseClockTime(exhibition.closing_time);
+
+  let pmSessionLastEntryTime = subMinutes(exhibitionClosingTime, 30);
+  if (isBefore(pmSessionLastEntryTime, pmSessionStartTime)) {
+    pmSessionLastEntryTime = pmSessionStartTime;
+  }
+
+  const amSessionEndTimeText = formatClockTime(amSessionEndTime);
+  const pmSessionStartTimeText = formatClockTime(pmSessionStartTime);
+  const pmSessionClosingTimeText = formatClockTime(exhibitionClosingTime);
+  const pmSessionLastEntryTimeText = formatClockTime(pmSessionLastEntryTime);
+
+  const dateStr = format(session.session_date, 'yyyy-MM-dd');
+
+  return [
+    {
+      ...session,
+      id: `${session.id}-AM`,
+      name: '上午场',
+      opening_time: `${dateStr} ${exhibitionOpeningTime}`,
+      closing_time: `${dateStr} ${amSessionEndTimeText}`,
+      last_entry_time: `${dateStr} ${amSessionEndTimeText}`,
+    },
+    {
+      ...session,
+      id: `${session.id}-PM`,
+      name: '下午场',
+      opening_time: `${dateStr} ${pmSessionStartTimeText}`,
+      closing_time: `${dateStr} ${pmSessionClosingTimeText}`,
+      last_entry_time: `${dateStr} ${pmSessionLastEntryTimeText}`,
+    },
+  ];
 }
 
 /**
@@ -90,7 +171,7 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.get': {
       rest: 'GET /:eid',
       params: {
-        eid: 'string'
+        eid: 'uuid'
       },
       handler: this.getExhibition
     },
@@ -98,7 +179,7 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.getTicketCategories': {
       rest: 'GET /:eid/tickets',
       params: {
-        eid: 'string'
+        eid: 'uuid'
       },
       handler: this.getTicketCategories
     },
@@ -106,7 +187,13 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.getSessions': {
       rest: 'GET /:eid/sessions',
       params: {
-        eid: 'string',
+        eid: 'uuid',
+        session_mode: {
+          type: 'enum',
+          values: ['DAY', 'HALF_DAY'],
+          optional: true,
+          default: 'HALF_DAY',
+        },
         start_session_date: {
           type: 'date',
           convert: true,
@@ -121,11 +208,20 @@ export class ExhibitionService extends RC7BaseService {
       handler: this.getSessions
     },
 
+    'exhibition.getSession': {
+      visibility: 'protected',
+      params: {
+        eid: 'uuid',
+        sid: ['uuid', { type: 'string', pattern: HALF_SESSION_ID_REGEX.source }],
+      },
+      handler: this.getSession,
+    },
+
     'exhibition.addTicketCategory': {
       rest: 'POST /:eid/tickets',
       roles: ['admin'],
       params: {
-        eid: 'string',
+        eid: 'uuid',
         name: 'string',
         price: 'number',
         valid_duration_days: 'number',
@@ -139,7 +235,7 @@ export class ExhibitionService extends RC7BaseService {
       rest: 'PATCH /:eid',
       roles: ['admin'],
       params: {
-        eid: 'string',
+        eid: 'uuid',
         name: { type: 'string', optional: true, min: 1 },
         description: { type: 'string', optional: true },
         opening_time: { type: 'string', optional: true },
@@ -157,8 +253,8 @@ export class ExhibitionService extends RC7BaseService {
       rest: 'PATCH /:eid/tickets/:tid',
       roles: ['admin'],
       params: {
-        eid: 'string',
-        tid: 'string',
+        eid: 'uuid',
+        tid: 'uuid',
         name: { type: 'string', optional: true, min: 1 },
         price: { type: 'number', optional: true },
         valid_duration_days: { type: 'number', optional: true },
@@ -176,7 +272,7 @@ export class ExhibitionService extends RC7BaseService {
       rest: 'PATCH /:eid/status',
       roles: ['admin'],
       params: {
-        eid: 'string',
+        eid: 'uuid',
         status: { type: 'enum', values: ['ENABLE', 'DISABLE'] },
       },
       handler: this.updateExhibitionStatus
@@ -185,8 +281,8 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.getSessionTickets': {
       rest: 'GET /:eid/sessions/:sid/tickets',
       params: {
-        eid: 'string',
-        sid: 'string'
+        eid: 'uuid',
+        sid: ['uuid', { type: 'string', pattern: HALF_SESSION_ID_REGEX.source }],
       },
       handler: this.getSessionTickets
     },
@@ -195,8 +291,8 @@ export class ExhibitionService extends RC7BaseService {
       roles: ['admin'],
       rest: 'PUT /:eid/sessions/tickets/:tid/inventory/max',
       params: {
-        eid: 'string',
-        tid: 'string',
+        eid: 'uuid',
+        tid: 'uuid',
         quantity: 'number|min:0'
       },
       handler: this.updateTicketCategoryInventoryMax
@@ -205,8 +301,8 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.getTicket': {
       visibility: 'protected',
       params: {
-        eid: 'string',
-        tid: 'string',
+        eid: 'uuid',
+        tid: 'uuid',
       },
       handler: this.getTicket,
     },
@@ -214,8 +310,8 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.updateTicketXcOptionId': {
       visibility: 'protected',
       params: {
-        eid: 'string',
-        tid: 'string',
+        eid: 'uuid',
+        tid: 'uuid',
         ota_option_id: 'string|min:1',
       },
       handler: this.updateTicketXcOptionId,
@@ -224,8 +320,8 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.listSessionInventoryByTicketAndDateRange': {
       visibility: 'protected',
       params: {
-        eid: 'string',
-        tid: 'string',
+        eid: 'uuid',
+        tid: 'uuid',
         start_session_date: {
           type: 'date',
           convert: true,
@@ -241,7 +337,7 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.getTicketByIdGlobal': {
       visibility: 'protected',
       params: {
-        tid: 'string',
+        tid: 'uuid',
       },
       handler: this.getTicketByIdGlobal,
     },
@@ -302,23 +398,66 @@ export class ExhibitionService extends RC7BaseService {
   async getSessions(
     ctx: Context<{
       eid: string;
+      session_mode?: SessionMode;
       start_session_date?: Date;
       end_session_date?: Date;
     }, { user: UserMeta }>
   ) {
-    const { eid, start_session_date, end_session_date } = ctx.params;
+    const {
+      eid,
+      session_mode = 'HALF_DAY',
+      start_session_date,
+      end_session_date,
+    } = ctx.params;
     const client = this.pool;
     const schema = await this.getSchema();
 
-    const sessions = await getSessionsByExhibitionId(
-      client,
-      schema,
-      eid,
-      start_session_date,
-      end_session_date,
+    const exhibition = await getExhibitionById(client, schema, eid);
+    const rawSessions = await getSessionsByExhibitionId(
+      client, schema, eid, start_session_date, end_session_date
     );
 
-    return sessions;
+    const daySessions = rawSessions.map((session) => buildDaySession(session, exhibition));
+
+    if (session_mode === 'DAY') {
+      return daySessions;
+    }
+
+    return daySessions.flatMap((session) => buildHalfDaySessions(session, exhibition));
+  }
+
+  async getSession(
+    ctx: Context<{ eid: string; sid: string }, { user: UserMeta }>
+  ) {
+    const { eid, sid } = ctx.params;
+    const client = this.pool;
+    const schema = await this.getSchema();
+
+    const exhibition = await getExhibitionById(client, schema, eid)
+      .catch(handleExhibitionError);
+
+    const { sessionId: daySessionId, sessionHalf } = parseSelectedSessionId(sid);
+
+    const rawSession = await getSessionById(client, schema, daySessionId)
+      .catch(handleExhibitionError);
+
+    if (rawSession.exhibit_id !== eid) {
+      throw new MoleculerClientError('场次不存在', 404, 'SESSION_NOT_FOUND');
+    }
+
+    const daySession = buildDaySession(rawSession, exhibition);
+    if (sessionHalf === null) {
+      return daySession;
+    }
+
+    const targetSession = buildHalfDaySessions(daySession, exhibition)
+      .find((session) => session.id === `${daySession.id}-${sessionHalf}`);
+
+    if (!targetSession) {
+      throw new MoleculerClientError('场次不存在', 404, 'SESSION_NOT_FOUND');
+    }
+
+    return targetSession;
   }
 
   async addTicketCategory(
@@ -395,8 +534,9 @@ export class ExhibitionService extends RC7BaseService {
     const client = this.pool;
     const schema = await this.getSchema();
 
-    const tickets = await getSessionTicketCategoriesBySessionId(client, schema, eid, sid);
-    const inventory = await getSessionInventoryBySessionId(client, schema, eid, sid);
+    const daySessionId = sid.replace(/-(AM|PM)$/, '');
+    const tickets = await getSessionTicketCategoriesBySessionId(client, schema, eid, daySessionId);
+    const inventory = await getSessionInventoryBySessionId(client, schema, eid, daySessionId);
 
     const quantityByTicketCategoryId = new Map(
       inventory.map(item => [item.ticket_category_id, item.quantity])

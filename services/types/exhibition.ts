@@ -65,7 +65,11 @@ export interface ExhibitionWithCategories extends Exhibition {
 export interface Session {
   id: string;
   exhibit_id: string;
+  name: string;
   session_date: Date;
+  opening_time: string;
+  closing_time: string;
+  last_entry_time: string;
   created_at: Date;
   updated_at: Date;
 }
