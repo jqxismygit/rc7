@@ -173,7 +173,7 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.get': {
       rest: 'GET /:eid',
       params: {
-        eid: 'string'
+        eid: 'uuid'
       },
       handler: this.getExhibition
     },
@@ -181,7 +181,7 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.getTicketCategories': {
       rest: 'GET /:eid/tickets',
       params: {
-        eid: 'string'
+        eid: 'uuid'
       },
       handler: this.getTicketCategories
     },
@@ -189,7 +189,7 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.getSessions': {
       rest: 'GET /:eid/sessions',
       params: {
-        eid: 'string',
+        eid: 'uuid',
         session_mode: {
           type: 'enum',
           values: ['DAY', 'HALF_DAY'],
@@ -213,7 +213,7 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.getSession': {
       visibility: 'protected',
       params: {
-        eid: 'string',
+        eid: 'uuid',
         sid: {
           type: 'string',
           pattern: SESSION_ID_PATTERN,
@@ -226,7 +226,7 @@ export class ExhibitionService extends RC7BaseService {
       rest: 'POST /:eid/tickets',
       roles: ['admin'],
       params: {
-        eid: 'string',
+        eid: 'uuid',
         name: 'string',
         price: 'number',
         valid_duration_days: 'number',
@@ -240,7 +240,7 @@ export class ExhibitionService extends RC7BaseService {
       rest: 'PATCH /:eid',
       roles: ['admin'],
       params: {
-        eid: 'string',
+        eid: 'uuid',
         name: { type: 'string', optional: true, min: 1 },
         description: { type: 'string', optional: true },
         opening_time: { type: 'string', optional: true },
@@ -258,8 +258,8 @@ export class ExhibitionService extends RC7BaseService {
       rest: 'PATCH /:eid/tickets/:tid',
       roles: ['admin'],
       params: {
-        eid: 'string',
-        tid: 'string',
+        eid: 'uuid',
+        tid: 'uuid',
         name: { type: 'string', optional: true, min: 1 },
         price: { type: 'number', optional: true },
         valid_duration_days: { type: 'number', optional: true },
@@ -277,7 +277,7 @@ export class ExhibitionService extends RC7BaseService {
       rest: 'PATCH /:eid/status',
       roles: ['admin'],
       params: {
-        eid: 'string',
+        eid: 'uuid',
         status: { type: 'enum', values: ['ENABLE', 'DISABLE'] },
       },
       handler: this.updateExhibitionStatus
@@ -286,8 +286,8 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.getSessionTickets': {
       rest: 'GET /:eid/sessions/:sid/tickets',
       params: {
-        eid: 'string',
-        sid: 'string'
+        eid: 'uuid',
+        sid: { type: 'string', pattern: SESSION_ID_PATTERN },
       },
       handler: this.getSessionTickets
     },
@@ -296,8 +296,8 @@ export class ExhibitionService extends RC7BaseService {
       roles: ['admin'],
       rest: 'PUT /:eid/sessions/tickets/:tid/inventory/max',
       params: {
-        eid: 'string',
-        tid: 'string',
+        eid: 'uuid',
+        tid: 'uuid',
         quantity: 'number|min:0'
       },
       handler: this.updateTicketCategoryInventoryMax
@@ -306,8 +306,8 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.getTicket': {
       visibility: 'protected',
       params: {
-        eid: 'string',
-        tid: 'string',
+        eid: 'uuid',
+        tid: 'uuid',
       },
       handler: this.getTicket,
     },
@@ -315,8 +315,8 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.updateTicketXcOptionId': {
       visibility: 'protected',
       params: {
-        eid: 'string',
-        tid: 'string',
+        eid: 'uuid',
+        tid: 'uuid',
         ota_option_id: 'string|min:1',
       },
       handler: this.updateTicketXcOptionId,
@@ -325,8 +325,8 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.listSessionInventoryByTicketAndDateRange': {
       visibility: 'protected',
       params: {
-        eid: 'string',
-        tid: 'string',
+        eid: 'uuid',
+        tid: 'uuid',
         start_session_date: {
           type: 'date',
           convert: true,
@@ -342,7 +342,7 @@ export class ExhibitionService extends RC7BaseService {
     'exhibition.getTicketByIdGlobal': {
       visibility: 'protected',
       params: {
-        tid: 'string',
+        tid: 'uuid',
       },
       handler: this.getTicketByIdGlobal,
     },
