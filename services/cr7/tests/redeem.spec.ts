@@ -193,6 +193,7 @@ describeFeature(feature, ({
   AfterAllScenarios(async () => {
     await featureContext.broker.stop();
     await featureContext.wechatFixture.close();
+    await dropSchema({ schema });
   });
 
   BeforeEachScenario(async () => {
