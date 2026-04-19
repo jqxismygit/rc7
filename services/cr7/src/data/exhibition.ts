@@ -304,6 +304,7 @@ export async function listTicketCalendarInventoryByDateRange(
     `SELECT
       s.id AS session_id,
       s.session_date::text AS session_date,
+      COALESCE(i.quantity, 0) AS inventory,
       COALESCE((i.quantity - i.reserved_quantity), 0) AS quantity,
       COALESCE(i.session_price, 0) AS price
     FROM ${schema}.exhibit_sessions s

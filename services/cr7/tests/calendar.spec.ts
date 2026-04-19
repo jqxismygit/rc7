@@ -189,10 +189,12 @@ describeFeature(feature, ({
         };
         if ('价格' in row) {
           obj.price = Number(row['价格']);
-        } else if ('库存' in row) {
-          obj.quantity = Number(row['库存']);
+        } else if ('总库存' in row) {
+          obj.inventory = Number(row['总库存']);
+        } else if ('可用库存' in row) {
+          obj.quantity = Number(row['可用库存']);
         } else {
-          throw new Error('数据表必须包含 "价格" 或 "库存" 列');
+          throw new Error('数据表必须包含 "价格"、"总库存" 或 "可用库存" 列');
         }
         return obj;
       });
