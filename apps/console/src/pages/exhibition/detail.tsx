@@ -49,6 +49,7 @@ import {
   getExhibitionApi,
   listExhibitionSessionTicketsApi,
   updateExhibitionTicketCategoryApi,
+  updateTicketCalendarPriceApi,
   updateTicketCategoryInventoryMaxApi,
   type CreateTicketCategoryInput,
 } from "@/apis/exhibition";
@@ -193,13 +194,29 @@ export default function ExhibitionDetailPage() {
     open: openBatchPriceModal,
     close: closeBatchPriceModal,
   } = useModal();
+  const {
+    visible: sessionTicketInvVisible,
+    data: sessionTicketInvRow,
+    open: openSessionTicketInvModal,
+    close: closeSessionTicketInvModal,
+  } = useModal<InventoryTypes.SessionTicketPrice>();
+  const {
+    visible: sessionTicketPriceVisible,
+    data: sessionTicketPriceRow,
+    open: openSessionTicketPriceModal,
+    close: closeSessionTicketPriceModal,
+  } = useModal<InventoryTypes.SessionTicketPrice>();
 
   const [ticketSubmitting, setTicketSubmitting] = useState(false);
   const [editTicketSubmitting, setEditTicketSubmitting] = useState(false);
   const [ticketInvSubmitting, setTicketInvSubmitting] = useState(false);
+  const [sessionTicketInvSubmitting, setSessionTicketInvSubmitting] =
+    useState(false);
+  const [sessionTicketPriceSubmitting, setSessionTicketPriceSubmitting] =
+    useState(false);
   const [sessionInvLoading, setSessionInvLoading] = useState(false);
   const [sessionInvRows, setSessionInvRows] = useState<
-    InventoryTypes.SessionInventory[]
+    InventoryTypes.SessionTicketPrice[]
   >([]);
 
   const [selectedDay, setSelectedDay] = useState<Dayjs | null>(null);
@@ -276,37 +293,29 @@ export default function ExhibitionDetailPage() {
     void loadDetail();
   }, [loadDetail]);
 
-  /** 当前选中场次变更时拉取该场次库存 */
-  useEffect(() => {
+  const loadSessionTickets = useCallback(async () => {
     if (!eid || !selectedSessionId) {
       setSessionInvRows([]);
       setSessionInvLoading(false);
       return;
     }
-    let cancelled = false;
     setSessionInvLoading(true);
-    setSessionInvRows([]);
-    (async () => {
-      try {
-        const rows = await listExhibitionSessionTicketsApi(
-          eid,
-          selectedSessionId,
-        );
-        if (!cancelled) setSessionInvRows(rows);
-      } catch (err) {
-        if (!cancelled) {
-          const msg = err instanceof Error ? err.message : String(err);
-          message.error(msg ? `加载库存失败：${msg}` : "加载场次库存失败");
-          setSessionInvRows([]);
-        }
-      } finally {
-        if (!cancelled) setSessionInvLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [eid, selectedSessionId, data]);
+    try {
+      const rows = await listExhibitionSessionTicketsApi(eid, selectedSessionId);
+      setSessionInvRows(rows);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      message.error(msg ? `加载库存失败：${msg}` : "加载场次库存失败");
+      setSessionInvRows([]);
+    } finally {
+      setSessionInvLoading(false);
+    }
+  }, [eid, selectedSessionId]);
+
+  /** 当前选中场次变更或展会数据刷新时拉取该场次库存 */
+  useEffect(() => {
+    void loadSessionTickets();
+  }, [loadSessionTickets, data]);
 
   const sessions = useMemo(() => data?.sessions ?? [], [data?.sessions]);
 
@@ -414,8 +423,33 @@ export default function ExhibitionDetailPage() {
     [sessionsByDate],
   );
 
+  const openTicketInventoryModal = useCallback(
+    (row: ExhibitionTypes.TicketCategory) => {
+      openTicketInvModal(row);
+    },
+    [openTicketInvModal],
+  );
+  const openTicketEditModal = useCallback(
+    (row: ExhibitionTypes.TicketCategory) => {
+      openEditTicketModal(row);
+    },
+    [openEditTicketModal],
+  );
+  const openSessionRowInventoryModal = useCallback(
+    (row: InventoryTypes.SessionTicketPrice) => {
+      openSessionTicketInvModal(row);
+    },
+    [openSessionTicketInvModal],
+  );
+  const openSessionRowPriceModal = useCallback(
+    (row: InventoryTypes.SessionTicketPrice) => {
+      openSessionTicketPriceModal(row);
+    },
+    [openSessionTicketPriceModal],
+  );
+
   const inventoryColumns = useMemo<
-    ColumnsType<InventoryTypes.SessionInventory>
+    ColumnsType<InventoryTypes.SessionTicketPrice>
   >(
     () => [
       {
@@ -436,7 +470,8 @@ export default function ExhibitionDetailPage() {
         title: "价格（元）",
         dataIndex: "price",
         width: 100,
-        render: (p: number) => p * 0.01,
+        render: (p: number) =>
+          typeof p === "number" ? String(p * 0.01) : p,
       },
       {
         title: "退票政策",
@@ -450,31 +485,34 @@ export default function ExhibitionDetailPage() {
         dataIndex: "admittance",
         width: 110,
       },
-      // {
-      //   title: "票种 ID",
-      //   dataIndex: "id",
-      //   ellipsis: true,
-      //   render: (id: string) => (
-      //     <Typography.Text copyable={{ text: id }} ellipsis>
-      //       {id}
-      //     </Typography.Text>
-      //   ),
-      // },
+      {
+        title: "操作",
+        key: "sessionTicketActions",
+        width: 168,
+        fixed: "right",
+        render: (_, row) => (
+          <Space size={12}>
+            <Button
+              type="link"
+              size="small"
+              style={{ padding: 0, height: "auto" }}
+              onClick={() => openSessionRowInventoryModal(row)}
+            >
+              设置库存
+            </Button>
+            <Button
+              type="link"
+              size="small"
+              style={{ padding: 0, height: "auto" }}
+              onClick={() => openSessionRowPriceModal(row)}
+            >
+              设置价格
+            </Button>
+          </Space>
+        ),
+      },
     ],
-    [],
-  );
-
-  const openTicketInventoryModal = useCallback(
-    (row: ExhibitionTypes.TicketCategory) => {
-      openTicketInvModal(row);
-    },
-    [openTicketInvModal],
-  );
-  const openTicketEditModal = useCallback(
-    (row: ExhibitionTypes.TicketCategory) => {
-      openEditTicketModal(row);
-    },
-    [openEditTicketModal],
+    [openSessionRowInventoryModal, openSessionRowPriceModal],
   );
 
   const ticketColumns = useMemo<ColumnsType<ExhibitionTypes.TicketCategory>>(
@@ -624,6 +662,62 @@ export default function ExhibitionDetailPage() {
       return false;
     } finally {
       setEditTicketSubmitting(false);
+    }
+  }
+
+  async function handleSessionTicketInventoryFinish(values: {
+    quantity: number;
+  }) {
+    const row = sessionTicketInvRow;
+    if (!eid || !row || !selectedSession) return false;
+    const sessionDate = dayjs(selectedSession.session_date).format(
+      "YYYY-MM-DD",
+    );
+    try {
+      setSessionTicketInvSubmitting(true);
+      await updateTicketCategoryInventoryMaxApi(eid, row.id, {
+        quantity: values.quantity,
+        start_session_date: sessionDate,
+        end_session_date: sessionDate,
+      });
+      message.success("当前场次库存已更新");
+      closeSessionTicketInvModal();
+      await loadSessionTickets();
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      message.error(msg ? `更新失败：${msg}` : "更新场次库存失败");
+      return false;
+    } finally {
+      setSessionTicketInvSubmitting(false);
+    }
+  }
+
+  async function handleSessionTicketPriceFinish(values: {
+    price_yuan: number;
+  }) {
+    const row = sessionTicketPriceRow;
+    if (!eid || !row || !selectedSession) return false;
+    const sessionDate = dayjs(selectedSession.session_date).format(
+      "YYYY-MM-DD",
+    );
+    try {
+      setSessionTicketPriceSubmitting(true);
+      await updateTicketCalendarPriceApi(eid, row.id, {
+        price: Math.round(values.price_yuan * 100),
+        start_session_date: sessionDate,
+        end_session_date: sessionDate,
+      });
+      message.success("当前场次价格已更新");
+      closeSessionTicketPriceModal();
+      await loadSessionTickets();
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      message.error(msg ? `更新失败：${msg}` : "更新场次价格失败");
+      return false;
+    } finally {
+      setSessionTicketPriceSubmitting(false);
     }
   }
 
@@ -939,7 +1033,7 @@ export default function ExhibitionDetailPage() {
                         库存
                       </Typography.Title>
                       <Spin spinning={sessionInvLoading}>
-                        <Table<InventoryTypes.SessionInventory>
+                        <Table<InventoryTypes.SessionTicketPrice>
                           className="exhibition-detail-session-inventory-table"
                           rowKey="id"
                           size="small"
@@ -1162,6 +1256,100 @@ export default function ExhibitionDetailPage() {
         defaultDateRange={batchDefaultDateRange}
         onSuccess={loadDetail}
       />
+
+      <ModalForm<{ quantity: number }>
+        key={sessionTicketInvRow?.id ?? "session-ticket-inv-form"}
+        title={
+          sessionTicketInvRow
+            ? `设置当前场次库存 · ${sessionTicketInvRow.name}`
+            : "设置当前场次库存"
+        }
+        open={sessionTicketInvVisible}
+        onOpenChange={(open) => {
+          if (!open) closeSessionTicketInvModal();
+        }}
+        initialValues={{
+          quantity: sessionTicketInvRow?.quantity ?? 0,
+        }}
+        modalProps={{
+          destroyOnClose: true,
+          maskClosable: false,
+        }}
+        submitter={{
+          searchConfig: {
+            submitText: sessionTicketInvSubmitting ? "提交中…" : "确定",
+          },
+          resetButtonProps: { children: "取消" },
+        }}
+        onFinish={handleSessionTicketInventoryFinish}
+        width={480}
+        layout="vertical"
+      >
+        {selectedSession ? (
+          <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+            场次日期{" "}
+            <strong>
+              {dayjs(selectedSession.session_date).format("YYYY-MM-DD")}
+            </strong>
+            ，仅更新该日中当前场次下此票种的库存上限。
+          </Typography.Paragraph>
+        ) : null}
+        <ProFormDigit
+          name="quantity"
+          label="库存上限"
+          placeholder="请输入数量"
+          fieldProps={{ min: 0, precision: 0, style: { width: "100%" } }}
+          rules={[{ required: true, message: "请输入库存上限" }]}
+        />
+      </ModalForm>
+
+      <ModalForm<{ price_yuan: number }>
+        key={sessionTicketPriceRow?.id ?? "session-ticket-price-form"}
+        title={
+          sessionTicketPriceRow
+            ? `设置当前场次价格 · ${sessionTicketPriceRow.name}`
+            : "设置当前场次价格"
+        }
+        open={sessionTicketPriceVisible}
+        onOpenChange={(open) => {
+          if (!open) closeSessionTicketPriceModal();
+        }}
+        initialValues={{
+          price_yuan: sessionTicketPriceRow
+            ? sessionTicketPriceRow.price * 0.01
+            : 0,
+        }}
+        modalProps={{
+          destroyOnClose: true,
+          maskClosable: false,
+        }}
+        submitter={{
+          searchConfig: {
+            submitText: sessionTicketPriceSubmitting ? "提交中…" : "确定",
+          },
+          resetButtonProps: { children: "取消" },
+        }}
+        onFinish={handleSessionTicketPriceFinish}
+        width={480}
+        layout="vertical"
+      >
+        {selectedSession ? (
+          <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+            场次日期{" "}
+            <strong>
+              {dayjs(selectedSession.session_date).format("YYYY-MM-DD")}
+            </strong>
+            ，仅更新该日中当前场次下此票种的场次销售价（元）。
+          </Typography.Paragraph>
+        ) : null}
+        <ProFormDigit
+          name="price_yuan"
+          label="场次价格（元）"
+          placeholder="0"
+          fieldProps={{ min: 0, precision: 2, style: { width: "100%" } }}
+          rules={[{ required: true, message: "请输入场次价格" }]}
+        />
+      </ModalForm>
 
       <ModalForm<{ quantity: number }>
         title={ticketInvData ? `设置库存 · ${ticketInvData.name}` : "设置库存"}

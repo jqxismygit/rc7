@@ -4,7 +4,8 @@ import type {
 } from "@cr7/types";
 import { request } from "@/utils/request";
 
-export type SessionTicketsInventory = InventoryTypes.SessionInventory;
+/** 场次下票种列表（含场次价、票种信息），与 GET /sessions/:sid/tickets 一致 */
+export type SessionTicketsInventory = InventoryTypes.SessionTicketPrice;
 
 export type CreateExhibitionInput = Omit<
   ExhibitionTypes.Exhibition,
@@ -134,11 +135,11 @@ export async function getExhibitionApi(eid: string): Promise<
 export async function listExhibitionSessionTicketsApi(
   eid: string,
   sid: string,
-): Promise<SessionTicketsInventory[]> {
+): Promise<InventoryTypes.SessionTicketPrice[]> {
   const raw = await request.get(
     `/exhibition/${encodeURIComponent(eid)}/sessions/${encodeURIComponent(sid)}/tickets`,
   );
-  return raw as unknown as SessionTicketsInventory[];
+  return raw as unknown as InventoryTypes.SessionTicketPrice[];
 }
 
 export async function createExhibitionSessionTicketApi(
