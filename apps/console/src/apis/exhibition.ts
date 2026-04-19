@@ -156,15 +156,40 @@ export async function createExhibitionSessionTicketApi(
   return raw as unknown as SessionTicketsInventory;
 }
 
-/** 批量设置某票种在所有场次下的库存上限，响应 204 */
+export type UpdateTicketInventoryMaxBody = {
+  quantity: number;
+  /** 同时传开始、结束日期时按闭区间增量更新；均不传则覆盖全部场次 */
+  start_session_date?: string;
+  end_session_date?: string;
+};
+
+/** 批量设置某票种场次库存上限，响应 204 */
 export async function updateTicketCategoryInventoryMaxApi(
   eid: string,
   tid: string,
-  quantity: number,
+  body: UpdateTicketInventoryMaxBody,
 ): Promise<void> {
   await request.put(
     `/exhibition/${encodeURIComponent(eid)}/sessions/tickets/${encodeURIComponent(tid)}/inventory/max`,
-    { quantity },
+    body,
+  );
+}
+
+export type UpdateTicketCalendarPriceBody = {
+  price: number;
+  start_session_date: string;
+  end_session_date: string;
+};
+
+/** 按日期闭区间设置票种场次价格（分），响应 204；仅管理员 */
+export async function updateTicketCalendarPriceApi(
+  eid: string,
+  tid: string,
+  body: UpdateTicketCalendarPriceBody,
+): Promise<void> {
+  await request.put(
+    `/exhibition/${encodeURIComponent(eid)}/tickets/${encodeURIComponent(tid)}/calendar/price`,
+    body,
   );
 }
 

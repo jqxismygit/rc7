@@ -28,7 +28,13 @@ import {
   message,
   theme,
 } from "antd";
-import { HomeOutlined, PlusOutlined, SyncOutlined } from "@ant-design/icons";
+import {
+  DatabaseOutlined,
+  DollarOutlined,
+  HomeOutlined,
+  PlusOutlined,
+  SyncOutlined,
+} from "@ant-design/icons";
 import type { RangePickerProps } from "antd/es/date-picker";
 import {
   ModalForm,
@@ -46,6 +52,9 @@ import {
   updateTicketCategoryInventoryMaxApi,
   type CreateTicketCategoryInput,
 } from "@/apis/exhibition";
+import { BatchSetInventoryModal } from "./components/batch-set-inventory-modal";
+import type { BatchSessionDateBounds } from "./components/batch-set-inventory-modal";
+import { BatchSetPriceModal } from "./components/batch-set-price-modal";
 import { useModal } from "@/hooks/use-modal";
 import {
   useSyncInfoToCtrip,
@@ -173,6 +182,17 @@ export default function ExhibitionDetailPage() {
     open: openEditTicketModal,
     close: closeEditTicketModal,
   } = useModal<ExhibitionTypes.TicketCategory>();
+
+  const {
+    visible: batchInventoryVisible,
+    open: openBatchInventoryModal,
+    close: closeBatchInventoryModal,
+  } = useModal();
+  const {
+    visible: batchPriceVisible,
+    open: openBatchPriceModal,
+    close: closeBatchPriceModal,
+  } = useModal();
 
   const [ticketSubmitting, setTicketSubmitting] = useState(false);
   const [editTicketSubmitting, setEditTicketSubmitting] = useState(false);
@@ -357,6 +377,30 @@ export default function ExhibitionDetailPage() {
     if (start && end && start.isValid() && end.isValid()) return [start, end];
     return undefined;
   }, [data, sessions]);
+
+  /** 批量库存/价格：可选日期为今天起至最后一场（与展期、场次并集一致） */
+  const batchSessionDateBounds = useMemo((): BatchSessionDateBounds | null => {
+    if (!exhibitionDateRange) return null;
+    const [, rangeEnd] = exhibitionDateRange;
+    const maxEnd = rangeEnd.startOf("day");
+    const today = dayjs().startOf("day");
+    if (today.isAfter(maxEnd, "day")) return null;
+    return { minStart: today, maxEnd };
+  }, [exhibitionDateRange]);
+
+  const batchDefaultDateRange = useMemo((): [Dayjs, Dayjs] | null => {
+    if (!batchSessionDateBounds) return null;
+    return [batchSessionDateBounds.minStart, batchSessionDateBounds.maxEnd];
+  }, [batchSessionDateBounds]);
+
+  const ticketSelectOptions = useMemo(
+    () =>
+      (data?.ticket_categories ?? []).map((t) => ({
+        label: t.name,
+        value: t.id,
+      })),
+    [data?.ticket_categories],
+  );
 
   const handleCalendarSelect = useCallback(
     (date: Dayjs) => {
@@ -543,11 +587,9 @@ export default function ExhibitionDetailPage() {
     if (!eid || !category) return false;
     try {
       setTicketInvSubmitting(true);
-      await updateTicketCategoryInventoryMaxApi(
-        eid,
-        category.id,
-        values.quantity,
-      );
+      await updateTicketCategoryInventoryMaxApi(eid, category.id, {
+        quantity: values.quantity,
+      });
       message.success("该票种在所有场次的库存上限已更新");
       closeTicketInvModal();
       await loadDetail();
@@ -783,6 +825,30 @@ export default function ExhibitionDetailPage() {
             className="exhibition-detail-sessions-card"
             variant="borderless"
             title="场次列表"
+            extra={
+              <div style={{ display: "flex", gap: token.marginSM }}>
+                <Button
+                  type="primary"
+                  icon={<DatabaseOutlined />}
+                  disabled={
+                    !batchSessionDateBounds || ticketSelectOptions.length === 0
+                  }
+                  onClick={() => openBatchInventoryModal()}
+                >
+                  批量设置库存
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<DollarOutlined />}
+                  disabled={
+                    !batchSessionDateBounds || ticketSelectOptions.length === 0
+                  }
+                  onClick={() => openBatchPriceModal()}
+                >
+                  批量设置价格
+                </Button>
+              </div>
+            }
             style={{
               marginTop: token.marginMD,
               borderRadius: token.borderRadiusLG,
@@ -1072,6 +1138,30 @@ export default function ExhibitionDetailPage() {
           ) : null}
         </div>
       </Modal>
+
+      <BatchSetInventoryModal
+        open={batchInventoryVisible}
+        onOpenChange={(open) => {
+          if (!open) closeBatchInventoryModal();
+        }}
+        eid={eid}
+        ticketOptions={ticketSelectOptions}
+        dateBounds={batchSessionDateBounds}
+        defaultDateRange={batchDefaultDateRange}
+        onSuccess={loadDetail}
+      />
+
+      <BatchSetPriceModal
+        open={batchPriceVisible}
+        onOpenChange={(open) => {
+          if (!open) closeBatchPriceModal();
+        }}
+        eid={eid}
+        ticketOptions={ticketSelectOptions}
+        dateBounds={batchSessionDateBounds}
+        defaultDateRange={batchDefaultDateRange}
+        onSuccess={loadDetail}
+      />
 
       <ModalForm<{ quantity: number }>
         title={ticketInvData ? `设置库存 · ${ticketInvData.name}` : "设置库存"}
