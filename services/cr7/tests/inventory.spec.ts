@@ -27,7 +27,7 @@ const feature = await loadFeature('tests/features/inventory.feature');
 type ExhibitionType = Exhibition.Exhibition;
 type SessionType = Exhibition.Session;
 type TicketCategoryType = Exhibition.TicketCategory;
-type SessionTicketsInventoryType = Inventory.SessionTicketsInventory;
+type SessionTicketsPrice = Inventory.SessionTicketPrice;
 
 interface FeatureContext {
   broker: ServiceBroker;
@@ -114,7 +114,7 @@ describeFeature(
       'view inventory of a session',
       (
         s: StepTest<{
-          inventory?: SessionTicketsInventoryType[];
+          inventory?: SessionTicketsPrice[];
         }>
       ) => {
         const { Given, When, Then, context } = s;
@@ -228,7 +228,7 @@ describeFeature(
       '可以查看 一个 session 下所有 ticket category 的 inventory',
       (
         s: StepTest<{
-          inventory?: SessionTicketsInventoryType[];
+          inventory?: SessionTicketsPrice[];
         }>
       ) => {
         const { Given, When, Then, And, context } = s;
