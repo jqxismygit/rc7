@@ -171,45 +171,19 @@ describeFeature(feature, ({
     await dropSchema({ schema });
   });
 
-  Background(({ Given, And }) => {
-    Given('cr7 服务已启动', async () => {
-      await migrate({ schema });
-    });
-
-    Given('系统管理员已经创建并登录', async () => {
-      const { apiServer } = featureContext;
-      featureContext.adminToken = await prepareAdminToken(apiServer, schema);
-    });
-
-    Given('默认核销展览活动已创建，开始时间为 {string}，结束时间为 {string}', async (_ctx, startDate: string, endDate: string) => {
-      featureContext.exhibition = await prepareExhibition(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        {
-          name: `xc_order_${Date.now()}`,
-          description: 'xiecheng order integration feature',
-          start_date: toDateLabel(startDate),
-          end_date: toDateLabel(endDate),
-        },
-      );
-      featureContext.sessions = await getSessions(
-        featureContext.apiServer,
-        featureContext.exhibition.id,
-        featureContext.adminToken,
-      );
-      featureContext.ticketByName = {};
-    });
-
-    Given('展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天', async (_ctx, ticketName: string, admittance: number) => {
+  defineSteps(({ Given, When, Then, And }) => {
+    Given(
+      '展会添加票种 {string}, 准入人数为 {number}, 有效期为场次当天, 价格为 {number} 元',
+      async (_ctx, ticketName: string, admittance: number, price: number) => {
+      const { apiServer, adminToken, exhibition } = featureContext;
       const ticket = await prepareTicketCategory(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
+        apiServer, adminToken, exhibition.id,
         {
           name: ticketName,
           admittance,
           valid_duration_days: 1,
           refund_policy: 'NON_REFUNDABLE',
+          price: price * 100,
         },
       );
 
@@ -219,113 +193,6 @@ describeFeature(feature, ({
       };
     });
 
-    Given('展会添加票种 "单人票", 准入人数为 1, 有效期为场次当天', async () => {
-      const ticket = await prepareTicketCategory(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        {
-          name: '单人票',
-          admittance: 1,
-          valid_duration_days: 1,
-          refund_policy: 'NON_REFUNDABLE',
-        },
-      );
-
-      featureContext.ticketByName = {
-        ...featureContext.ticketByName,
-        单人票: ticket,
-      };
-    });
-
-    And('{string} 库存为 {int}', async (_ctx, ticketName: string, quantity: number) => {
-      const ticket = getTicketByName(featureContext, ticketName);
-      await updateTicketCategoryMaxInventory(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        ticket.id,
-        quantity,
-      );
-    });
-
-    And('"单人票" 库存为 2', async () => {
-      const ticket = getTicketByName(featureContext, '单人票');
-      await updateTicketCategoryMaxInventory(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        ticket.id,
-        2,
-      );
-    });
-
-    Given('用户在携程上创建了一个订单', () => {
-      featureContext.draftOrder = {
-        sequenceId: `xc_seq_${Date.now()}`,
-        otaOrderId: `xc_order_${Date.now()}`,
-        contacts: [{}],
-        items: [{
-          PLU: '',
-          useStartDate: toDateLabel('今天'),
-          useEndDate: toDateLabel('今天'),
-          quantity: 1,
-          price: 0,
-        }]
-      };
-    });
-
-    And('携程订单的包含 {string} {int} 张，场次时间为 {string}', (_ctx, ticketName: string, quantity: number, dateLabel: string) => {
-      const ticket = getTicketByName(featureContext, ticketName);
-      featureContext.draftOrder!.items = [{
-        PLU: ticket.id,
-        useStartDate: toDateLabel(dateLabel),
-        useEndDate: toDateLabel(dateLabel),
-        quantity,
-        price: ticket.price,
-      }];
-    });
-
-    And('携程订单的总价为 {string} 的价格', (_ctx, ticketName: string) => {
-      const ticket = getTicketByName(featureContext, ticketName);
-      featureContext.draftOrder!.items[0].price = ticket.price;
-    });
-
-    And('携程订单的购买人姓名是 {string}', (_ctx, name: string) => {
-      featureContext.draftOrder!.contacts = [{
-        ...featureContext.draftOrder!.contacts[0],
-        name,
-      }];
-    });
-
-    And('携程订单的购买人手机号是 {string}，国别码为 {string}', (_ctx, phone: string, countryCode: string) => {
-      featureContext.draftOrder!.contacts = [{
-        ...featureContext.draftOrder!.contacts[0],
-        mobile: phone,
-        intlCode: countryCode,
-      }];
-    });
-
-    And('携程订单信息中的 service name 是 {string}', (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
-      featureContext.serviceName = serviceName;
-    });
-
-    And('携程订单中的 PLU id 是 cr7 系统中 {string} 的 ID', (_ctx, ticketName: string) => {
-      const ticket = getTicketByName(featureContext, ticketName);
-      featureContext.draftOrder!.items[0].PLU = ticket.id;
-    });
-
-    And('携程订单号是 {string}', (_ctx, otaOrderId: string) => {
-      featureContext.draftOrder!.otaOrderId = otaOrderId;
-    });
-
-    And('携程 sequence id 是 {string}', (_ctx, sequenceId: string) => {
-      featureContext.draftOrder!.sequenceId = sequenceId;
-    });
-
-  });
-
-  defineSteps(({ Given, When, Then, And }) => {
     // 创建订单
     When('用户提交订单', () => {
       const { draftOrder, serviceName } = featureContext;
@@ -685,6 +552,124 @@ describeFeature(feature, ({
     });
   });
 
+  Background(({ Given, And }) => {
+    Given('cr7 服务已启动', async () => {
+      await migrate({ schema });
+    });
+
+    Given('系统管理员已经创建并登录', async () => {
+      const { apiServer } = featureContext;
+      featureContext.adminToken = await prepareAdminToken(apiServer, schema);
+    });
+
+    Given('默认核销展览活动已创建，开始时间为 {string}，结束时间为 {string}', async (_ctx, startDate: string, endDate: string) => {
+      featureContext.exhibition = await prepareExhibition(
+        featureContext.apiServer,
+        featureContext.adminToken,
+        {
+          name: `xc_order_${Date.now()}`,
+          description: 'xiecheng order integration feature',
+          start_date: toDateLabel(startDate),
+          end_date: toDateLabel(endDate),
+        },
+      );
+      featureContext.sessions = await getSessions(
+        featureContext.apiServer,
+        featureContext.exhibition.id,
+        featureContext.adminToken,
+      );
+      featureContext.ticketByName = {};
+    });
+
+    And('{string} 库存为 {int}', async (_ctx, ticketName: string, quantity: number) => {
+      const ticket = getTicketByName(featureContext, ticketName);
+      await updateTicketCategoryMaxInventory(
+        featureContext.apiServer,
+        featureContext.adminToken,
+        featureContext.exhibition.id,
+        ticket.id,
+        quantity,
+      );
+    });
+
+    And('"单人票" 库存为 2', async () => {
+      const ticket = getTicketByName(featureContext, '单人票');
+      await updateTicketCategoryMaxInventory(
+        featureContext.apiServer,
+        featureContext.adminToken,
+        featureContext.exhibition.id,
+        ticket.id,
+        2,
+      );
+    });
+
+    Given('用户在携程上创建了一个订单', () => {
+      featureContext.draftOrder = {
+        sequenceId: `xc_seq_${Date.now()}`,
+        otaOrderId: `xc_order_${Date.now()}`,
+        contacts: [{}],
+        items: [{
+          PLU: '',
+          useStartDate: toDateLabel('今天'),
+          useEndDate: toDateLabel('今天'),
+          quantity: 1,
+          price: 0,
+        }]
+      };
+    });
+
+    And(
+      '携程订单的包含 {string} {number} 张，场次时间为 {string}, 价格是 {number} 分',
+      (_ctx, ticketName: string, quantity: number, dateLabel: string, price: number) => {
+      const ticket = getTicketByName(featureContext, ticketName);
+      featureContext.draftOrder!.items = [{
+        PLU: ticket.id,
+        useStartDate: toDateLabel(dateLabel),
+        useEndDate: toDateLabel(dateLabel),
+        quantity,
+        price,
+      }];
+    });
+
+    And('携程订单的总价为 {string} 的价格, 即 {number} 分', (_ctx, ticketName: string, totalPrice: number) => {
+      featureContext.draftOrder!.items[0].price = totalPrice;
+    });
+
+    And('携程订单的购买人姓名是 {string}', (_ctx, name: string) => {
+      featureContext.draftOrder!.contacts = [{
+        ...featureContext.draftOrder!.contacts[0],
+        name,
+      }];
+    });
+
+    And('携程订单的购买人手机号是 {string}，国别码为 {string}', (_ctx, phone: string, countryCode: string) => {
+      featureContext.draftOrder!.contacts = [{
+        ...featureContext.draftOrder!.contacts[0],
+        mobile: phone,
+        intlCode: countryCode,
+      }];
+    });
+
+    And('携程订单信息中的 service name 是 {string}', (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
+      featureContext.serviceName = serviceName;
+    });
+
+    And('携程订单中的 PLU id 是 cr7 系统中 {string} 的 ID', (_ctx, ticketName: string) => {
+      const ticket = getTicketByName(featureContext, ticketName);
+      featureContext.draftOrder!.items[0].PLU = ticket.id;
+    });
+
+    And('携程订单号是 {string}', (_ctx, otaOrderId: string) => {
+      featureContext.draftOrder!.otaOrderId = otaOrderId;
+    });
+
+    And('携程 sequence id 是 {string}', (_ctx, sequenceId: string) => {
+      featureContext.draftOrder!.sequenceId = sequenceId;
+    });
+
+  });
+
+
   Scenario('用户从携程下单购买门票', (s: StepTest<OrderResultContext>) => {
     const { And } = s;
 
@@ -699,10 +684,9 @@ describeFeature(feature, ({
         expect(order?.session_id).toBe(session.id);
     });
 
-    And('订单总价应为 {string} 的价格', (_ctx, ticketName: string) => {
+    And('订单总价应为 {string} 的价格, 即 {number} 分', (_ctx, ticketName: string, totalPrice: number) => {
       const { order } = featureContext;
-      const ticket = getTicketByName(featureContext, ticketName);
-      expect(order?.total_amount).toBe(ticket.price);
+      expect(order!.total_amount).toBe(totalPrice);
     });
 
     And('订单状态为 {string}', (_ctx, statusLabel: string) => {
@@ -835,10 +819,11 @@ describeFeature(feature, ({
       expect(requestBody.items[0].useEndDate).toBe(toDateLabel(dateLabel));
     });
 
-    And('同步记录中包含订单总价 {string} 的价格', (_ctx, ticketName: string) => {
+    And(
+      '同步记录中包含订单总价 {string} 的价格, 即 {number} 分',
+      (_ctx, ticketName: string, totalPrice: number) => {
       const { records: [latestRecord] } = context;
-      const ticket = getTicketByName(featureContext, ticketName);
-      expect(latestRecord?.total_amount).toBe(ticket.price);
+      expect(latestRecord?.total_amount).toBe(totalPrice);
     });
 
     When(

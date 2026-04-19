@@ -418,7 +418,9 @@ describeFeature(feature, ({
         featureContext.exhibition.id,
         featureContext.adminToken,
       );
-      const matchedSession = sessions.find(session => toDateOnlyLabel(session.session_date) === toDateLabel(sessionDate));
+      const matchedSession = sessions.find(
+        session => toDateOnlyLabel(session.session_date) === toDateLabel(sessionDate)
+      );
       expect(matchedSession).toBeTruthy();
 
       const sessionTickets = await getSessionTickets(
@@ -441,7 +443,9 @@ describeFeature(feature, ({
         featureContext.exhibition.id,
         featureContext.adminToken,
       );
-      const matchedSession = sessions.find(session => toDateOnlyLabel(session.session_date) === toDateLabel(sessionDate));
+      const matchedSession = sessions.find(
+        session => toDateOnlyLabel(session.session_date) === toDateLabel(sessionDate)
+      );
       expect(matchedSession).toBeTruthy();
 
       const sessionTickets = await getSessionTickets(
@@ -487,7 +491,9 @@ describeFeature(feature, ({
         featureContext.exhibition.id,
         featureContext.adminToken,
       );
-      const matchedSession = sessions.find(session => toDateOnlyLabel(session.session_date) === toDateLabel(sessionDate));
+      const matchedSession = sessions.find(
+        session => toDateOnlyLabel(session.session_date) === toDateLabel(sessionDate)
+      );
       expect(matchedSession).toBeTruthy();
       featureContext.orderDraft!.performId = matchedSession!.id;
     });
@@ -502,14 +508,16 @@ describeFeature(feature, ({
       draft.commodityInfoList = [];
     });
 
-    And('大麦的订单中的第 {int} 个订单项 ID 是 {string} 的 ID，数量为 {int}，价格为票价，单位为分', (_ctx, index: number, ticketName: string, quantity: number) => {
+    And(
+      '大麦的订单中的第 {number} 个订单项 ID 是 {string} 的 ID，数量为 {number}，价格为 {number} 分',
+      (_ctx, index: number, ticketName: string, quantity: number, price: number) => {
       const ticket = featureContext.ticketByName[ticketName];
       expect(ticket).toBeTruthy();
       const draft = featureContext.orderDraft!;
       draft.priceInfo[index - 1] = {
         priceId: ticket.id,
         num: quantity,
-        price: ticket.price,
+        price: price,
       };
 
       for (let itemIndex = 0; itemIndex < quantity; itemIndex += 1) {
@@ -669,6 +677,20 @@ describeFeature(feature, ({
       );
       expect(order.status).toBe('PAID');
       featureContext.order = order;
+    });
+
+    And(
+      '订单的第 {number} 个订单项是 {string}，数量为 {number}，价格为 {number} 分',
+      (_ctx, index: number, ticketName: string, quantity: number, price: number) => {
+      const order = featureContext.order;
+      expect(order).toBeTruthy();
+      const ticket = featureContext.ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+
+      const item = order!.items.find(current => current.ticket_category_id === ticket.id);
+      expect(item).toBeTruthy();
+      expect(item!.quantity).toBe(quantity);
+      expect(item!.unit_price).toBe(price);
     });
 
     // 取消
@@ -1135,29 +1157,7 @@ describeFeature(feature, ({
       expect(featureContext.order!.items).toHaveLength(count);
     });
 
-    And('订单的第 {int} 个订单项是 {string}，数量为 {int}，价格为票价，单位为元', (_ctx, index: number, ticketName: string, quantity: number) => {
-      const order = featureContext.order;
-      expect(order).toBeTruthy();
-      const ticket = featureContext.ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
 
-      const item = order!.items.find(current => current.ticket_category_id === ticket.id);
-      expect(item).toBeTruthy();
-      expect(item!.quantity).toBe(quantity);
-      expect(item!.unit_price).toBe(ticket.price);
-    });
-
-    And('订单的第 2 个订单项是 {string}，数量为 {int}，价格为票价，单位为元', (_ctx, ticketName: string, quantity: number) => {
-      const order = featureContext.order;
-      expect(order).toBeTruthy();
-      const ticket = featureContext.ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
-
-      const item = order!.items.find(current => current.ticket_category_id === ticket.id);
-      expect(item).toBeTruthy();
-      expect(item!.quantity).toBe(quantity);
-      expect(item!.unit_price).toBe(ticket.price);
-    });
 
     Then('cr7 创建了一个用户，其关联的大麦 ID 是 {string}, 手机号为空，姓名是 {string}', async (_ctx, damaiId: string, expectedName: string) => {
       const { apiServer, adminToken } = featureContext;
@@ -1312,13 +1312,15 @@ describeFeature(feature, ({
     });
 
     And('电子票信息中的项目名称为默认展会活动的名称', () => {
-      expect(featureContext.getETicketResponse).toBeTruthy();
-      expect(featureContext.getETicketResponse!.body.bodyGetESeatInfo.projectName).toBe(featureContext.exhibition.name);
+      const { exhibition, getETicketResponse } = featureContext;
+      expect(getETicketResponse).toBeTruthy();
+      expect(getETicketResponse!.body.bodyGetESeatInfo.projectName).toBe(exhibition.name);
     });
 
     And('电子票信息中的场馆名称为默认展会活动的展馆名称', () => {
-      expect(featureContext.getETicketResponse).toBeTruthy();
-      expect(featureContext.getETicketResponse!.body.bodyGetESeatInfo.venueName).toBe(featureContext.exhibition.venue_name);
+      const { exhibition, getETicketResponse } = featureContext;
+      expect(getETicketResponse).toBeTruthy();
+      expect(getETicketResponse!.body.bodyGetESeatInfo.venueName).toBe(exhibition.venue_name);
     });
 
     And('电子票信息中的演出时间为 {string} 场次的演出时间， 格式为毫秒级时间戳', async (_ctx, sessionDate: string) => {
@@ -1327,7 +1329,9 @@ describeFeature(feature, ({
         featureContext.exhibition.id,
         featureContext.adminToken,
       );
-      const matchedSession = sessions.find(session => toDateOnlyLabel(session.session_date) === toDateLabel(sessionDate));
+      const matchedSession = sessions.find(
+        session => toDateOnlyLabel(session.session_date) === toDateLabel(sessionDate)
+      );
       expect(matchedSession).toBeTruthy();
 
       const expectedShowTime = parse(
@@ -1368,20 +1372,22 @@ describeFeature(feature, ({
     });
 
     And('电子票信息中的票价为订单 item 价格，单位为分', () => {
-      const expectedPrices = featureContext.order!.items.flatMap(item => Array.from(
+      const { order, getETicketResponse } = featureContext;
+      const expectedPrices = order!.items.flatMap(item => Array.from(
         { length: item.quantity },
         () => item.unit_price,
       ));
-      const actualPrices = featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.map(ticket => ticket.price);
+      const actualPrices = getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.map(ticket => ticket.price);
       expect(actualPrices).toEqual(expectedPrices);
     });
 
     And('电子票信息中的价格 ID 是票种 ID', () => {
-      const expectedPriceIds = featureContext.order!.items.flatMap(item => Array.from(
+      const { order, getETicketResponse } = featureContext;
+      const expectedPriceIds = order!.items.flatMap(item => Array.from(
         { length: item.quantity },
         () => item.ticket_category_id,
       ));
-      const actualPriceIds = featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.map(ticket => ticket.priceId);
+      const actualPriceIds = getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.map(ticket => ticket.priceId);
       expect(actualPriceIds).toEqual(expectedPriceIds);
     });
 

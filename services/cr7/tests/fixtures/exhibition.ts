@@ -14,7 +14,13 @@ export type DraftExhibition = Omit<
 export type DraftTicketCategory = Omit<
   Exhibition.TicketCategory,
   'id' | 'exhibit_id' | 'created_at' | 'updated_at'
->;
+> & {
+  price: number;
+};
+
+export type PreparedTicketCategory = Exhibition.TicketCategory & {
+  price: number;
+};
 
 export type DraftTicketCategoryPatch = Exhibition.TicketCategoryPatch;
 
@@ -218,7 +224,6 @@ export function assertTicketCategory(data: Exhibition.TicketCategory) {
   expect(data).toHaveProperty('id', expect.any(String));
   expect(data).toHaveProperty('exhibit_id', expect.any(String));
   expect(data).toHaveProperty('name', expect.any(String));
-  expect(data).toHaveProperty('price', expect.any(Number));
   expect(data).toHaveProperty('valid_duration_days', expect.any(Number));
   expect(data).toHaveProperty('refund_policy', expect.any(String));
   expect(data).toHaveProperty('admittance', expect.any(Number));

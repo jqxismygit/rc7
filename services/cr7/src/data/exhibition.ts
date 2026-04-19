@@ -3,6 +3,22 @@ import type { Exhibition, Inventory } from "@cr7/types";
 
 type DBClient = Pool | PoolClient;
 
+type TicketCategoryCreateInput = Omit<
+  Exhibition.TicketCategory,
+  'id' | 'exhibit_id' | 'created_at' | 'updated_at'
+>;
+
+const TICKET_CATEGORY_SELECT = `
+      c.id,
+      c.eid AS exhibit_id,
+      c.name,
+      c.valid_duration_days,
+      c.refund_policy,
+      c.admittance,
+      c.ota_xc_option_id,
+      c.created_at,
+      c.updated_at`;
+
 export type EXHIBITION_DATA_ERROR_CODES =
   | 'EXHIBITION_NOT_FOUND'
   | 'TICKET_CATEGORY_NOT_FOUND'
@@ -191,19 +207,10 @@ export async function getTicketCategoriesByExhibitionId(
 ): Promise<Exhibition.TicketCategory[]> {
   const { rows } = await client.query(
     `SELECT
-      id,
-      eid as exhibit_id,
-      name,
-      price,
-      valid_duration_days,
-      refund_policy,
-      admittance,
-      ota_xc_option_id,
-      created_at,
-      updated_at
-    FROM ${schema}.exhibit_ticket_categories
-    WHERE eid = $1
-    ORDER BY created_at`,
+      ${TICKET_CATEGORY_SELECT}
+    FROM ${schema}.exhibit_ticket_categories c
+    WHERE c.eid = $1
+    ORDER BY c.created_at`,
     [eid]
   );
 
@@ -218,19 +225,10 @@ export async function getTicketCategoryById(
 ): Promise<Exhibition.TicketCategory> {
   const { rows } = await client.query<Exhibition.TicketCategory>(
     `SELECT
-      id,
-      eid AS exhibit_id,
-      name,
-      price,
-      valid_duration_days,
-      refund_policy,
-      admittance,
-      ota_xc_option_id,
-      created_at,
-      updated_at
-    FROM ${schema}.exhibit_ticket_categories
-    WHERE id = $1
-      AND eid = $2`,
+      ${TICKET_CATEGORY_SELECT}
+    FROM ${schema}.exhibit_ticket_categories c
+    WHERE c.id = $1
+      AND c.eid = $2`,
     [tid, eid],
   );
 
@@ -249,23 +247,14 @@ export async function updateTicketCategoryOtaXcOptionId(
   otaOptionId: string,
 ): Promise<Exhibition.TicketCategory> {
   const { rows } = await client.query<Exhibition.TicketCategory>(
-    `UPDATE ${schema}.exhibit_ticket_categories
+    `UPDATE ${schema}.exhibit_ticket_categories c
     SET
       ota_xc_option_id = $3,
       updated_at = NOW()
-    WHERE id = $1
-      AND eid = $2
+    WHERE c.id = $1
+      AND c.eid = $2
     RETURNING
-      id,
-      eid AS exhibit_id,
-      name,
-      price,
-      valid_duration_days,
-      refund_policy,
-      admittance,
-      ota_xc_option_id,
-      created_at,
-      updated_at`,
+      ${TICKET_CATEGORY_SELECT}`,
     [tid, eid, otaOptionId],
   );
 
@@ -315,15 +304,12 @@ export async function listTicketCalendarInventoryByDateRange(
     `SELECT
       s.id AS session_id,
       s.session_date::text AS session_date,
-      COALESCE((i.quantity - i.reserved_quantity), 0)::integer AS quantity,
-      COALESCE(i.session_price, tc.price) AS price
+      COALESCE((i.quantity - i.reserved_quantity), 0) AS quantity,
+      COALESCE(i.session_price, 0) AS price
     FROM ${schema}.exhibit_sessions s
-    JOIN ${schema}.exhibit_ticket_categories tc
-      ON tc.id = $2
-      AND tc.eid = s.session_id
     LEFT JOIN ${schema}.exhibit_session_inventories i
       ON i.session_id = s.id
-      AND i.ticket_category_id = tc.id
+      AND i.ticket_category_id = $2
     WHERE s.session_id = $1
       AND s.session_date BETWEEN $3::date AND $4::date
     ORDER BY s.session_date`,
@@ -418,18 +404,17 @@ export async function createTicketCategory(
   client: Pool,
   schema: string,
   eid: string,
-  category: Omit<Exhibition.TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>
+  category: TicketCategoryCreateInput
 ): Promise<Exhibition.TicketCategory> {
-  const { rows: [result] } = await client.query(
+  const { rows: [result] } = await client.query<Exhibition.TicketCategory>(
     `INSERT INTO ${schema}.exhibit_ticket_categories (
-      eid, name, price, valid_duration_days, refund_policy, admittance
+      eid, name, valid_duration_days, refund_policy, admittance
     )
-    VALUES ($1, $2, $3, $4, $5, $6)
+    VALUES ($1, $2, $3, $4, $5)
     RETURNING
       id,
-      eid as exhibit_id,
+      eid AS exhibit_id,
       name,
-      price,
       valid_duration_days,
       refund_policy,
       admittance,
@@ -439,10 +424,9 @@ export async function createTicketCategory(
     [
       eid,
       category.name,
-      category.price,
       category.valid_duration_days,
       category.refund_policy,
-      category.admittance
+      category.admittance,
     ]
   );
 
@@ -457,16 +441,7 @@ export async function getSessionTicketCategoriesBySessionId(
 ): Promise<Exhibition.TicketCategory[]> {
   const { rows } = await client.query(
     `SELECT
-      c.id,
-      c.eid as exhibit_id,
-      c.name,
-      c.price,
-      c.valid_duration_days,
-      c.refund_policy,
-      c.admittance,
-      c.ota_xc_option_id,
-      c.created_at,
-      c.updated_at
+      ${TICKET_CATEGORY_SELECT}
     FROM ${schema}.exhibit_sessions s
     JOIN ${schema}.exhibit_ticket_categories c
       ON c.eid = s.session_id
@@ -486,18 +461,9 @@ export async function getTicketCategoryByIdGlobal(
 ): Promise<Exhibition.TicketCategory> {
   const { rows } = await client.query<Exhibition.TicketCategory>(
     `SELECT
-      id,
-      eid AS exhibit_id,
-      name,
-      price,
-      valid_duration_days,
-      refund_policy,
-      admittance,
-      ota_xc_option_id,
-      created_at,
-      updated_at
-    FROM ${schema}.exhibit_ticket_categories
-    WHERE id = $1`,
+      ${TICKET_CATEGORY_SELECT}
+    FROM ${schema}.exhibit_ticket_categories c
+    WHERE c.id = $1`,
     [tid],
   );
 
@@ -604,10 +570,6 @@ export async function updateTicketCategory(
     fields.push(`name = $${idx++}`);
     values.push(patch.name);
   }
-  if ('price' in patch) {
-    fields.push(`price = $${idx++}`);
-    values.push(patch.price);
-  }
   if ('valid_duration_days' in patch) {
     fields.push(`valid_duration_days = $${idx++}`);
     values.push(patch.valid_duration_days);
@@ -628,21 +590,12 @@ export async function updateTicketCategory(
   fields.push('updated_at = NOW()');
 
   const { rows } = await client.query<Exhibition.TicketCategory>(
-    `UPDATE ${schema}.exhibit_ticket_categories
+    `UPDATE ${schema}.exhibit_ticket_categories c
     SET ${fields.join(', ')}
-    WHERE id = $1
-      AND eid = $2
+    WHERE c.id = $1
+      AND c.eid = $2
     RETURNING
-      id,
-      eid AS exhibit_id,
-      name,
-      price,
-      valid_duration_days,
-      refund_policy,
-      admittance,
-      ota_xc_option_id,
-      created_at,
-      updated_at`,
+      ${TICKET_CATEGORY_SELECT}`,
     values,
   );
 

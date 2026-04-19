@@ -42,7 +42,6 @@ const EXHIBITION_UPDATE_FIELDS = [
 
 const TICKET_CATEGORY_UPDATE_FIELDS = [
   'name',
-  'price',
   'valid_duration_days',
   'refund_policy',
   'admittance',
@@ -54,6 +53,12 @@ interface UserMeta {
 }
 
 type SessionMode = 'DAY' | 'HALF_DAY';
+type TicketCategoryCreateInput = Omit<
+  Exhibition.TicketCategory,
+  'id' | 'exhibit_id' | 'created_at' | 'updated_at'
+> & {
+  price: number;
+};
 
 const AM_SESSION_END_TIME = '12:59:00';
 const PM_SESSION_START_TIME = '13:00:00';
@@ -258,7 +263,6 @@ export class ExhibitionService extends RC7BaseService {
         eid: 'uuid',
         tid: 'uuid',
         name: { type: 'string', optional: true, min: 1 },
-        price: { type: 'number', optional: true },
         valid_duration_days: { type: 'number', optional: true },
         refund_policy: {
           type: 'enum',
@@ -511,15 +515,27 @@ export class ExhibitionService extends RC7BaseService {
 
   async addTicketCategory(
     ctx: Context<
-      { eid: string } & Omit<Exhibition.TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>,
+      { eid: string } & TicketCategoryCreateInput,
       { user: UserMeta }
     >
   ) {
-    const { eid, ...category } = ctx.params;
+    const { eid, price, ...category } = ctx.params;
     const client = this.pool;
     const schema = await this.getSchema();
+    const exhibition = await getExhibitionById(client, schema, eid)
+      .catch(handleExhibitionError);
 
     const ticketCategory = await createTicketCategory(client, schema, eid, category);
+
+    await updateTicketCalendarSessionPrice(
+      client,
+      schema,
+      eid,
+      ticketCategory.id,
+      price,
+      exhibition.start_date,
+      exhibition.end_date,
+    ).catch(handleExhibitionError);
 
     return ticketCategory;
   }

@@ -556,15 +556,17 @@ describeFeature(feature, ({
     });
 
     And('库存数量为 {string} 的剩余库存数量', (_ctx, ticketName: string) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      const inventorys = (featureContext.latestDecryptedBody as SessionInventoryReqBody | undefined)?.inventorys ?? [];
+      const { latestDecryptedBody, ticketByName } = featureContext;
+      const ticket = ticketByName[ticketName];
+      const inventorys = (latestDecryptedBody! as SessionInventoryReqBody).inventorys ?? [];
       const defaultInventory = 2;
       expect(ticket).toBeTruthy();
       expect(inventorys.every(item => item.quantity === defaultInventory)).toBe(true);
     });
 
     And('supplier Option Id 是 {string} 的票种 ID', (_ctx, ticketName: string) => {
-      expect((featureContext.latestDecryptedBody as SessionInventoryReqBody | undefined)?.supplierOptionId).toBe(featureContext.ticketByName[ticketName].id);
+      const { latestDecryptedBody, ticketByName } = featureContext;
+      expect(latestDecryptedBody!.supplierOptionId).toBe(ticketByName[ticketName].id);
     });
 
     And('Service Name 是 {string}', (_ctx, serviceName: string) => {

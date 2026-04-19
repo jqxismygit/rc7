@@ -20,6 +20,7 @@ import {
   mopPostJSON,
   verifyMopSign,
 } from './libs/mop.js';
+import { parseSelectedSessionId } from './libs/session-id.js';
 
 const { MoleculerClientError } = Errors;
 
@@ -168,7 +169,7 @@ type MopSignValidationResult = { ok: true } | { ok: false; response: MopResponse
 type MopDecryptResult<T> = { ok: true; body: T } | { ok: false; response: MopResponseEnvelope };
 
 type SessionMode = 'DAY' | 'HALF_DAY';
-
+type ticketCalendarMap = Map<string, Map<string, [inventory: number, price: number]>>;
 
 const MOP_PROJECT_CATEGORY_LEISURE_EXHIBITION = {
   label: '休闲展览',
@@ -253,7 +254,7 @@ async function getCityMeta(cityName: string) {
 }
 
 async function readKey(path: string) {
-  return readFile(path, 'utf-8').then((content) => content.trim());
+  return readFile(path, 'utf-8').then(content => content.trim());
 }
 
 function normalizeTimeLabel(time: string): string {
@@ -341,7 +342,7 @@ function filterSessionsByDateRange(
 ): Exhibition.Session[] {
   const start = startOfDay(start_session_date);
   const end = startOfDay(end_session_date);
-  return sessions.filter((session) =>
+  return sessions.filter(session =>
     isWithinInterval(startOfDay(session.session_date), { start, end })
   );
 }
@@ -557,7 +558,7 @@ export default class MoeService extends RC7BaseService {
   ): MopShowSyncRequest {
     return {
       otProjectId: exhibition.id,
-      shows: sessions.map((session) => ({
+      shows: sessions.map(session => ({
         otShowId: session.id,
         otShowStatus: MOP_SHOW_STATUS_VALID,
         startTime: formatMopDateTimeValue(session.opening_time),
@@ -570,55 +571,112 @@ export default class MoeService extends RC7BaseService {
     };
   }
 
+  async prepareTicketCalendarPriceAndStock(
+    ctx: Context,
+    params: {
+      eid: string;
+      sessions: Exhibition.Session[];
+      ticketCategories: Exhibition.TicketCategory[];
+    }
+  ): Promise<ticketCalendarMap> {
+    const { eid, sessions, ticketCategories } = params;
+    const ticketCalendarMap: ticketCalendarMap = new Map(
+      ticketCategories.map(ticket => [ticket.id, new Map<string, [number, number]>()])
+    );
+
+    const firstSession = sessions[0];
+    const lastSession = sessions.at(-1);
+
+    if (!firstSession || !lastSession) {
+      return ticketCalendarMap;
+    }
+
+    for (const ticket of ticketCategories) {
+      const calendar = await ctx.call<
+        Inventory.TicketCalendarInventory[],
+        { eid: string; tid: string; start_session_date: Date; end_session_date: Date }
+      >('cr7.exhibition.listTicketCalendarInventory', {
+        eid,
+        tid: ticket.id,
+        start_session_date: new Date(firstSession.session_date),
+        end_session_date: new Date(lastSession.session_date),
+      });
+
+      const inventoryPriceBySessionId = new Map<string, [number, number]>(
+        calendar.map(
+          ({ session_id, quantity, price }) => [session_id, [quantity, price]] as const
+        )
+      );
+      ticketCalendarMap.set(ticket.id, inventoryPriceBySessionId);
+    }
+
+    return ticketCalendarMap;
+  }
+
   buildSkuSyncRequest(
     exhibition: Exhibition.Exhibition,
     sessions: Exhibition.Session[],
-    ticketCategories: Exhibition.TicketCategory[]
+    ticketCategories: Exhibition.TicketCategory[],
+    ticketCalendarMap: ticketCalendarMap,
   ): MopSkuSyncRequest {
+    const firstSession = sessions[0];
+    const lastSession = sessions.at(-1);
+
+    if (!firstSession || !lastSession) {
+      return {
+        otProjectId: exhibition.id,
+        isOta: MOP_SKU_IS_OTA,
+        skus: [],
+      };
+    }
+
     return {
       otProjectId: exhibition.id,
       isOta: MOP_SKU_IS_OTA,
-      skus: sessions.flatMap((session) =>
-        ticketCategories.map((ticket) => ({
-          otShowId: session.id,
-          otSkuId: ticket.id,
-          otSkuStatus: MOP_SKU_STATUS_VALID,
-          name: ticket.name,
-          skuPrice: toYuanString(ticket.price),
-          sellPrice: toYuanString(ticket.price),
-          onSaleTime: formatMopDateTime(exhibition.start_date, exhibition.opening_time),
-          offSaleTime: formatMopDateTimeValue(session.closing_time),
-          inventoryType: MOP_INVENTORY_TYPE_SHARED,
-        }))
+      skus: sessions.flatMap(session =>
+        ticketCategories.map((ticket) => {
+          const { sessionId } = parseSelectedSessionId(session.id);
+          const [, price] = ticketCalendarMap.get(ticket.id)?.get(sessionId) ?? [0, 0];
+
+          return {
+            otShowId: session.id,
+            otSkuId: ticket.id,
+            otSkuStatus: MOP_SKU_STATUS_VALID,
+            name: ticket.name,
+            skuPrice: toYuanString(price),
+            sellPrice: toYuanString(price),
+            onSaleTime: formatMopDateTime(exhibition.start_date, exhibition.opening_time),
+            offSaleTime: formatMopDateTimeValue(session.closing_time),
+            inventoryType: MOP_INVENTORY_TYPE_SHARED,
+          };
+        })
       ),
     };
   }
 
-  async buildStockSyncRequest(
-    ctx: Context,
+  buildStockSyncRequest(
     params: {
-      eid: string;
       exhibitionId: string;
       sessions: Exhibition.Session[];
       ticketCategories: Exhibition.TicketCategory[];
+      ticketCalendarMap: ticketCalendarMap;
     }
-  ): Promise<MopStockSyncRequest> {
-    const { eid, exhibitionId, sessions, ticketCategories } = params;
+  ): MopStockSyncRequest {
+    const { exhibitionId, sessions, ticketCategories, ticketCalendarMap } = params;
     const stocks: MopStock[] = [];
 
     for (const session of sessions) {
-        const sessionTickets = await ctx.call<
-          Inventory.SessionTicketsInventory[],
-          { eid: string; sid: string }
-        >('cr7.exhibition.getSessionTickets', { eid, sid: session.id });
-
-      const stockByTicketId = new Map(sessionTickets.map((ticket) => [ticket.id, ticket.quantity]));
+      const { sessionId } = parseSelectedSessionId(session.id);
       for (const ticketCategory of ticketCategories) {
+        const [inventory] = ticketCalendarMap
+          .get(ticketCategory.id)
+          ?.get(sessionId) ?? [0, 0];
+
         stocks.push({
           otShowId: session.id,
           otSkuId: ticketCategory.id,
           inventoryType: MOP_INVENTORY_TYPE_SHARED,
-          stock: stockByTicketId.get(ticketCategory.id) ?? 0,
+          stock: inventory,
         });
       }
     }
@@ -740,10 +798,19 @@ export default class MoeService extends RC7BaseService {
       'cr7.exhibition.getTicketCategories',
       { eid }
     );
+    const ticketCalendarMap = await this.prepareTicketCalendarPriceAndStock(
+      ctx,
+      { eid, sessions: sortedSessions, ticketCategories }
+    );
 
     await this.pushMopSyncRequest(
       '/supply/open/mop/sku/push',
-      this.buildSkuSyncRequest(exhibition, sortedSessions, ticketCategories),
+      this.buildSkuSyncRequest(
+        exhibition,
+        sortedSessions,
+        ticketCategories,
+        ticketCalendarMap,
+      )
     );
 
     ctx.meta.$statusCode = 204;
@@ -776,14 +843,18 @@ export default class MoeService extends RC7BaseService {
       'cr7.exhibition.getTicketCategories',
       { eid }
     );
+    const ticketCalendarMap = await this.prepareTicketCalendarPriceAndStock(
+      ctx,
+      { eid, sessions: sortedSessions, ticketCategories }
+    );
 
     await this.pushMopSyncRequest(
       '/supply/open/mop/stock/push',
-      await this.buildStockSyncRequest(ctx, {
-        eid,
+      this.buildStockSyncRequest({
         exhibitionId: exhibition.id,
         sessions: sortedSessions,
         ticketCategories,
+        ticketCalendarMap,
       }),
     );
 
@@ -819,6 +890,11 @@ export default class MoeService extends RC7BaseService {
       'cr7.exhibition.getTicket',
       { eid, tid }
     );
+    const ticketCategories = [ticket];
+    const ticketCalendarMap = await this.prepareTicketCalendarPriceAndStock(
+      ctx,
+      { eid, sessions: sortedSessions, ticketCategories }
+    );
 
     await this.pushMopSyncRequest(
       '/supply/open/mop/show/push',
@@ -827,16 +903,21 @@ export default class MoeService extends RC7BaseService {
 
     await this.pushMopSyncRequest(
       '/supply/open/mop/sku/push',
-      this.buildSkuSyncRequest(exhibition, sortedSessions, [ticket]),
+      this.buildSkuSyncRequest(
+        exhibition,
+        sortedSessions,
+        ticketCategories,
+        ticketCalendarMap,
+      ),
     );
 
     await this.pushMopSyncRequest(
       '/supply/open/mop/stock/push',
-      await this.buildStockSyncRequest(ctx, {
-        eid,
+      this.buildStockSyncRequest({
         exhibitionId: exhibition.id,
         sessions: sortedSessions,
-        ticketCategories: [ticket],
+        ticketCategories,
+        ticketCalendarMap,
       }),
     );
 
@@ -987,14 +1068,14 @@ export default class MoeService extends RC7BaseService {
     } = requestBody;
 
     if (
-      !myOrderId ||
-      !projectCode ||
-      !projectShowCode ||
-      !buyerName ||
-      !buyerPhone ||
-      !totalPrice ||
-      !Array.isArray(ticketInfo) ||
-      ticketInfo.length === 0
+      !myOrderId
+      || !projectCode
+      || !projectShowCode
+      || !buyerName
+      || !buyerPhone
+      || !totalPrice
+      || !Array.isArray(ticketInfo)
+      || ticketInfo.length === 0
     ) {
       return this.finishWithMopResponse(recordId, 10001, '参数异常');
     }
@@ -1005,18 +1086,20 @@ export default class MoeService extends RC7BaseService {
       myOrderId
     );
 
-    const order =
-      (firstSuccessRecord?.order_id ?? null) === null
-        ? null
-        : await ctx
-            .call<
-              Order.OrderWithItems,
-              { oid: string }
-            >('cr7.order.get', { oid: firstSuccessRecord!.order_id! }, { meta: { user: { uid: firstSuccessRecord?.user_id } } })
-            .then(
-              (res) => res,
-              (error) => (console.error('Error fetching order:', error), null)
-            );
+    let order = null;
+
+    if ((firstSuccessRecord?.order_id ?? null) !== null) {
+      order = await ctx
+        .call<
+        Order.OrderWithItems,
+        { oid: string }
+      >(
+          'cr7.order.get',
+          { oid: firstSuccessRecord!.order_id! },
+          { meta: { user: { uid: firstSuccessRecord?.user_id } } }
+        )
+        .then(res => res, () => null);
+    }
 
     if (order !== null) {
       const responseBody: MopOrderCreateResponse = {
@@ -1040,7 +1123,7 @@ export default class MoeService extends RC7BaseService {
       .call<
         Exhibition.Exhibition | null,
         { eid: string }
-      >('cr7.exhibition.get', { eid: projectCode })
+    >('cr7.exhibition.get', { eid: projectCode })
       .catch(() => null);
 
     if (!exhibition) {
@@ -1062,7 +1145,8 @@ export default class MoeService extends RC7BaseService {
       'cr7.exhibition.getTicketCategories',
       { eid: projectCode }
     );
-    const ticketById = new Map(ticketCategories.map((ticket) => [ticket.id, ticket]));
+    const ticketById = new Map(ticketCategories.map(ticket => [ticket.id, ticket]));
+    const sessionDate = new Date(session.session_date);
 
     const totalPriceFromItems = ticketInfo.reduce((sum, item) => sum + Number(item.ticketPrice), 0);
     if (Number(totalPrice).toFixed(2) !== totalPriceFromItems.toFixed(2)) {
@@ -1076,7 +1160,21 @@ export default class MoeService extends RC7BaseService {
         return this.finishWithMopResponse(recordId, 30005, '票档状态异常');
       }
 
-      const expectedPrice = Number(toYuanString(ticket.price));
+      const [calendarItem] = await ctx.call<
+        Inventory.TicketCalendarInventory[],
+        { eid: string; tid: string; start_session_date: Date; end_session_date: Date }
+      >('cr7.exhibition.listTicketCalendarInventory', {
+        eid: projectCode,
+        tid: ticket.id,
+        start_session_date: sessionDate,
+        end_session_date: sessionDate,
+      });
+      if (!calendarItem) {
+        return this.finishWithMopResponse(recordId, 30005, '票档状态异常');
+      }
+
+      const expectedPrice = Number(toYuanString(calendarItem.price));
+
       if (Number(item.ticketPrice) !== expectedPrice) {
         return this.finishWithMopResponse(recordId, 30002, '订单价格不一致');
       }
@@ -1188,11 +1286,11 @@ export default class MoeService extends RC7BaseService {
 
     const redemption = await ctx
       .call<
-        Redeem.RedemptionCodeWithOrder,
-        { oid: string }
-      >('cr7.redemption.getByOrder', { oid: firstSuccessRecord.order_id }, { meta: { user: { uid: firstSuccessRecord.user_id } } })
+      Redeem.RedemptionCodeWithOrder,
+      { oid: string }
+    >('cr7.redemption.getByOrder', { oid: firstSuccessRecord.order_id }, { meta: { user: { uid: firstSuccessRecord.user_id } } })
       .then(
-        (res) => res,
+        res => res,
         () => null
       );
 
@@ -1210,7 +1308,7 @@ export default class MoeService extends RC7BaseService {
       orderStatus: toMopOrderStatus(order.status),
       orderRefundStatus: toMopRefundStatus(order.status),
       orderConsumeStatus,
-      ticketInfo: requestBody.ticketInfo.map((item) => ({
+      ticketInfo: requestBody.ticketInfo.map(item => ({
         myTicketId: item.myTicketId,
         channelTicketId: item.skuId,
         ticketConsumeStatus: orderConsumeStatus,
@@ -1285,11 +1383,11 @@ export default class MoeService extends RC7BaseService {
 
     const redemption = await ctx
       .call<
-        Redeem.RedemptionCodeWithOrder,
-        { oid: string }
-      >('cr7.redemption.getByOrder', { oid: firstSuccessRecord.order_id }, { meta: { user: { uid: firstSuccessRecord.user_id } } })
+      Redeem.RedemptionCodeWithOrder,
+      { oid: string }
+    >('cr7.redemption.getByOrder', { oid: firstSuccessRecord.order_id }, { meta: { user: { uid: firstSuccessRecord.user_id } } })
       .then(
-        (res) => res,
+        res => res,
         () => null
       );
     const redeemCode = redemption?.code ?? null;
@@ -1300,7 +1398,7 @@ export default class MoeService extends RC7BaseService {
       fetchCode: null,
       fetchQrCode: null,
       orderStatus: toMopOrderStatus(order.status),
-      ticketInfo: requestBody.ticketInfo.map((item) => ({
+      ticketInfo: requestBody.ticketInfo.map(item => ({
         myTicketId: item.myTicketId,
         channelTicketId: item.skuId,
         checkCode: redeemCode,
@@ -1347,9 +1445,9 @@ export default class MoeService extends RC7BaseService {
     const schema = await this.getSchema();
     const { myOrderId, bizType } = requestBody;
     if (
-      !myOrderId ||
-      (bizType !== MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_CANCEL &&
-        bizType !== MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_REFUND)
+      !myOrderId
+      || (bizType !== MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_CANCEL
+        && bizType !== MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_REFUND)
     ) {
       return this.buildMopResponse(10001, '参数异常');
     }
@@ -1375,9 +1473,9 @@ export default class MoeService extends RC7BaseService {
 
     const order = await ctx
       .call<
-        Order.OrderWithItems,
-        { oid: string }
-      >(
+      Order.OrderWithItems,
+      { oid: string }
+    >(
         'cr7.order.get',
         { oid: firstSuccessRecord.order_id },
         { meta: { user: { uid: firstSuccessRecord.user_id } } }
@@ -1398,7 +1496,6 @@ export default class MoeService extends RC7BaseService {
     }
 
     try {
-
       if (bizType === MOP_ORDER_STATUS_CHANGE_BIZ_TYPE_CANCEL) {
         await ctx.call(
           'cr7.order.cancel',
@@ -1422,7 +1519,7 @@ export default class MoeService extends RC7BaseService {
         recordId,
         10000, '成功', null, 'SUCCESS',
         order_id, user_id
-      )
+      );
     } catch (error) {
       this.logger.error('处理 MOP 订单状态变更通知时发生错误', error);
       ctx.meta.$statusCode = 200;
@@ -1437,50 +1534,50 @@ export default class MoeService extends RC7BaseService {
       user_id: string;
       order_id: string;
       total_amount: number;
-      mop_order_id: string
+      mop_order_id: string;
     }
   ) {
-      const {
-        user_id, order_id,
-        total_amount, mop_order_id
-      } = params;
+    const {
+      user_id, order_id,
+      total_amount, mop_order_id
+    } = params;
 
-      const refundRecord = await ctx.call<
-        Payment.RefundRecord,
-        {
-          oid: string;
-          reason: string;
-          payment_method: 'MOP';
-          out_trade_no: string;
-          out_refund_no: string;
-          refund_amount: number;
-        }
-      >(
-        'cr7.payment.refund',
-        {
-          oid: order_id,
-          reason: '猫眼订单退款',
-          payment_method: 'MOP',
-          out_trade_no: mop_order_id,
-          out_refund_no: randomUUID().replace(/-/g, ''),
-          refund_amount: total_amount,
-        },
-        { meta: { user: { uid: user_id } } },
-      );
+    const refundRecord = await ctx.call<
+      Payment.RefundRecord,
+      {
+        oid: string;
+        reason: string;
+        payment_method: 'MOP';
+        out_trade_no: string;
+        out_refund_no: string;
+        refund_amount: number;
+      }
+    >(
+      'cr7.payment.refund',
+      {
+        oid: order_id,
+        reason: '猫眼订单退款',
+        payment_method: 'MOP',
+        out_trade_no: mop_order_id,
+        out_refund_no: randomUUID().replace(/-/g, ''),
+        refund_amount: total_amount,
+      },
+      { meta: { user: { uid: user_id } } },
+    );
 
-      await ctx.call('cr7.order.markRefunded', { oid: order_id });
+    await ctx.call('cr7.order.markRefunded', { oid: order_id });
 
-      await ctx.call(
-        'cr7.payment.updateRefundResult',
-        {
-          out_refund_no: refundRecord.out_refund_no,
-          refund_status: 'SUCCESS',
-          refund_id: mop_order_id,
-          refund_channel: 'MOP',
-          callback_refund_amount: total_amount,
-          succeeded_at: new Date().toISOString(),
-        }
-      );
+    await ctx.call(
+      'cr7.payment.updateRefundResult',
+      {
+        out_refund_no: refundRecord.out_refund_no,
+        refund_status: 'SUCCESS',
+        refund_id: mop_order_id,
+        refund_channel: 'MOP',
+        callback_refund_amount: total_amount,
+        succeeded_at: new Date().toISOString(),
+      }
+    );
   }
 
   async getMopOrderRecord(
@@ -1508,7 +1605,7 @@ export default class MoeService extends RC7BaseService {
     const requestBody = record.request_body as MopOrderCreateRequest;
     const consumeBody = {
       myOrderId: record.my_order_id,
-      ticketInfo: requestBody.ticketInfo.map((t) => t.myTicketId),
+      ticketInfo: requestBody.ticketInfo.map(t => t.myTicketId),
     };
 
     const privateKey = await readKey(config.mop.private_key_path);

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { addDays, format, isAfter, isBefore, parseISO, startOfDay } from 'date-fns';
 import config from 'config';
 import { Context, Errors, ServiceBroker } from 'moleculer';
-import { Exhibition, Order, Payment, Redeem, Xiecheng } from '@cr7/types';
+import { Exhibition, Inventory, Order, Payment, Redeem, Xiecheng } from '@cr7/types';
 import {
   createXcSyncLog,
   listXcSyncLogs,
@@ -254,20 +254,17 @@ export default class XiechengService extends RC7BaseService {
     }
 
     const ticket = await ctx.call('cr7.exhibition.getTicket', { eid, tid }) as Exhibition.TicketCategory;
-
-    const sessions = await ctx.call('cr7.exhibition.getSessions', {
+    const calendar = await ctx.call('cr7.exhibition.listTicketCalendarInventory', {
       eid,
-      session_mode: 'DAY',
+      tid,
       start_session_date: startSessionDate,
       end_session_date: endSessionDate,
-    }) as Exhibition.Session[];
+    }) as Inventory.TicketCalendarInventory[];
 
-    const dates = sessions.map(session => format(new Date(session.session_date), 'yyyy-MM-dd'));
-
-    const syncItems: Xiecheng.XcPriceSyncItem[] = dates.map(date => ({
-      date,
-      sale_price: toYuan(ticket.price),
-      cost_price: toYuan(ticket.price),
+    const syncItems: Xiecheng.XcPriceSyncItem[] = calendar.map((item) => ({
+      date: format(new Date(item.session_date), 'yyyy-MM-dd'),
+      sale_price: toYuan(item.price),
+      cost_price: toYuan(item.price),
     }));
 
     const sequenceId = randomUUID();

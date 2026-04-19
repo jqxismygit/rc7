@@ -2,7 +2,7 @@ import config from 'config';
 import { randomUUID } from 'node:crypto';
 import { format, isDate, parse, parseISO } from 'date-fns';
 import { Context, Errors, ServiceBroker } from 'moleculer';
-import { Damai, Exhibition, Order, Redeem } from '@cr7/types';
+import { Damai, Exhibition, Inventory, Order, Redeem } from '@cr7/types';
 import { RC7BaseService } from './libs/cr7.base.js';
 import { buildDamaiSignature, damaiPostJson, verifyDamaiSignature } from './libs/damai.js';
 import {
@@ -786,21 +786,36 @@ class DamaiService extends RC7BaseService {
     const tickets = await ctx.call<
       ExhibitionSessionTicket[],
       { eid: string; sid: string }
-    >('cr7.exhibition.getSessionTickets', {
-      eid,
-      sid,
-    });
+    >('cr7.exhibition.getSessionTickets', { eid, sid });
 
     const request: DamaiPriceSyncRequest = {
       projectId: exhibition.id,
       performId: sid,
-      priceList: tickets.map(ticket => ({
+      priceList: [],
+    };
+
+    for (const ticket of tickets) {
+      const [calendarItem] = await ctx.call<
+        Inventory.TicketCalendarInventory[],
+        { eid: string; tid: string; start_session_date: Date; end_session_date: Date }
+      >('cr7.exhibition.listTicketCalendarInventory', {
+        eid,
+        tid: ticket.id,
+        start_session_date: session.session_date,
+        end_session_date: session.session_date,
+      });
+
+      if (!calendarItem) {
+        continue;
+      }
+
+      request.priceList.push({
         id: ticket.id,
         name: ticket.name,
-        price: ticket.price,
+        price: calendarItem.price,
         saleState: DAMAI_TICKET_SALE_STATE_ON_SALE,
-      })),
-    };
+      });
+    }
 
     const syncUrl = new URL('/b2b2c/2.0/sync/price', config.damai.base_url).toString();
     await damaiPostJson(syncUrl, {
@@ -937,8 +952,20 @@ class DamaiService extends RC7BaseService {
         return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20015', '票档状态异常'));
       }
 
-      const expectedPriceInCent = ticket.price;
-      if (item.price !== expectedPriceInCent) {
+      const [calendarItem] = await ctx.call<
+        Inventory.TicketCalendarInventory[],
+        { eid: string; tid: string; start_session_date: Date; end_session_date: Date }
+      >('cr7.exhibition.listTicketCalendarInventory', {
+        eid: projectId,
+        tid: ticket.id,
+        start_session_date: session.session_date,
+        end_session_date: session.session_date,
+      });
+      if (!calendarItem) {
+        return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20015', '票档状态异常'));
+      }
+
+      if (item.price !== calendarItem.price) {
         return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20014', '订单价格不一致'));
       }
 

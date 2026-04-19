@@ -328,7 +328,6 @@ describeFeature(feature, ({
         const { ticket } = featureContext;
         assertTicketCategory(ticket!);
         expect(ticket!.name).toBe(categoryName);
-        expect(ticket!.price).toBe(100);
         expect(ticket!.valid_duration_days).toBe(1);
         expect(ticket!.refund_policy).toBe('NON_REFUNDABLE');
         expect(ticket!.admittance).toBe(1);
@@ -362,7 +361,6 @@ describeFeature(feature, ({
         const { ticket } = featureContext;
         assertTicketCategory(ticket!);
         expect(ticket!.name).toBe(categoryName);
-        expect(ticket!.price).toBe(150);
         expect(ticket!.valid_duration_days).toBe(10);
         expect(ticket!.refund_policy).toBe('REFUNDABLE_48H_BEFORE');
         expect(ticket!.admittance).toBe(2);
@@ -800,11 +798,6 @@ describeFeature(feature, ({
           context.ticketPatch!.name = name;
         });
 
-        And('准备更新票种价格为 {number}', (_ctx, price: number) => {
-          context.ticketPatch ??= {};
-          context.ticketPatch!.price = price;
-        });
-
         And('准备更新票种有效期为 {number} 天', (_ctx, validDurationDays: number) => {
           context.ticketPatch ??= {};
           context.ticketPatch!.valid_duration_days = validDurationDays;
@@ -838,7 +831,6 @@ describeFeature(feature, ({
           const { ticket } = context;
           assertTicketCategory(ticket!);
           expect(ticket!.name).toBe('vip');
-          expect(ticket!.price).toBe(199);
           expect(ticket!.valid_duration_days).toBe(30);
           expect(ticket!.refund_policy).toBe('NON_REFUNDABLE');
           expect(ticket!.admittance).toBe(4);
@@ -859,11 +851,6 @@ describeFeature(feature, ({
           expect(ticketCategories).toHaveLength(1);
           expect(ticketCategories![0]).toMatchObject(ticket!);
           expect(ticketCategories![0].name).toBe(ticketName);
-        });
-
-        And('展览中的票种价格已更新为 {number}', async (_ctx, price: number) => {
-          const { ticketCategories } = context;
-          expect(ticketCategories![0].price).toBe(price);
         });
 
         And('展览中的票种有效期已更新为 {number} 天', async (_ctx, validDurationDays: number) => {
@@ -890,7 +877,7 @@ describeFeature(feature, ({
         ticket: Exhibition.TicketCategory;
         ticketUpdatePromise: Promise<Exhibition.TicketCategory>;
       }>) => {
-        const { And, When, Then, context } = s;
+        const { When, Then, context } = s;
 
         When('不提供任何参数更新票种', async () => {
           const { exhibition } = featureContext;
