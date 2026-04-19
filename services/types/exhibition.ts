@@ -49,13 +49,17 @@ export interface TicketCategory {
   ota_xc_option_id?: string | null;
   created_at: Date;
   updated_at: Date;
-  price: number;
+  list_price: number;
 }
 
 export type TicketCategoryPatch = Partial<
   Pick<
     TicketCategory,
-    "name" | "valid_duration_days" | "refund_policy" | "admittance" | "price"
+    | "name"
+    | "valid_duration_days"
+    | "refund_policy"
+    | "admittance"
+    | "list_price"
   >
 >;
 

@@ -136,7 +136,7 @@ function formatDateOnlyText(input: string | Date | null | undefined): string {
 
 const ticketFormInitial: CreateTicketCategoryInput = {
   name: "",
-  price: 0,
+  list_price: 0,
   valid_duration_days: 1,
   refund_policy: "NON_REFUNDABLE",
   admittance: 1,
@@ -523,7 +523,7 @@ export default function ExhibitionDetailPage() {
       setTicketSubmitting(true);
       await createExhibitionTicketCategoryApi(eid, {
         ...values,
-        price: values.price * 100,
+        list_price: values.list_price * 100,
       });
       message.success("票种已添加");
       closeAddTicketModal();
@@ -570,7 +570,7 @@ export default function ExhibitionDetailPage() {
       setEditTicketSubmitting(true);
       await updateExhibitionTicketCategoryApi(eid, ticket.id, {
         ...values,
-        price: values.price * 100,
+        list_price: values.list_price * 100,
       });
       message.success("票种信息已更新");
       closeEditTicketModal();
@@ -1120,7 +1120,7 @@ export default function ExhibitionDetailPage() {
           editTicketData
             ? {
                 name: editTicketData.name,
-                price: editTicketData.price * 0.01,
+                list_price: editTicketData.list_price * 0.01,
                 valid_duration_days: editTicketData.valid_duration_days,
                 refund_policy: editTicketData.refund_policy,
                 admittance: editTicketData.admittance,
