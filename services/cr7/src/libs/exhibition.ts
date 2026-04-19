@@ -1,6 +1,6 @@
 import { format, isBefore, parse, subMinutes } from 'date-fns';
 import { Context, Errors, ServiceBroker, ServiceSchema } from 'moleculer';
-import type { Exhibition } from '@cr7/types';
+import type { Exhibition, Inventory } from '@cr7/types';
 import {
   createExhibition,
   getExhibitionById,
@@ -602,15 +602,31 @@ export class ExhibitionService extends RC7BaseService {
     const tickets = await getSessionTicketCategoriesBySessionId(client, schema, eid, daySessionId);
     const inventory = await getSessionInventoryBySessionId(client, schema, eid, daySessionId);
 
-    const quantityByTicketCategoryId = new Map(
-      inventory.map(item => [item.ticket_category_id, item.quantity])
+    const sessionInventoryPriceMap = new Map(
+      inventory.map(({ ticket_category_id, quantity, price }) => {
+        return [ticket_category_id, [quantity, price]] as const;
+      })
     );
 
-    return tickets.map(ticket => ({
-      ...ticket,
-      session_id: sid,
-      quantity: quantityByTicketCategoryId.get(ticket.id) ?? 0
-    }));
+    return tickets.reduce<Inventory.SessionTicketPrice[]>(
+      (acc, ticket) => {
+        const [quantity, price] = sessionInventoryPriceMap.get(ticket.id) ?? [0, 0];
+        if (price === 0 && quantity === 0) {
+          return acc;
+        }
+
+        acc.push(
+          {
+            ...ticket,
+            session_id: sid,
+            quantity: quantity,
+            price: price,
+          } as Inventory.SessionTicketPrice
+        );
+        return acc;
+      },
+      []
+    );
   }
 
   async updateTicketCategoryInventoryMax(

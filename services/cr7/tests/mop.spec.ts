@@ -840,7 +840,7 @@ describeFeature(feature, ({
         exhibition.id,
         targetSession!.id,
       );
-      const sessionTicket = sessionTickets.find((item: Inventory.SessionTicketsInventory) => item.id === ticket.id);
+      const sessionTicket = sessionTickets.find((item: Inventory.SessionTicketPrice) => item.id === ticket.id);
       expect(sessionTicket).toBeTruthy();
       expect(sessionTicket!.quantity).toBe(expectedQuantity);
     });
@@ -868,7 +868,7 @@ describeFeature(feature, ({
         exhibition.id,
         targetSession!.id,
       );
-      const sessionTicket = sessionTickets.find((item: Inventory.SessionTicketsInventory) => item.id === ticket.id);
+      const sessionTicket = sessionTickets.find((item: Inventory.SessionTicketPrice) => item.id === ticket.id);
       expect(sessionTicket).toBeTruthy();
       expect(sessionTicket!.quantity).toBe(expectedQuantity);
     });

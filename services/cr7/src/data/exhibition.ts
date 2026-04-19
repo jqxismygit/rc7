@@ -495,13 +495,14 @@ export async function getSessionInventoryBySessionId(
   schema: string,
   eid: string,
   sid: string
-): Promise<Inventory.SessionInventory[]> {
-  const { rows } = await client.query(
+): Promise<Array<Inventory.SessionInventory>> {
+  const { rows } = await client.query<Inventory.SessionInventory>(
     `SELECT
       i.id,
       i.session_id,
       i.ticket_category_id,
       (i.quantity - i.reserved_quantity) AS quantity,
+      COALESCE(i.session_price, 0) AS price,
       i.created_at,
       i.updated_at
     FROM ${schema}.exhibit_session_inventories i

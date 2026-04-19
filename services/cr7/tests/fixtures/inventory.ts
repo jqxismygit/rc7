@@ -11,7 +11,7 @@ export async function getSessionTickets(
   eid: string,
   sid: string,
 ) {
-  return getJSON<Inventory.SessionTicketsInventory[]>(
+  return getJSON<Inventory.SessionTicketPrice[]>(
     server,
     `/exhibition/${eid}/sessions/${sid}/tickets`,
     { token }
@@ -83,10 +83,11 @@ export async function updateTicketCalendarPrice(
   );
 }
 
-export function assertSessionTickets(data: Inventory.SessionTicketsInventory) {
+export function assertSessionTickets(data: Inventory.SessionTicketPrice) {
   expect(data).toBeTypeOf('object');
   expect(data).toHaveProperty('session_id', expect.any(String));
   expect(data).toHaveProperty('quantity', expect.any(Number));
-  const { session_id: _s, quantity: _q, ...ticketCategoryData } = data;
+  expect(data).toHaveProperty('price', expect.any(Number));
+  const { session_id: _s, quantity: _q, price: _p, ...ticketCategoryData } = data;
   assertTicketCategory(ticketCategoryData as TicketCategory);
 }

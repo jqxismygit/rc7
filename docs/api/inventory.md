@@ -20,7 +20,7 @@
   ```
 - Response Body:
   ```ts
-  Inventory.SessionTicketsInventory[]
+  Inventory.SessionTicketPrice[]
   ```
 
 ## 批量更新某票种在所有场次的库存上限
