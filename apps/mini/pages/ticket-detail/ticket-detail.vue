@@ -361,6 +361,7 @@ export default {
         this.validityText = `${this.redemption.session?.session_date} ${openingTime} ~ ${closingTime}`;
 
         const categoryName = this.redemption?.items[0]?.category_name;
+        console.log("categoryName", categoryName);
         if (categoryName) {
           this.qrcodeStyle =
             ticketColorConfig.find((item) => item.name === categoryName) ??

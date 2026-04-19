@@ -179,7 +179,7 @@ export default function ExhibitionDetailPage() {
   const [ticketInvSubmitting, setTicketInvSubmitting] = useState(false);
   const [sessionInvLoading, setSessionInvLoading] = useState(false);
   const [sessionInvRows, setSessionInvRows] = useState<
-    InventoryTypes.SessionTicketsInventory[]
+    InventoryTypes.SessionInventory[]
   >([]);
 
   const [selectedDay, setSelectedDay] = useState<Dayjs | null>(null);
@@ -370,7 +370,7 @@ export default function ExhibitionDetailPage() {
   );
 
   const inventoryColumns = useMemo<
-    ColumnsType<InventoryTypes.SessionTicketsInventory>
+    ColumnsType<InventoryTypes.SessionInventory>
   >(
     () => [
       {
@@ -823,12 +823,12 @@ export default function ExhibitionDetailPage() {
                   className="exhibition-detail-session-panel"
                   style={{ flex: "1 1 320px", minWidth: 280 }}
                 >
-                  <Typography.Title level={5} style={{ marginTop: 0 }}>
+                  <Typography.Title level={4} style={{ marginTop: 0 }}>
                     当前场次
                   </Typography.Title>
                   {selectedSession ? (
                     <>
-                      {sessionsOnSelectedDay.length > 1 ? (
+                      {/* {sessionsOnSelectedDay.length > 1 ? (
                         <div style={{ marginBottom: token.marginMD }}>
                           <Typography.Text
                             type="secondary"
@@ -845,7 +845,7 @@ export default function ExhibitionDetailPage() {
                             }))}
                           />
                         </div>
-                      ) : null}
+                      ) : null} */}
                       <Descriptions
                         bordered
                         column={1}
@@ -872,7 +872,7 @@ export default function ExhibitionDetailPage() {
                         库存
                       </Typography.Title>
                       <Spin spinning={sessionInvLoading}>
-                        <Table<InventoryTypes.SessionTicketsInventory>
+                        <Table<InventoryTypes.SessionInventory>
                           className="exhibition-detail-session-inventory-table"
                           rowKey="id"
                           size="small"
