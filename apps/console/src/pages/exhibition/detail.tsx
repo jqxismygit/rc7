@@ -301,7 +301,10 @@ export default function ExhibitionDetailPage() {
     }
     setSessionInvLoading(true);
     try {
-      const rows = await listExhibitionSessionTicketsApi(eid, selectedSessionId);
+      const rows = await listExhibitionSessionTicketsApi(
+        eid,
+        selectedSessionId,
+      );
       setSessionInvRows(rows);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -470,8 +473,7 @@ export default function ExhibitionDetailPage() {
         title: "价格（元）",
         dataIndex: "price",
         width: 100,
-        render: (p: number) =>
-          typeof p === "number" ? String(p * 0.01) : p,
+        render: (p: number) => (typeof p === "number" ? String(p * 0.01) : p),
       },
       {
         title: "退票政策",

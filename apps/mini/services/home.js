@@ -66,10 +66,14 @@ function sessionDateKey(session) {
   return text.slice(0, 10);
 }
 
-/** 按当前本地日期匹配场次 session_date（YYYY-MM-DD） */
+/** 按当前本地日期匹配场次 session_date（YYYY-MM-DD）；同日有上午/下午时默认上午场 */
 function findTodaySession(sessions) {
   const today = dayjs().format("YYYY-MM-DD");
-  return sessions.find((s) => sessionDateKey(s) === today);
+  const matches = (sessions || []).filter((s) => sessionDateKey(s) === today);
+  if (!matches.length) return undefined;
+  const am = matches.find((s) => String(s.id || "").endsWith("-AM"));
+  if (am) return am;
+  return matches[0];
 }
 
 function refundHint(policy) {

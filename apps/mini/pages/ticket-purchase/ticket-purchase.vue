@@ -157,6 +157,24 @@
             </view>
           </block>
         </view>
+
+        <!-- 上午场 / 下午场（与 Figma 一致：分日场时展示，默认上午场） -->
+        <view v-if="halfDaySessionsEnabled" class="session-slot-row">
+          <view
+            class="session-slot-pill"
+            :class="{ active: sessionSlot === 'AM' }"
+            @click="onSessionSlotClick('AM')"
+          >
+            <text class="session-slot-text">上午场</text>
+          </view>
+          <view
+            class="session-slot-pill"
+            :class="{ active: sessionSlot === 'PM' }"
+            @click="onSessionSlotClick('PM')"
+          >
+            <text class="session-slot-text">下午场</text>
+          </view>
+        </view>
       </view>
 
       <!-- 票种列表 -->
@@ -289,10 +307,20 @@ export default {
       /** 与首页 loadHomeTicketSection 返回的 sessionId 一致，用于创建订单 */
       sessionId: "",
       sessionOptions: [],
+      /** 上午场 AM / 下午场 PM；从首页进入默认上午场 */
+      sessionSlot: "AM",
+      /** 按场次 id 缓存票种列表，切换上/下午不重复请求 */
+      ticketTypesCache: {},
     };
   },
 
   computed: {
+    /** 接口是否返回半日场次（id 带 -AM / -PM） */
+    halfDaySessionsEnabled() {
+      return (this.sessionOptions || []).some(
+        (s) => s?.id && /-(?:AM|PM)$/.test(String(s.id)),
+      );
+    },
     heroCover() {
       return (
         this.homeTicketSection?.ticketEvent?.cover ||
@@ -422,10 +450,24 @@ export default {
             ? section.sessions
             : [];
           const initialSessionId = section.sessionId || "";
+          this.sessionSlot = String(initialSessionId).endsWith("-PM")
+            ? "PM"
+            : "AM";
           this.sessionId = initialSessionId;
           this.initDateSelection();
-          if (this.sessionId && this.sessionId !== initialSessionId) {
-            this.loadTicketsBySession(this.sessionId).catch(() => {
+          if (
+            initialSessionId &&
+            this.sessionId === initialSessionId &&
+            Array.isArray(this.ticketTypes) &&
+            this.ticketTypes.length
+          ) {
+            this.ticketTypesCache = {
+              ...this.ticketTypesCache,
+              [initialSessionId]: this.ticketTypes.map((t) => ({ ...t })),
+            };
+          }
+          if (this.selectedDate && this.sessionId) {
+            this.loadTicketsForDateSelection(this.selectedDate).catch(() => {
               uni.showToast({ title: "加载票种失败，请重试", icon: "none" });
             });
           }
@@ -503,42 +545,60 @@ export default {
       });
     },
 
-    sessionIdByDate(date) {
+    /** 按日期 + 上/下午选择场次 id；无半日拆分时退回当日唯一场次 */
+    sessionIdByDateAndSlot(date, slot) {
       const target = dayjs(String(date || "").trim());
       if (!target.isValid()) return "";
-      const found = this.sessionOptions.find(
+      const sameDay = (this.sessionOptions || []).filter(
         (s) =>
           s?.id &&
           s?.date &&
           dayjs(String(s.date).trim()).isValid() &&
           dayjs(String(s.date).trim()).isSame(target, "day"),
       );
-      return found?.id || "";
+      if (!sameDay.length) return "";
+      const suffix = slot === "PM" ? "-PM" : "-AM";
+      const bySuffix = sameDay.find((s) => String(s.id).endsWith(suffix));
+      if (bySuffix) return bySuffix.id;
+      if (sameDay.length === 1) return sameDay[0].id;
+      return sameDay[0].id;
     },
 
-    async loadTicketsBySession(sessionId) {
-      const sid = String(sessionId || "");
-      if (!sid || !this.eventId) {
-        this.ticketTypes = [];
-        this.selectedTicket = null;
-        this.quantity = 1;
+    sessionSlotAvailable(slot) {
+      const date = this.selectedDate;
+      if (!date) return false;
+      return Boolean(this.sessionIdByDateAndSlot(date, slot));
+    },
+
+    onSessionSlotClick(slot) {
+      if (!this.halfDaySessionsEnabled) return;
+      if (slot === this.sessionSlot) return;
+      if (!this.selectedDate) return;
+      if (!this.sessionSlotAvailable(slot)) {
+        uni.showToast({ title: "该时段暂无场次", icon: "none" });
         return;
       }
+      this.sessionSlot = slot;
+      const sid = this.sessionIdByDateAndSlot(this.selectedDate, slot);
+      if (!sid) return;
+      this.sessionId = sid;
+      const types = this.ticketTypesCache[sid];
+      this.applyTicketSelectionFromTypes(types || []);
+    },
+
+    /** 将已选票种 id 尽量延续到新列表（库存变化时清空） */
+    applyTicketSelectionFromTypes(types) {
+      const list = Array.isArray(types) ? types : [];
       const prevSelectedId = this.selectedTicket?.id
         ? String(this.selectedTicket.id)
         : "";
-      const inv = await request.get(
-        `/exhibition/${encodeURIComponent(this.eventId)}/sessions/${encodeURIComponent(sid)}/tickets`,
-      );
-      this.ticketTypes = this.mapInventoryToTicketTypes(
-        Array.isArray(inv) ? inv : [],
-      );
+      this.ticketTypes = list;
       if (!prevSelectedId) {
         this.selectedTicket = null;
         this.quantity = 1;
         return;
       }
-      const matched = this.ticketTypes.find(
+      const matched = list.find(
         (t) => String(t.id) === prevSelectedId && t.stock > 0,
       );
       if (matched) {
@@ -552,9 +612,55 @@ export default {
       this.quantity = 1;
     },
 
+    async ensureTicketsForSession(sessionId) {
+      const sid = String(sessionId || "");
+      if (!sid || !this.eventId) return [];
+      const hit = this.ticketTypesCache[sid];
+      if (hit) return hit;
+      const inv = await request.get(
+        `/exhibition/${encodeURIComponent(this.eventId)}/sessions/${encodeURIComponent(sid)}/tickets`,
+      );
+      const types = this.mapInventoryToTicketTypes(
+        Array.isArray(inv) ? inv : [],
+      );
+      this.ticketTypesCache = { ...this.ticketTypesCache, [sid]: types };
+      return types;
+    },
+
+    /** 某日期的上/下午场各拉一次（半日模式并行），再展示当前场次 */
+    async prefetchTicketsForDate(date) {
+      if (!date || !this.eventId) return;
+      if (!this.halfDaySessionsEnabled) {
+        const sid = this.sessionIdByDateAndSlot(date, this.sessionSlot);
+        if (sid) await this.ensureTicketsForSession(sid);
+        return;
+      }
+      const amSid = this.sessionIdByDateAndSlot(date, "AM");
+      const pmSid = this.sessionIdByDateAndSlot(date, "PM");
+      const ids = [...new Set([amSid, pmSid].filter(Boolean))];
+      await Promise.all(ids.map((id) => this.ensureTicketsForSession(id)));
+    },
+
+    async loadTicketsForDateSelection(date) {
+      const sid = this.sessionId;
+      if (!sid || !this.eventId) {
+        this.ticketTypes = [];
+        this.selectedTicket = null;
+        this.quantity = 1;
+        return;
+      }
+      await this.prefetchTicketsForDate(date);
+      const types = this.ticketTypesCache[sid] || [];
+      this.applyTicketSelectionFromTypes(types);
+    },
+
     async applyDateSelection(date, activeKey) {
       if (!date) return;
-      const sid = this.sessionIdByDate(date);
+      let sid = this.sessionIdByDateAndSlot(date, this.sessionSlot);
+      if (!sid && this.sessionSlot === "PM") {
+        sid = this.sessionIdByDateAndSlot(date, "AM");
+        if (sid) this.sessionSlot = "AM";
+      }
       if (!sid) {
         uni.showToast({ title: "该日期暂无可选场次", icon: "none" });
         return;
@@ -562,7 +668,7 @@ export default {
       this.selectedDate = date;
       this.activeDateKey = activeKey;
       this.sessionId = sid;
-      await this.loadTicketsBySession(sid);
+      await this.loadTicketsForDateSelection(date);
     },
 
     initDateSelection() {
@@ -578,17 +684,21 @@ export default {
       }
       this.selectedDate = firstAvailable.date;
       this.activeDateKey = firstAvailable.key;
-      const sid = this.sessionIdByDate(firstAvailable.date);
+      const sid = this.sessionIdByDateAndSlot(
+        firstAvailable.date,
+        this.sessionSlot,
+      );
       this.sessionId = sid;
     },
 
     /** 取消当前日期筛选：回到首个有场次的预设日，并刷新票种 */
     async clearDateSelection() {
       this.allDateLabel = "";
+      this.sessionSlot = "AM";
       this.initDateSelection();
       const sid = this.sessionId;
-      if (sid) {
-        await this.loadTicketsBySession(sid);
+      if (sid && this.selectedDate) {
+        await this.loadTicketsForDateSelection(this.selectedDate);
       } else {
         this.ticketTypes = [];
         this.selectedTicket = null;
@@ -654,7 +764,11 @@ export default {
 
     async onAllDateChange(e) {
       const pickedDate = e.detail.value;
-      const sid = this.sessionIdByDate(pickedDate);
+      let sid = this.sessionIdByDateAndSlot(pickedDate, this.sessionSlot);
+      if (!sid && this.sessionSlot === "PM") {
+        sid = this.sessionIdByDateAndSlot(pickedDate, "AM");
+        if (sid) this.sessionSlot = "AM";
+      }
       if (!sid) {
         uni.showToast({ title: "该日期暂无可选场次", icon: "none" });
         return;
@@ -662,7 +776,7 @@ export default {
       this.selectedDate = pickedDate;
       this.activeDateKey = "all";
       this.sessionId = sid;
-      await this.loadTicketsBySession(sid);
+      await this.loadTicketsForDateSelection(pickedDate);
 
       if (this.selectedDate) {
         const d = new Date(this.selectedDate.replace(/-/g, "/"));
@@ -1019,6 +1133,44 @@ export default {
 
 .date-chip.active .chip-main,
 .date-chip.active .chip-sub {
+  color: $cr7-gold;
+}
+
+/* 上午场 / 下午场（Figma 68473:13841，334×64 / 圆角 21） */
+.session-slot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  margin-top: 24rpx;
+  width: 100%;
+}
+
+.session-slot-pill {
+  flex: 1;
+  min-width: 0;
+  height: 64rpx;
+  border-radius: 21rpx;
+  background: $cr7-dark;
+  border: 2rpx solid transparent;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.session-slot-text {
+  font-size: 22rpx;
+  line-height: 42rpx;
+  color: $text-white;
+  font-weight: 400;
+}
+
+.session-slot-pill.active {
+  border-color: $cr7-gold;
+}
+
+.session-slot-pill.active .session-slot-text {
   color: $cr7-gold;
 }
 

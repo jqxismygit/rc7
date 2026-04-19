@@ -63,6 +63,23 @@
                 />
                 <text class="meta-text">{{ ticket.eventLocation }}</text>
               </view>
+              <view
+                v-if="showDetailSessionSlots"
+                class="session-slot-row session-slot-row--readonly"
+              >
+                <view
+                  class="session-slot-pill"
+                  :class="{ active: detailSessionSlot === 'AM' }"
+                >
+                  <text class="session-slot-text">上午场</text>
+                </view>
+                <view
+                  class="session-slot-pill"
+                  :class="{ active: detailSessionSlot === 'PM' }"
+                >
+                  <text class="session-slot-text">下午场</text>
+                </view>
+              </view>
             </view>
           </view>
         </view>
@@ -308,6 +325,25 @@ export default {
       if (this.ticket.orderStatus === "PENDING_PAYMENT") return "180rpx";
       if (this.showDetailActionsBar) return "180rpx";
       return "40rpx";
+    },
+    /** 已支付且能识别半日场次时展示（与购票页 Figma 一致） */
+    showDetailSessionSlots() {
+      if (this.ticket.orderStatus !== "PAID") return false;
+      if (!this.redemption?.session) return false;
+      return this.detailSessionSlot === "AM" || this.detailSessionSlot === "PM";
+    },
+    /** 根据订单场次 id（-AM/-PM）或开场时间推断 */
+    detailSessionSlot() {
+      const sid = this.redemption?.session?.id || "";
+      if (String(sid).endsWith("-PM")) return "PM";
+      if (String(sid).endsWith("-AM")) return "AM";
+      const open = this.redemption?.session?.opening_time || "";
+      const m = String(open).match(/(\d{1,2}):(\d{2})/);
+      if (m) {
+        const h = parseInt(m[1], 10);
+        if (!Number.isNaN(h)) return h >= 13 ? "PM" : "AM";
+      }
+      return "";
     },
   },
 
@@ -742,6 +778,47 @@ export default {
   font-size: 28rpx;
   color: $text-light;
   line-height: 1.4;
+}
+
+.session-slot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  margin-top: 8rpx;
+  width: 100%;
+}
+
+.session-slot-row--readonly {
+  pointer-events: none;
+}
+
+.session-slot-pill {
+  flex: 1;
+  min-width: 0;
+  height: 64rpx;
+  border-radius: 21rpx;
+  background: $cr7-dark;
+  border: 2rpx solid transparent;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.session-slot-text {
+  font-size: 22rpx;
+  line-height: 42rpx;
+  color: $text-white;
+  font-weight: 400;
+}
+
+.session-slot-pill.active {
+  border-color: $cr7-gold;
+}
+
+.session-slot-pill.active .session-slot-text {
+  color: $cr7-gold;
 }
 
 /* ===== 电子票二维码 ===== */
