@@ -8,9 +8,7 @@ import {
   syncDamaiSessionsApi,
   syncExhibitionToDamaiApi,
   syncExhibitionToMopApi,
-  syncMopSessionsApi,
-  syncMopStocksApi,
-  syncMopTicketsApi,
+  syncMopTicketCalendarApi,
   syncXiechengTicketInventoryApi,
   syncXiechengTicketPricesApi,
   type DamaiSessionDateRangeBody,
@@ -66,8 +64,8 @@ export function useSyncExhibitionToDamai() {
 }
 
 /**
- * 按 MOP 约定顺序批量同步：票种 → 场次 → 库存（同一日期区间）。
- * 票种同步含价格等 SKU 信息；库存同步依赖场次与票种已在猫眼侧就绪。
+ * 猫眼：先拉取展会票种列表，再对每个票种并行调用日历同步接口（单次含场次→票种→库存）。
+ * @see docs/api/mop.md `/exhibition/:eid/tickets/:tid/ota/mop/sync/calendar`
  */
 export function useSyncInfoToMaoyan() {
   const { message } = App.useApp();
@@ -75,12 +73,29 @@ export function useSyncInfoToMaoyan() {
 
   const sync = useCallback(
     async (eid: string, range: MopSessionDateRangeBody) => {
+      const { start_session_date, end_session_date, session_mode } = range;
+      if (!start_session_date?.trim() || !end_session_date?.trim()) {
+        message.warning("请选择同步日期范围");
+        return;
+      }
       setSyncing(true);
       try {
-        await syncMopTicketsApi(eid, range);
-        await syncMopSessionsApi(eid, range);
-        await syncMopStocksApi(eid, range);
-        message.success("猫眼同步已完成（票种 → 场次 → 库存）");
+        const tickets = await listExhibitionTicketsApi(eid);
+        if (tickets.length === 0) {
+          message.warning("暂无票种，无法同步猫眼");
+          return;
+        }
+        const body: MopSessionDateRangeBody = {
+          start_session_date,
+          end_session_date,
+          ...(session_mode != null ? { session_mode } : {}),
+        };
+        await Promise.all(
+          tickets.map((t) => syncMopTicketCalendarApi(eid, t.id, body)),
+        );
+        message.success(
+          `猫眼同步请求已发送（${tickets.length} 个票种，场次→票种→库存）`,
+        );
       } catch (err) {
         message.error(pickApiErrorMessage(err));
         throw err;

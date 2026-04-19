@@ -199,41 +199,29 @@ export async function syncExhibitionToMopApi(eid: string): Promise<void> {
   await request.post(`/exhibition/${encodeURIComponent(eid)}/ota/mop/sync`);
 }
 
-/** MOP 按场次日期区间同步时请求体（与 docs/api/mop.md 一致） */
-export type MopSessionDateRangeBody = {
-  sessionDateStart?: string;
-  sessionDateEnd?: string;
+/**
+ * MOP 按票种日历同步请求体（与 docs/api/mop.md `/tickets/:tid/ota/mop/sync/calendar` 一致）
+ */
+export type MopTicketCalendarSyncBody = {
+  start_session_date: string;
+  end_session_date: string;
+  session_mode?: "DAY" | "HALF_DAY";
 };
 
-/** 同步票种信息到 MOP，响应 204 */
-export async function syncMopTicketsApi(
-  eid: string,
-  body: MopSessionDateRangeBody,
-): Promise<void> {
-  await request.post(
-    `/exhibition/${encodeURIComponent(eid)}/ota/mop/sync/tickets`,
-    body,
-  );
-}
+/** 控制台 OTA 弹窗传入的日期区间（与 MOP 日历同步 body 字段一致） */
+export type MopSessionDateRangeBody = MopTicketCalendarSyncBody;
 
-/** 同步场次信息到 MOP，响应 204 */
-export async function syncMopSessionsApi(
+/**
+ * 单票种按日期区间同步到猫眼（场次 show → 票种 sku → 库存 stock），响应 204
+ * @see docs/api/mop.md
+ */
+export async function syncMopTicketCalendarApi(
   eid: string,
-  body: MopSessionDateRangeBody,
+  tid: string,
+  body: MopTicketCalendarSyncBody,
 ): Promise<void> {
   await request.post(
-    `/exhibition/${encodeURIComponent(eid)}/ota/mop/sync/sessions`,
-    body,
-  );
-}
-
-/** 同步库存信息到 MOP，响应 204 */
-export async function syncMopStocksApi(
-  eid: string,
-  body: MopSessionDateRangeBody,
-): Promise<void> {
-  await request.post(
-    `/exhibition/${encodeURIComponent(eid)}/ota/mop/sync/stocks`,
+    `/exhibition/${encodeURIComponent(eid)}/tickets/${encodeURIComponent(tid)}/ota/mop/sync/calendar`,
     body,
   );
 }

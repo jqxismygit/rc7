@@ -586,14 +586,14 @@ export default function ExhibitionDetailPage() {
             >
               编辑
             </Button>
-            <Button
+            {/* <Button
               type="link"
               size="small"
               style={{ padding: 0, height: "auto" }}
               onClick={() => openTicketInventoryModal(row)}
             >
               设置库存
-            </Button>
+            </Button> */}
           </Space>
         ),
       },
@@ -1096,8 +1096,8 @@ export default function ExhibitionDetailPage() {
             }
             try {
               await syncInfoToMaoyan(eid, {
-                sessionDateStart,
-                sessionDateEnd,
+                start_session_date: sessionDateStart,
+                end_session_date: sessionDateEnd,
               });
               setOtaSyncModalOpen(false);
             } catch {
