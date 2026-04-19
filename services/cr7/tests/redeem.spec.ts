@@ -227,15 +227,17 @@ describeFeature(feature, ({
       }
     );
 
-    const setInventory = async (_ctx: unknown, ticketName: string, maxInventory: number) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      expect(ticket, `Ticket '${ticketName}' not found`).toBeTruthy();
-      const { apiServer, adminToken, exhibition } = featureContext;
-      await updateTicketCategoryMaxInventory(apiServer, adminToken, exhibition.id, ticket.id, maxInventory);
-    };
-
-    Given('{string} 库存为 {int}', setInventory);
-    And('{string} 库存为 {int}', setInventory);
+    Given(
+      '{string} 库存为 {int}',
+      async (_ctx: unknown, ticketName: string, maxInventory: number) => {
+        const ticket = featureContext.ticketByName[ticketName];
+        expect(ticket, `Ticket '${ticketName}' not found`).toBeTruthy();
+        const { apiServer, adminToken, exhibition } = featureContext;
+        await updateTicketCategoryMaxInventory(
+          apiServer, adminToken, exhibition.id, ticket.id, maxInventory
+        );
+      }
+    );
 
     When('用户完成支付', async () => {
       expect(featureContext.currentOrder).toBeTruthy();
