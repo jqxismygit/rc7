@@ -6,7 +6,6 @@ type ApplyInvoicePayload = Pick<Invoice.InvoiceRecord, 'invoice_title' | 'email'
   tax_no?: Invoice.InvoiceRecord['tax_no'];
 };
 
-
 export async function applyOrderInvoice(
   server: Server,
   orderId: string,

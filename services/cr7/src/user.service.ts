@@ -288,7 +288,7 @@ export default class UserService extends Service {
       async stopped() {
         await this.pool.end();
       }
-    })
+    });
   }
 
   async wechat_mini_login(ctx: Context<{ code: string }>) {
@@ -376,10 +376,10 @@ export default class UserService extends Service {
     const schema = await this.getSchema();
 
     const user = await loginByPhonePassword(this.pool, schema, {
-        country_code,
-        phone,
-        password,
-      })
+      country_code,
+      phone,
+      password,
+    })
       .catch(handleUserError);
 
     return { token: { uid: user.uid } };
@@ -468,7 +468,7 @@ export default class UserService extends Service {
       has_any_role?: boolean;
       damai_user_id?: string;
       page?: number;
-      limit?: number
+      limit?: number;
     }>
   ) {
     const schema = await this.getSchema();

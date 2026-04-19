@@ -339,7 +339,7 @@ function buildMopResponse(
 
 export async function setupMopMockServer(
   mopRequestHandler: (
-    request: { uri: string, body: unknown }
+    request: { uri: string; body: unknown }
   ) => Promise<{ code: number; msg: string; body?: unknown }>
 ) {
   const { mop } = config;

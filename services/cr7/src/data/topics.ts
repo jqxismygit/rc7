@@ -3,10 +3,10 @@ import type { Topic } from '@cr7/types';
 
 type DBClient = Pool | PoolClient;
 
-export type TOPIC_DATA_ERROR_CODES =
-  | 'TOPIC_NOT_FOUND'
-  | 'ARTICLE_NOT_FOUND'
-  | 'TOPIC_ARTICLE_ORDER_INVALID';
+export type TOPIC_DATA_ERROR_CODES
+  = | 'TOPIC_NOT_FOUND'
+    | 'ARTICLE_NOT_FOUND'
+    | 'TOPIC_ARTICLE_ORDER_INVALID';
 
 export class TopicDataError extends Error {
   code: TOPIC_DATA_ERROR_CODES;

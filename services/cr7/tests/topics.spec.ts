@@ -456,8 +456,8 @@ describeFeature(feature, ({
       const { apiServer } = featureContext.fixtures.values;
       expect(context.topicWithArticles?.articles).toBeTruthy();
       const articles = context.topicWithArticles!.articles;
-      const first = articles.find((item) => item.title === firstTitle);
-      const second = articles.find((item) => item.title === secondTitle);
+      const first = articles.find(item => item.title === firstTitle);
+      const second = articles.find(item => item.title === secondTitle);
       expect(first).toBeTruthy();
       expect(second).toBeTruthy();
 
@@ -519,5 +519,4 @@ describeFeature(feature, ({
       await expect(getTopic(apiServer, context.topic!.id, featureContext.userToken)).rejects.toBeTruthy();
     });
   });
-
 });

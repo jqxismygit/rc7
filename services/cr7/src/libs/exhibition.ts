@@ -1,6 +1,6 @@
 import { format, isBefore, parse, subMinutes } from 'date-fns';
-import { Context, Errors, ServiceBroker, ServiceSchema } from "moleculer";
-import type { Exhibition } from "@cr7/types";
+import { Context, Errors, ServiceBroker, ServiceSchema } from 'moleculer';
+import type { Exhibition, Inventory } from '@cr7/types';
 import {
   createExhibition,
   getExhibitionById,
@@ -15,13 +15,15 @@ import {
   updateExhibitionStatus,
   updateTicketCategoryOtaXcOptionId,
   listSessionInventoryByTicketAndDateRange,
+  listTicketCalendarInventoryByDateRange,
   getSessionTicketCategoriesBySessionId,
   getSessionInventoryBySessionId,
   updateTicketCategoryInventoryMax,
+  updateTicketCalendarSessionPrice,
   getTicketCategoryByIdGlobal,
-} from "../data/exhibition.js";
+} from '../data/exhibition.js';
 import { handleExhibitionError } from './errors.js';
-import { RC7BaseService } from "./cr7.base.js";
+import { RC7BaseService } from './cr7.base.js';
 import { HALF_SESSION_ID_REGEX, parseSelectedSessionId } from './session-id.js';
 
 const { MoleculerClientError } = Errors;
@@ -40,7 +42,6 @@ const EXHIBITION_UPDATE_FIELDS = [
 
 const TICKET_CATEGORY_UPDATE_FIELDS = [
   'name',
-  'price',
   'valid_duration_days',
   'refund_policy',
   'admittance',
@@ -52,6 +53,12 @@ interface UserMeta {
 }
 
 type SessionMode = 'DAY' | 'HALF_DAY';
+type TicketCategoryCreateInput = Omit<
+  Exhibition.TicketCategory,
+  'id' | 'exhibit_id' | 'created_at' | 'updated_at'
+> & {
+  price: number;
+};
 
 const AM_SESSION_END_TIME = '12:59:00';
 const PM_SESSION_START_TIME = '13:00:00';
@@ -256,7 +263,6 @@ export class ExhibitionService extends RC7BaseService {
         eid: 'uuid',
         tid: 'uuid',
         name: { type: 'string', optional: true, min: 1 },
-        price: { type: 'number', optional: true },
         valid_duration_days: { type: 'number', optional: true },
         refund_policy: {
           type: 'enum',
@@ -293,9 +299,56 @@ export class ExhibitionService extends RC7BaseService {
       params: {
         eid: 'uuid',
         tid: 'uuid',
-        quantity: 'number|min:0'
+        quantity: 'number|min:0',
+        start_session_date: {
+          type: 'date',
+          convert: true,
+          optional: true,
+        },
+        end_session_date: {
+          type: 'date',
+          convert: true,
+          optional: true,
+        },
       },
       handler: this.updateTicketCategoryInventoryMax
+    },
+
+    'exhibition.listTicketCalendarInventory': {
+      roles: ['admin'],
+      rest: 'GET /:eid/tickets/:tid/calendar',
+      params: {
+        eid: 'uuid',
+        tid: 'uuid',
+        start_session_date: {
+          type: 'date',
+          convert: true,
+        },
+        end_session_date: {
+          type: 'date',
+          convert: true,
+        },
+      },
+      handler: this.listTicketCalendarInventory,
+    },
+
+    'exhibition.updateTicketCalendarPrice': {
+      roles: ['admin'],
+      rest: 'PUT /:eid/tickets/:tid/calendar/price',
+      params: {
+        eid: 'uuid',
+        tid: 'uuid',
+        price: 'number|integer|min:0',
+        start_session_date: {
+          type: 'date',
+          convert: true,
+        },
+        end_session_date: {
+          type: 'date',
+          convert: true,
+        },
+      },
+      handler: this.updateTicketCalendarPrice,
     },
 
     'exhibition.getTicket': {
@@ -341,7 +394,7 @@ export class ExhibitionService extends RC7BaseService {
       },
       handler: this.getTicketByIdGlobal,
     },
-  }
+  };
 
   async createExhibition(
     ctx: Context<Omit<Exhibition.Exhibition, 'id' | 'status' | 'created_at' | 'updated_at'>, { user: UserMeta }>
@@ -363,7 +416,7 @@ export class ExhibitionService extends RC7BaseService {
     const { limit = 10, offset = 0, all = false } = ctx.params;
     const client = this.pool;
     const schema = await this.getSchema();
-    const isAdmin = (ctx.meta.roles ?? []).some((role) => role.toLowerCase() === 'admin');
+    const isAdmin = (ctx.meta.roles ?? []).some(role => role.toLowerCase() === 'admin');
     const includeAll = all && isAdmin;
 
     const { exhibitions, total } = await getExhibitions(client, schema, includeAll, limit, offset);
@@ -417,13 +470,13 @@ export class ExhibitionService extends RC7BaseService {
       client, schema, eid, start_session_date, end_session_date
     );
 
-    const daySessions = rawSessions.map((session) => buildDaySession(session, exhibition));
+    const daySessions = rawSessions.map(session => buildDaySession(session, exhibition));
 
     if (session_mode === 'DAY') {
       return daySessions;
     }
 
-    return daySessions.flatMap((session) => buildHalfDaySessions(session, exhibition));
+    return daySessions.flatMap(session => buildHalfDaySessions(session, exhibition));
   }
 
   async getSession(
@@ -451,7 +504,7 @@ export class ExhibitionService extends RC7BaseService {
     }
 
     const targetSession = buildHalfDaySessions(daySession, exhibition)
-      .find((session) => session.id === `${daySession.id}-${sessionHalf}`);
+      .find(session => session.id === `${daySession.id}-${sessionHalf}`);
 
     if (!targetSession) {
       throw new MoleculerClientError('场次不存在', 404, 'SESSION_NOT_FOUND');
@@ -462,15 +515,27 @@ export class ExhibitionService extends RC7BaseService {
 
   async addTicketCategory(
     ctx: Context<
-      { eid: string } & Omit<Exhibition.TicketCategory, 'id' | 'exhibit_id' | 'created_at' | 'updated_at'>,
+      { eid: string } & TicketCategoryCreateInput,
       { user: UserMeta }
     >
   ) {
-    const { eid, ...category } = ctx.params;
+    const { eid, price, ...category } = ctx.params;
     const client = this.pool;
     const schema = await this.getSchema();
+    const exhibition = await getExhibitionById(client, schema, eid)
+      .catch(handleExhibitionError);
 
     const ticketCategory = await createTicketCategory(client, schema, eid, category);
+
+    await updateTicketCalendarSessionPrice(
+      client,
+      schema,
+      eid,
+      ticketCategory.id,
+      price,
+      exhibition.start_date,
+      exhibition.end_date,
+    ).catch(handleExhibitionError);
 
     return ticketCategory;
   }
@@ -483,7 +548,6 @@ export class ExhibitionService extends RC7BaseService {
     if ('start_date' in patch || 'end_date' in patch) {
       throw new MoleculerClientError('参数不合法', 400, 'INVALID_ARGUMENT');
     }
-
 
     if (EXHIBITION_UPDATE_FIELDS.every(field => Object.hasOwn(patch, field) === false)) {
       throw new MoleculerClientError('参数不合法', 400, 'INVALID_ARGUMENT');
@@ -538,28 +602,73 @@ export class ExhibitionService extends RC7BaseService {
     const tickets = await getSessionTicketCategoriesBySessionId(client, schema, eid, daySessionId);
     const inventory = await getSessionInventoryBySessionId(client, schema, eid, daySessionId);
 
-    const quantityByTicketCategoryId = new Map(
-      inventory.map(item => [item.ticket_category_id, item.quantity])
+    const sessionInventoryPriceMap = new Map(
+      inventory.map(({ ticket_category_id, quantity, price }) => {
+        return [ticket_category_id, [quantity, price]] as const;
+      })
     );
 
-    return tickets.map(ticket => ({
-      ...ticket,
-      session_id: sid,
-      quantity: quantityByTicketCategoryId.get(ticket.id) ?? 0
-    }));
+    return tickets.reduce<Inventory.SessionTicketPrice[]>(
+      (acc, ticket) => {
+        const [quantity, price] = sessionInventoryPriceMap.get(ticket.id) ?? [0, 0];
+        if (price === 0 && quantity === 0) {
+          return acc;
+        }
+
+        acc.push(
+          {
+            ...ticket,
+            session_id: sid,
+            quantity: quantity,
+            price: price,
+          } as Inventory.SessionTicketPrice
+        );
+        return acc;
+      },
+      []
+    );
   }
 
   async updateTicketCategoryInventoryMax(
     ctx: Context<
-      { eid: string; tid: string; quantity: number },
-      { user: UserMeta, $statusCode?: number }
+      {
+        eid: string;
+        tid: string;
+        quantity: number;
+        start_session_date?: Date;
+        end_session_date?: Date;
+      },
+      { user: UserMeta; $statusCode?: number }
     >
   ) {
-    const { eid, tid, quantity } = ctx.params;
+    const {
+      eid,
+      tid,
+      quantity,
+      start_session_date,
+      end_session_date,
+    } = ctx.params;
     const client = this.pool;
     const schema = await this.getSchema();
+    const exhibition = await getExhibitionById(client, schema, eid)
+      .catch(handleExhibitionError);
 
-    await updateTicketCategoryInventoryMax(client, schema, eid, tid, quantity);
+    const effectiveStartDate = start_session_date ?? exhibition.start_date;
+    const effectiveEndDate = end_session_date ?? exhibition.end_date;
+
+    if (isBefore(effectiveEndDate, effectiveStartDate)) {
+      throw new MoleculerClientError('参数不合法', 400, 'INVALID_ARGUMENT');
+    }
+
+    await updateTicketCategoryInventoryMax(
+      client,
+      schema,
+      eid,
+      tid,
+      quantity,
+      effectiveStartDate,
+      effectiveEndDate
+    );
 
     ctx.meta.$statusCode = 204;
   }
@@ -568,14 +677,14 @@ export class ExhibitionService extends RC7BaseService {
     const { eid, tid } = ctx.params;
     const schema = await this.getSchema();
     return getTicketCategoryById(this.pool, schema, eid, tid)
-    .catch(handleExhibitionError);
+      .catch(handleExhibitionError);
   }
 
   async updateTicketXcOptionId(ctx: Context<{ eid: string; tid: string; ota_option_id: string }>) {
     const { eid, tid, ota_option_id } = ctx.params;
     const schema = await this.getSchema();
     return updateTicketCategoryOtaXcOptionId(this.pool, schema, eid, tid, ota_option_id)
-    .catch(handleExhibitionError);
+      .catch(handleExhibitionError);
   }
 
   async listSessionInventoryByTicketAndDateRange(
@@ -586,6 +695,58 @@ export class ExhibitionService extends RC7BaseService {
     return listSessionInventoryByTicketAndDateRange(this.pool, schema, eid, tid, start_session_date, end_session_date);
   }
 
+  async listTicketCalendarInventory(
+    ctx: Context<{ eid: string; tid: string; start_session_date: Date; end_session_date: Date }>
+  ) {
+    const { eid, tid, start_session_date, end_session_date } = ctx.params;
+
+    if (start_session_date.getTime() > end_session_date.getTime()) {
+      throw new MoleculerClientError('参数不合法', 400, 'INVALID_ARGUMENT');
+    }
+
+    const schema = await this.getSchema();
+    return listTicketCalendarInventoryByDateRange(
+      this.pool,
+      schema,
+      eid,
+      tid,
+      start_session_date,
+      end_session_date,
+    );
+  }
+
+  async updateTicketCalendarPrice(
+    ctx: Context<
+      {
+        eid: string;
+        tid: string;
+        price: number;
+        start_session_date: Date;
+        end_session_date: Date;
+      },
+      { user: UserMeta; $statusCode?: number }
+    >
+  ) {
+    const { eid, tid, price, start_session_date, end_session_date } = ctx.params;
+
+    if (isBefore(end_session_date, start_session_date)) {
+      throw new MoleculerClientError('参数不合法', 400, 'INVALID_ARGUMENT');
+    }
+
+    const schema = await this.getSchema();
+    await updateTicketCalendarSessionPrice(
+      this.pool,
+      schema,
+      eid,
+      tid,
+      price,
+      start_session_date,
+      end_session_date,
+    ).catch(handleExhibitionError);
+
+    ctx.meta.$statusCode = 204;
+  }
+
   async getTicketByIdGlobal(ctx: Context<{ tid: string }>) {
     const { tid } = ctx.params;
     const schema = await this.getSchema();
@@ -593,4 +754,3 @@ export class ExhibitionService extends RC7BaseService {
       .catch(handleExhibitionError);
   }
 }
-

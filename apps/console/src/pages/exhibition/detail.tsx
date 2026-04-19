@@ -136,7 +136,7 @@ function formatDateOnlyText(input: string | Date | null | undefined): string {
 
 const ticketFormInitial: CreateTicketCategoryInput = {
   name: "",
-  price: 0,
+  list_price: 0,
   valid_duration_days: 1,
   refund_policy: "NON_REFUNDABLE",
   admittance: 1,
@@ -179,7 +179,7 @@ export default function ExhibitionDetailPage() {
   const [ticketInvSubmitting, setTicketInvSubmitting] = useState(false);
   const [sessionInvLoading, setSessionInvLoading] = useState(false);
   const [sessionInvRows, setSessionInvRows] = useState<
-    InventoryTypes.SessionTicketsInventory[]
+    InventoryTypes.SessionInventory[]
   >([]);
 
   const [selectedDay, setSelectedDay] = useState<Dayjs | null>(null);
@@ -241,6 +241,7 @@ export default function ExhibitionDetailPage() {
     setError(null);
     try {
       const res = await getExhibitionApi(eid);
+      console.log("res", res);
       setData(res);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -370,7 +371,7 @@ export default function ExhibitionDetailPage() {
   );
 
   const inventoryColumns = useMemo<
-    ColumnsType<InventoryTypes.SessionTicketsInventory>
+    ColumnsType<InventoryTypes.SessionInventory>
   >(
     () => [
       {
@@ -391,7 +392,7 @@ export default function ExhibitionDetailPage() {
         title: "价格（元）",
         dataIndex: "price",
         width: 100,
-        render: (p: number) => (typeof p === "number" ? String(p) : p),
+        render: (p: number) => p * 0.01,
       },
       {
         title: "退票政策",
@@ -522,7 +523,7 @@ export default function ExhibitionDetailPage() {
       setTicketSubmitting(true);
       await createExhibitionTicketCategoryApi(eid, {
         ...values,
-        price: values.price * 100,
+        list_price: values.list_price * 100,
       });
       message.success("票种已添加");
       closeAddTicketModal();
@@ -560,14 +561,16 @@ export default function ExhibitionDetailPage() {
     }
   }
 
-  async function handleEditTicketModalFinish(values: CreateTicketCategoryInput) {
+  async function handleEditTicketModalFinish(
+    values: CreateTicketCategoryInput,
+  ) {
     const ticket = editTicketData;
     if (!eid || !ticket) return false;
     try {
       setEditTicketSubmitting(true);
       await updateExhibitionTicketCategoryApi(eid, ticket.id, {
         ...values,
-        price: values.price * 100,
+        list_price: values.list_price * 100,
       });
       message.success("票种信息已更新");
       closeEditTicketModal();
@@ -821,12 +824,12 @@ export default function ExhibitionDetailPage() {
                   className="exhibition-detail-session-panel"
                   style={{ flex: "1 1 320px", minWidth: 280 }}
                 >
-                  <Typography.Title level={5} style={{ marginTop: 0 }}>
+                  <Typography.Title level={4} style={{ marginTop: 0 }}>
                     当前场次
                   </Typography.Title>
                   {selectedSession ? (
                     <>
-                      {sessionsOnSelectedDay.length > 1 ? (
+                      {/* {sessionsOnSelectedDay.length > 1 ? (
                         <div style={{ marginBottom: token.marginMD }}>
                           <Typography.Text
                             type="secondary"
@@ -843,7 +846,7 @@ export default function ExhibitionDetailPage() {
                             }))}
                           />
                         </div>
-                      ) : null}
+                      ) : null} */}
                       <Descriptions
                         bordered
                         column={1}
@@ -870,7 +873,7 @@ export default function ExhibitionDetailPage() {
                         库存
                       </Typography.Title>
                       <Spin spinning={sessionInvLoading}>
-                        <Table<InventoryTypes.SessionTicketsInventory>
+                        <Table<InventoryTypes.SessionInventory>
                           className="exhibition-detail-session-inventory-table"
                           rowKey="id"
                           size="small"
@@ -1106,7 +1109,9 @@ export default function ExhibitionDetailPage() {
       </ModalForm>
 
       <ModalForm<CreateTicketCategoryInput>
-        title={editTicketData ? `编辑票种 · ${editTicketData.name}` : "编辑票种"}
+        title={
+          editTicketData ? `编辑票种 · ${editTicketData.name}` : "编辑票种"
+        }
         open={editTicketVisible}
         onOpenChange={(open) => {
           if (!open) closeEditTicketModal();
@@ -1115,7 +1120,7 @@ export default function ExhibitionDetailPage() {
           editTicketData
             ? {
                 name: editTicketData.name,
-                price: editTicketData.price * 0.01,
+                list_price: editTicketData.list_price * 0.01,
                 valid_duration_days: editTicketData.valid_duration_days,
                 refund_policy: editTicketData.refund_policy,
                 admittance: editTicketData.admittance,

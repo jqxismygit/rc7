@@ -31,7 +31,7 @@ export async function migrate(
 
   const allMigrations = await listMigrations();
   const migrations = allMigrations
-  .filter(([version]) => !installedMigrations.has(version));
+    .filter(([version]) => !installedMigrations.has(version));
 
   try {
     await client.query('BEGIN');

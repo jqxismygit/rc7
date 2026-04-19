@@ -58,7 +58,6 @@ export async function handler(argv?: {
   batchSize?: number;
   verbose?: boolean;
 }) {
-
   const { default: config } = await import('config');
   const pool = new Pool(config.pg);
   const client = await pool.connect();

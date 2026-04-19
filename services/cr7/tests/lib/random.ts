@@ -1,4 +1,3 @@
-
 export function random_value<T>(values: T[]): T {
   const idx = Math.floor(Math.random() * values.length);
   return values[idx];

@@ -37,10 +37,10 @@ export async function mockServer(
   return {
     server,
     close() {
-      return closeServer(server)
+      return closeServer(server);
     },
     address: getServerAddress(server)
-  }
+  };
 }
 
 export async function mockJSONServer(

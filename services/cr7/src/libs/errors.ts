@@ -1,16 +1,15 @@
-import MoleculerWeb from "moleculer-web";
-import Moleculer from "moleculer";
-import { UserDataError } from "../data/user.js";
-import { OrderDataError } from "../data/order.js";
-import { PaymentDataError } from "../data/payment.js";
-import { RedeemDataError } from "../data/redeem.js";
-import { ExhibitionDataError } from "../data/exhibition.js";
+import MoleculerWeb from 'moleculer-web';
+import Moleculer from 'moleculer';
+import { UserDataError } from '../data/user.js';
+import { OrderDataError } from '../data/order.js';
+import { PaymentDataError } from '../data/payment.js';
+import { RedeemDataError } from '../data/redeem.js';
+import { ExhibitionDataError } from '../data/exhibition.js';
 import { XiechengDataError } from '../data/xiecheng.js';
 import { TopicDataError } from '../data/topics.js';
 
 const { NotFoundError } = MoleculerWeb.Errors;
 const { MoleculerClientError } = Moleculer.Errors;
-
 
 export function handleUserError(error: unknown): never {
   if ((error instanceof UserDataError) === false) {

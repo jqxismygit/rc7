@@ -11,7 +11,7 @@ export type CityMeta = {
 
 function loadCityList(): Promise<[string, string][]> {
   return fs.readFile(city_file_path, 'utf-8')
-  .then((data: string) => JSON.parse(data));
+    .then((data: string) => JSON.parse(data));
 }
 
 export async function getCityMetaByName(cityName: string): Promise<CityMeta | null> {

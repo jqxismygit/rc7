@@ -164,7 +164,6 @@ describeFeature(feature, ({
   Scenario,
   context: featureContext,
 }: FeatureDescriibeCallbackParams<FeatureContext>) => {
-
   BeforeAllScenarios(async () => {
     vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
     await bootstrap();
@@ -199,14 +198,14 @@ describeFeature(feature, ({
   defineSteps(({ Given, And, When }) => {
     Given('携程服务已经准备好接受同步信息', async () => {
       const xiechengReqHandler = vi.fn()
-      .mockResolvedValueOnce({
-        header: { resultCode: '0000', resultMessage: '操作成功' }
-      });
+        .mockResolvedValueOnce({
+          header: { resultCode: '0000', resultMessage: '操作成功' }
+        });
       const mockServer = await mockJSONServer(xiechengReqHandler);
 
       const baseUrlSpy = vi
-      .spyOn(config.xiecheng, 'base_url', 'get')
-      .mockReturnValue(mockServer.address);
+        .spyOn(config.xiecheng, 'base_url', 'get')
+        .mockReturnValue(mockServer.address);
 
       openedMockServers.push(mockServer);
       openedBaseUrlSpies.push(baseUrlSpy);
@@ -217,24 +216,24 @@ describeFeature(feature, ({
     Given(
       '展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天, 价格是 {number} 元',
       async (_ctx, ticketName: string, admittance: number, price: number) => {
-      const ticket = await prepareTicketCategory(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        {
-          name: ticketName,
-          price: price * 100,
-          admittance,
-          valid_duration_days: 1,
-          refund_policy: 'NON_REFUNDABLE',
-        },
-      );
+        const ticket = await prepareTicketCategory(
+          featureContext.apiServer,
+          featureContext.adminToken,
+          featureContext.exhibition.id,
+          {
+            name: ticketName,
+            price: price * 100,
+            admittance,
+            valid_duration_days: 1,
+            refund_policy: 'NON_REFUNDABLE',
+          },
+        );
 
-      featureContext.ticketByName = {
-        ...featureContext.ticketByName,
-        [ticketName]: ticket,
-      };
-    });
+        featureContext.ticketByName = {
+          ...featureContext.ticketByName,
+          [ticketName]: ticket,
+        };
+      });
 
     And('{string} 库存为 {int}', async (_ctx, ticketName: string, quantity: number) => {
       const ticket = featureContext.ticketByName[ticketName];
@@ -251,14 +250,14 @@ describeFeature(feature, ({
     Given(
       '当前同步类型为场次价格, 票种 {string}，场次开始时间为 {string}，结束时间为 {string}',
       (_ctx, ticketName: string, startDate: string, endDate: string) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      expect(ticket, `Ticket '${ticketName}' not found`).toBeTruthy();
-      featureContext.datePrice = {
-        ticket,
-        start_session_date: toDateLabel(startDate),
-        end_session_date: toDateLabel(endDate),
-      };
-    });
+        const ticket = featureContext.ticketByName[ticketName];
+        expect(ticket, `Ticket '${ticketName}' not found`).toBeTruthy();
+        featureContext.datePrice = {
+          ticket,
+          start_session_date: toDateLabel(startDate),
+          end_session_date: toDateLabel(endDate),
+        };
+      });
 
     Given('当前同步类型为剩余库存', () => {
       featureContext.pendingSync = {
@@ -354,7 +353,7 @@ describeFeature(feature, ({
       } catch (error) {
         featureContext.lastError = error;
       }
-    })
+    });
   });
 
   Background(({ Given }) => {
@@ -409,7 +408,7 @@ describeFeature(feature, ({
 
   Scenario('管理员可以将门票的场次及价格同步到携程', (s: StepTest<
     XiechengScenarioContext
-    & { decryptedBody: SessionPriceReqBody; }
+    & { decryptedBody: SessionPriceReqBody }
   >) => {
     const { Then, And, context } = s;
 
@@ -418,8 +417,8 @@ describeFeature(feature, ({
       expect(xiechengReqHandler).toHaveBeenCalledTimes(1);
       expect(xiechengReqHandler).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          method: "POST",
-          path: "/product/price.do",
+          method: 'POST',
+          path: '/product/price.do',
         })
       );
     });
@@ -447,11 +446,11 @@ describeFeature(feature, ({
     And(
       '售价为 {number} 元, 成本价为 {number} 元',
       (_ctx, salePrice: number, costPrice: number) => {
-      for (const price of context.decryptedBody.prices) {
-        expect(price.salePrice).toEqual(salePrice);
-        expect(price.costPrice).toEqual(costPrice);
-      }
-    });
+        for (const price of context.decryptedBody.prices) {
+          expect(price.salePrice).toEqual(salePrice);
+          expect(price.costPrice).toEqual(costPrice);
+        }
+      });
 
     And('supplier Option Id 是 {string} 的票种 ID', (_ctx, ticketName: string) => {
       expect(context.decryptedBody.supplierOptionId).toBe(featureContext.ticketByName[ticketName].id);
@@ -556,15 +555,17 @@ describeFeature(feature, ({
     });
 
     And('库存数量为 {string} 的剩余库存数量', (_ctx, ticketName: string) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      const inventorys = (featureContext.latestDecryptedBody as SessionInventoryReqBody | undefined)?.inventorys ?? [];
+      const { latestDecryptedBody, ticketByName } = featureContext;
+      const ticket = ticketByName[ticketName];
+      const inventorys = (latestDecryptedBody! as SessionInventoryReqBody).inventorys ?? [];
       const defaultInventory = 2;
       expect(ticket).toBeTruthy();
       expect(inventorys.every(item => item.quantity === defaultInventory)).toBe(true);
     });
 
     And('supplier Option Id 是 {string} 的票种 ID', (_ctx, ticketName: string) => {
-      expect((featureContext.latestDecryptedBody as SessionInventoryReqBody | undefined)?.supplierOptionId).toBe(featureContext.ticketByName[ticketName].id);
+      const { latestDecryptedBody, ticketByName } = featureContext;
+      expect(latestDecryptedBody!.supplierOptionId).toBe(ticketByName[ticketName].id);
     });
 
     And('Service Name 是 {string}', (_ctx, serviceName: string) => {

@@ -1,4 +1,3 @@
-
 import { Context, Errors, ServiceBroker, ServiceSchema } from 'moleculer';
 import type { Exhibition, Invoice, Order } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
@@ -37,7 +36,6 @@ function getPdfUrlFromResponse(response: Record<string, unknown>) {
   const pdfUrl = (data as Record<string, unknown>).PDF_URL;
   return typeof pdfUrl === 'string' ? pdfUrl : null;
 }
-
 
 export class FapiaoService extends RC7BaseService {
   constructor(broker: ServiceBroker) {
@@ -83,13 +81,13 @@ export class FapiaoService extends RC7BaseService {
       { meta: { user: { uid } } },
     ) as Order.OrderWithItems;
 
-      if (order.status === 'REFUNDED') {
-        throw new MoleculerClientError('订单已退款，无法申请发票', 409, 'ORDER_REFUNDED');
-      }
+    if (order.status === 'REFUNDED') {
+      throw new MoleculerClientError('订单已退款，无法申请发票', 409, 'ORDER_REFUNDED');
+    }
 
-      if (order.status !== 'PAID') {
-        throw new MoleculerClientError('订单未支付，无法申请发票', 409, 'ORDER_STATUS_INVALID');
-      }
+    if (order.status !== 'PAID') {
+      throw new MoleculerClientError('订单未支付，无法申请发票', 409, 'ORDER_STATUS_INVALID');
+    }
 
     if (order.items.length === 0) {
       throw new MoleculerClientError('Invalid order items', 400, 'INVALID_ARGUMENT');
@@ -158,9 +156,9 @@ export class FapiaoService extends RC7BaseService {
         response: typeof fapiaoError.fapiaoResponse === 'object' && fapiaoError.fapiaoResponse !== null
           ? fapiaoError.fapiaoResponse as Record<string, unknown>
           : {
-            CODE: 'FAILED',
-            MESSAGE: error instanceof Error ? error.message : '发票申请失败',
-          },
+              CODE: 'FAILED',
+              MESSAGE: error instanceof Error ? error.message : '发票申请失败',
+            },
       });
       throw error;
     }

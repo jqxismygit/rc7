@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import tsEslint from 'typescript-eslint';
 import prettierConfig from 'eslint-config-prettier';
+import stylistic from '@stylistic/eslint-plugin';
 
 export default [
   {
@@ -9,6 +10,12 @@ export default [
   js.configs.recommended,
   ...tsEslint.configs.recommended,
   prettierConfig,
+  stylistic.configs.recommended,
+  stylistic.configs.customize({
+    semi: true,
+    commaDangle: 'only-multiline',
+    braceStyle: '1tbs',
+  }),
   {
     files: ['src/**/*.ts', 'src/**/*.js', 'config/**/*.ts'],
     languageOptions: {
@@ -17,6 +24,7 @@ export default [
         ecmaVersion: 2023,
         sourceType: 'module',
         project: './tsconfig.json',
+        tsconfigRootDir: import.meta.dirname,
       },
     },
     rules: {
@@ -34,8 +42,8 @@ export default [
           allow: ['warn', 'error'],
         },
       ],
-      'max-len': [
-        'warn',
+      '@stylistic/max-len': [
+        'error',
         {
           code: 120,
           ignoreComments: true,
@@ -52,7 +60,8 @@ export default [
       parserOptions: {
         ecmaVersion: 2023,
         sourceType: 'module',
-        project: './tests/tsconfig.json',
+        project: './tsconfig.json',
+        tsconfigRootDir: `${import.meta.dirname}/tests/`,
       },
     },
     rules: {
@@ -61,7 +70,7 @@ export default [
         {
           argsIgnorePattern: '^_',
           varsIgnorePattern: '^_',
-          catchIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
         },
       ],
       '@typescript-eslint/no-explicit-any': 'warn',
@@ -71,8 +80,8 @@ export default [
           allow: ['warn', 'error'],
         },
       ],
-      'max-len': [
-        'warn',
+      '@stylistic/max-len': [
+        'error',
         {
           code: 120,
           ignoreComments: true,

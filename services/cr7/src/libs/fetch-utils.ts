@@ -37,7 +37,7 @@ function getHeaders(options: Options): HeadersInit {
   return Object.assign(
     { ...options.headers },
     { 'content-type': 'application/json' },
-    options.token ? { 'Authorization': `Bearer ${options.token}` } : {},
+    options.token ? { Authorization: `Bearer ${options.token}` } : {},
   ) as HeadersInit;
 }
 
@@ -70,7 +70,7 @@ export async function getJSON<Res>(uri: string, options: Options = {}) {
 
   const body = await handlerBody(res);
 
-  if (res.ok === false ) {
+  if (res.ok === false) {
     throw new APIError(res.status, uri, 'GET', body);
   }
 

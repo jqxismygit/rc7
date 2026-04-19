@@ -53,7 +53,7 @@ export const services_fixtures = {
   services: ['api'],
   broker: async (
     { schema, services }: {
-      schema: string; services: FIXTURE_SERVICES[]
+      schema: string; services: FIXTURE_SERVICES[];
     },
     use: (broker: ServiceBroker) => Promise<void>
   ) => {

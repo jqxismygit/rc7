@@ -7,7 +7,7 @@ import {
 import config from 'config';
 import { expect, Mock, vi, MockInstance } from 'vitest';
 import { User } from '@cr7/types';
-import { handler as initAdminHandler } from "@/scripts/user/init-admin.js";
+import { handler as initAdminHandler } from '@/scripts/user/init-admin.js';
 import { mockJSONServer, mockWechatServer, MockServer } from './lib/server.js';
 import {
   adminCreateUser,
@@ -83,7 +83,6 @@ describeFeature(feature, ({
   Background,
   context: featureContext
 }: FeatureDescriibeCallbackParams<FeatureContext>) => {
-
   BeforeAllScenarios(async () => {
     vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
     await bootstrap();
@@ -122,8 +121,8 @@ describeFeature(feature, ({
       const mockWechatReqHandler = vi.fn();
       const mock_wechat_server = await mockWechatServer(mockWechatReqHandler);
       const wechatServerSpy = vi
-      .spyOn(config.wechat, 'base_url', 'get')
-      .mockReturnValue(mock_wechat_server.address);
+        .spyOn(config.wechat, 'base_url', 'get')
+        .mockReturnValue(mock_wechat_server.address);
       featureContext.mockWechatReqHandler = mockWechatReqHandler;
       openedMockServers.push(mock_wechat_server);
       openedSpies.push(wechatServerSpy);
@@ -134,8 +133,8 @@ describeFeature(feature, ({
       });
       const mock_wechat_token_server = await mockJSONServer(mockWechatTokenHandler);
       const wechatTokenServerSpy = vi
-      .spyOn(config.wechat, 'service_url', 'get')
-      .mockReturnValue(mock_wechat_token_server.address)
+        .spyOn(config.wechat, 'service_url', 'get')
+        .mockReturnValue(mock_wechat_token_server.address);
       featureContext.mockWechatTokenHandler = mockWechatTokenHandler;
       openedSpies.push(wechatTokenServerSpy);
       openedMockServers.push(mock_wechat_token_server);
@@ -202,14 +201,14 @@ describeFeature(feature, ({
 
     Given('管理员账号将用户 {string} 设置成运营人员', async (ctx, userName: string) => {
       const { apiServer, adminToken, registeredUsersByName } = featureContext;
-      const userProfile = registeredUsersByName?.[userName]!;
+      const userProfile = registeredUsersByName![userName]!;
       const roleId = await getRoleIdByName(apiServer, adminToken, 'OPERATOR');
       await grantRoleToUser(apiServer, adminToken, userProfile.id, roleId);
     });
 
     Given('管理员账号将用户 {string} 设置成客服人员', async (_ctx, userName: string) => {
       const { apiServer, adminToken, registeredUsersByName } = featureContext;
-      const userProfile = registeredUsersByName?.[userName]!;
+      const userProfile = registeredUsersByName![userName]!;
       const roleName = 'CUSTOMER_SERVICE';
       const targetRole = await createRole(apiServer, adminToken, {
         name: roleName,
@@ -242,23 +241,22 @@ describeFeature(feature, ({
       featureContext.stagedRoles = [];
     });
 
-
     When(
       '用户 {string} 第 {number} 次查看个人的角色列表',
       async (_ctx: unknown, userName: string, count: number) => {
-      const { apiServer, adminToken, registeredUsersByName } = featureContext;
-      const targetProfile = registeredUsersByName?.[userName]!;
-      const suToken = await suUserToken(apiServer, adminToken, targetProfile.id);
+        const { apiServer, adminToken, registeredUsersByName } = featureContext;
+        const targetProfile = registeredUsersByName![userName]!;
+        const suToken = await suUserToken(apiServer, adminToken, targetProfile.id);
 
-      featureContext.roleViewCountByUser = featureContext.roleViewCountByUser ?? {};
-      const previousCount = featureContext.roleViewCountByUser[userName] ?? 0;
-      const currentCount = previousCount + 1;
-      featureContext.roleViewCountByUser[userName] = currentCount;
+        featureContext.roleViewCountByUser = featureContext.roleViewCountByUser ?? {};
+        const previousCount = featureContext.roleViewCountByUser[userName] ?? 0;
+        const currentCount = previousCount + 1;
+        featureContext.roleViewCountByUser[userName] = currentCount;
 
-      expect(currentCount).toBe(count);
-      featureContext.lastCheckedUserName = userName;
-      featureContext.lastCheckedUserRoles = (await getCurrentUserRoles(apiServer, suToken)).roles;
-    });
+        expect(currentCount).toBe(count);
+        featureContext.lastCheckedUserName = userName;
+        featureContext.lastCheckedUserRoles = (await getCurrentUserRoles(apiServer, suToken)).roles;
+      });
 
     And(
       '用户 {string} 的角色列表有 {number} 个，包含 {string}，不是内置角色，权限包含 {string}',
@@ -320,7 +318,7 @@ describeFeature(feature, ({
     Given('cr7 服务已启动', async () => {
       await migrate({ schema });
     });
-  })
+  });
 
   Scenario('微信用户登录', (s: StepTest<LoginResponseContext>) => {
     const { When, Then, context } = s;
@@ -433,24 +431,24 @@ describeFeature(feature, ({
     When(
       '用户点击手机号授权, 国家码为 {string}，手机号为 {string}',
       async (_ctx, countryCode: string, phone: string) => {
-      const { apiServer, mockWechatReqHandler, loginResponse } = featureContext;
-      const phoneBindCode = 'phone_bind_code_1';
+        const { apiServer, mockWechatReqHandler, loginResponse } = featureContext;
+        const phoneBindCode = 'phone_bind_code_1';
 
-      mockWechatReqHandler.mockResolvedValueOnce({
-        errcode: 0,
-        errmsg: 'ok',
-        phone_info: {
-          phoneNumber: phone,
-          purePhoneNumber: phone,
-          countryCode: countryCode,
-        },
+        mockWechatReqHandler.mockResolvedValueOnce({
+          errcode: 0,
+          errmsg: 'ok',
+          phone_info: {
+            phoneNumber: phone,
+            purePhoneNumber: phone,
+            countryCode: countryCode,
+          },
+        });
+        await wechatBindPhone(apiServer, loginResponse!.token, phoneBindCode);
+
+        context.phoneBindCode = phoneBindCode;
       });
-      await wechatBindPhone(apiServer, loginResponse!.token, phoneBindCode);
 
-      context.phoneBindCode = phoneBindCode;
-    });
-
-  Then('微信服务端返回用户的手机号信息', async () => {
+    Then('微信服务端返回用户的手机号信息', async () => {
       const { mockWechatReqHandler, mockWechatTokenHandler } = featureContext;
       await vi.waitFor(() => {
         expect(mockWechatTokenHandler).toHaveBeenCalledTimes(1);
@@ -555,11 +553,10 @@ describeFeature(feature, ({
     Given(
       '使用 cli 初始化管理员账号，指定手机号 {string}，密码为 {string}',
       async (ctx, phone: string, password: string) => {
-
-      const { apiServer } = featureContext;
-      const { profile: adminProfile } = await prepareAdminUser(apiServer, schema, phone);
-      context.userProfile = adminProfile;
-    });
+        const { apiServer } = featureContext;
+        const { profile: adminProfile } = await prepareAdminUser(apiServer, schema, phone, password);
+        context.userProfile = adminProfile;
+      });
 
     Then('管理员账号创建成功', () => {
     });
@@ -632,12 +629,12 @@ describeFeature(feature, ({
 
   Scenario(
     '管理员可以将其他用户设置成运营人员',
-    (s: StepTest<{}>) => {
+    (s: StepTest<void>) => {
       const { When } = s;
 
       When('管理员账号将用户 {string} 设置成运营人员', async (_ctx, userName: string) => {
         const { apiServer, adminToken, registeredUsersByName } = featureContext;
-        const userProfile = registeredUsersByName?.[userName]!;
+        const userProfile = registeredUsersByName![userName]!;
         const roleId = await getRoleIdByName(apiServer, adminToken, 'OPERATOR');
         await grantRoleToUser(
           apiServer, adminToken, userProfile!.id, roleId,
@@ -650,18 +647,18 @@ describeFeature(feature, ({
     (s: StepTest<
       { userList: User.UserListResult }
     >) => {
-      const { Given, When, Then, And, context } = s;
+      const { Given, When, Then, context } = s;
 
       Given(
         '管理员账号已登录，手机号为 {string}',
         async (ctx, phone: string) => {
-        const password = 'pass_test';
-        await initAdminHandler({ schema, phone, password });
-        const { token } = await passwordLogin(featureContext.apiServer, '+86', phone, password);
-        featureContext.adminToken = token;
-      });
+          const password = 'pass_test';
+          await initAdminHandler({ schema, phone, password });
+          const { token } = await passwordLogin(featureContext.apiServer, '+86', phone, password);
+          featureContext.adminToken = token;
+        });
 
-      When('管理员账号获取用户列表', async (ctx, name: string) => {
+      When('管理员账号获取用户列表', async () => {
         const { apiServer, adminToken } = featureContext;
         const userListResponse = await listUsers(apiServer, adminToken);
         context.userList = userListResponse;
@@ -679,9 +676,9 @@ describeFeature(feature, ({
         (_ctx, phone: string, countryCode: string) => {
           const { userList } = context;
           expect(userList.users.some(user => user.phone === `+${countryCode} ${phone}`)).toBe(true);
-      });
+        });
 
-      When('管理员用手机号 {string} 搜索用户列表', async (ctx, phone: string) => {
+      When('管理员用手机号 {string} 搜索用户列表', async (_ctx, phone: string) => {
         const { apiServer, adminToken } = featureContext;
         const searchedUserListResponse = await listUsers(apiServer, adminToken, { phone });
         context.userList = searchedUserListResponse;
@@ -692,7 +689,7 @@ describeFeature(feature, ({
         (_ctx, phone: string, countryCode: string) => {
           const { userList } = context;
           expect(userList.users.some(user => user.phone === `+${countryCode} ${phone}`)).toBe(true);
-      });
+        });
     }
   );
 
@@ -807,7 +804,6 @@ describeFeature(feature, ({
         expect(context.roleList.some(role => role.name === roleName)).toBe(false);
       });
 
-
       When('管理员删除内置角色 {string}', async (_ctx, roleName: string) => {
         const { apiServer, adminToken } = featureContext;
         const roleList = await listRoles(apiServer, adminToken);
@@ -833,12 +829,12 @@ describeFeature(feature, ({
 
   Scenario(
     '将角色授予用户',
-    (s: StepTest<{}>) => {
+    (s: StepTest<void>) => {
       const { When, Then } = s;
 
       const grantRoleStep = async (_ctx: unknown, roleName: string, userName: string) => {
         const { apiServer, adminToken, registeredUsersByName } = featureContext;
-        const userProfile = registeredUsersByName?.[userName]!;
+        const userProfile = registeredUsersByName![userName]!;
         const roleId = await getRoleIdByName(apiServer, adminToken, roleName);
         await grantRoleToUser(apiServer, adminToken, userProfile.id, roleId);
       };
@@ -850,7 +846,7 @@ describeFeature(feature, ({
 
       const grantedAssertStep = async (_ctx: unknown, roleName: string, userName: string) => {
         const { apiServer, adminToken, registeredUsersByName } = featureContext;
-        const userProfile = registeredUsersByName?.[userName]!;
+        const userProfile = registeredUsersByName![userName]!;
         const suToken = await suUserToken(apiServer, adminToken, userProfile.id);
         const userRoles = await getCurrentUserRoles(apiServer, suToken);
         expect(userRoles.roles.some(role => role.name === roleName)).toBe(true);
@@ -863,19 +859,18 @@ describeFeature(feature, ({
 
       When('管理员将角色 {string} 从用户 {string} 收回', async (_ctx, roleName: string, userName: string) => {
         const { apiServer, adminToken, registeredUsersByName } = featureContext;
-        const userProfile = registeredUsersByName?.[userName]!;
+        const userProfile = registeredUsersByName![userName]!;
         const roleId = await getRoleIdByName(apiServer, adminToken, roleName);
         await revokeRoleFromUser(apiServer, adminToken, userProfile.id, roleId);
       });
 
       Then('角色 {string} 已成功从用户 {string} 收回', async (_ctx, roleName: string, userName: string) => {
         const { apiServer, adminToken, registeredUsersByName } = featureContext;
-        const userProfile = registeredUsersByName?.[userName]!;
+        const userProfile = registeredUsersByName![userName]!;
         const suToken = await suUserToken(apiServer, adminToken, userProfile.id);
         const userRoles = await getCurrentUserRoles(apiServer, suToken);
         expect(userRoles.roles.some(role => role.name === roleName)).toBe(false);
       });
-
     }
   );
 
@@ -931,7 +926,7 @@ describeFeature(feature, ({
 
       Then('用户列表获取成功，用户列表包含用户 {string}，角色为 {string}', (_ctx, userName: string, roleName: string) => {
         const { registeredUsersByName } = featureContext;
-        const targetProfile = registeredUsersByName?.[userName]!;
+        const targetProfile = registeredUsersByName![userName]!;
         const matchedUser = context.userList.users.find(user => user.id === targetProfile.id);
 
         expect(matchedUser).toBeDefined();
@@ -940,14 +935,14 @@ describeFeature(feature, ({
 
       And('用户列表获取成功，用户列表不包含用户 {string}', (ctx, userName: string) => {
         const { registeredUsersByName } = featureContext;
-        const targetProfile = registeredUsersByName?.[userName]!;
+        const targetProfile = registeredUsersByName![userName]!;
         expect(context.userList.users.some(user => user.id === targetProfile.id)).toBe(false);
       });
 
       Then('用户列表获取成功，用户列表包含用户 {string} 和用户 {string}', (_ctx, userName1: string, userName2: string) => {
         const { registeredUsersByName } = featureContext;
-        const profile1 = registeredUsersByName?.[userName1]!;
-        const profile2 = registeredUsersByName?.[userName2]!;
+        const profile1 = registeredUsersByName![userName1]!;
+        const profile2 = registeredUsersByName![userName2]!;
 
         expect(context.userList.users.some(user => user.id === profile1.id)).toBe(true);
         expect(context.userList.users.some(user => user.id === profile2.id)).toBe(true);

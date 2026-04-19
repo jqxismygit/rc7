@@ -13,11 +13,13 @@ words:
   - apiclient
   - Ctrip
   - Damai
+  - eticket
   - fapiao
   - inventorys
   - Luhn
   - mchid
   - moleculer
+  - qrcode
   - TSTZRANGE
   - wechat
   - Wechat

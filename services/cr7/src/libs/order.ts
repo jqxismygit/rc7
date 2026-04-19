@@ -425,10 +425,10 @@ export class OrderService extends RC7BaseService {
       dbClient.release();
     }
     await ctx.call('cr7.redemption.generateByOrder', { oid })
-    .catch((error) => {
-      this.logger.error(`Failed to generate redemption code for order ${oid}:`, error);
-      throw error;
-    });
+      .catch((error) => {
+        this.logger.error(`Failed to generate redemption code for order ${oid}:`, error);
+        throw error;
+      });
 
     return res!;
   }
