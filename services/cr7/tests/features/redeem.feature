@@ -1,9 +1,12 @@
 Feature: 用户已购票的查询与核销
   Background:
+    Given cr7 服务已启动
+
     Given 系统管理员已经创建并登录
     Given 用户 "Alice" 已注册并登录，已绑定手机号
     Given 用户 "Bob" 已注册并登录，已绑定手机号
       And "Bob" 被授予 "运营" 角色
+
     Given 默认核销展览活动已创建，开始时间为 "今天"，结束时间为 "3天后"
     Given 展会添加票种 "early_bird", 准入人数为 1, 有效期为场次当天
     Given "early_bird" 库存为 2
