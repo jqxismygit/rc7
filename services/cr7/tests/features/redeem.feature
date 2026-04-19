@@ -13,7 +13,7 @@ Feature: 用户已购票的查询与核销
 
   Scenario: 一个完成支付的订单拥有一个核销码
     Given 用户预订 2 张该展会的 "今天" 场次的 "early_bird"
-    Given 用户完成支付
+     When 用户完成支付
      When 用户查询订单核销信息
      Then 订单详情中包含一个核销码
       And 核销码的长度为 "12" 位
