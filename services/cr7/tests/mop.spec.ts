@@ -246,7 +246,7 @@ describeFeature(feature, ({
   });
 
   defineSteps(({ Given, When, And, Then }) => {
-    When('猫眼收到场次同步消息，at time {number}', (_ctx, time: number) => {
+    When('猫眼收到场次同步消息，at time {int}', (_ctx, time: number) => {
       const { mopRequestHandler } = featureContext;
       expect(time).toBeGreaterThan(0);
       featureContext.mopRequestCallTime = time;
@@ -256,7 +256,7 @@ describeFeature(feature, ({
       );
     });
 
-    When('猫眼收到票种同步消息，at time {number}', (_ctx, time: number) => {
+    When('猫眼收到票种同步消息，at time {int}', (_ctx, time: number) => {
       const { mopRequestHandler } = featureContext;
       expect(time).toBeGreaterThan(0);
       featureContext.mopRequestCallTime = time;
@@ -266,7 +266,7 @@ describeFeature(feature, ({
       );
     });
 
-    When('猫眼收到库存同步消息，at time {number}', (_ctx, time: number) => {
+    When('猫眼收到库存同步消息，at time {int}', (_ctx, time: number) => {
       const { mopRequestHandler } = featureContext;
       expect(time).toBeGreaterThan(0);
       featureContext.mopRequestCallTime = time;
@@ -276,7 +276,7 @@ describeFeature(feature, ({
       );
     });
 
-    Given('展会添加票种 {string}, 准入人数为 {number}, 有效期为场次当天, 价格为 {number} 元', async (
+    Given('展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天, 价格为 {int} 元', async (
       _ctx,
       ticketName: string,
       admittance: number,
@@ -302,7 +302,7 @@ describeFeature(feature, ({
       };
     });
 
-    And('{string} 库存为 {number}', async (_ctx, ticketName: string, quantity: number) => {
+    And('{string} 库存为 {int}', async (_ctx, ticketName: string, quantity: number) => {
       const { apiServer, adminToken, ticketByName, exhibition } = featureContext;
       const ticket = ticketByName[ticketName];
       expect(ticket).toBeTruthy();
@@ -376,7 +376,7 @@ describeFeature(feature, ({
       );
     });
 
-    And('场次同步消息中有 {number} 个场次', async (
+    And('场次同步消息中有 {int} 个场次', async (
       _ctx,
       count: number,
       dataTable: Array<Record<string, string>>,
@@ -426,7 +426,7 @@ describeFeature(feature, ({
       );
     });
 
-    And('场次同步消息中每个场次的状态是有效，值为 {number}', (_ctx, status: number) => {
+    And('场次同步消息中每个场次的状态是有效，值为 {int}', (_ctx, status: number) => {
       const { mopRequestHandler, mopRequestCallTime, showsSize } = featureContext;
       expect(mopRequestHandler).toHaveBeenNthCalledWith(
         mopRequestCallTime!,
@@ -441,7 +441,7 @@ describeFeature(feature, ({
       );
     });
 
-    And('场次同步消息中每个场次的类型是单场票，值为 {number}', (_ctx, showType: number) => {
+    And('场次同步消息中每个场次的类型是单场票，值为 {int}', (_ctx, showType: number) => {
       const { mopRequestHandler, mopRequestCallTime, showsSize } = featureContext;
       expect(mopRequestHandler).toHaveBeenNthCalledWith(
         mopRequestCallTime!,
@@ -456,7 +456,7 @@ describeFeature(feature, ({
       );
     });
 
-    And('场次同步消息中每个场次的取票方式是电子检票码，值为 {number}', (_ctx, fetchType: number) => {
+    And('场次同步消息中每个场次的取票方式是电子检票码，值为 {int}', (_ctx, fetchType: number) => {
       const { mopRequestHandler, mopRequestCallTime, showsSize } = featureContext;
       expect(mopRequestHandler).toHaveBeenNthCalledWith(
         mopRequestCallTime!,
@@ -471,7 +471,7 @@ describeFeature(feature, ({
       );
     });
 
-    And('场次同步消息中每个场次的每笔订单最大购买份数是 {number}', (_ctx, limit: number) => {
+    And('场次同步消息中每个场次的每笔订单最大购买份数是 {int}', (_ctx, limit: number) => {
       const { mopRequestHandler, mopRequestCallTime, showsSize } = featureContext;
       expect(mopRequestHandler).toHaveBeenNthCalledWith(
         mopRequestCallTime!,
@@ -500,7 +500,7 @@ describeFeature(feature, ({
       );
     });
 
-    And('票种同步消息中的类型是 OTA 型，值为 {number}', (_ctx, isOta: number) => {
+    And('票种同步消息中的类型是 OTA 型，值为 {int}', (_ctx, isOta: number) => {
       const { mopRequestHandler, mopRequestCallTime } = featureContext;
       expect(mopRequestCallTime).not.toBeNull();
       expect(mopRequestHandler).toHaveBeenNthCalledWith(
@@ -514,7 +514,7 @@ describeFeature(feature, ({
       );
     });
 
-    And('票种同步消息中有 {number} 个 sku', async (
+    And('票种同步消息中有 {int} 个 sku', async (
       _ctx,
       count: number,
       dataTable: Array<Record<string, string>>,
@@ -580,7 +580,7 @@ describeFeature(feature, ({
       );
     });
 
-    And('库存同步消息中有 {number} 个 sku 的库存信息', async (
+    And('库存同步消息中有 {int} 个 sku 的库存信息', async (
       _ctx,
       count: number,
       dataTable: Array<Record<string, string>>,
@@ -626,7 +626,7 @@ describeFeature(feature, ({
       );
     });
 
-    And('库存同步消息中的库存类型是共享库存，值为 {number}', (_ctx, inventoryType: number) => {
+    And('库存同步消息中的库存类型是共享库存，值为 {int}', (_ctx, inventoryType: number) => {
       const { mopRequestHandler, mopRequestCallTime, inventoriesSize } = featureContext;
       expect(mopRequestCallTime).not.toBeNull();
       expect(inventoriesSize).toBeGreaterThan(0);
@@ -643,7 +643,7 @@ describeFeature(feature, ({
       );
     });
 
-    And('票种同步消息中的每个 sku 的状态是有效，值为 {number}', (_ctx, status: number) => {
+    And('票种同步消息中的每个 sku 的状态是有效，值为 {int}', (_ctx, status: number) => {
       const { mopRequestHandler, mopRequestCallTime, ticketsSize } = featureContext;
       expect(mopRequestCallTime).not.toBeNull();
       expect(mopRequestHandler).toHaveBeenNthCalledWith(
@@ -660,7 +660,7 @@ describeFeature(feature, ({
       );
     });
 
-    And('票种同步消息中的每个 sku 的库存模式是共享库存，值为 {number}', (_ctx, inventoryType: number) => {
+    And('票种同步消息中的每个 sku 的库存模式是共享库存，值为 {int}', (_ctx, inventoryType: number) => {
       const { mopRequestHandler, mopRequestCallTime, ticketsSize } = featureContext;
       expect(mopRequestCallTime).not.toBeNull();
       expect(mopRequestHandler).toHaveBeenNthCalledWith(
@@ -762,7 +762,7 @@ describeFeature(feature, ({
       featureContext.mopOrderDraft!.needRealName = false;
     });
 
-    And('猫眼订单中有 {number} 个订单项', (_ctx, count: number) => {
+    And('猫眼订单中有 {int} 个订单项', (_ctx, count: number) => {
       expect(featureContext.mopOrderDraft).toBeTruthy();
       featureContext.mopOrderDraft!.ticketInfo = Array.from({ length: count }, () => ({
         myTicketId: '',
@@ -771,7 +771,7 @@ describeFeature(feature, ({
       }));
     });
 
-    And('猫眼订单中的第 {number} 个订单项的 sku ID 是 {string} 的 ID', (
+    And('猫眼订单中的第 {int} 个订单项的 sku ID 是 {string} 的 ID', (
       _ctx,
       index: number,
       ticketName: string,
@@ -783,7 +783,7 @@ describeFeature(feature, ({
       featureContext.mopOrderDraft!.ticketInfo[index - 1].skuId = ticket.id;
     });
 
-    And('猫眼订单中的第 {number} 个订单项的猫眼 ID 是 {string}', (
+    And('猫眼订单中的第 {int} 个订单项的猫眼 ID 是 {string}', (
       _ctx,
       index: number,
       myTicketId: string,
@@ -793,7 +793,7 @@ describeFeature(feature, ({
       featureContext.mopOrderDraft!.ticketInfo[index - 1].myTicketId = myTicketId;
     });
 
-    And('猫眼订单中的第 {number} 个订单项的价格是 {string} 的价格，{number} 元', (
+    And('猫眼订单中的第 {int} 个订单项的价格是 {string} 的价格，{int} 元', (
       _ctx,
       index: number,
       ticketName: string,
@@ -807,7 +807,7 @@ describeFeature(feature, ({
     });
 
     And(
-      '猫眼订单中的订单总金额是 {number} 个订单项的价格之和，{number} 元',
+      '猫眼订单中的订单总金额是 {int} 个订单项的价格之和，{int} 元',
       (_ctx, itemCount: number, totalPrice: number) => {
         expect(featureContext.mopOrderDraft!.ticketInfo).toHaveLength(itemCount);
         const totalPriceCalculated = featureContext.mopOrderDraft!.ticketInfo
@@ -817,7 +817,7 @@ describeFeature(feature, ({
       }
     );
 
-    Then('默认展会活动的 {string} 在 {string} 的库存为 {number}', async (
+    Then('默认展会活动的 {string} 在 {string} 的库存为 {int}', async (
       _ctx,
       ticketName: string,
       dayLabel: string,
@@ -842,7 +842,7 @@ describeFeature(feature, ({
       expect(ticketCalendarInventory!.quantity).toBe(expectedQuantity);
     });
 
-    Then('默认展会活动的 {string} 在 {string} 的库存保持为 {number}', async (
+    Then('默认展会活动的 {string} 在 {string} 的库存保持为 {int}', async (
       _ctx,
       ticketName: string,
       dayLabel: string,
@@ -912,7 +912,7 @@ describeFeature(feature, ({
     });
 
     And(
-      '订单的第 {number} 个订单项是 {string}，数量为 {number}，价格为票价，{number} 元',
+      '订单的第 {int} 个订单项是 {string}，数量为 {int}，价格为票价，{int} 元',
       (_ctx, index: number, ticketName: string, quantity: number, price: number) => {
         const { order } = featureContext;
         const item = order!.items[index - 1];
@@ -951,31 +951,31 @@ describeFeature(feature, ({
       expect(featureContext.mopOrderQueryBody!.myOrderId).toBe(myOrderId);
     });
 
-    And('订单详情中的订单状态为初始状态， 值为 {number}', (_ctx, status: number) => {
+    And('订单详情中的订单状态为初始状态， 值为 {int}', (_ctx, status: number) => {
       expect(featureContext.mopOrderQueryBody!.orderStatus).toBe(status);
     });
 
-    And('订单详情中的订单状态为已出票，值为 {number}', (_ctx, status: number) => {
+    And('订单详情中的订单状态为已出票，值为 {int}', (_ctx, status: number) => {
       expect(featureContext.mopOrderQueryBody!.orderStatus).toBe(status);
     });
 
-    And('订单详情中的订单状态为已出票， 值为 {number}', (_ctx, status: number) => {
+    And('订单详情中的订单状态为已出票， 值为 {int}', (_ctx, status: number) => {
       expect(featureContext.mopOrderQueryBody!.orderStatus).toBe(status);
     });
 
-    And('订单详情中的退款状态为未发起，值为 {number}', (_ctx, status: number) => {
+    And('订单详情中的退款状态为未发起，值为 {int}', (_ctx, status: number) => {
       expect(featureContext.mopOrderQueryBody!.orderRefundStatus).toBe(status);
     });
 
-    And('订单详情中的核销状态为未消费，值为 {number}', (_ctx, status: number) => {
+    And('订单详情中的核销状态为未消费，值为 {int}', (_ctx, status: number) => {
       expect(featureContext.mopOrderQueryBody!.orderConsumeStatus).toBe(status);
     });
 
-    And('订单详情中的核销状态为已消费，值为 {number}', (_ctx, status: number) => {
+    And('订单详情中的核销状态为已消费，值为 {int}', (_ctx, status: number) => {
       expect(featureContext.mopOrderQueryBody!.orderConsumeStatus).toBe(status);
     });
 
-    And('订单详情中的订单状态为已取消，值为 {number}', (_ctx, status: number) => {
+    And('订单详情中的订单状态为已取消，值为 {int}', (_ctx, status: number) => {
       expect(featureContext.mopOrderQueryBody!.orderStatus).toBe(status);
     });
 
@@ -984,39 +984,39 @@ describeFeature(feature, ({
       expect(featureContext.mopOrderQueryBody!.fetchQrCode).toBeNull();
     });
 
-    And('订单详情中的有 {number} 个订单项', (_ctx, itemCount: number) => {
+    And('订单详情中的有 {int} 个订单项', (_ctx, itemCount: number) => {
       expect(featureContext.mopOrderQueryBody!.ticketInfo).toHaveLength(itemCount);
     });
 
-    And('订单详情中有 {number} 个订单项', (_ctx, itemCount: number) => {
+    And('订单详情中有 {int} 个订单项', (_ctx, itemCount: number) => {
       expect(featureContext.mopOrderQueryBody!.ticketInfo).toHaveLength(itemCount);
     });
 
-    And('订单详情中的第 {number} 个订单项的猫眼 ID 是 {string}', (_ctx, index: number, myTicketId: string) => {
+    And('订单详情中的第 {int} 个订单项的猫眼 ID 是 {string}', (_ctx, index: number, myTicketId: string) => {
       expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1]).toBeTruthy();
       expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1].myTicketId).toBe(myTicketId);
     });
 
-    And('订单详情中的第 {number} 个订单项的渠道票 ID 是 {string} 的 ID', (_ctx, index: number, ticketName: string) => {
+    And('订单详情中的第 {int} 个订单项的渠道票 ID 是 {string} 的 ID', (_ctx, index: number, ticketName: string) => {
       const ticket = featureContext.ticketByName[ticketName];
       expect(ticket).toBeTruthy();
       expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1]).toBeTruthy();
       expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1].channelTicketId).toBe(ticket.id);
     });
 
-    And('订单详情中的第 {number} 个订单项的核销状态为未消费，值为 {number}', (_ctx, index: number, status: number) => {
+    And('订单详情中的第 {int} 个订单项的核销状态为未消费，值为 {int}', (_ctx, index: number, status: number) => {
       expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1]).toBeTruthy();
       expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1].ticketConsumeStatus).toBe(status);
     });
 
-    And('订单详情中的第 {number} 个订单项的检票码是 cr7 订单的核销码', (_ctx, index: number) => {
+    And('订单详情中的第 {int} 个订单项的检票码是 cr7 订单的核销码', (_ctx, index: number) => {
       const { mopOrderQueryBody, orderRedemption } = featureContext;
       expect(orderRedemption).toBeTruthy();
       expect(mopOrderQueryBody!.ticketInfo[index - 1]).toBeTruthy();
       expect(mopOrderQueryBody!.ticketInfo[index - 1].checkCode).toBe(orderRedemption!.code);
     });
 
-    And('订单详情中的第 {number} 个订单项的检票二维码是 cr7 订单的核销码', (_ctx, index: number) => {
+    And('订单详情中的第 {int} 个订单项的检票二维码是 cr7 订单的核销码', (_ctx, index: number) => {
       const { mopOrderQueryBody, orderRedemption } = featureContext;
       expect(orderRedemption).toBeTruthy();
       expect(mopOrderQueryBody!.ticketInfo[index - 1]).toBeTruthy();
@@ -1119,7 +1119,7 @@ describeFeature(feature, ({
       await verifyMopResponseSign('/mop/orderStatusChange', featureContext.mopOrderStatusChangeEnvelope);
     });
 
-    And('猫眼退款消息中的状态值为 {number}，表示用户申请了退款', (_ctx, status: number) => {
+    And('猫眼退款消息中的状态值为 {int}，表示用户申请了退款', (_ctx, status: number) => {
       expect(featureContext.mopOrderStatusChangeDraft).toBeTruthy();
       expect(featureContext.mopOrderStatusChangeDraft!.bizType).toBe(status);
       expect(featureContext.mopOrderStatusChangeDraft!.bizType).toBe(1);
@@ -1158,19 +1158,19 @@ describeFeature(feature, ({
     });
 
     // records
-    When('管理员第 {number} 次查看猫眼订单同步记录', async () => {
+    When('管理员第 {int} 次查看猫眼订单同步记录', async () => {
       const { apiServer, adminToken, order } = featureContext;
       featureContext.records = await getMopOrderSyncRecords(
         apiServer, adminToken, order!.id
       );
     });
 
-    Then('订单同步记录里有 {number} 条记录', (_ctx, count: number) => {
+    Then('订单同步记录里有 {int} 条记录', (_ctx, count: number) => {
       const { records } = featureContext;
       expect(records).toHaveLength(count);
     });
 
-    And('第 {number} 次查看时，最新的订单同步记录中 request_path 是 {string}， 状态为成功', (_ctx, _checkIndex: number, requestPath: string) => {
+    And('第 {int} 次查看时，最新的订单同步记录中 request_path 是 {string}， 状态为成功', (_ctx, _checkIndex: number, requestPath: string) => {
       const { records } = featureContext;
       expect(records![0].request_path).toBe(requestPath);
       expect(records![0].sync_status).toBe('SUCCESS');
@@ -1303,7 +1303,7 @@ describeFeature(feature, ({
     });
 
     And(
-      '展会同步消息中的类目是 {string}, 值为 {number}',
+      '展会同步消息中的类目是 {string}, 值为 {int}',
       (_ctx, categoryName: string, categoryValue: number) => {
         const { mopRequestHandler } = featureContext;
         expect(categoryName).toBe('休闲展览');
@@ -1332,7 +1332,7 @@ describeFeature(feature, ({
       }));
     });
 
-    And('展会中的场馆的座位类型是无座，值为 {number}', (_ctx, value: number) => {
+    And('展会中的场馆的座位类型是无座，值为 {int}', (_ctx, value: number) => {
       const { mopRequestHandler } = featureContext;
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
         body: expect.objectContaining({
@@ -1341,7 +1341,7 @@ describeFeature(feature, ({
       }));
     });
 
-    And('展会中的场馆的实名制认证类型是非实名制，值为 {number}', (_ctx, value: number) => {
+    And('展会中的场馆的实名制认证类型是非实名制，值为 {int}', (_ctx, value: number) => {
       const { mopRequestHandler } = featureContext;
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
         body: expect.objectContaining({
@@ -1350,7 +1350,7 @@ describeFeature(feature, ({
       }));
     });
 
-    And('展会中的项目状态是有效，值为 {number}', (_ctx, status: number) => {
+    And('展会中的项目状态是有效，值为 {int}', (_ctx, status: number) => {
       const { mopRequestHandler } = featureContext;
       expect(mopRequestHandler).toHaveBeenCalledWith(expect.objectContaining({
         body: expect.objectContaining({
@@ -1503,7 +1503,7 @@ describeFeature(feature, ({
       expect(order!.user_id).toEqual(orderUser!.id);
     });
 
-    And('订单的订单项有 {number} 个', (_ctx, itemCount: number) => {
+    And('订单的订单项有 {int} 个', (_ctx, itemCount: number) => {
       const { mopOrderDraft, order } = featureContext;
       expect(order!.items).toHaveLength(itemCount);
       const orderItemsMap = new Map(order!.items.map(item => [item.ticket_category_id, item]));
@@ -1569,7 +1569,7 @@ describeFeature(feature, ({
       expect(featureContext.mopTicketBody!.myOrderId).toBe(myOrderId);
     });
 
-    And('订单支付结果的订单状态是已出票，值为 {number}', (_ctx, status: number) => {
+    And('订单支付结果的订单状态是已出票，值为 {int}', (_ctx, status: number) => {
       const { mopTicketBody } = featureContext;
       expect(mopTicketBody!.orderStatus).toBe(status);
     });
@@ -1584,18 +1584,18 @@ describeFeature(feature, ({
       expect(mopTicketBody!.fetchQrCode).toBeNull();
     });
 
-    And('订单支付结果中有 {number} 个订单项', (_ctx, itemCount: number) => {
+    And('订单支付结果中有 {int} 个订单项', (_ctx, itemCount: number) => {
       const { mopTicketBody } = featureContext;
       expect(mopTicketBody!.ticketInfo).toHaveLength(itemCount);
     });
 
-    And('订单支付结果中的第 {number} 个订单项的猫眼 ID 是 {string}', (_ctx, index: number, myTicketId: string) => {
+    And('订单支付结果中的第 {int} 个订单项的猫眼 ID 是 {string}', (_ctx, index: number, myTicketId: string) => {
       const { mopTicketBody } = featureContext;
       expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
       expect(mopTicketBody!.ticketInfo[index - 1].myTicketId).toBe(myTicketId);
     });
 
-    And('订单支付结果中的第 {number} 个订单项的渠道票 ID 是 {string} 的 ID', (_ctx, index: number, ticketName: string) => {
+    And('订单支付结果中的第 {int} 个订单项的渠道票 ID 是 {string} 的 ID', (_ctx, index: number, ticketName: string) => {
       const ticket = featureContext.ticketByName[ticketName];
       expect(ticket).toBeTruthy();
       const { mopTicketBody } = featureContext;
@@ -1603,21 +1603,21 @@ describeFeature(feature, ({
       expect(mopTicketBody!.ticketInfo[index - 1].channelTicketId).toBe(ticket.id);
     });
 
-    And('订单支付结果中的第 {number} 个订单项的检票码是 cr7 的订单的核销码', (_ctx, index: number) => {
+    And('订单支付结果中的第 {int} 个订单项的检票码是 cr7 的订单的核销码', (_ctx, index: number) => {
       const { mopTicketBody, orderRedemption } = featureContext;
       expect(orderRedemption).toBeTruthy();
       expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
       expect(mopTicketBody!.ticketInfo[index - 1].checkCode).toBe(orderRedemption!.code);
     });
 
-    And('订单支付结果中的第 {number} 个订单项的检票二维码是 cr7 的订单的核销码', (_ctx, index: number) => {
+    And('订单支付结果中的第 {int} 个订单项的检票二维码是 cr7 的订单的核销码', (_ctx, index: number) => {
       const { mopTicketBody, orderRedemption } = featureContext;
       expect(orderRedemption).toBeTruthy();
       expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
       expect(mopTicketBody!.ticketInfo[index - 1].checkQrCode).toBe(orderRedemption!.code);
     });
 
-    Then('订单同步记录里有 {number} 条记录', (_ctx, count: number) => {
+    Then('订单同步记录里有 {int} 条记录', (_ctx, count: number) => {
       const { records } = featureContext;
       expect(records).toHaveLength(count);
     });
@@ -1653,7 +1653,7 @@ describeFeature(feature, ({
       ).toBe(new Date(orderRedemption!.created_at).getTime());
     });
 
-    And('订单支付结果中的第 {number} 个订单项的检票码仍然是 cr7 订单的核销码', (_ctx, index: number) => {
+    And('订单支付结果中的第 {int} 个订单项的检票码仍然是 cr7 订单的核销码', (_ctx, index: number) => {
       const { mopTicketBody, orderRedemption } = featureContext;
       expect(orderRedemption).toBeTruthy();
       expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
@@ -1722,7 +1722,7 @@ describeFeature(feature, ({
       expect(featureContext.mopOrderStatusChangeEnvelope!.encryptData).toBeNull();
     });
 
-    And('订单详情中的退款状态为已退款，值为 {number}', (_ctx, status: number) => {
+    And('订单详情中的退款状态为已退款，值为 {int}', (_ctx, status: number) => {
       expect(featureContext.mopOrderQueryBody!.orderRefundStatus).toBe(status);
     });
 
@@ -1762,7 +1762,7 @@ describeFeature(feature, ({
       );
     });
 
-    Then('订单的退款记录里有 {number} 条记录', (_ctx, count: number) => {
+    Then('订单的退款记录里有 {int} 条记录', (_ctx, count: number) => {
       expect(featureContext.refundRecords).toHaveLength(count);
     });
 

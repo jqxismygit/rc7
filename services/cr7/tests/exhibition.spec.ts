@@ -184,13 +184,13 @@ describeFeature(feature, ({
       featureContext.draftTicket = { name: categoryName } as DraftTicketCategory;
     });
 
-    And('票价为 {number}', (_ctx, price: number) => {
+    And('票价为 {int}', (_ctx, price: number) => {
       const { draftTicket } = featureContext;
       expect(draftTicket).toBeTruthy();
       draftTicket!.price = price;
     });
 
-    And('有效期为 {number} 天', (_ctx, days: number) => {
+    And('有效期为 {int} 天', (_ctx, days: number) => {
       const { draftTicket } = featureContext;
       expect(draftTicket).toBeTruthy();
       draftTicket!.valid_duration_days = days;
@@ -208,7 +208,7 @@ describeFeature(feature, ({
       draftTicket!.refund_policy = 'REFUNDABLE_48H_BEFORE';
     });
 
-    And('准入人数为 {number}', (_ctx, count: number) => {
+    And('准入人数为 {int}', (_ctx, count: number) => {
       const { draftTicket } = featureContext;
       expect(draftTicket).toBeTruthy();
       draftTicket!.admittance = count;
@@ -331,7 +331,7 @@ describeFeature(feature, ({
         expect(ticket!.admittance).toBe(1);
       });
 
-      And('展览包含 {number} 个票种 {string}', async (_ctx, count: number, categoryName: string) => {
+      And('展览包含 {int} 个票种 {string}', async (_ctx, count: number, categoryName: string) => {
         const { exhibition } = featureContext;
         const { ticket } = featureContext;
         const { apiServer } = featureContext;
@@ -365,7 +365,7 @@ describeFeature(feature, ({
       });
 
       And(
-        '展览包含 {number} 个票种 {string}',
+        '展览包含 {int} 个票种 {string}',
         async (_ctx, count: number, name: string) => {
           const { exhibition } = featureContext;
           const { ticket } = featureContext;
@@ -431,7 +431,7 @@ describeFeature(feature, ({
     }>) => {
       const { Given, When, Then, And, context } = s;
 
-      Given('已为列表创建 {number} 个展览', async (_ctx, count: number) => {
+      Given('已为列表创建 {int} 个展览', async (_ctx, count: number) => {
         const { apiServer } = featureContext;
         const createdExhibitions = await createExhibitions(apiServer, featureContext.adminToken, count, {
           namePrefix: 'list_exhibition',
@@ -439,13 +439,13 @@ describeFeature(feature, ({
         context.createdExhibitions = createdExhibitions;
       });
 
-      When('按 limit {number} 和 offset {number} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
+      When('按 limit {int} 和 offset {int} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
         const { apiServer } = featureContext;
         const listResult = await listAdminExhibitions(apiServer, featureContext.adminToken, { limit, offset });
         context.listResult = listResult;
       });
 
-      Then('返回 {number} 个展览', (_ctx, count: number) => {
+      Then('返回 {int} 个展览', (_ctx, count: number) => {
         expect(context.listResult!.data).toHaveLength(count);
       });
 
@@ -468,7 +468,7 @@ describeFeature(feature, ({
     }>) => {
       const { Given, When, Then, And, context } = s;
 
-      Given('已为列表创建 {number} 个展览', async (_ctx, count: number) => {
+      Given('已为列表创建 {int} 个展览', async (_ctx, count: number) => {
         const { apiServer } = featureContext;
         const createdExhibitions = await createExhibitions(apiServer, featureContext.adminToken, count, {
           namePrefix: 'list_exhibition',
@@ -476,13 +476,13 @@ describeFeature(feature, ({
         context.createdExhibitions = createdExhibitions;
       });
 
-      When('按 limit {number} 和 offset {number} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
+      When('按 limit {int} 和 offset {int} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
         const { apiServer } = featureContext;
         const listResult = await listAdminExhibitions(apiServer, featureContext.adminToken, { limit, offset });
         context.listResult = listResult;
       });
 
-      Then('返回 {number} 个展览', (_ctx, count: number) => {
+      Then('返回 {int} 个展览', (_ctx, count: number) => {
         expect(context.listResult!.data).toHaveLength(count);
       });
 
@@ -501,7 +501,7 @@ describeFeature(feature, ({
     }>) => {
       const { Given, When, Then, And, context } = s;
 
-      Given('已为列表创建 {number} 个展览', async (_ctx, count: number) => {
+      Given('已为列表创建 {int} 个展览', async (_ctx, count: number) => {
         const { apiServer } = featureContext;
         const createdExhibitions = await createExhibitions(apiServer, featureContext.adminToken, count, {
           namePrefix: 'list_exhibition',
@@ -509,7 +509,7 @@ describeFeature(feature, ({
         context.createdExhibitions = createdExhibitions;
       });
 
-      And('管理员将第 {number} 个展览状态更新为 {string}', async (_ctx, index: number, status: string) => {
+      And('管理员将第 {int} 个展览状态更新为 {string}', async (_ctx, index: number, status: string) => {
         const { apiServer } = featureContext;
         const { createdExhibitions } = context;
         const target = createdExhibitions![index - 1];
@@ -521,17 +521,17 @@ describeFeature(feature, ({
         );
       });
 
-      When('按 limit {number} 和 offset {number} 查询展览列表', async (_ctx, limit: number, offset: number) => {
+      When('按 limit {int} 和 offset {int} 查询展览列表', async (_ctx, limit: number, offset: number) => {
         const { apiServer } = featureContext;
         const listResult = await listExhibitions(apiServer, featureContext.adminToken, { limit, offset });
         context.listResult = listResult;
       });
 
-      Then('返回 {number} 个展览', (_ctx, count: number) => {
+      Then('返回 {int} 个展览', (_ctx, count: number) => {
         expect(context.listResult!.data).toHaveLength(count);
       });
 
-      And('返回的是第 {number} 个创建的展览', (_ctx, index: number) => {
+      And('返回的是第 {int} 个创建的展览', (_ctx, index: number) => {
         const { createdExhibitions } = context;
         expect(context.listResult!.data[0].id).toBe(createdExhibitions![index - 1].id);
       });
@@ -545,13 +545,13 @@ describeFeature(feature, ({
     }>) => {
       const { When, Then, context } = s;
 
-      When('按 limit {number} 和 offset {number} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
+      When('按 limit {int} 和 offset {int} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
         const { apiServer } = featureContext;
         const listResult = await listAdminExhibitions(apiServer, featureContext.adminToken, { limit, offset });
         context.listResult = listResult;
       });
 
-      Then('返回 {number} 个展览', (_ctx, count: number) => {
+      Then('返回 {int} 个展览', (_ctx, count: number) => {
         expect(context.listResult!.data).toHaveLength(count);
       });
     }
@@ -796,7 +796,7 @@ describeFeature(feature, ({
         context.ticketPatch!.name = name;
       });
 
-      And('准备更新票种有效期为 {number} 天', (_ctx, validDurationDays: number) => {
+      And('准备更新票种有效期为 {int} 天', (_ctx, validDurationDays: number) => {
         context.ticketPatch ??= {};
         context.ticketPatch!.valid_duration_days = validDurationDays;
       });
@@ -806,7 +806,7 @@ describeFeature(feature, ({
         context.ticketPatch!.refund_policy = 'NON_REFUNDABLE';
       });
 
-      And('准备更新票种准入人数为 {number}', (_ctx, admittance: number) => {
+      And('准备更新票种准入人数为 {int}', (_ctx, admittance: number) => {
         context.ticketPatch ??= {};
         context.ticketPatch!.admittance = admittance;
       });
@@ -851,7 +851,7 @@ describeFeature(feature, ({
         expect(ticketCategories![0].name).toBe(ticketName);
       });
 
-      And('展览中的票种有效期已更新为 {number} 天', async (_ctx, validDurationDays: number) => {
+      And('展览中的票种有效期已更新为 {int} 天', async (_ctx, validDurationDays: number) => {
         const { ticketCategories } = context;
         expect(ticketCategories![0].valid_duration_days).toBe(validDurationDays);
       });
@@ -861,7 +861,7 @@ describeFeature(feature, ({
         expect(ticketCategories![0].refund_policy).toBe('NON_REFUNDABLE');
       });
 
-      And('展览中的票种准入人数已更新为 {number}', async (_ctx, admittance: number) => {
+      And('展览中的票种准入人数已更新为 {int}', async (_ctx, admittance: number) => {
         const { ticketCategories } = context;
         expect(ticketCategories![0].admittance).toBe(admittance);
       });

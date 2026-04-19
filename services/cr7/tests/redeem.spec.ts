@@ -360,7 +360,7 @@ describeFeature(feature, ({
     (s: StepTest<RedemptionListContext>) => {
       const { Given, When, Then, And, context } = s;
 
-      Given('用户已完成 {number} 个订单支付用于核销码列表查询', async (_ctx, count: number) => {
+      Given('用户已完成 {int} 个订单支付用于核销码列表查询', async (_ctx, count: number) => {
         const total = count;
         context.paidOrders = [];
 
@@ -376,7 +376,7 @@ describeFeature(feature, ({
         }
       });
 
-      When('用户查询自己的核销码列表，第 {number} 页，每页 {number} 条', async (_ctx, page: number, limit: number) => {
+      When('用户查询自己的核销码列表，第 {int} 页，每页 {int} 条', async (_ctx, page: number, limit: number) => {
         context.redemptionList = await listMyRedemptions(
           featureContext.fixtures.values.apiServer,
           featureContext.userToken,
@@ -387,23 +387,23 @@ describeFeature(feature, ({
         );
       });
 
-      Then('核销码列表总数为 {number}', (_ctx, total: number) => {
+      Then('核销码列表总数为 {int}', (_ctx, total: number) => {
         expect(context.redemptionList.total).toBe(total);
       });
 
-      And('核销码列表当前页为 {number}', (_ctx, page: number) => {
+      And('核销码列表当前页为 {int}', (_ctx, page: number) => {
         expect(context.redemptionList.page).toBe(page);
       });
 
-      And('核销码列表每页数量为 {number}', (_ctx, limit: number) => {
+      And('核销码列表每页数量为 {int}', (_ctx, limit: number) => {
         expect(context.redemptionList.limit).toBe(limit);
       });
 
-      And('核销码列表返回 {number} 条记录', (_ctx, count: number) => {
+      And('核销码列表返回 {int} 条记录', (_ctx, count: number) => {
         expect(context.redemptionList.redemptions).toHaveLength(count);
       });
 
-      Given('运营人员核销用户 {string} 的第 {number} 个订单核销码', async (_ctx, userName: string, index: number) => {
+      Given('运营人员核销用户 {string} 的第 {int} 个订单核销码', async (_ctx, userName: string, index: number) => {
         expect(featureContext.usersByName[userName]).toBeTruthy();
 
         const order = context.paidOrders[index - 1];
@@ -418,7 +418,7 @@ describeFeature(feature, ({
         await performRedeem(featureContext, redemption, featureContext.operatorToken);
       });
 
-      When('用户按状态 {string} 查询自己的核销码列表，第 {number} 页，每页 {number} 条', async (_ctx, status: Redeem.RedemptionStatus, page: number, limit: number) => {
+      When('用户按状态 {string} 查询自己的核销码列表，第 {int} 页，每页 {int} 条', async (_ctx, status: Redeem.RedemptionStatus, page: number, limit: number) => {
         context.redemptionList = await listMyRedemptions(
           featureContext.fixtures.values.apiServer,
           featureContext.userToken,
@@ -430,15 +430,15 @@ describeFeature(feature, ({
         );
       });
 
-      Then('按状态筛选的核销码列表总数为 {number}', (_ctx, total: number) => {
+      Then('按状态筛选的核销码列表总数为 {int}', (_ctx, total: number) => {
         expect(context.redemptionList.total).toBe(total);
       });
 
-      And('按状态筛选的核销码列表返回 {number} 条记录', (_ctx, count: number) => {
+      And('按状态筛选的核销码列表返回 {int} 条记录', (_ctx, count: number) => {
         expect(context.redemptionList.redemptions).toHaveLength(count);
       });
 
-      And('按状态筛选结果中的订单 ID 与第 {number} 个订单一致', (_ctx, index: number) => {
+      And('按状态筛选结果中的订单 ID 与第 {int} 个订单一致', (_ctx, index: number) => {
         const order = context.paidOrders[index - 1];
         expect(order).toBeTruthy();
         expect(context.redemptionList.redemptions[0].order_id).toBe(order.id);
