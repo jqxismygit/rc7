@@ -450,7 +450,7 @@ export default function ExhibitionDetailPage() {
       },
       {
         title: "价格（元）",
-        dataIndex: "price",
+        dataIndex: "list_price",
         width: 110,
         render: (p: number) => (typeof p === "number" ? String(p * 0.01) : p),
       },
@@ -1148,7 +1148,7 @@ export default function ExhibitionDetailPage() {
           rules={[{ required: true, message: "请输入票种名称" }]}
         />
         <ProFormDigit
-          name="price"
+          name="list_price"
           label="价格（元）"
           placeholder="0"
           fieldProps={{ min: 0, precision: 2, style: { width: "100%" } }}
