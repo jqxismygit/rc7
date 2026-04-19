@@ -4,7 +4,7 @@ import type {
 } from "@cr7/types";
 import { request } from "@/utils/request";
 
-export type SessionTicketsInventory = InventoryTypes.SessionTicketsInventory;
+export type SessionTicketsInventory = InventoryTypes.SessionInventory;
 
 export type CreateExhibitionInput = Omit<
   ExhibitionTypes.Exhibition,
@@ -134,26 +134,26 @@ export async function getExhibitionApi(eid: string): Promise<
 export async function listExhibitionSessionTicketsApi(
   eid: string,
   sid: string,
-): Promise<InventoryTypes.SessionTicketsInventory[]> {
+): Promise<SessionTicketsInventory[]> {
   const raw = await request.get(
     `/exhibition/${encodeURIComponent(eid)}/sessions/${encodeURIComponent(sid)}/tickets`,
   );
-  return raw as unknown as InventoryTypes.SessionTicketsInventory[];
+  return raw as unknown as SessionTicketsInventory[];
 }
 
 export async function createExhibitionSessionTicketApi(
   eid: string,
   sid: string,
   data: Omit<
-    InventoryTypes.SessionTicketsInventory,
+    SessionTicketsInventory,
     "id" | "session_id" | "created_at" | "updated_at"
   >,
-): Promise<InventoryTypes.SessionTicketsInventory> {
+): Promise<SessionTicketsInventory> {
   const raw = await request.post(
     `/exhibition/${encodeURIComponent(eid)}/sessions/${encodeURIComponent(sid)}/tickets`,
     data,
   );
-  return raw as unknown as InventoryTypes.SessionTicketsInventory;
+  return raw as unknown as SessionTicketsInventory;
 }
 
 /** 批量设置某票种在所有场次下的库存上限，响应 204 */

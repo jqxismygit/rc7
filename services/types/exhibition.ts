@@ -1,4 +1,4 @@
-export type ExhibitionStatus = 'ENABLE' | 'DISABLE';
+export type ExhibitionStatus = "ENABLE" | "DISABLE";
 
 export interface Exhibition {
   id: string;
@@ -18,24 +18,26 @@ export interface Exhibition {
   updated_at: Date;
 }
 
-export type ExhibitionDraft = Partial<Pick<Exhibition,
-  'name' |
-  'description' |
-  'start_date' |
-  'end_date' |
-  'opening_time' |
-  'closing_time' |
-  'last_entry_time' |
-  'city' |
-  'venue_name' |
-  'location' |
-  'cover_url'
->>;
+export type ExhibitionDraft = Partial<
+  Pick<
+    Exhibition,
+    | "name"
+    | "description"
+    | "start_date"
+    | "end_date"
+    | "opening_time"
+    | "closing_time"
+    | "last_entry_time"
+    | "city"
+    | "venue_name"
+    | "location"
+    | "cover_url"
+  >
+>;
 
-export type ExhibitionPatch = Partial<Omit<ExhibitionDraft,
-  'start_date' |
-  'end_date'
->>;
+export type ExhibitionPatch = Partial<
+  Omit<ExhibitionDraft, "start_date" | "end_date">
+>;
 
 export interface TicketCategory {
   id: string;
@@ -47,14 +49,15 @@ export interface TicketCategory {
   ota_xc_option_id?: string | null;
   created_at: Date;
   updated_at: Date;
+  price: number;
 }
 
-export type TicketCategoryPatch = Partial<Pick<TicketCategory,
-  'name' |
-  'valid_duration_days' |
-  'refund_policy' |
-  'admittance'
->>;
+export type TicketCategoryPatch = Partial<
+  Pick<
+    TicketCategory,
+    "name" | "valid_duration_days" | "refund_policy" | "admittance" | "price"
+  >
+>;
 
 export interface ExhibitionWithCategories extends Exhibition {
   ticket_categories: TicketCategory[];

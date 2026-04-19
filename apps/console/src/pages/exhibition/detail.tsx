@@ -241,6 +241,7 @@ export default function ExhibitionDetailPage() {
     setError(null);
     try {
       const res = await getExhibitionApi(eid);
+      console.log("res", res);
       setData(res);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
