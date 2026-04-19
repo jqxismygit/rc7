@@ -391,7 +391,7 @@ export default function ExhibitionDetailPage() {
         title: "价格（元）",
         dataIndex: "price",
         width: 100,
-        render: (p: number) => (typeof p === "number" ? String(p) : p),
+        render: (p: number) => p * 0.01,
       },
       {
         title: "退票政策",
@@ -560,7 +560,9 @@ export default function ExhibitionDetailPage() {
     }
   }
 
-  async function handleEditTicketModalFinish(values: CreateTicketCategoryInput) {
+  async function handleEditTicketModalFinish(
+    values: CreateTicketCategoryInput,
+  ) {
     const ticket = editTicketData;
     if (!eid || !ticket) return false;
     try {
@@ -1106,7 +1108,9 @@ export default function ExhibitionDetailPage() {
       </ModalForm>
 
       <ModalForm<CreateTicketCategoryInput>
-        title={editTicketData ? `编辑票种 · ${editTicketData.name}` : "编辑票种"}
+        title={
+          editTicketData ? `编辑票种 · ${editTicketData.name}` : "编辑票种"
+        }
         open={editTicketVisible}
         onOpenChange={(open) => {
           if (!open) closeEditTicketModal();
