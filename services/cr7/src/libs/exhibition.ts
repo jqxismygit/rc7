@@ -45,6 +45,7 @@ const TICKET_CATEGORY_UPDATE_FIELDS = [
   'valid_duration_days',
   'refund_policy',
   'admittance',
+  'list_price',
 ] as const;
 
 interface UserMeta {
@@ -58,6 +59,7 @@ type TicketCategoryCreateInput = Omit<
   'id' | 'exhibit_id' | 'created_at' | 'updated_at'
 > & {
   price: number;
+  list_price?: number;
 };
 
 const AM_SESSION_END_TIME = '12:59:00';
@@ -230,7 +232,8 @@ export class ExhibitionService extends RC7BaseService {
       params: {
         eid: 'uuid',
         name: 'string',
-        price: 'number',
+        price: 'number|integer|min:0',
+        list_price: { type: 'number', optional: true, integer: true, min: 0 },
         valid_duration_days: 'number',
         refund_policy: 'string',
         admittance: 'number'
@@ -270,6 +273,7 @@ export class ExhibitionService extends RC7BaseService {
           values: ['NON_REFUNDABLE', 'REFUNDABLE_48H_BEFORE'],
         },
         admittance: { type: 'number', optional: true },
+        list_price: { type: 'number', optional: true, integer: true, min: 0 },
       },
       handler: this.updateTicketCategory
     },
@@ -525,7 +529,10 @@ export class ExhibitionService extends RC7BaseService {
     const exhibition = await getExhibitionById(client, schema, eid)
       .catch(handleExhibitionError);
 
-    const ticketCategory = await createTicketCategory(client, schema, eid, category);
+    const ticketCategory = await createTicketCategory(client, schema, eid, {
+      ...category,
+      list_price: category.list_price ?? price,
+    });
 
     await updateTicketCalendarSessionPrice(
       client,

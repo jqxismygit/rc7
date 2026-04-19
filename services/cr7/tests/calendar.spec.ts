@@ -139,12 +139,13 @@ describeFeature(feature, ({
     });
 
     Given(
-      '展会添加票种 {string}, 价格为 {int} 分',
-      async (_ctx, ticketName: string, price: number) => {
+      '展会添加票种 {string}, 价格为 {int} 分, 目录价为 {int} 分',
+      async (_ctx, ticketName: string, price: number, listPrice: number) => {
         const { apiServer, adminToken, exhibition, ticketByName } = featureContext;
         const ticket = await prepareTicketCategory(apiServer, adminToken, exhibition.id, {
           name: ticketName,
           price,
+          list_price: listPrice,
         });
         ticketByName[ticketName] = ticket;
         featureContext.ticketByName = ticketByName;
@@ -189,6 +190,7 @@ describeFeature(feature, ({
         };
         if ('价格' in row) {
           obj.price = Number(row['价格']);
+          obj.list_price = Number(row['目录价']);
         } else if ('总库存' in row) {
           obj.inventory = Number(row['总库存']);
         } else if ('可用库存' in row) {
@@ -266,6 +268,7 @@ describeFeature(feature, ({
           id: expect.stringMatching(UUID_REGEX),
           name: row['票种名称'],
           price: Number(row['价格']),
+          list_price: Number(row['目录价']),
         });
       });
 
@@ -312,7 +315,7 @@ describeFeature(feature, ({
   });
 
   Scenario('获取展会的场次信息', (s: StepTest<void>) => {
-    const { When, Then } = s;
+    const { Then } = s;
 
     Then('每日单场次列表有 {int} 个场次', (
       _ctx: unknown,
