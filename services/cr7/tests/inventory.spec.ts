@@ -111,7 +111,6 @@ describeFeature(feature, ({
     });
   });
 
-
   Scenario(
     'view inventory of a session',
     (s: StepTest<{

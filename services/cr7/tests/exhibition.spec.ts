@@ -41,8 +41,6 @@ const services = ['api', 'cr7', 'user'];
 
 const feature = await loadFeature('tests/features/exhibition.feature');
 
-
-
 interface FeatureContext {
   broker: ServiceBroker;
   apiServer: Server;
@@ -645,259 +643,259 @@ describeFeature(feature, ({
     }
   );
 
-    Scenario(
-      '可以更新展览的基本信息',
-      (s: StepTest<{
-        exhibition: Exhibition.Exhibition;
-        draftUpdate: Partial<DraftExhibition>;
-      }>) => {
-          const { Given, When, Then, And, context } = s;
+  Scenario(
+    '可以更新展览的基本信息',
+    (s: StepTest<{
+      exhibition: Exhibition.Exhibition;
+      draftUpdate: Partial<DraftExhibition>;
+    }>) => {
+      const { Given, When, Then, And, context } = s;
 
-          Then('展览创建成功', () => {
-            const { exhibition } = featureContext;
-            assertExhibition(exhibition!);
-          });
+      Then('展览创建成功', () => {
+        const { exhibition } = featureContext;
+        assertExhibition(exhibition!);
+      });
 
-          Given('准备更新展览名称为 {string}', (_ctx, name: string) => {
-            context.draftUpdate = { name };
-          });
+      Given('准备更新展览名称为 {string}', (_ctx, name: string) => {
+        context.draftUpdate = { name };
+      });
 
-          And('准备更新展会描述为 {string}', (_ctx, description: string) => {
-            context.draftUpdate!.description = description;
-          });
+      And('准备更新展会描述为 {string}', (_ctx, description: string) => {
+        context.draftUpdate!.description = description;
+      });
 
-          And('准备更新展会开放时间为 {string}', (_ctx, openingTime: string) => {
-            context.draftUpdate!.opening_time = openingTime;
-          });
+      And('准备更新展会开放时间为 {string}', (_ctx, openingTime: string) => {
+        context.draftUpdate!.opening_time = openingTime;
+      });
 
-          And('准备更新展会闭馆时间为 {string}', (_ctx, closingTime: string) => {
-            context.draftUpdate!.closing_time = closingTime;
-          });
+      And('准备更新展会闭馆时间为 {string}', (_ctx, closingTime: string) => {
+        context.draftUpdate!.closing_time = closingTime;
+      });
 
-          And('准备更新展会最晚入场时间为 {string}', (_ctx, lastEntryTime: string) => {
-            context.draftUpdate!.last_entry_time = lastEntryTime;
-          });
+      And('准备更新展会最晚入场时间为 {string}', (_ctx, lastEntryTime: string) => {
+        context.draftUpdate!.last_entry_time = lastEntryTime;
+      });
 
-          And('准备更新展会地点为 {string}', (_ctx, location: string) => {
-            context.draftUpdate!.location = location;
-          });
+      And('准备更新展会地点为 {string}', (_ctx, location: string) => {
+        context.draftUpdate!.location = location;
+      });
 
-          And('准备更新展会城市为 {string}', (_ctx, city: string) => {
-            context.draftUpdate!.city = city;
-          });
+      And('准备更新展会城市为 {string}', (_ctx, city: string) => {
+        context.draftUpdate!.city = city;
+      });
 
-          And('准备更新展会场馆名称为 {string}', (_ctx, venueName: string) => {
-            context.draftUpdate!.venue_name = venueName;
-          });
+      And('准备更新展会场馆名称为 {string}', (_ctx, venueName: string) => {
+        context.draftUpdate!.venue_name = venueName;
+      });
 
-          And('准备更新展会封面图为 {string}', (_ctx, coverUrl: string) => {
-            context.draftUpdate!.cover_url = coverUrl;
-          });
+      And('准备更新展会封面图为 {string}', (_ctx, coverUrl: string) => {
+        context.draftUpdate!.cover_url = coverUrl;
+      });
 
-          When('更新展览信息', async () => {
-            const { apiServer, adminToken, exhibition } = featureContext;
-            const updated = await updateExhibition(
-              apiServer,
-              adminToken,
-              exhibition!.id,
-              context.draftUpdate!,
-            );
-            context.exhibition = updated;
-            featureContext.exhibition = updated;
-          });
+      When('更新展览信息', async () => {
+        const { apiServer, adminToken, exhibition } = featureContext;
+        const updated = await updateExhibition(
+          apiServer,
+          adminToken,
+          exhibition!.id,
+          context.draftUpdate!,
+        );
+        context.exhibition = updated;
+        featureContext.exhibition = updated;
+      });
 
-          Then('展览描述更新成功', () => {
-            const { exhibition } = context;
-            assertExhibition(exhibition!);
-            expect(exhibition!.description).toBe('updated description');
-            expect(exhibition!.cover_url).toBe('https://example.com/updated_cr7_life_museum.jpg');
-            expect(exhibition!.opening_time).toBe('09:00:00');
-            expect(exhibition!.closing_time).toBe('17:00:00');
-            expect(exhibition!.last_entry_time).toBe('16:00:00');
-            expect(exhibition!.location).toBe('Beijing');
-            expect(exhibition!.city).toBe('北京');
-            expect(exhibition!.venue_name).toBe('北京展览中心');
-          });
-        }
-      );
+      Then('展览描述更新成功', () => {
+        const { exhibition } = context;
+        assertExhibition(exhibition!);
+        expect(exhibition!.description).toBe('updated description');
+        expect(exhibition!.cover_url).toBe('https://example.com/updated_cr7_life_museum.jpg');
+        expect(exhibition!.opening_time).toBe('09:00:00');
+        expect(exhibition!.closing_time).toBe('17:00:00');
+        expect(exhibition!.last_entry_time).toBe('16:00:00');
+        expect(exhibition!.location).toBe('Beijing');
+        expect(exhibition!.city).toBe('北京');
+        expect(exhibition!.venue_name).toBe('北京展览中心');
+      });
+    }
+  );
 
-    Scenario(
-      '更新展览时必须至少提供一个参数',
-      (s: StepTest<{
-        exhibition: Exhibition.Exhibition;
-        exhibitionUpdatePromise: Promise<Exhibition.Exhibition>;
-      }>) => {
-        const { When, Then, context } = s;
+  Scenario(
+    '更新展览时必须至少提供一个参数',
+    (s: StepTest<{
+      exhibition: Exhibition.Exhibition;
+      exhibitionUpdatePromise: Promise<Exhibition.Exhibition>;
+    }>) => {
+      const { When, Then, context } = s;
 
-        When('不提供任何参数更新展览', async () => {
-          const { exhibition } = featureContext;
-          const { apiServer, adminToken } = featureContext;
-          context.exhibitionUpdatePromise = updateExhibition(
-            apiServer,
-            adminToken,
-            exhibition!.id,
-            {},
-          );
+      When('不提供任何参数更新展览', async () => {
+        const { exhibition } = featureContext;
+        const { apiServer, adminToken } = featureContext;
+        context.exhibitionUpdatePromise = updateExhibition(
+          apiServer,
+          adminToken,
+          exhibition!.id,
+          {},
+        );
+      });
+
+      Then('返回参数不合法错误', async () => {
+        await expect(context.exhibitionUpdatePromise).rejects.toMatchObject({
+          status: 400,
+          method: 'PATCH'
         });
+      });
+    }
+  );
 
-        Then('返回参数不合法错误', async () => {
-          await expect(context.exhibitionUpdatePromise).rejects.toMatchObject({
-            status: 400,
-            method: 'PATCH'
-          });
-        });
-      }
-    );
+  Scenario(
+    '更新展览时不能修改开始和结束日期',
+    (s: StepTest<{
+      exhibition: Exhibition.Exhibition;
+      exhibitionUpdatePromise: Promise<Exhibition.Exhibition>;
+    }>) => {
+      const { When, Then, context } = s;
 
-    Scenario(
-      '更新展览时不能修改开始和结束日期',
-      (s: StepTest<{
-        exhibition: Exhibition.Exhibition;
-        exhibitionUpdatePromise: Promise<Exhibition.Exhibition>;
-      }>) => {
-        const { When, Then, context } = s;
+      When('尝试更新展览开始和结束日期', async () => {
+        const { exhibition } = featureContext;
+        const { apiServer, adminToken } = featureContext;
 
-        When('尝试更新展览开始和结束日期', async () => {
-          const { exhibition } = featureContext;
-          const { apiServer, adminToken } = featureContext;
-
-          context.exhibitionUpdatePromise = patchJSON<Exhibition.Exhibition>(
-            apiServer,
-            `/exhibition/${exhibition!.id}`,
-            {
-              token: adminToken,
-              body: {
-                start_date: toDateLabel('5天后'),
-                end_date: toDateLabel('66天后'),
-              },
+        context.exhibitionUpdatePromise = patchJSON<Exhibition.Exhibition>(
+          apiServer,
+          `/exhibition/${exhibition!.id}`,
+          {
+            token: adminToken,
+            body: {
+              start_date: toDateLabel('5天后'),
+              end_date: toDateLabel('66天后'),
             },
-          );
+          },
+        );
+      });
+
+      Then('返回参数不合法错误', async () => {
+        await expect(context.exhibitionUpdatePromise).rejects.toMatchObject({
+          status: 400,
+          method: 'PATCH',
         });
+      });
+    }
+  );
 
-        Then('返回参数不合法错误', async () => {
-          await expect(context.exhibitionUpdatePromise).rejects.toMatchObject({
-            status: 400,
-            method: 'PATCH',
-          });
+  Scenario(
+    '可以更新票种信息',
+    (s: StepTest<{
+      exhibition: Exhibition.Exhibition;
+      ticket: Exhibition.TicketCategory;
+      ticketPatch: DraftTicketCategoryPatch;
+      ticketCategories: Exhibition.TicketCategory[];
+    }>) => {
+      const { And, When, Then, context } = s;
+
+      And('准备更新票种名称为 {string}', (_ctx, name: string) => {
+        context.ticketPatch ??= {};
+        context.ticketPatch!.name = name;
+      });
+
+      And('准备更新票种有效期为 {number} 天', (_ctx, validDurationDays: number) => {
+        context.ticketPatch ??= {};
+        context.ticketPatch!.valid_duration_days = validDurationDays;
+      });
+
+      And('准备更新票种退票策略为不可退', () => {
+        context.ticketPatch ??= {};
+        context.ticketPatch!.refund_policy = 'NON_REFUNDABLE';
+      });
+
+      And('准备更新票种准入人数为 {number}', (_ctx, admittance: number) => {
+        context.ticketPatch ??= {};
+        context.ticketPatch!.admittance = admittance;
+      });
+
+      When('更新票种信息', async () => {
+        const { exhibition } = featureContext;
+        const { ticket } = featureContext;
+        const { ticketPatch } = context;
+        const { apiServer, adminToken } = featureContext;
+        context.ticket = await updateTicketCategory(
+          apiServer,
+          adminToken,
+          exhibition!.id,
+          ticket!.id,
+          ticketPatch!,
+        );
+      });
+
+      Then('票种信息更新成功', () => {
+        const { ticket } = context;
+        assertTicketCategory(ticket!);
+        expect(ticket!.name).toBe('vip');
+        expect(ticket!.valid_duration_days).toBe(30);
+        expect(ticket!.refund_policy).toBe('NON_REFUNDABLE');
+        expect(ticket!.admittance).toBe(4);
+      });
+
+      When('管理员查看展会票种列表', async () => {
+        const { exhibition } = featureContext;
+        const { apiServer, adminToken } = featureContext;
+        context.ticketCategories = await getTicketCategories(
+          apiServer,
+          exhibition!.id,
+          adminToken,
+        );
+      });
+
+      And('展览中的票种已更新为 {string}', async (_ctx, ticketName: string) => {
+        const { ticketCategories, ticket } = context;
+        expect(ticketCategories).toHaveLength(1);
+        expect(ticketCategories![0]).toMatchObject(ticket!);
+        expect(ticketCategories![0].name).toBe(ticketName);
+      });
+
+      And('展览中的票种有效期已更新为 {number} 天', async (_ctx, validDurationDays: number) => {
+        const { ticketCategories } = context;
+        expect(ticketCategories![0].valid_duration_days).toBe(validDurationDays);
+      });
+
+      And('展览中的票种退票策略已更新为不可退', () => {
+        const { ticketCategories } = context;
+        expect(ticketCategories![0].refund_policy).toBe('NON_REFUNDABLE');
+      });
+
+      And('展览中的票种准入人数已更新为 {number}', async (_ctx, admittance: number) => {
+        const { ticketCategories } = context;
+        expect(ticketCategories![0].admittance).toBe(admittance);
+      });
+    }
+  );
+
+  Scenario(
+    '更新票种时必须至少提供一个参数',
+    (s: StepTest<{
+      exhibition: Exhibition.Exhibition;
+      ticket: Exhibition.TicketCategory;
+      ticketUpdatePromise: Promise<Exhibition.TicketCategory>;
+    }>) => {
+      const { When, Then, context } = s;
+
+      When('不提供任何参数更新票种', async () => {
+        const { exhibition } = featureContext;
+        const { ticket } = featureContext;
+        const { apiServer, adminToken } = featureContext;
+        context.ticketUpdatePromise = updateTicketCategory(
+          apiServer,
+          adminToken,
+          exhibition!.id,
+          ticket!.id,
+          {},
+        );
+      });
+
+      Then('返回参数不合法错误', async () => {
+        await expect(context.ticketUpdatePromise).rejects.toMatchObject({
+          status: 400,
+          method: 'PATCH',
         });
-      }
-    );
-
-    Scenario(
-      '可以更新票种信息',
-      (s: StepTest<{
-        exhibition: Exhibition.Exhibition;
-        ticket: Exhibition.TicketCategory;
-        ticketPatch: DraftTicketCategoryPatch;
-        ticketCategories: Exhibition.TicketCategory[];
-      }>) => {
-        const { And, When, Then, context } = s;
-
-        And('准备更新票种名称为 {string}', (_ctx, name: string) => {
-          context.ticketPatch ??= {};
-          context.ticketPatch!.name = name;
-        });
-
-        And('准备更新票种有效期为 {number} 天', (_ctx, validDurationDays: number) => {
-          context.ticketPatch ??= {};
-          context.ticketPatch!.valid_duration_days = validDurationDays;
-        });
-
-        And('准备更新票种退票策略为不可退', () => {
-          context.ticketPatch ??= {};
-          context.ticketPatch!.refund_policy = 'NON_REFUNDABLE';
-        });
-
-        And('准备更新票种准入人数为 {number}', (_ctx, admittance: number) => {
-          context.ticketPatch ??= {};
-          context.ticketPatch!.admittance = admittance;
-        });
-
-        When('更新票种信息', async () => {
-          const { exhibition } = featureContext;
-          const { ticket } = featureContext;
-          const { ticketPatch } = context;
-          const { apiServer, adminToken } = featureContext;
-          context.ticket = await updateTicketCategory(
-            apiServer,
-            adminToken,
-            exhibition!.id,
-            ticket!.id,
-            ticketPatch!,
-          );
-        });
-
-        Then('票种信息更新成功', () => {
-          const { ticket } = context;
-          assertTicketCategory(ticket!);
-          expect(ticket!.name).toBe('vip');
-          expect(ticket!.valid_duration_days).toBe(30);
-          expect(ticket!.refund_policy).toBe('NON_REFUNDABLE');
-          expect(ticket!.admittance).toBe(4);
-        });
-
-        When('管理员查看展会票种列表', async () => {
-          const { exhibition } = featureContext;
-          const { apiServer, adminToken } = featureContext;
-          context.ticketCategories = await getTicketCategories(
-            apiServer,
-            exhibition!.id,
-            adminToken,
-          );
-        });
-
-        And('展览中的票种已更新为 {string}', async (_ctx, ticketName: string) => {
-          const { ticketCategories, ticket } = context;
-          expect(ticketCategories).toHaveLength(1);
-          expect(ticketCategories![0]).toMatchObject(ticket!);
-          expect(ticketCategories![0].name).toBe(ticketName);
-        });
-
-        And('展览中的票种有效期已更新为 {number} 天', async (_ctx, validDurationDays: number) => {
-          const { ticketCategories } = context;
-          expect(ticketCategories![0].valid_duration_days).toBe(validDurationDays);
-        });
-
-        And('展览中的票种退票策略已更新为不可退', () => {
-          const { ticketCategories } = context;
-          expect(ticketCategories![0].refund_policy).toBe('NON_REFUNDABLE');
-        });
-
-        And('展览中的票种准入人数已更新为 {number}', async (_ctx, admittance: number) => {
-          const { ticketCategories } = context;
-          expect(ticketCategories![0].admittance).toBe(admittance);
-        });
-      }
-    );
-
-    Scenario(
-      '更新票种时必须至少提供一个参数',
-      (s: StepTest<{
-        exhibition: Exhibition.Exhibition;
-        ticket: Exhibition.TicketCategory;
-        ticketUpdatePromise: Promise<Exhibition.TicketCategory>;
-      }>) => {
-        const { When, Then, context } = s;
-
-        When('不提供任何参数更新票种', async () => {
-          const { exhibition } = featureContext;
-          const { ticket } = featureContext;
-          const { apiServer, adminToken } = featureContext;
-          context.ticketUpdatePromise = updateTicketCategory(
-            apiServer,
-            adminToken,
-            exhibition!.id,
-            ticket!.id,
-            {},
-          );
-        });
-
-        Then('返回参数不合法错误', async () => {
-          await expect(context.ticketUpdatePromise).rejects.toMatchObject({
-            status: 400,
-            method: 'PATCH',
-          });
-        });
-      }
-    );
-  });
+      });
+    }
+  );
+});

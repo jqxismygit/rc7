@@ -261,7 +261,7 @@ export default class XiechengService extends RC7BaseService {
       end_session_date: endSessionDate,
     }) as Inventory.TicketCalendarInventory[];
 
-    const syncItems: Xiecheng.XcPriceSyncItem[] = calendar.map((item) => ({
+    const syncItems: Xiecheng.XcPriceSyncItem[] = calendar.map(item => ({
       date: format(new Date(item.session_date), 'yyyy-MM-dd'),
       sale_price: toYuan(item.price),
       cost_price: toYuan(item.price),
@@ -431,7 +431,7 @@ export default class XiechengService extends RC7BaseService {
 
     return logs.map(item => ({
       ...item,
-      created_at: format(new Date(item.created_at), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
+      created_at: format(new Date(item.created_at), 'yyyy-MM-dd\'T\'HH:mm:ss.SSSxxx'),
     }));
   }
 
@@ -520,7 +520,6 @@ export default class XiechengService extends RC7BaseService {
 
     return null;
   }
-
 
   async persistRecord(params: {
     schema: string;
@@ -619,7 +618,7 @@ export default class XiechengService extends RC7BaseService {
     let decryptBody: unknown = null;
     try {
       const plain = decryptXieChengBody(encryptedBody, xcConfig.aes_key, xcConfig.aes_iv);
-      decryptBody = JSON.parse(plain)
+      decryptBody = JSON.parse(plain);
     } catch {
       return this.buildXcErrorResponse('0001', '报文解析失败');
     }
@@ -670,7 +669,6 @@ export default class XiechengService extends RC7BaseService {
     schema: string,
     decryptBody: Xiecheng.XcQueryOrderBody,
   ): Promise<Xiecheng.XcEncryptedOrderResponse> {
-
     const { otaOrderId } = decryptBody!;
     const record = await getFirstSuccessfulXcOrderSyncRecordByOtaOrderId(this.pool, schema, otaOrderId);
     if (!record || !record.order_id) {
@@ -685,11 +683,11 @@ export default class XiechengService extends RC7BaseService {
 
     const payRecord = order.paid_at !== null
       ? await getLatestSuccessfulXcOrderSyncRecordByOtaOrderIdAndServiceName(
-        this.pool,
-        schema,
-        otaOrderId,
-        'PayPreOrder',
-      )
+          this.pool,
+          schema,
+          otaOrderId,
+          'PayPreOrder',
+        )
       : null;
 
     const paidItems = (payRecord?.request_body as Xiecheng.XcPayPreOrderBody)?.items ?? [];
@@ -705,17 +703,17 @@ export default class XiechengService extends RC7BaseService {
     const createOrderBody = record.request_body as Xiecheng.XcCreatePreOrderBody;
 
     const items: Xiecheng.XcQueryOrderResponseItem[] = createOrderBody.items
-    .map((item: Xiecheng.XcCreatePreOrderItem, idx: number) => ({
-      itemId: paidItems[idx]?.itemId ?? 0,
-      useStartDate: item.useStartDate,
-      useEndDate: item.useEndDate,
-      orderStatus: xcOrderStatus,
-      quantity: item.quantity,
-      useQuantity: isRedeemed ? item.quantity : 0,
-      cancelQuantity: isCancelled ? item.quantity : 0,
-      passengers: [],
-      vouchers: [],
-    }));
+      .map((item: Xiecheng.XcCreatePreOrderItem, idx: number) => ({
+        itemId: paidItems[idx]?.itemId ?? 0,
+        useStartDate: item.useStartDate,
+        useEndDate: item.useEndDate,
+        orderStatus: xcOrderStatus,
+        quantity: item.quantity,
+        useQuantity: isRedeemed ? item.quantity : 0,
+        cancelQuantity: isCancelled ? item.quantity : 0,
+        passengers: [],
+        vouchers: [],
+      }));
 
     return this.buildXcSuccessResponse({
       otaOrderId,
@@ -781,7 +779,7 @@ export default class XiechengService extends RC7BaseService {
     const ticketCategory = await ctx.call<
       Exhibition.TicketCategory, { tid: string }
     >('cr7.exhibition.getTicketByIdGlobal', { tid: item.PLU })
-    .catch(() => null);
+      .catch(() => null);
     if (!ticketCategory) {
       return this.failAndPersist(header, orderBody, '1001', '产品 PLU 不存在', firstSuccessRecord);
     }
@@ -795,7 +793,7 @@ export default class XiechengService extends RC7BaseService {
       'cr7.exhibition.getSessions', { eid: exhibitId, session_mode: 'DAY' }
     );
     const matchSession = sessions
-    .find(s => format(new Date(s.session_date), 'yyyy-MM-dd') === item.useStartDate) ?? null;
+      .find(s => format(new Date(s.session_date), 'yyyy-MM-dd') === item.useStartDate) ?? null;
     if (!matchSession) {
       return this.failAndPersist(header, orderBody, '1009', '日期错误', firstSuccessRecord);
     }
@@ -905,7 +903,7 @@ export default class XiechengService extends RC7BaseService {
         'cr7.order.cancel',
         { oid: firstSuccessRecord.order_id },
         { meta: { user: { uid: firstSuccessRecord.user_id } } },
-      )
+      );
     } catch (error) {
       ctx.meta.$statusCode = 200;
       return this.failAndPersist(
@@ -923,10 +921,10 @@ export default class XiechengService extends RC7BaseService {
     ) as Order.OrderWithItems;
     const createOrderBody = firstSuccessRecord.request_body as Xiecheng.XcCreatePreOrderBody;
     const items = createOrderBody.items
-    .map((_item: Xiecheng.XcCreatePreOrderItem, index: number) => ({
-      itemId: index,
-      orderStatus: toXcOrderStatus(cancelledOrder.status),
-    }));
+      .map((_item: Xiecheng.XcCreatePreOrderItem, index: number) => ({
+        itemId: index,
+        orderStatus: toXcOrderStatus(cancelledOrder.status),
+      }));
     const responseBody: Xiecheng.XcCancelPreOrderSuccessBody = {
       otaOrderId,
       supplierOrderId: firstSuccessRecord.order_id,
@@ -1096,8 +1094,8 @@ export default class XiechengService extends RC7BaseService {
     const ticketQuantityMap = new Map(
       redemption.items.map(item => [item.ticket_category_id, item.quantity] as const)
     );
-    const isQuantityExceed = refundBody.items.some(item => {
-      return ticketQuantityMap.get(item.PLU) !== item.quantity
+    const isQuantityExceed = refundBody.items.some((item) => {
+      return ticketQuantityMap.get(item.PLU) !== item.quantity;
     });
     if (isQuantityExceed) {
       return this.failAndPersist(header, refundBody, '2004', '取消数量不正确', firstSuccessRecord);
@@ -1129,7 +1127,6 @@ export default class XiechengService extends RC7BaseService {
         callback_refund_amount: order.total_amount,
         succeeded_at: new Date().toISOString(),
       });
-
     } catch (error) {
       return this.failAndPersist(
         header,
@@ -1208,7 +1205,7 @@ export default class XiechengService extends RC7BaseService {
   }
 
   async notifyOrderConsumed(
-    ctx: Context<{ oid: string; }>,
+    ctx: Context<{ oid: string }>,
   ): Promise<void> {
     const { oid } = ctx.params;
     const schema = await this.getSchema();
@@ -1234,7 +1231,7 @@ export default class XiechengService extends RC7BaseService {
       createBody.items.map(item => [item.PLU, item] as const),
     );
 
-    const items: Xiecheng.XcOrderConsumedNoticeItem[] = (payBody?.items ?? []).flatMap(item => {
+    const items: Xiecheng.XcOrderConsumedNoticeItem[] = (payBody?.items ?? []).flatMap((item) => {
       const createItem = createItemByPlu.get(item.PLU);
       if (!createItem) {
         throw new MoleculerClientError(

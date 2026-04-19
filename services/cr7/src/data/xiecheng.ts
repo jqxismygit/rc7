@@ -3,13 +3,13 @@ import type { Xiecheng } from '@cr7/types';
 
 type DBClient = Pool | PoolClient;
 
-export type XiechengDataErrorCode =
-  | 'TICKET_CATEGORY_NOT_FOUND'
-  | 'TICKET_CATEGORY_NOT_BOUND'
-  | 'INVALID_DATE_RANGE'
-  | 'SESSION_DATE_OUT_OF_RANGE'
-  | 'SESSION_END_TOO_FAR'
-  | 'SYNC_QUANTITY_EXCEEDS_REMAINING';
+export type XiechengDataErrorCode
+  = | 'TICKET_CATEGORY_NOT_FOUND'
+    | 'TICKET_CATEGORY_NOT_BOUND'
+    | 'INVALID_DATE_RANGE'
+    | 'SESSION_DATE_OUT_OF_RANGE'
+    | 'SESSION_END_TOO_FAR'
+    | 'SYNC_QUANTITY_EXCEEDS_REMAINING';
 
 export class XiechengDataError extends Error {
   code: XiechengDataErrorCode;
@@ -111,8 +111,8 @@ export async function listXcSyncLogs(
   return rows;
 }
 
-export type XcOrderDataErrorCode =
-  | 'XC_ORDER_SYNC_RECORD_NOT_FOUND';
+export type XcOrderDataErrorCode
+  = | 'XC_ORDER_SYNC_RECORD_NOT_FOUND';
 
 export class XcOrderDataError extends Error {
   code: XcOrderDataErrorCode;

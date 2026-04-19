@@ -1,5 +1,5 @@
-import { Pool, PoolClient } from "pg";
-import type { Exhibition, Inventory } from "@cr7/types";
+import { Pool, PoolClient } from 'pg';
+import type { Exhibition, Inventory } from '@cr7/types';
 
 type DBClient = Pool | PoolClient;
 
@@ -19,10 +19,10 @@ const TICKET_CATEGORY_SELECT = `
       c.created_at,
       c.updated_at`;
 
-export type EXHIBITION_DATA_ERROR_CODES =
-  | 'EXHIBITION_NOT_FOUND'
-  | 'TICKET_CATEGORY_NOT_FOUND'
-  | 'SESSION_NOT_FOUND';
+export type EXHIBITION_DATA_ERROR_CODES
+  = | 'EXHIBITION_NOT_FOUND'
+    | 'TICKET_CATEGORY_NOT_FOUND'
+    | 'SESSION_NOT_FOUND';
 
 export class ExhibitionDataError extends Error {
   code: EXHIBITION_DATA_ERROR_CODES;
@@ -155,7 +155,7 @@ export async function getExhibitionsByIds(
     [[...new Set(exhibitionIds)]],
   );
 
-  return new Map(rows.map((row) => [row.id, row]));
+  return new Map(rows.map(row => [row.id, row]));
 }
 
 export async function getExhibitions(
@@ -165,7 +165,7 @@ export async function getExhibitions(
   limit: number = 10,
   offset: number = 0
 ): Promise<{ exhibitions: Exhibition.Exhibition[]; total: number }> {
-  const filterByStatus = includeAll ? '' : "WHERE status = 'ENABLE'";
+  const filterByStatus = includeAll ? '' : 'WHERE status = \'ENABLE\'';
 
   const { rows: countRows } = await client.query(
     `SELECT COUNT(*) as total
@@ -755,5 +755,5 @@ export async function getSessionsByIds(
     [[...new Set(sessionIds)]],
   );
 
-  return new Map(rows.map((row) => [row.id, row]));
+  return new Map(rows.map(row => [row.id, row]));
 }

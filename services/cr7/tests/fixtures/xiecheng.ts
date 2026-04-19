@@ -90,9 +90,9 @@ export function buildCtripOrderNotification(
   config: IConfig['xiecheng'],
   serviceName: Xiecheng.XcOrderServiceName,
   body:
-   | Xiecheng.XcCreatePreOrderBody
-   | Xiecheng.XcQueryOrderBody
-   | Xiecheng.XcCancelPreOrderBody
+    | Xiecheng.XcCreatePreOrderBody
+    | Xiecheng.XcQueryOrderBody
+    | Xiecheng.XcCancelPreOrderBody
     | Xiecheng.XcPayPreOrderBody
     | Xiecheng.XcCancelOrderBody,
 ): Xiecheng.XcEncryptedOrderNotification {
@@ -163,7 +163,7 @@ export function decryptCtripResponseBody<Body>(
 }
 
 export function assertCtripSuccessResponse(
-  response: { header: Xiecheng.XcResponseHeader}
+  response: { header: Xiecheng.XcResponseHeader }
 ) {
   expect(response).toHaveProperty('header');
   expect(response.header).toHaveProperty('resultCode', '0000');

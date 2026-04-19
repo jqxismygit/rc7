@@ -1,6 +1,6 @@
 import { format, isBefore, parse, subMinutes } from 'date-fns';
-import { Context, Errors, ServiceBroker, ServiceSchema } from "moleculer";
-import type { Exhibition } from "@cr7/types";
+import { Context, Errors, ServiceBroker, ServiceSchema } from 'moleculer';
+import type { Exhibition } from '@cr7/types';
 import {
   createExhibition,
   getExhibitionById,
@@ -21,9 +21,9 @@ import {
   updateTicketCategoryInventoryMax,
   updateTicketCalendarSessionPrice,
   getTicketCategoryByIdGlobal,
-} from "../data/exhibition.js";
+} from '../data/exhibition.js';
 import { handleExhibitionError } from './errors.js';
-import { RC7BaseService } from "./cr7.base.js";
+import { RC7BaseService } from './cr7.base.js';
 import { HALF_SESSION_ID_REGEX, parseSelectedSessionId } from './session-id.js';
 
 const { MoleculerClientError } = Errors;
@@ -394,7 +394,7 @@ export class ExhibitionService extends RC7BaseService {
       },
       handler: this.getTicketByIdGlobal,
     },
-  }
+  };
 
   async createExhibition(
     ctx: Context<Omit<Exhibition.Exhibition, 'id' | 'status' | 'created_at' | 'updated_at'>, { user: UserMeta }>
@@ -416,7 +416,7 @@ export class ExhibitionService extends RC7BaseService {
     const { limit = 10, offset = 0, all = false } = ctx.params;
     const client = this.pool;
     const schema = await this.getSchema();
-    const isAdmin = (ctx.meta.roles ?? []).some((role) => role.toLowerCase() === 'admin');
+    const isAdmin = (ctx.meta.roles ?? []).some(role => role.toLowerCase() === 'admin');
     const includeAll = all && isAdmin;
 
     const { exhibitions, total } = await getExhibitions(client, schema, includeAll, limit, offset);
@@ -470,13 +470,13 @@ export class ExhibitionService extends RC7BaseService {
       client, schema, eid, start_session_date, end_session_date
     );
 
-    const daySessions = rawSessions.map((session) => buildDaySession(session, exhibition));
+    const daySessions = rawSessions.map(session => buildDaySession(session, exhibition));
 
     if (session_mode === 'DAY') {
       return daySessions;
     }
 
-    return daySessions.flatMap((session) => buildHalfDaySessions(session, exhibition));
+    return daySessions.flatMap(session => buildHalfDaySessions(session, exhibition));
   }
 
   async getSession(
@@ -504,7 +504,7 @@ export class ExhibitionService extends RC7BaseService {
     }
 
     const targetSession = buildHalfDaySessions(daySession, exhibition)
-      .find((session) => session.id === `${daySession.id}-${sessionHalf}`);
+      .find(session => session.id === `${daySession.id}-${sessionHalf}`);
 
     if (!targetSession) {
       throw new MoleculerClientError('场次不存在', 404, 'SESSION_NOT_FOUND');
@@ -548,7 +548,6 @@ export class ExhibitionService extends RC7BaseService {
     if ('start_date' in patch || 'end_date' in patch) {
       throw new MoleculerClientError('参数不合法', 400, 'INVALID_ARGUMENT');
     }
-
 
     if (EXHIBITION_UPDATE_FIELDS.every(field => Object.hasOwn(patch, field) === false)) {
       throw new MoleculerClientError('参数不合法', 400, 'INVALID_ARGUMENT');
@@ -623,7 +622,7 @@ export class ExhibitionService extends RC7BaseService {
         start_session_date?: Date;
         end_session_date?: Date;
       },
-      { user: UserMeta, $statusCode?: number }
+      { user: UserMeta; $statusCode?: number }
     >
   ) {
     const {
@@ -662,14 +661,14 @@ export class ExhibitionService extends RC7BaseService {
     const { eid, tid } = ctx.params;
     const schema = await this.getSchema();
     return getTicketCategoryById(this.pool, schema, eid, tid)
-    .catch(handleExhibitionError);
+      .catch(handleExhibitionError);
   }
 
   async updateTicketXcOptionId(ctx: Context<{ eid: string; tid: string; ota_option_id: string }>) {
     const { eid, tid, ota_option_id } = ctx.params;
     const schema = await this.getSchema();
     return updateTicketCategoryOtaXcOptionId(this.pool, schema, eid, tid, ota_option_id)
-    .catch(handleExhibitionError);
+      .catch(handleExhibitionError);
   }
 
   async listSessionInventoryByTicketAndDateRange(
@@ -739,4 +738,3 @@ export class ExhibitionService extends RC7BaseService {
       .catch(handleExhibitionError);
   }
 }
-

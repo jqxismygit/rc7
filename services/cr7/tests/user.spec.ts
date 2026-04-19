@@ -7,7 +7,7 @@ import {
 import config from 'config';
 import { expect, Mock, vi, MockInstance } from 'vitest';
 import { User } from '@cr7/types';
-import { handler as initAdminHandler } from "@/scripts/user/init-admin.js";
+import { handler as initAdminHandler } from '@/scripts/user/init-admin.js';
 import { mockJSONServer, mockWechatServer, MockServer } from './lib/server.js';
 import {
   adminCreateUser,
@@ -83,7 +83,6 @@ describeFeature(feature, ({
   Background,
   context: featureContext
 }: FeatureDescriibeCallbackParams<FeatureContext>) => {
-
   BeforeAllScenarios(async () => {
     vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
     await bootstrap();
@@ -122,8 +121,8 @@ describeFeature(feature, ({
       const mockWechatReqHandler = vi.fn();
       const mock_wechat_server = await mockWechatServer(mockWechatReqHandler);
       const wechatServerSpy = vi
-      .spyOn(config.wechat, 'base_url', 'get')
-      .mockReturnValue(mock_wechat_server.address);
+        .spyOn(config.wechat, 'base_url', 'get')
+        .mockReturnValue(mock_wechat_server.address);
       featureContext.mockWechatReqHandler = mockWechatReqHandler;
       openedMockServers.push(mock_wechat_server);
       openedSpies.push(wechatServerSpy);
@@ -134,8 +133,8 @@ describeFeature(feature, ({
       });
       const mock_wechat_token_server = await mockJSONServer(mockWechatTokenHandler);
       const wechatTokenServerSpy = vi
-      .spyOn(config.wechat, 'service_url', 'get')
-      .mockReturnValue(mock_wechat_token_server.address)
+        .spyOn(config.wechat, 'service_url', 'get')
+        .mockReturnValue(mock_wechat_token_server.address);
       featureContext.mockWechatTokenHandler = mockWechatTokenHandler;
       openedSpies.push(wechatTokenServerSpy);
       openedMockServers.push(mock_wechat_token_server);
@@ -242,23 +241,22 @@ describeFeature(feature, ({
       featureContext.stagedRoles = [];
     });
 
-
     When(
       '用户 {string} 第 {number} 次查看个人的角色列表',
       async (_ctx: unknown, userName: string, count: number) => {
-      const { apiServer, adminToken, registeredUsersByName } = featureContext;
-      const targetProfile = registeredUsersByName?.[userName]!;
-      const suToken = await suUserToken(apiServer, adminToken, targetProfile.id);
+        const { apiServer, adminToken, registeredUsersByName } = featureContext;
+        const targetProfile = registeredUsersByName![userName]!;
+        const suToken = await suUserToken(apiServer, adminToken, targetProfile.id);
 
-      featureContext.roleViewCountByUser = featureContext.roleViewCountByUser ?? {};
-      const previousCount = featureContext.roleViewCountByUser[userName] ?? 0;
-      const currentCount = previousCount + 1;
-      featureContext.roleViewCountByUser[userName] = currentCount;
+        featureContext.roleViewCountByUser = featureContext.roleViewCountByUser ?? {};
+        const previousCount = featureContext.roleViewCountByUser[userName] ?? 0;
+        const currentCount = previousCount + 1;
+        featureContext.roleViewCountByUser[userName] = currentCount;
 
-      expect(currentCount).toBe(count);
-      featureContext.lastCheckedUserName = userName;
-      featureContext.lastCheckedUserRoles = (await getCurrentUserRoles(apiServer, suToken)).roles;
-    });
+        expect(currentCount).toBe(count);
+        featureContext.lastCheckedUserName = userName;
+        featureContext.lastCheckedUserRoles = (await getCurrentUserRoles(apiServer, suToken)).roles;
+      });
 
     And(
       '用户 {string} 的角色列表有 {number} 个，包含 {string}，不是内置角色，权限包含 {string}',
@@ -320,7 +318,7 @@ describeFeature(feature, ({
     Given('cr7 服务已启动', async () => {
       await migrate({ schema });
     });
-  })
+  });
 
   Scenario('微信用户登录', (s: StepTest<LoginResponseContext>) => {
     const { When, Then, context } = s;
@@ -433,24 +431,24 @@ describeFeature(feature, ({
     When(
       '用户点击手机号授权, 国家码为 {string}，手机号为 {string}',
       async (_ctx, countryCode: string, phone: string) => {
-      const { apiServer, mockWechatReqHandler, loginResponse } = featureContext;
-      const phoneBindCode = 'phone_bind_code_1';
+        const { apiServer, mockWechatReqHandler, loginResponse } = featureContext;
+        const phoneBindCode = 'phone_bind_code_1';
 
-      mockWechatReqHandler.mockResolvedValueOnce({
-        errcode: 0,
-        errmsg: 'ok',
-        phone_info: {
-          phoneNumber: phone,
-          purePhoneNumber: phone,
-          countryCode: countryCode,
-        },
+        mockWechatReqHandler.mockResolvedValueOnce({
+          errcode: 0,
+          errmsg: 'ok',
+          phone_info: {
+            phoneNumber: phone,
+            purePhoneNumber: phone,
+            countryCode: countryCode,
+          },
+        });
+        await wechatBindPhone(apiServer, loginResponse!.token, phoneBindCode);
+
+        context.phoneBindCode = phoneBindCode;
       });
-      await wechatBindPhone(apiServer, loginResponse!.token, phoneBindCode);
 
-      context.phoneBindCode = phoneBindCode;
-    });
-
-  Then('微信服务端返回用户的手机号信息', async () => {
+    Then('微信服务端返回用户的手机号信息', async () => {
       const { mockWechatReqHandler, mockWechatTokenHandler } = featureContext;
       await vi.waitFor(() => {
         expect(mockWechatTokenHandler).toHaveBeenCalledTimes(1);
@@ -555,11 +553,10 @@ describeFeature(feature, ({
     Given(
       '使用 cli 初始化管理员账号，指定手机号 {string}，密码为 {string}',
       async (ctx, phone: string, password: string) => {
-
-      const { apiServer } = featureContext;
-      const { profile: adminProfile } = await prepareAdminUser(apiServer, schema, phone);
-      context.userProfile = adminProfile;
-    });
+        const { apiServer } = featureContext;
+        const { profile: adminProfile } = await prepareAdminUser(apiServer, schema, phone, password);
+        context.userProfile = adminProfile;
+      });
 
     Then('管理员账号创建成功', () => {
     });
@@ -655,13 +652,13 @@ describeFeature(feature, ({
       Given(
         '管理员账号已登录，手机号为 {string}',
         async (ctx, phone: string) => {
-        const password = 'pass_test';
-        await initAdminHandler({ schema, phone, password });
-        const { token } = await passwordLogin(featureContext.apiServer, '+86', phone, password);
-        featureContext.adminToken = token;
-      });
+          const password = 'pass_test';
+          await initAdminHandler({ schema, phone, password });
+          const { token } = await passwordLogin(featureContext.apiServer, '+86', phone, password);
+          featureContext.adminToken = token;
+        });
 
-      When('管理员账号获取用户列表', async (ctx, name: string) => {
+      When('管理员账号获取用户列表', async () => {
         const { apiServer, adminToken } = featureContext;
         const userListResponse = await listUsers(apiServer, adminToken);
         context.userList = userListResponse;
@@ -679,9 +676,9 @@ describeFeature(feature, ({
         (_ctx, phone: string, countryCode: string) => {
           const { userList } = context;
           expect(userList.users.some(user => user.phone === `+${countryCode} ${phone}`)).toBe(true);
-      });
+        });
 
-      When('管理员用手机号 {string} 搜索用户列表', async (ctx, phone: string) => {
+      When('管理员用手机号 {string} 搜索用户列表', async (_ctx, phone: string) => {
         const { apiServer, adminToken } = featureContext;
         const searchedUserListResponse = await listUsers(apiServer, adminToken, { phone });
         context.userList = searchedUserListResponse;
@@ -692,7 +689,7 @@ describeFeature(feature, ({
         (_ctx, phone: string, countryCode: string) => {
           const { userList } = context;
           expect(userList.users.some(user => user.phone === `+${countryCode} ${phone}`)).toBe(true);
-      });
+        });
     }
   );
 
@@ -807,7 +804,6 @@ describeFeature(feature, ({
         expect(context.roleList.some(role => role.name === roleName)).toBe(false);
       });
 
-
       When('管理员删除内置角色 {string}', async (_ctx, roleName: string) => {
         const { apiServer, adminToken } = featureContext;
         const roleList = await listRoles(apiServer, adminToken);
@@ -875,7 +871,6 @@ describeFeature(feature, ({
         const userRoles = await getCurrentUserRoles(apiServer, suToken);
         expect(userRoles.roles.some(role => role.name === roleName)).toBe(false);
       });
-
     }
   );
 

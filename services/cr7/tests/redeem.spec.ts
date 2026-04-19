@@ -96,7 +96,7 @@ function getSessionByDate(
   dateLabel: string,
 ): Exhibition.Session {
   const targetDate = Text2Date(dateLabel);
-  const session = sessions.find((item) => isSameDay(item.session_date, targetDate));
+  const session = sessions.find(item => isSameDay(item.session_date, targetDate));
   expect(session, `Session for ${dateLabel} (${targetDate}) not found`).toBeTruthy();
   return session!;
 }
@@ -142,7 +142,7 @@ async function payOrderForCurrentUser(
   featureContext: FeatureContext,
   order: Order.OrderWithItems
 ) {
-  const { userProfile, userToken, fixtures } = featureContext
+  const { userProfile, userToken, fixtures } = featureContext;
   const { apiServer } = fixtures.values;
   await markOrderAsPaidForTest(apiServer, userToken, order, userProfile.openid!);
 }
@@ -181,7 +181,6 @@ describeFeature(feature, ({
       ['apiServer', 'broker'],
     );
 
-
     featureContext.fixtures = fixtures;
     featureContext.wechatFixture = wechatFixture;
     featureContext.usersByName = {};
@@ -206,7 +205,7 @@ describeFeature(feature, ({
   Background(({ Given, And }) => {
     Given('系统管理员已经创建并登录', async () => {
       const { apiServer } = featureContext.fixtures.values;
-      featureContext.adminToken = await prepareAdminToken(apiServer, schema);;
+      featureContext.adminToken = await prepareAdminToken(apiServer, schema); ;
     });
 
     And('{string} 被授予 {string} 角色', async (_ctx, userName: string, roleLabel: string) => {
@@ -304,16 +303,16 @@ describeFeature(feature, ({
       And(
         '核销码中间的9位字符集 {string} 组成, 不包含易混淆的字符如 {string}, {string}, {string}, {string}',
         (_ctx, charset: string, c1: string, c2: string, c3: string, c4: string) => {
-        const middle = context.redemption.code.slice(1, 10);
-        expect(middle).toHaveLength(9);
-        for (const char of middle) {
-          expect(charset.includes(char)).toBe(true);
-        }
-        expect(middle.includes(c1)).toBe(false);
-        expect(middle.includes(c2)).toBe(false);
-        expect(middle.includes(c3)).toBe(false);
-        expect(middle.includes(c4)).toBe(false);
-      });
+          const middle = context.redemption.code.slice(1, 10);
+          expect(middle).toHaveLength(9);
+          for (const char of middle) {
+            expect(charset.includes(char)).toBe(true);
+          }
+          expect(middle.includes(c1)).toBe(false);
+          expect(middle.includes(c2)).toBe(false);
+          expect(middle.includes(c3)).toBe(false);
+          expect(middle.includes(c4)).toBe(false);
+        });
 
       And('核销码的状态为未核销', () => {
         expect(context.redemption.status).toBe('UNREDEEMED');
@@ -505,7 +504,6 @@ describeFeature(feature, ({
     '一个未完成支付的订单没有核销码',
     (s: StepTest<OrderContext & ErrorContext>) => {
       const { Given, And, When, Then, context } = s;
-
 
       Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
         context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);

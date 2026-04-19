@@ -2,7 +2,7 @@ import { Client } from 'pg';
 
 export async function runCommand<Args extends Record<string, unknown>>(
   commandFunc: (client: Client, argv: Args) => Promise<void>,
-  args: { dir: string; conf: string; } & Args
+  args: { dir: string; conf: string } & Args
 ) {
   const { dir, conf } = args ?? { };
   if (dir) {
@@ -32,7 +32,7 @@ export function dbClientWrapper<Args extends Record<string, unknown>>(
   return async function handler(argv?: Args) {
     return runCommand<Args>(
       commandFunc,
-      argv as { dir: string; conf: string; } & Args
+      argv as { dir: string; conf: string } & Args
     );
   };
 }

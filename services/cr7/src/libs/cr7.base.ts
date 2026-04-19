@@ -1,6 +1,6 @@
-import { User } from "@cr7/types";
-import { Service, Errors, ServiceBroker, Context } from "moleculer";
-import { Pool } from "pg";
+import { User } from '@cr7/types';
+import { Service, Errors, ServiceBroker, Context } from 'moleculer';
+import { Pool } from 'pg';
 
 const { MoleculerClientError } = Errors;
 

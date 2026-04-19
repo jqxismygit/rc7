@@ -61,15 +61,15 @@ export function getOrderStatusCase(options: OrderStatusCaseOptions = {}) {
   `;
 }
 
-export type ORDER_DATA_ERROR_CODES =
-  | 'ORDER_NOT_FOUND'
-  | 'ORDER_STATUS_INVALID'
-  | 'ORDER_CANNOT_BE_HIDDEN'
-  | 'INVENTORY_NOT_ENOUGH'
-  | 'SESSION_NOT_FOUND'
-  | 'SESSION_EXPIRED'
-  | 'TICKET_CATEGORY_NOT_FOUND'
-  | 'INVALID_ARGUMENT';
+export type ORDER_DATA_ERROR_CODES
+  = | 'ORDER_NOT_FOUND'
+    | 'ORDER_STATUS_INVALID'
+    | 'ORDER_CANNOT_BE_HIDDEN'
+    | 'INVENTORY_NOT_ENOUGH'
+    | 'SESSION_NOT_FOUND'
+    | 'SESSION_EXPIRED'
+    | 'TICKET_CATEGORY_NOT_FOUND'
+    | 'INVALID_ARGUMENT';
 
 export class OrderDataError extends Error {
   code: ORDER_DATA_ERROR_CODES;
@@ -711,7 +711,6 @@ export async function createOrder(
   return getOrderById(client, schema, createdOrder.id);
 }
 
-
 export async function releaseOrderInventory(
   client: DBClient,
   schema: string,
@@ -829,7 +828,7 @@ export async function markOrderPaid(
   orderId: string,
 ): Promise<{ paid_at: Date }> {
   const { rows } = await client.query<
-   { paid_at: Date | null; cancelled_at: Date | null; expires_at: Date }
+    { paid_at: Date | null; cancelled_at: Date | null; expires_at: Date }
   >(
     `SELECT paid_at, cancelled_at, expires_at
      FROM ${schema}.exhibit_orders

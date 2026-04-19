@@ -1,10 +1,10 @@
-import { Server } from "http";
-import { getJSON, postJSON, patchJSON } from "../lib/api.js";
-import { Exhibition } from "@cr7/types";
-import { expect } from "vitest";
-import { random_text } from "../lib/random.js";
-import { updateTicketCategoryMaxInventory } from "./inventory.js";
-import { toDateLabel } from "../lib/relative-date.js";
+import { Server } from 'http';
+import { getJSON, postJSON, patchJSON } from '../lib/api.js';
+import { Exhibition } from '@cr7/types';
+import { expect } from 'vitest';
+import { random_text } from '../lib/random.js';
+import { updateTicketCategoryMaxInventory } from './inventory.js';
+import { toDateLabel } from '../lib/relative-date.js';
 
 export type DraftExhibition = Omit<
   Exhibition.Exhibition,
@@ -71,10 +71,10 @@ export async function listExhibitions(
   options?: { limit?: number; offset?: number; all?: boolean },
 ) {
   return getJSON<{
-    data: Exhibition.Exhibition[]
-    total: number
-    limit: number
-    offset: number
+    data: Exhibition.Exhibition[];
+    total: number;
+    limit: number;
+    offset: number;
   }>(
     server,
     '/exhibition',
@@ -91,10 +91,10 @@ export async function listAdminExhibitions(
   options?: { limit?: number; offset?: number },
 ) {
   return getJSON<{
-    data: Exhibition.Exhibition[]
-    total: number
-    limit: number
-    offset: number
+    data: Exhibition.Exhibition[];
+    total: number;
+    limit: number;
+    offset: number;
   }>(
     server,
     '/exhibition',
@@ -144,7 +144,7 @@ export async function getSessions(
     `/exhibition/${eid}/sessions`,
     { token, query }
   )
-  .then((res) => res.map(r => Object.assign(r, { session_date: new Date(r.session_date) })));
+    .then(res => res.map(r => Object.assign(r, { session_date: new Date(r.session_date) })));
 }
 
 export async function addTicketCategory(

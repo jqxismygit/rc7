@@ -126,21 +126,21 @@ describeFeature(feature, ({
       async (
         _ctx, _idx: number, ticketName: string,
       ) => {
-      const { apiServer, adminToken, exhibition, ticketByName } = featureContext;
-      const ticket = ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
+        const { apiServer, adminToken, exhibition, ticketByName } = featureContext;
+        const ticket = ticketByName[ticketName];
+        expect(ticket).toBeTruthy();
 
-      featureContext.ticketCalendar = await getTicketCalendarInventory(
-        apiServer,
-        adminToken,
-        exhibition.id,
-        ticket.id,
-        {
-          start_session_date: toDateLabel('今天'),
-          end_session_date: toDateLabel('1天后'),
-        },
-      );
-    });
+        featureContext.ticketCalendar = await getTicketCalendarInventory(
+          apiServer,
+          adminToken,
+          exhibition.id,
+          ticket.id,
+          {
+            start_session_date: toDateLabel('今天'),
+            end_session_date: toDateLabel('1天后'),
+          },
+        );
+      });
 
     Then('第 {int} 次场次库存价格列表有 {int} 个场次库存价格数据', (
       _ctx,
@@ -158,7 +158,7 @@ describeFeature(feature, ({
           session_date: toDateLabel(row['场次日期']),
         };
         if ('价格' in row) {
-          obj.price = Number(row['价格'])
+          obj.price = Number(row['价格']);
         } else if ('库存' in row) {
           obj.quantity = Number(row['库存']);
         } else {
@@ -168,7 +168,7 @@ describeFeature(feature, ({
       });
 
       expect(ticketCalendar).toEqual(
-        expectedRows.map((expectedRow) => expect.objectContaining(expectedRow))
+        expectedRows.map(expectedRow => expect.objectContaining(expectedRow))
       );
     });
   });
@@ -241,7 +241,7 @@ describeFeature(feature, ({
       expect(sessions).toHaveLength(expectedCount);
       expect(dataTable).toHaveLength(expectedCount);
 
-      const expectedRows = dataTable.map((row) => ({
+      const expectedRows = dataTable.map(row => ({
         id: expect.stringMatching(UUID_REGEX),
         session_date: parseISO(toDateLabel(row['场次日期'])),
         name: normalizeSessionName(row['场次名称']),
@@ -250,7 +250,7 @@ describeFeature(feature, ({
         last_entry_time: parseDatetimeCell(row['场次最晚入场时间'], '场次最晚入场时间'),
       }));
       expect(sessions).toEqual(
-        expectedRows.map((expectedSession) => expect.objectContaining(expectedSession))
+        expectedRows.map(expectedSession => expect.objectContaining(expectedSession))
       );
     });
 
@@ -264,10 +264,10 @@ describeFeature(feature, ({
       expect(sessions).toHaveLength(expectedCount);
       expect(dataTable).toHaveLength(expectedCount);
 
-      const expectedRows = dataTable.map((row) => ({
+      const expectedRows = dataTable.map(row => ({
         id: row['场次 ID'] === 'uuid-AM'
-            ? expect.stringMatching(UUID_AM_REGEX)
-            : expect.stringMatching(UUID_PM_REGEX),
+          ? expect.stringMatching(UUID_AM_REGEX)
+          : expect.stringMatching(UUID_PM_REGEX),
         session_date: parseISO(toDateLabel(row['场次日期'])),
         name: normalizeSessionName(row['场次名称']),
         opening_time: parseDatetimeCell(row['场次开始时间'], '场次开始时间'),
@@ -276,7 +276,7 @@ describeFeature(feature, ({
       }));
 
       expect(sessions).toEqual(
-        expectedRows.map((expectedSession) => expect.objectContaining(expectedSession))
+        expectedRows.map(expectedSession => expect.objectContaining(expectedSession))
       );
     });
   });
@@ -350,5 +350,4 @@ describeFeature(feature, ({
       );
     });
   });
-
 });

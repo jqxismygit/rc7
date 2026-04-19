@@ -1,8 +1,8 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { URL } from "node:url";
-import { Client } from "pg";
-import { dbClientWrapper } from "./utils.js";
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { URL } from 'node:url';
+import { Client } from 'pg';
+import { dbClientWrapper } from './utils.js';
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
 export async function bootstrap(client: Client, args?: { log?: boolean }) {
@@ -25,7 +25,6 @@ export async function bootstrap(client: Client, args?: { log?: boolean }) {
     console.log('Bootstrap completed successfully.');
   }
 }
-
 
 export const command = 'bootstrap';
 export const describe = '初始化数据库';

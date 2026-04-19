@@ -22,4 +22,4 @@ export default {
     company_bank_account: '6222000000000000000',
     issuer: '开票人'
   }
-}
+};

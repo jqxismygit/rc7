@@ -1,9 +1,9 @@
-import { Server } from "http";
-import { getJSON, putJSON } from "../lib/api.js";
-import { Inventory } from "@cr7/types";
-import { expect } from "vitest";
-import { assertTicketCategory } from "./exhibition.js";
-import { TicketCategory } from "@cr7/types/exhibition.js";
+import { Server } from 'http';
+import { getJSON, putJSON } from '../lib/api.js';
+import { Inventory } from '@cr7/types';
+import { expect } from 'vitest';
+import { assertTicketCategory } from './exhibition.js';
+import { TicketCategory } from '@cr7/types/exhibition.js';
 
 export async function getSessionTickets(
   server: Server,

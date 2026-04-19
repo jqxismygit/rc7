@@ -60,10 +60,10 @@ interface FapiaoResponse {
   CODE: string;
   MESSAGE: string;
   DATA: {
-    FPQQLSH: string,
-    PDF_URL: string,
-    FP_HM: string,
-  }
+    FPQQLSH: string;
+    PDF_URL: string;
+    FP_HM: string;
+  };
 };
 
 interface CreateFapiaoContext {
@@ -128,7 +128,6 @@ describeFeature(feature, ({
     await dropSchema({ schema });
   });
 
-
   defineSteps(({ Given, When, Then, And }) => {
     Given('用户预订 {number} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
       const ticket = featureContext.ticketByName[ticketName];
@@ -164,7 +163,7 @@ describeFeature(feature, ({
     Then('订单状态为已支付', async () => {
       const { apiServer, userToken } = featureContext;
       const orderId = featureContext.order!.id;
-      const order = await getOrder( apiServer, orderId, userToken);
+      const order = await getOrder(apiServer, orderId, userToken);
       expect(order.status).toBe('PAID');
       featureContext.order = order;
     });
@@ -172,19 +171,19 @@ describeFeature(feature, ({
     When(
       '用户申请该订单的发票，发票抬头为 {string}，税号为 {string}, 邮箱为 {string}',
       (_ctx, invoiceTitle: string, taxNo: string, email: string) => {
-      featureContext.applyInvoicePromise = applyOrderInvoice(
-        featureContext.apiServer,
-        featureContext.order.id,
-        {
-          invoice_title: invoiceTitle,
-          tax_no: taxNo,
-          email,
-        },
-        featureContext.userToken,
-      );
-    });
+        featureContext.applyInvoicePromise = applyOrderInvoice(
+          featureContext.apiServer,
+          featureContext.order.id,
+          {
+            invoice_title: invoiceTitle,
+            tax_no: taxNo,
+            email,
+          },
+          featureContext.userToken,
+        );
+      });
 
-  Then('发票服务接收到发票开具请求, 可以正常解密出发票申请信息', async () => {
+    Then('发票服务接收到发票开具请求, 可以正常解密出发票申请信息', async () => {
       await vi.waitFor(() => {
         expect(featureContext.fapiaoRequestHandler).toHaveBeenCalled();
       });
@@ -237,7 +236,6 @@ describeFeature(feature, ({
       const [first] = featureContext.fapiaoList!.items;
       expect(first.order_id).toBe(featureContext.order.id);
     });
-
   });
 
   Background(({ Given, And }) => {
@@ -274,20 +272,20 @@ describeFeature(feature, ({
     Given(
       '展会添加票种 {string}, 准入人数为 {number}, 有效期为场次当天, 价格是 {number} 元',
       async (_ctx, ticketName: string, admittance: number, priceYuan: number) => {
-      const ticket = await prepareTicketCategory(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        {
-          name: ticketName,
-          admittance,
-          valid_duration_days: 1,
-          price: priceYuan * 100,
+        const ticket = await prepareTicketCategory(
+          featureContext.apiServer,
+          featureContext.adminToken,
+          featureContext.exhibition.id,
+          {
+            name: ticketName,
+            admittance,
+            valid_duration_days: 1,
+            price: priceYuan * 100,
             refund_policy: 'REFUNDABLE_48H_BEFORE',
-        },
-      );
-      featureContext.ticketByName[ticketName] = ticket;
-    });
+          },
+        );
+        featureContext.ticketByName[ticketName] = ticket;
+      });
 
     And('票种 {string} 库存为 {number}', async (_ctx, ticketName: string, inventory: number) => {
       const ticket = featureContext.ticketByName[ticketName];
@@ -313,7 +311,6 @@ describeFeature(feature, ({
       featureContext.userToken = token;
       featureContext.userProfile = profile;
     });
-
 
     Given('发票服务已经启动', async () => {
       const promise = new Promise<unknown>((resolve, reject) => {
@@ -435,20 +432,20 @@ describeFeature(feature, ({
     And(
       '请求中购买方名称是 {string}, 购买方纳税人识别号是 {string}，电子邮箱是 {string}',
       (_ctx, invoice_title: string, buyerTaxId: string, email: string) => {
-      const { fapiaoRequestData } = featureContext;
-      expect(String(fapiaoRequestData!.GMF_MC)).toBe(invoice_title);
-      expect(String(fapiaoRequestData!.GMF_NSRSBH)).toBe(buyerTaxId);
-      expect(String(fapiaoRequestData!.GMF_DZYX)).toBe(email);
-    });
+        const { fapiaoRequestData } = featureContext;
+        expect(String(fapiaoRequestData!.GMF_MC)).toBe(invoice_title);
+        expect(String(fapiaoRequestData!.GMF_NSRSBH)).toBe(buyerTaxId);
+        expect(String(fapiaoRequestData!.GMF_DZYX)).toBe(email);
+      });
 
     And(
       '请求中价税合计是 {number} 元，合计金额是 {number} 元，合计税额是 {number} 元',
       (_ctx, totalYuan: number, amountYuan: number, taxYuan: number) => {
-      const { fapiaoRequestData } = featureContext;
-      expect(Number(fapiaoRequestData!.JSHJ)).toBe(totalYuan);
-      expect(Number(fapiaoRequestData!.HJJE)).toBe(amountYuan);
-      expect(Number(fapiaoRequestData!.HJSE)).toBe(taxYuan);
-    });
+        const { fapiaoRequestData } = featureContext;
+        expect(Number(fapiaoRequestData!.JSHJ)).toBe(totalYuan);
+        expect(Number(fapiaoRequestData!.HJJE)).toBe(amountYuan);
+        expect(Number(fapiaoRequestData!.HJSE)).toBe(taxYuan);
+      });
 
     And('请求中有 {number} 个发票行项目', (_ctx, count: number) => {
       const { fapiaoRequestData } = featureContext;
@@ -472,13 +469,13 @@ describeFeature(feature, ({
     And(
       '发票行项目的第 {number} 行的项目名称是 {string}, 数量是 {number}，单价是 {number} 元',
       (_ctx, index: number, name: string, quantity: number, unitPrice: number) => {
-      const { fapiaoRequestData } = featureContext;
-      const rows = fapiaoRequestData!.COMMON_FPKJ_XMXX as Array<Record<string, unknown>>;
-      const row = rows[index - 1];
-      expect(String(row.XMMC)).toBe(name);
-      expect(Number(row.XMSL)).toBe(quantity);
-      expect(Number(row.XMDJ)).toBe(unitPrice);
-    });
+        const { fapiaoRequestData } = featureContext;
+        const rows = fapiaoRequestData!.COMMON_FPKJ_XMXX as Array<Record<string, unknown>>;
+        const row = rows[index - 1];
+        expect(String(row.XMMC)).toBe(name);
+        expect(Number(row.XMSL)).toBe(quantity);
+        expect(Number(row.XMDJ)).toBe(unitPrice);
+      });
 
     And('发票行项目的第 {number} 行的税率是 {number}%， 税额是 {number} 元', (_ctx, index: number, taxRate: number, taxAmount: number) => {
       const { fapiaoRequestData } = featureContext;
@@ -487,9 +484,6 @@ describeFeature(feature, ({
       expect(Number(row.SL) * 100).toBe(taxRate);
       expect(Number(row.SE)).toBe(taxAmount);
     });
-
-
-
 
     And('发票开具结果中的 PDF URL 是 {string}', (_ctx, pdfUrl: string) => {
       const { fapiaoResponse } = featureContext;
@@ -583,41 +577,41 @@ describeFeature(feature, ({
   });
 
   Scenario('用户订单退款后申请发票', (s: StepTest<void>) => {
-      const { When, Then } = s;
+    const { When, Then } = s;
 
-      When('用户申请订单退款', async () => {
-        const { order, apiServer, userToken } = featureContext;
-        const { refundRecord } = await requestRefundWithMock(
-          apiServer,
-          order,
-          userToken,
-        );
-        await sendMockRefundCallback(
-          apiServer,
-          refundRecord as Payment.RefundRecord,
-          'SUCCESS',
-          { successTime: new Date().toISOString() },
-        );
-        featureContext.order = await getOrder(
-          apiServer,
-          order.id,
-          userToken,
-        );
-      });
+    When('用户申请订单退款', async () => {
+      const { order, apiServer, userToken } = featureContext;
+      const { refundRecord } = await requestRefundWithMock(
+        apiServer,
+        order,
+        userToken,
+      );
+      await sendMockRefundCallback(
+        apiServer,
+        refundRecord as Payment.RefundRecord,
+        'SUCCESS',
+        { successTime: new Date().toISOString() },
+      );
+      featureContext.order = await getOrder(
+        apiServer,
+        order.id,
+        userToken,
+      );
+    });
 
-      Then('订单状态为已退款', () => {
-        expect(featureContext.order.status).toBe('REFUNDED');
-      });
+    Then('订单状态为已退款', () => {
+      expect(featureContext.order.status).toBe('REFUNDED');
+    });
 
-      Then('cr7 返回错误，提示订单已退款，无法申请发票', async () => {
-        await expect(featureContext.applyInvoicePromise).rejects.toMatchObject({
-          status: 409,
-          body: {
-            message: '订单已退款，无法申请发票',
-          },
-        });
+    Then('cr7 返回错误，提示订单已退款，无法申请发票', async () => {
+      await expect(featureContext.applyInvoicePromise).rejects.toMatchObject({
+        status: 409,
+        body: {
+          message: '订单已退款，无法申请发票',
+        },
       });
     });
+  });
 
   // Scenario('用户申请发票后发票平台开具失败', async ({ Given }) => {
   //  Given('发票平台返回发票开具失败的响应， 值为 "2000"', () => {});

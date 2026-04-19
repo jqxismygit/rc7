@@ -71,7 +71,7 @@ interface OrderResultContext {
 };
 
 interface OrderQueryContext {
-  serviceName: Xiecheng.XcOrderServiceName
+  serviceName: Xiecheng.XcOrderServiceName;
   draftQueryOrderBody: Xiecheng.XcQueryOrderBody;
   queryOrderResponse: Xiecheng.XcEncryptedOrderResponse;
   decryptedQueryResponse: Xiecheng.XcQueryOrderSuccessBody;
@@ -123,8 +123,8 @@ interface FeatureContext extends
   Partial<RecordsContext>,
   Partial<RefundRecordsContext>,
   Partial<CancelContext> {
-    broker: ServiceBroker;
-    apiServer: Server;
+  broker: ServiceBroker;
+  apiServer: Server;
 }
 
 function getSessionByDate(sessions: Exhibition.Session[], dateLabel: string): Exhibition.Session {
@@ -139,7 +139,6 @@ function getTicketByName(featureContext: FeatureContext, ticketName: string): Ex
   expect(ticket, `Ticket ${ticketName} not found`).toBeTruthy();
   return ticket;
 }
-
 
 describeFeature(feature, ({
   AfterEachScenario,
@@ -175,23 +174,23 @@ describeFeature(feature, ({
     Given(
       '展会添加票种 {string}, 准入人数为 {number}, 有效期为场次当天, 价格为 {number} 元',
       async (_ctx, ticketName: string, admittance: number, price: number) => {
-      const { apiServer, adminToken, exhibition } = featureContext;
-      const ticket = await prepareTicketCategory(
-        apiServer, adminToken, exhibition.id,
-        {
-          name: ticketName,
-          admittance,
-          valid_duration_days: 1,
-          refund_policy: 'NON_REFUNDABLE',
-          price: price * 100,
-        },
-      );
+        const { apiServer, adminToken, exhibition } = featureContext;
+        const ticket = await prepareTicketCategory(
+          apiServer, adminToken, exhibition.id,
+          {
+            name: ticketName,
+            admittance,
+            valid_duration_days: 1,
+            refund_policy: 'NON_REFUNDABLE',
+            price: price * 100,
+          },
+        );
 
-      featureContext.ticketByName = {
-        ...featureContext.ticketByName,
-        [ticketName]: ticket,
-      };
-    });
+        featureContext.ticketByName = {
+          ...featureContext.ticketByName,
+          [ticketName]: ticket,
+        };
+      });
 
     // 创建订单
     When('用户提交订单', () => {
@@ -246,7 +245,7 @@ describeFeature(feature, ({
         featureContext.orderUserProfile = userProfile;
         expect(userProfile.name).toBe(userName);
         expect(userProfile.phone).toBe(`${countryCode} ${phone}`);
-    });
+      });
 
     Then('cr7 系统按照携程的要求返回订单创建成功的响应', () => {
       const { callbackResponse, decryptedResponseBody, draftOrder, order } = featureContext;
@@ -259,12 +258,12 @@ describeFeature(feature, ({
     Given(
       '携程 service name 是 {string} 的订单查询请求',
       (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
-      featureContext.draftQueryOrderBody = {
-        sequenceId: `xc_query_seq_${Date.now()}`,
-        otaOrderId: featureContext.draftOrder!.otaOrderId,
-      };
-      featureContext.serviceName = serviceName;
-    });
+        featureContext.draftQueryOrderBody = {
+          sequenceId: `xc_query_seq_${Date.now()}`,
+          otaOrderId: featureContext.draftOrder!.otaOrderId,
+        };
+        featureContext.serviceName = serviceName;
+      });
 
     And('携程订单查询请求中的 ota order id 是 {string}', (_ctx, otaOrderId: string) => {
       featureContext.draftQueryOrderBody!.otaOrderId = otaOrderId;
@@ -337,7 +336,7 @@ describeFeature(feature, ({
       expect(featureContext.decryptedQueryResponse?.items[0]).toHaveProperty('useQuantity', useQuantity);
     });
 
-    //支付订单
+    // 支付订单
     Given(
       '携程 service name 是 {string} 的订单支付请求',
       (_ctx, serviceName: Xiecheng.XcOrderServiceName) => {
@@ -354,7 +353,7 @@ describeFeature(feature, ({
             PLU: draftOrder!.items[0].PLU,
           }],
         };
-    });
+      });
 
     And('携程订单支付请求中的 supplier order id 是用户创建的订单 id', () => {
       featureContext.draftPayOrderBody!.supplierOrderId = featureContext.order!.id;
@@ -621,15 +620,15 @@ describeFeature(feature, ({
     And(
       '携程订单的包含 {string} {number} 张，场次时间为 {string}, 价格是 {number} 分',
       (_ctx, ticketName: string, quantity: number, dateLabel: string, price: number) => {
-      const ticket = getTicketByName(featureContext, ticketName);
-      featureContext.draftOrder!.items = [{
-        PLU: ticket.id,
-        useStartDate: toDateLabel(dateLabel),
-        useEndDate: toDateLabel(dateLabel),
-        quantity,
-        price,
-      }];
-    });
+        const ticket = getTicketByName(featureContext, ticketName);
+        featureContext.draftOrder!.items = [{
+          PLU: ticket.id,
+          useStartDate: toDateLabel(dateLabel),
+          useEndDate: toDateLabel(dateLabel),
+          quantity,
+          price,
+        }];
+      });
 
     And('携程订单的总价为 {string} 的价格, 即 {number} 分', (_ctx, ticketName: string, totalPrice: number) => {
       featureContext.draftOrder!.items[0].price = totalPrice;
@@ -666,9 +665,7 @@ describeFeature(feature, ({
     And('携程 sequence id 是 {string}', (_ctx, sequenceId: string) => {
       featureContext.draftOrder!.sequenceId = sequenceId;
     });
-
   });
-
 
   Scenario('用户从携程下单购买门票', (s: StepTest<OrderResultContext>) => {
     const { And } = s;
@@ -682,7 +679,7 @@ describeFeature(feature, ({
         expect(order?.items[0].ticket_category_id).toBe(ticket.id);
         expect(order?.items[0].quantity).toBe(quantity);
         expect(order?.session_id).toBe(session.id);
-    });
+      });
 
     And('订单总价应为 {string} 的价格, 即 {number} 分', (_ctx, ticketName: string, totalPrice: number) => {
       const { order } = featureContext;
@@ -746,12 +743,12 @@ describeFeature(feature, ({
     });
 
     Then('cr7 系统只有一个订单, cr7 订单号不变, 订单状态不变', async () => {
-        const { adminToken, apiServer } = featureContext;
-        const orderId = context.decryptedResponseBody?.supplierOrderId;
-        expect(orderId).toEqual(featureContext.order?.id);
-        const order = await getOrderAdmin(apiServer, orderId!, adminToken);
-        expect(order.status).toEqual(featureContext.order?.status);
-        context.order = order;
+      const { adminToken, apiServer } = featureContext;
+      const orderId = context.decryptedResponseBody?.supplierOrderId;
+      expect(orderId).toEqual(featureContext.order?.id);
+      const order = await getOrderAdmin(apiServer, orderId!, adminToken);
+      expect(order.status).toEqual(featureContext.order?.status);
+      context.order = order;
     });
 
     And('订单的用户账号不变', async () => {
@@ -772,72 +769,72 @@ describeFeature(feature, ({
     Then(
       '管理员在系统后台可以获取订单号 {string} 的携程同步记录',
       async (_ctx, otaOrderId: string) => {
-      const { adminToken, apiServer, order } = featureContext;
-      const orderId = order?.id;
-      const records = await getCtripOrderSyncRecords(apiServer, adminToken, orderId!);
-      expect(records.length).toEqual(1);
-      expect(records[0].ota_order_id).toBe(otaOrderId);
+        const { adminToken, apiServer, order } = featureContext;
+        const orderId = order?.id;
+        const records = await getCtripOrderSyncRecords(apiServer, adminToken, orderId!);
+        expect(records.length).toEqual(1);
+        expect(records[0].ota_order_id).toBe(otaOrderId);
 
-      const listResult = await listCtripOrderSyncRecords(apiServer, adminToken, {
-        limit: 10,
-        offset: 0,
-        ota_order_id: otaOrderId,
+        const listResult = await listCtripOrderSyncRecords(apiServer, adminToken, {
+          limit: 10,
+          offset: 0,
+          ota_order_id: otaOrderId,
+        });
+        expect(listResult.total).toBe(1);
+        expect(listResult.data).toHaveLength(1);
+        expect(listResult.data[0].order_id).toBe(orderId);
+        context.records = records;
       });
-      expect(listResult.total).toBe(1);
-      expect(listResult.data).toHaveLength(1);
-      expect(listResult.data[0].order_id).toBe(orderId);
-      context.records = records;
-    });
 
     And(
       '同步记录内容包含订单号 {string}，序列号 {string}, 同步状态是成功',
       (_ctx, otaOrderId: string, sequenceId: string) => {
         const { records: [latestRecord] } = context;
-      expect(latestRecord.ota_order_id).toBe(otaOrderId);
-      expect(latestRecord.sequence_id).toBe(sequenceId);
-      expect(latestRecord.sync_status).toBe('SUCCESS');
-    });
+        expect(latestRecord.ota_order_id).toBe(otaOrderId);
+        expect(latestRecord.sequence_id).toBe(sequenceId);
+        expect(latestRecord.sync_status).toBe('SUCCESS');
+      });
 
     And(
       '同步记录中包含手机号 {string}，国别码 {string}',
       (_ctx, phone: string, countryCode: string) => {
-      const { records: [latestRecord] } = context;
-      expect(latestRecord.phone).toBe(phone);
-      expect(latestRecord.country_code).toBe(countryCode);
-    });
+        const { records: [latestRecord] } = context;
+        expect(latestRecord.phone).toBe(phone);
+        expect(latestRecord.country_code).toBe(countryCode);
+      });
 
     And(
       '同步记录中包含 {string} {int} 张，场次时间为 {string}',
       (_ctx, ticketName: string, quantity: number, dateLabel: string) => {
-      const { records: [latestRecord] } = context;
-      const requestBody = latestRecord.request_body as Xiecheng.XcCreatePreOrderBody;
-      const ticket = getTicketByName(featureContext, ticketName);
-      expect(requestBody.items).toHaveLength(1);
-      expect(requestBody.items[0].PLU).toBe(ticket.id);
-      expect(requestBody.items[0].quantity).toBe(quantity);
-      expect(requestBody.items[0].useStartDate).toBe(toDateLabel(dateLabel));
-      expect(requestBody.items[0].useEndDate).toBe(toDateLabel(dateLabel));
-    });
+        const { records: [latestRecord] } = context;
+        const requestBody = latestRecord.request_body as Xiecheng.XcCreatePreOrderBody;
+        const ticket = getTicketByName(featureContext, ticketName);
+        expect(requestBody.items).toHaveLength(1);
+        expect(requestBody.items[0].PLU).toBe(ticket.id);
+        expect(requestBody.items[0].quantity).toBe(quantity);
+        expect(requestBody.items[0].useStartDate).toBe(toDateLabel(dateLabel));
+        expect(requestBody.items[0].useEndDate).toBe(toDateLabel(dateLabel));
+      });
 
     And(
       '同步记录中包含订单总价 {string} 的价格, 即 {number} 分',
       (_ctx, ticketName: string, totalPrice: number) => {
-      const { records: [latestRecord] } = context;
-      expect(latestRecord?.total_amount).toBe(totalPrice);
-    });
+        const { records: [latestRecord] } = context;
+        expect(latestRecord?.total_amount).toBe(totalPrice);
+      });
 
     When(
       '携程再次发送订单创建通知, 订单号是 {string}, sequence id 是 {string}',
       async (_ctx, otaOrderId: string, sequenceId: string) => {
-      const { apiServer } = featureContext;
-      const draftOrder = _.cloneDeep(featureContext.draftOrder!);
-      draftOrder.otaOrderId = otaOrderId;
-      draftOrder.sequenceId = sequenceId;
-      const notification = buildCtripOrderNotification(
-        config.xiecheng, 'CreatePreOrder', draftOrder
-      );
-      await expect(sendCtripOrderCallback(apiServer, notification!)).resolves.toBeTruthy();
-    });
+        const { apiServer } = featureContext;
+        const draftOrder = _.cloneDeep(featureContext.draftOrder!);
+        draftOrder.otaOrderId = otaOrderId;
+        draftOrder.sequenceId = sequenceId;
+        const notification = buildCtripOrderNotification(
+          config.xiecheng, 'CreatePreOrder', draftOrder
+        );
+        await expect(sendCtripOrderCallback(apiServer, notification!)).resolves.toBeTruthy();
+      });
 
     Then('管理员在系统后台可以获取订单号 {string} 的携程最新同步记录', async (_ctx, otaOrderId: string) => {
       const { order, apiServer, adminToken } = featureContext;
@@ -857,7 +854,7 @@ describeFeature(feature, ({
         expect(latestRecord.ota_order_id).toEqual(otaOrderId);
         expect(latestRecord.sequence_id).toEqual(sequenceId);
         expect(latestRecord.sync_status).toBe('DUPLICATE_ORDER');
-    });
+      });
 
     And('最新的同步记录中的 order id 和第一次同步记录中的 order id 保持一致', () => {
       const { records: [latestRecord, firstRecord] } = context;
@@ -902,7 +899,7 @@ describeFeature(feature, ({
   });
 
   Scenario('用户在携程下单后，可以查询订单详情', (s: StepTest<void>) => {
-    const { And} = s;
+    const { And } = s;
 
     And('订单查询响应中包含 use start date 和 use end date 分别为 {string} 的开始和结束时间', (_ctx, dateLabel: string) => {
       const expectedDate = toDateLabel(dateLabel);
@@ -917,7 +914,7 @@ describeFeature(feature, ({
   });
 
   Scenario('用户在携程下单后，查询订单详情时订单号不存在', (s: StepTest<{
-    queryOrderResponse: Xiecheng.XcEncryptedOrderResponse
+    queryOrderResponse: Xiecheng.XcEncryptedOrderResponse;
   }>) => {
     const { When, And, context } = s;
     When('携程发送订单查询请求', async () => {
@@ -961,7 +958,7 @@ describeFeature(feature, ({
         expect(latestRecord.sequence_id).toBe(sequenceId);
         expect(latestRecord.sync_status).toBe('SUCCESS');
         expect(latestRecord.service_name).toBe('CancelPreOrder');
-    });
+      });
 
     And('同步记录中的 supplier order id 是用户创建的订单 id', () => {
       const { records: [latestRecord] = [] } = featureContext;
@@ -1138,17 +1135,17 @@ describeFeature(feature, ({
       assertCtripSuccessResponse(refundOrderResponse!);
     });
 
-   Then(
-    '再次退款后管理员查看场次 {string} 的 {string} 库存应该是 {int}',
-    async (_ctx, dateLabel: string, ticketName: string, expectedStock: number) => {
-      const { apiServer, sessions, adminToken, exhibition } = featureContext;
-      const session = getSessionByDate(sessions, dateLabel);
-      const ticket = getTicketByName(featureContext, ticketName);
-      const inventories = await getSessionTickets(apiServer, adminToken, exhibition.id, session.id);
-      const inventory = inventories.find(item => item.id === ticket.id);
-      expect(inventory, `Inventory for ticket ${ticketName} in session ${dateLabel} not found`).toBeTruthy();
-      expect(inventory!.quantity).toBe(expectedStock);
-    });
+    Then(
+      '再次退款后管理员查看场次 {string} 的 {string} 库存应该是 {int}',
+      async (_ctx, dateLabel: string, ticketName: string, expectedStock: number) => {
+        const { apiServer, sessions, adminToken, exhibition } = featureContext;
+        const session = getSessionByDate(sessions, dateLabel);
+        const ticket = getTicketByName(featureContext, ticketName);
+        const inventories = await getSessionTickets(apiServer, adminToken, exhibition.id, session.id);
+        const inventory = inventories.find(item => item.id === ticket.id);
+        expect(inventory, `Inventory for ticket ${ticketName} in session ${dateLabel} not found`).toBeTruthy();
+        expect(inventory!.quantity).toBe(expectedStock);
+      });
 
     When('管理员查看订单的退款记录', async () => {
       const { apiServer, order, adminToken } = featureContext;

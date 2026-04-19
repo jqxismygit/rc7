@@ -99,7 +99,7 @@ export async function getFirstSuccessfulDamaiOrderSyncRecordByDamaiOrderId(
   client: DBClient,
   schema: string,
   damaiOrderId: string,
-): Promise<Damai.DamaiOrderSyncRecord & { order_id: string, user_id: string } | null> {
+): Promise<Damai.DamaiOrderSyncRecord | null> {
   const { rows } = await client.query<Damai.DamaiOrderSyncRecord>(
     `SELECT
       id,

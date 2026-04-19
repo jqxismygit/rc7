@@ -24,7 +24,6 @@ export function signToken(
   return { token };
 }
 
-
 const onAfterCall: ApiRouteSchema['onAfterCall'] = async function onAfterCall(
   ctx, route, req, res, data
 ) {
@@ -35,7 +34,7 @@ const onAfterCall: ApiRouteSchema['onAfterCall'] = async function onAfterCall(
   }
 
   return data;
-}
+};
 
 const onBeforeCall: ApiRouteSchema['onBeforeCall'] = function onBeforeCall(
   ctx, route, req, _res
@@ -49,7 +48,7 @@ const onBeforeCall: ApiRouteSchema['onBeforeCall'] = function onBeforeCall(
   const referrer = req.headers['referer'] || null;
 
   Object.assign(ctx.meta, { ipAddress, userAgent, referrer, headers: req.headers });
-}
+};
 
 function routeConfig(
   path: string, actions: string[],
@@ -82,8 +81,8 @@ const routes = [
       authorization: false,
       aliases: {
         'GET  /services': '$node.services',
-        'GET  /nodes':    '$node.list',
-        'GET  /aliases':  'api.listAliases',
+        'GET  /nodes': '$node.list',
+        'GET  /aliases': 'api.listAliases',
 
         'POST /user/login/wechat/mini': 'user.wechat_mini_login',
         'POST /user/login/password': 'user.password_login'
@@ -339,12 +338,12 @@ const routes = [
       }
     }
   ),
-]
+];
 
 export default {
   name: 'api',
   mixins: [ApiService],
-  settings: Object.assign({ etag: true, }, config.api, { routes }),
+  settings: Object.assign({ etag: true }, config.api, { routes }),
 
   methods: {
     signToken,

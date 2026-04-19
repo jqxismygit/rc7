@@ -1,10 +1,10 @@
-import { Server } from "http";
-import { deleteJSON, getJSON, postJSON, putJSON, patchJSON } from "../lib/api.js";
-import { User } from "@cr7/types";
-import { expect, vi } from "vitest";
-import { mockWechatServer } from "../lib/server.js";
-import { handler as initAdminHandler } from "@/scripts/user/init-admin.js";
-import { random_integer, random_text } from "../lib/random.js";
+import { Server } from 'http';
+import { deleteJSON, getJSON, postJSON, putJSON, patchJSON } from '../lib/api.js';
+import { User } from '@cr7/types';
+import { expect, vi } from 'vitest';
+import { mockWechatServer } from '../lib/server.js';
+import { handler as initAdminHandler } from '@/scripts/user/init-admin.js';
+import { random_integer, random_text } from '../lib/random.js';
 
 export async function wechatMiniLogin(
   server: Server, code: string
@@ -211,7 +211,6 @@ export function assertUserProfile(profile: unknown) {
   expect(profile).toHaveProperty('updated_at', expect.any(String));
 }
 
-
 /**
  * 初始化管理员账号并返回 token
  */
@@ -219,9 +218,10 @@ export async function prepareAdminToken(
   apiServer: Server,
   schema: string,
   phone?: string,
+  password: string = 'admin_password_test',
 ): Promise<string> {
   const adminPhone = phone ?? `138${random_integer(8)}`;
-  const adminPassword = 'admin_password_test';
+  const adminPassword = password;
 
   await initAdminHandler({ schema, phone: adminPhone, password: adminPassword, countryCode: '+86' });
 
@@ -236,8 +236,9 @@ export async function prepareAdminUser(
   apiServer: Server,
   schema: string,
   phone?: string,
+  password: string = 'admin_password_test',
 ): Promise<{ token: string; profile: User.Profile }> {
-  const token = await prepareAdminToken(apiServer, schema, phone);
+  const token = await prepareAdminToken(apiServer, schema, phone, password);
   const profile = await getUserProfile(apiServer, token);
   return { token, profile };
 }

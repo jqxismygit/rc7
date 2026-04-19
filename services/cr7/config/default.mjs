@@ -91,4 +91,4 @@ export default {
     company_bank_account: 'your_company_bank_account',
     issuer: 'your_issuer',
   }
-}
+};

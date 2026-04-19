@@ -891,10 +891,10 @@ class DamaiService extends RC7BaseService {
       const response = previousResponse?.head?.returnCode === '0'
         ? previousResponse
         : buildDamaiCreateOrderSuccess({
-          orderId: firstSuccessRecord.order_id,
-          totalAmount: totalAmountFen,
-          realAmount: realAmountOfFen,
-        });
+            orderId: firstSuccessRecord.order_id,
+            totalAmount: totalAmountFen,
+            realAmount: realAmountOfFen,
+          });
 
       return this.finishWithDamaiResponse(
         recordId,
@@ -1047,7 +1047,6 @@ class DamaiService extends RC7BaseService {
       return this.finishWithDamaiResponse(recordId, buildDamaiPayOrderError('20000', '签名错误'));
     }
 
-
     const firstSuccessRecord = await getFirstSuccessfulDamaiOrderSyncRecordByDamaiOrderId(
       this.pool,
       schema,
@@ -1119,7 +1118,7 @@ class DamaiService extends RC7BaseService {
     const order = await ctx.call(
       'cr7.order.getAdmin', { oid: orderId }, { meta: { roles: ['admin'] } }
     )
-    .then((res) => res as Order.OrderWithItems, () => null);
+      .then(res => res as Order.OrderWithItems, () => null);
     if (!order) {
       return this.finishWithDamaiResponse(recordId, buildDamaiCancelOrderError('20040', '取消订单失败 -- 订单不存在'));
     }
@@ -1215,7 +1214,7 @@ class DamaiService extends RC7BaseService {
     const order = await ctx.call(
       'cr7.order.getAdmin', { oid: orderId }, { meta: { roles: ['admin'] } }
     )
-    .then((res) => res as Order.OrderWithItems, () => null);
+      .then(res => res as Order.OrderWithItems, () => null);
     if (!order) {
       return this.finishWithDamaiResponse(recordId, buildDamaiRefundApplyError('20050', '退款失败--订单不存在'));
     }
@@ -1320,7 +1319,7 @@ class DamaiService extends RC7BaseService {
     const order = await ctx.call(
       'cr7.order.getAdmin', { oid: orderId }, { meta: { roles: ['admin'] } }
     )
-    .then((res) => res as Order.OrderWithItems, () => null);
+      .then(res => res as Order.OrderWithItems, () => null);
     if (!order) {
       return buildDamaiGetETicketInfoError('20030', '订单不存在');
     }
@@ -1391,7 +1390,7 @@ class DamaiService extends RC7BaseService {
     const order = await ctx.call(
       'cr7.order.getAdmin', { oid }, { meta: { roles: ['admin'] } }
     )
-    .then((res) => res as Order.OrderWithItems, () => null);
+      .then(res => res as Order.OrderWithItems, () => null);
     if (!order) {
       throw new MoleculerClientError(`No order access context found for order ${oid}`, 404, 'ORDER_NOT_FOUND');
     }

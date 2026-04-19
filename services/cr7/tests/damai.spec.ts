@@ -223,15 +223,15 @@ interface DamaiMockRequest<Body = unknown> {
   headers: Record<string, string>;
 }
 
-type DamaiRequestBody =
-  | DamaiProjectSyncPayload
-  | DamaiPerformSyncPayload
-  | DamaiPriceSyncPayload
-  | DamaiCreateOrderRequest
-  | DamaiPayOrderRequest
-  | DamaiGetETicketInfoRequest
-  | DamaiValidateOrderPayload
-  | DamaiRefundNotifyPayload;
+type DamaiRequestBody
+  = | DamaiProjectSyncPayload
+    | DamaiPerformSyncPayload
+    | DamaiPriceSyncPayload
+    | DamaiCreateOrderRequest
+    | DamaiPayOrderRequest
+    | DamaiGetETicketInfoRequest
+    | DamaiValidateOrderPayload
+    | DamaiRefundNotifyPayload;
 
 type DamaiRequestHandler<Body = DamaiRequestBody> = Mock<
   (request: DamaiMockRequest<Body>) => unknown
@@ -298,7 +298,6 @@ describeFeature(feature, ({
   context: featureContext,
   defineSteps,
 }: FeatureDescriibeCallbackParams<FeatureContext>) => {
-
   BeforeAllScenarios(async () => {
     vi.spyOn(config.pg, 'schema', 'get').mockReturnValue(schema);
     await bootstrap();
@@ -459,7 +458,7 @@ describeFeature(feature, ({
       expect(sessionTicket!.quantity).toBe(expectedQuantity);
     });
 
-    //创建订单
+    // 创建订单
     Given('用户在大麦创建了订单', () => {
       featureContext.orderDraft = {
         daMaiOrderId: '',
@@ -511,22 +510,22 @@ describeFeature(feature, ({
     And(
       '大麦的订单中的第 {number} 个订单项 ID 是 {string} 的 ID，数量为 {number}，价格为 {number} 分',
       (_ctx, index: number, ticketName: string, quantity: number, price: number) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
-      const draft = featureContext.orderDraft!;
-      draft.priceInfo[index - 1] = {
-        priceId: ticket.id,
-        num: quantity,
-        price: price,
-      };
-
-      for (let itemIndex = 0; itemIndex < quantity; itemIndex += 1) {
-        draft.commodityInfoList.push({
+        const ticket = featureContext.ticketByName[ticketName];
+        expect(ticket).toBeTruthy();
+        const draft = featureContext.orderDraft!;
+        draft.priceInfo[index - 1] = {
           priceId: ticket.id,
-          subOrderId: `${draft.daMaiOrderId || 'damai_order'}_${index}_${itemIndex + 1}`,
-        });
-      }
-    });
+          num: quantity,
+          price: price,
+        };
+
+        for (let itemIndex = 0; itemIndex < quantity; itemIndex += 1) {
+          draft.commodityInfoList.push({
+            priceId: ticket.id,
+            subOrderId: `${draft.daMaiOrderId || 'damai_order'}_${index}_${itemIndex + 1}`,
+          });
+        }
+      });
 
     And('大麦的订单中的总金额是 {int} 分，实付金额是 {int} 分', (_ctx, totalAmount: number, payAmount: number) => {
       const draft = featureContext.orderDraft!;
@@ -682,16 +681,16 @@ describeFeature(feature, ({
     And(
       '订单的第 {number} 个订单项是 {string}，数量为 {number}，价格为 {number} 分',
       (_ctx, index: number, ticketName: string, quantity: number, price: number) => {
-      const order = featureContext.order;
-      expect(order).toBeTruthy();
-      const ticket = featureContext.ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
+        const order = featureContext.order;
+        expect(order).toBeTruthy();
+        const ticket = featureContext.ticketByName[ticketName];
+        expect(ticket).toBeTruthy();
 
-      const item = order!.items.find(current => current.ticket_category_id === ticket.id);
-      expect(item).toBeTruthy();
-      expect(item!.quantity).toBe(quantity);
-      expect(item!.unit_price).toBe(price);
-    });
+        const item = order!.items.find(current => current.ticket_category_id === ticket.id);
+        expect(item).toBeTruthy();
+        expect(item!.quantity).toBe(quantity);
+        expect(item!.unit_price).toBe(price);
+      });
 
     // 取消
     Given('用户在大麦取消了订单', () => {
@@ -718,7 +717,6 @@ describeFeature(feature, ({
       })).toBe(true);
       expect(featureContext.cancelOrderResponse?.head.returnCode).toBe('0');
     });
-
 
     Then('cr7 将订单状态更新为已取消', async () => {
       expect(featureContext.order).toBeTruthy();
@@ -791,7 +789,6 @@ describeFeature(feature, ({
       );
       featureContext.ticketByName = {};
     });
-
 
     And('默认展会活动的开放时间为 {string}', async (_ctx, openingTime: string) => {
       const { apiServer, adminToken, exhibition } = featureContext;
@@ -922,20 +919,20 @@ describeFeature(feature, ({
     Given(
       'cr7 将场次信息同步到大麦, 同步的场次开始时间是 {string}，结束时间是 {string}',
       async (_ctx, startDate: string, endDate: string) => {
-      const start_session_date = toDateLabel(startDate);
-      const end_session_date = toDateLabel(endDate);
-      featureContext.syncedSessionRange = {
-        start_session_date,
-        end_session_date,
-      };
+        const start_session_date = toDateLabel(startDate);
+        const end_session_date = toDateLabel(endDate);
+        featureContext.syncedSessionRange = {
+          start_session_date,
+          end_session_date,
+        };
 
-      await syncSessionsToDamai(
-        featureContext.apiServer,
-        featureContext.adminToken,
-        featureContext.exhibition.id,
-        featureContext.syncedSessionRange,
-      );
-    });
+        await syncSessionsToDamai(
+          featureContext.apiServer,
+          featureContext.adminToken,
+          featureContext.exhibition.id,
+          featureContext.syncedSessionRange,
+        );
+      });
 
     When('大麦收到场次同步消息', () => {
       const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
@@ -979,7 +976,7 @@ describeFeature(feature, ({
       const { exhibition } = featureContext;
       const expectedLabel = formatDamaiSessionDateTime(
         toDateLabel(expectedDate), exhibition.opening_time
-      )
+      );
       expect(perform.showTime).toBe(expectedLabel);
     });
 
@@ -989,7 +986,7 @@ describeFeature(feature, ({
       const { exhibition } = featureContext;
       const expectedLabel = formatDamaiSessionDateTime(
         toDateLabel(expectedDate), exhibition.opening_time
-      )
+      );
       expect(perform.showTime).toBe(expectedLabel);
     });
 
@@ -1001,7 +998,7 @@ describeFeature(feature, ({
         sessions.map(session => [session.id, format(toDateValue(session.session_date), 'yyyy-MM-dd')]),
       );
 
-      request.body.performs.forEach(perform => {
+      request.body.performs.forEach((perform) => {
         expect(perform.performName).toBe(expectedBySessionId.get(perform.id));
       });
     });
@@ -1011,7 +1008,7 @@ describeFeature(feature, ({
       const { exhibition } = featureContext;
       const expected = format(toDateValue(exhibition.created_at), expectedFormat);
 
-      request.body.performs.forEach(perform => {
+      request.body.performs.forEach((perform) => {
         expect(perform.saleStartTime).toBe(expected);
       });
     });
@@ -1027,7 +1024,7 @@ describeFeature(feature, ({
         ]),
       );
 
-      request.body.performs.forEach(perform => {
+      request.body.performs.forEach((perform) => {
         expect(perform.saleEndTime).toBe(expectedBySessionId.get(perform.id));
       });
     });
@@ -1043,7 +1040,7 @@ describeFeature(feature, ({
         ]),
       );
 
-      request.body.performs.forEach(perform => {
+      request.body.performs.forEach((perform) => {
         expect(perform.showTime).toBe(expectedBySessionId.get(perform.id));
       });
     });
@@ -1060,7 +1057,7 @@ describeFeature(feature, ({
         ]),
       );
 
-      request.body.performs.forEach(perform => {
+      request.body.performs.forEach((perform) => {
         expect(perform.endTime).toBe(expectedBySessionId.get(perform.id));
       });
     });
@@ -1068,7 +1065,7 @@ describeFeature(feature, ({
     And('场次同步消息中每个场次的场次的取票方式是电子票，值为 {int}', (_ctx, ticketType: number) => {
       const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
 
-      request.body.performs.forEach(perform => {
+      request.body.performs.forEach((perform) => {
         expect(perform.tTypeAndDMethod).toEqual(`{${ticketType}:[${ticketType}]}`);
       });
     });
@@ -1076,15 +1073,15 @@ describeFeature(feature, ({
     And('场次的同步消息中每个场次的认证方式都是非实名制，值为 {int}', (_ctx, ruleType: number) => {
       const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
 
-      request.body.performs.forEach(perform => {
+      request.body.performs.forEach((perform) => {
         expect(perform.ruleType).toBe(ruleType);
       });
     });
 
-    And("场次的同步消息中每个场次的场馆jpg底图都是 {string}", (_ctx, expectedUrl: string) => {
+    And('场次的同步消息中每个场次的场馆jpg底图都是 {string}', (_ctx, expectedUrl: string) => {
       const request = getDamaiRequestArg<DamaiPerformSyncPayload>(featureContext.damaiRequestHandler!);
 
-      request.body.performs.forEach(perform => {
+      request.body.performs.forEach((perform) => {
         expect(perform.venueJpgImg).toBe(expectedUrl);
       });
     });
@@ -1096,19 +1093,19 @@ describeFeature(feature, ({
     Given(
       'cr7 将票种信息同步到大麦, 同步的是 {string} 场次',
       async (_ctx, sessionDate: string) => {
-      const { apiServer, adminToken, exhibition } = featureContext;
-      const sessions = await getSessions(apiServer, exhibition.id, adminToken);
-      const targetDate = toDateLabel(sessionDate);
-      const session = sessions.find(item => toDateOnlyLabel(item.session_date) === targetDate);
-      expect(session).toBeTruthy();
+        const { apiServer, adminToken, exhibition } = featureContext;
+        const sessions = await getSessions(apiServer, exhibition.id, adminToken);
+        const targetDate = toDateLabel(sessionDate);
+        const session = sessions.find(item => toDateOnlyLabel(item.session_date) === targetDate);
+        expect(session).toBeTruthy();
 
-      await syncTicketsToDamai(
-        apiServer,
-        adminToken,
-        exhibition.id,
-        session!.id,
-      );
-    });
+        await syncTicketsToDamai(
+          apiServer,
+          adminToken,
+          exhibition.id,
+          session!.id,
+        );
+      });
 
     When('大麦收到票种同步消息', () => {
       const request = getDamaiRequestArg<DamaiPriceSyncPayload>(featureContext.damaiRequestHandler!);
@@ -1156,8 +1153,6 @@ describeFeature(feature, ({
       expect(featureContext.order).toBeTruthy();
       expect(featureContext.order!.items).toHaveLength(count);
     });
-
-
 
     Then('cr7 创建了一个用户，其关联的大麦 ID 是 {string}, 手机号为空，姓名是 {string}', async (_ctx, damaiId: string, expectedName: string) => {
       const { apiServer, adminToken } = featureContext;
@@ -1353,20 +1348,20 @@ describeFeature(feature, ({
       const orderItemIds = new Set(featureContext.order!.items.map(item => item.id));
       const ticketCategoryIds = new Set(featureContext.order!.items.map(item => item.ticket_category_id));
 
-      eticketInfos.forEach(ticket => {
+      eticketInfos.forEach((ticket) => {
         expect(orderItemIds.has(ticket.aoDetailId)).toBe(true);
         expect(ticketCategoryIds.has(ticket.aoDetailId)).toBe(false);
       });
     });
 
     And('电子票信息中的证件类型为非实名制，值为 {int}', (_ctx, certType: number) => {
-      featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach(ticket => {
+      featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach((ticket) => {
         expect(ticket.certType).toBe(certType);
       });
     });
 
     And('电子票信息中的是否有座位为无座，值为 {boolean}', (_ctx, hasSeatLabel: boolean) => {
-      featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach(ticket => {
+      featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach((ticket) => {
         expect(ticket.hasSeat).toBe(hasSeatLabel);
       });
     });
@@ -1392,7 +1387,7 @@ describeFeature(feature, ({
     });
 
     And('电子票信息中的取票类型为静态二维码电子票，值为 {int}', (_ctx, qrcodeType: number) => {
-      featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach(ticket => {
+      featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach((ticket) => {
         expect(ticket.qrcodeType).toBe(qrcodeType);
       });
     });
@@ -1409,13 +1404,13 @@ describeFeature(feature, ({
         userToken,
       );
 
-      featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach(ticket => {
+      featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach((ticket) => {
         expect(ticket.qrCode).toBe(redemption.code);
       });
     });
 
     And('电子票信息中的是否对号入座为否，值为 {boolean}', (_ctx, seatByNumberLabel: boolean) => {
-      featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach(ticket => {
+      featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach((ticket) => {
         expect(ticket.seatByNumber).toBe(seatByNumberLabel);
       });
     });
@@ -1480,7 +1475,7 @@ describeFeature(feature, ({
       const request = getDamaiRequestArg<DamaiValidateOrderPayload>(featureContext.damaiRequestHandler!);
       const orderItemIds = new Set(featureContext.order!.items.map(item => item.id));
       const ticketCategoryIds = new Set(featureContext.order!.items.map(item => item.ticket_category_id));
-      request.body.validateVoucherRequestList.forEach(voucher => {
+      request.body.validateVoucherRequestList.forEach((voucher) => {
         expect(orderItemIds.has(voucher.aoDetailId)).toBe(true);
         expect(ticketCategoryIds.has(voucher.aoDetailId)).toBe(false);
       });
@@ -1488,14 +1483,14 @@ describeFeature(feature, ({
 
     And('订单核销通知里的核验票单的核销状态都为已验，值为 {int}', (_ctx, status: number) => {
       const request = getDamaiRequestArg<DamaiValidateOrderPayload>(featureContext.damaiRequestHandler!);
-      request.body.validateVoucherRequestList.forEach(voucher => {
+      request.body.validateVoucherRequestList.forEach((voucher) => {
         expect(voucher.validateStatus).toBe(status);
       });
     });
 
     And('订单核销通知里的核验票的验票次数都为 {int}', (_ctx, count: number) => {
       const request = getDamaiRequestArg<DamaiValidateOrderPayload>(featureContext.damaiRequestHandler!);
-      request.body.validateVoucherRequestList.forEach(voucher => {
+      request.body.validateVoucherRequestList.forEach((voucher) => {
         expect(voucher.validateCount).toBe(count);
       });
     });
@@ -1503,7 +1498,7 @@ describeFeature(feature, ({
     And('订单核销通知里的核验票单的核销时间都为核销码的核销时间，格式为 {string}', (_ctx, expectedFormat: string) => {
       const request = getDamaiRequestArg<DamaiValidateOrderPayload>(featureContext.damaiRequestHandler!);
       const expectedTime = format(toDateValue(featureContext.redemption!.redeemed_at!), expectedFormat);
-      request.body.validateVoucherRequestList.forEach(voucher => {
+      request.body.validateVoucherRequestList.forEach((voucher) => {
         expect(voucher.validateTime).toBe(expectedTime);
       });
     });
@@ -1517,7 +1512,6 @@ describeFeature(feature, ({
       expect(featureContext.order).toBeTruthy();
       expect(featureContext.cancelOrderRequest!.cancelOrderInfo.orderId).toBe(featureContext.order!.id);
     });
-
 
     And('cr7 返回了大麦订单取消结果，状态为成功，值为 {string}', (_ctx, expectedCode: string) => {
       expect(featureContext.cancelOrderResponse).toBeTruthy();
