@@ -22,6 +22,9 @@
   ```ts
   Inventory.SessionTicketPrice[]
   ```
+- 说明：
+  - 返回项中的 `price` 为当前场次销售价（分）
+  - 返回项中的 `list_price` 为票种目录价（分）
 
 ## 批量更新某票种在所有场次的库存上限
 
@@ -66,6 +69,9 @@
   ```ts
   Inventory.TicketCalendarInventory[]
   ```
+- 说明：
+  - 返回项中的 `price` 为该日期对应场次销售价（分）
+  - 返回项中的 `list_price` 为票种目录价（分）
 ## 设置票种在指定日期范围的场次价格
 
 - URL: `/exhibition/:eid/tickets/:tid/calendar/price`

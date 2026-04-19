@@ -15,6 +15,7 @@ const TICKET_CATEGORY_SELECT = `
       c.valid_duration_days,
       c.refund_policy,
       c.admittance,
+        c.list_price,
       c.ota_xc_option_id,
       c.created_at,
       c.updated_at`;
@@ -306,8 +307,12 @@ export async function listTicketCalendarInventoryByDateRange(
       s.session_date::text AS session_date,
       COALESCE(i.quantity, 0) AS inventory,
       COALESCE((i.quantity - i.reserved_quantity), 0) AS quantity,
-      COALESCE(i.session_price, 0) AS price
+      COALESCE(i.session_price, 0) AS price,
+      tc.list_price
     FROM ${schema}.exhibit_sessions s
+    JOIN ${schema}.exhibit_ticket_categories tc
+      ON tc.id = $2
+      AND tc.eid = s.session_id
     LEFT JOIN ${schema}.exhibit_session_inventories i
       ON i.session_id = s.id
       AND i.ticket_category_id = $2
@@ -409,9 +414,9 @@ export async function createTicketCategory(
 ): Promise<Exhibition.TicketCategory> {
   const { rows: [result] } = await client.query<Exhibition.TicketCategory>(
     `INSERT INTO ${schema}.exhibit_ticket_categories (
-      eid, name, valid_duration_days, refund_policy, admittance
+      eid, name, valid_duration_days, refund_policy, admittance, list_price
     )
-    VALUES ($1, $2, $3, $4, $5)
+    VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING
       id,
       eid AS exhibit_id,
@@ -419,6 +424,7 @@ export async function createTicketCategory(
       valid_duration_days,
       refund_policy,
       admittance,
+      list_price,
       ota_xc_option_id,
       created_at,
       updated_at`,
@@ -428,6 +434,7 @@ export async function createTicketCategory(
       category.valid_duration_days,
       category.refund_policy,
       category.admittance,
+      category.list_price,
     ]
   );
 
@@ -583,6 +590,10 @@ export async function updateTicketCategory(
   if ('admittance' in patch) {
     fields.push(`admittance = $${idx++}`);
     values.push(patch.admittance);
+  }
+  if ('list_price' in patch) {
+    fields.push(`list_price = $${idx++}`);
+    values.push(patch.list_price);
   }
 
   if (fields.length === 0) {

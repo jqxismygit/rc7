@@ -14,10 +14,15 @@ export function initiateWechatPay(orderId) {
 /**
  * 发起微信退款
  * @param {string} orderId
+ * @param {{ reason?: string }} [options]
  * @returns {Promise<object>}
  * @see docs/api/payment.md
  */
-export function initiateRefund(orderId) {
+export function initiateRefund(orderId, options = {}) {
   const oid = encodeURIComponent(orderId);
-  return request.post(`/orders/${oid}/refund`, {});
+  const body = {};
+  if (options.reason != null && String(options.reason).trim() !== "") {
+    body.reason = String(options.reason).trim();
+  }
+  return request.post(`/orders/${oid}/refund`, body);
 }

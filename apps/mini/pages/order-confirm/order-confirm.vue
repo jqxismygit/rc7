@@ -174,23 +174,10 @@ export default {
       );
     },
     validDateText() {
-      if (this.legacyOrder) {
-        return (
-          this.legacyOrder.validDate ||
-          this.legacyOrder.visitDate ||
-          "2026.02.28"
-        );
-      }
+      console.log("this.order", this.order, this.sectionCtx);
       // 接口订单：订单支付截止时间日期（与 docs 中 expires_at 一致）
-      const exp = this.order?.expires_at;
-      if (exp) {
-        return String(exp).slice(0, 10);
-      }
-      const v = this.sectionCtx?.visitDate;
-      if (v) return v;
-      const sd = this.sectionCtx?.ticketEvent?.session_date;
-      if (sd) return String(sd).slice(0, 10);
-      return "—";
+      const exp = this.order?.session_date;
+      return exp;
     },
     contactPhone() {
       if (this.legacyOrder) {

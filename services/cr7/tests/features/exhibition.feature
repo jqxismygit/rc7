@@ -38,23 +38,39 @@ Feature: manage exhibition
     Given 管理员已创建展览
     Given 为该展览准备票种草稿 "early_bird"
       And 票价为 100
+      And 目录价为 120
       And 有效期为 1 天
       And 退票策略为不可退
       And 准入人数为 1
      When 向展览添加票种
      Then 票种 "early_bird" 添加成功
-      And 展览包含 1 个票种 "early_bird"
+
+     When 管理员查看展会票种列表
+     Then 展览包含 1 个票种
+      And 第 1 个票种名称为 "early_bird"
+      And 第 1 个票种目录价为 120
+      And 第 1 个票种有效期为 1 天
+      And 第 1 个票种退票策略为不可退
+      And 第 1 个票种准入人数为 1
 
   Scenario: add a refundable ticket category
     Given 管理员已创建展览
     Given 为该展览准备票种草稿 "regular"
       And 票价为 150
+      And 目录价为 150
       And 有效期为 10 天
       And 退票策略为场次前 48 小时可退
       And 准入人数为 2
      When 向展览添加票种
      Then 票种 "regular" 添加成功
-      And 展览包含 1 个票种 "regular"
+
+     When 管理员查看展会票种列表
+     Then 展览包含 1 个票种
+      And 第 1 个票种名称为 "regular"
+      And 第 1 个票种目录价为 150
+      And 第 1 个票种有效期为 10 天
+      And 第 1 个票种退票策略为场次前 48 小时可退
+      And 第 1 个票种准入人数为 2
 
   Scenario: list exhibitions with pagination
     Given 已为列表创建 3 个展览
@@ -128,19 +144,30 @@ Feature: manage exhibition
 
   Scenario: 可以更新票种信息
     Given 管理员已创建展览
-      And 已为该展览创建票种 "regular"
-      And 准备更新票种名称为 "vip"
+    Given 为该展览准备票种草稿 "regular"
+      And 票价为 100
+      And 目录价为 120
+      And 有效期为 1 天
+      And 退票策略为不可退
+      And 准入人数为 1
+     When 向展览添加票种
+     Then 票种 "regular" 添加成功
+
+    Given 准备更新票种名称为 "vip"
       And 准备更新票种有效期为 30 天
       And 准备更新票种退票策略为不可退
       And 准备更新票种准入人数为 4
-
+      And 准备更新票种目录价为 200
      When 更新票种信息
      Then 票种信息更新成功
+
      When 管理员查看展会票种列表
-      And 展览中的票种已更新为 "vip"
-      And 展览中的票种有效期已更新为 30 天
-      And 展览中的票种退票策略已更新为不可退
-      And 展览中的票种准入人数已更新为 4
+     Then 展览包含 1 个票种
+      And 第 1 个票种名称为 "vip"
+      And 第 1 个票种有效期为 30 天
+      And 第 1 个票种退票策略为不可退
+      And 第 1 个票种准入人数为 4
+      And 第 1 个票种目录价为 200
 
   Scenario: 更新票种时必须至少提供一个参数
     Given 管理员已创建展览

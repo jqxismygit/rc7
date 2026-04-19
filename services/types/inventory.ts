@@ -25,4 +25,5 @@ export interface TicketCalendarInventory {
   inventory: number; // 总库存
   quantity: number; // 可用库存
   price: number;
+  list_price: number;
 }

@@ -227,6 +227,7 @@ export function assertTicketCategory(data: Exhibition.TicketCategory) {
   expect(data).toHaveProperty('valid_duration_days', expect.any(Number));
   expect(data).toHaveProperty('refund_policy', expect.any(String));
   expect(data).toHaveProperty('admittance', expect.any(Number));
+  expect(data).toHaveProperty('list_price', expect.any(Number));
   expect(data).toHaveProperty('created_at', expect.any(String));
   expect(data).toHaveProperty('updated_at', expect.any(String));
 }
@@ -363,6 +364,7 @@ export async function prepareTicketCategory(
     {
       name: `ticket_category_${random_text(5)}`,
       price: 100,
+      list_price: 120,
       valid_duration_days: 1,
       refund_policy: 'NON_REFUNDABLE',
       admittance: 1,
