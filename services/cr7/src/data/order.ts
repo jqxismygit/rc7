@@ -61,15 +61,15 @@ export function getOrderStatusCase(options: OrderStatusCaseOptions = {}) {
   `;
 }
 
-export type ORDER_DATA_ERROR_CODES =
-  | 'ORDER_NOT_FOUND'
-  | 'ORDER_STATUS_INVALID'
-  | 'ORDER_CANNOT_BE_HIDDEN'
-  | 'INVENTORY_NOT_ENOUGH'
-  | 'SESSION_NOT_FOUND'
-  | 'SESSION_EXPIRED'
-  | 'TICKET_CATEGORY_NOT_FOUND'
-  | 'INVALID_ARGUMENT';
+export type ORDER_DATA_ERROR_CODES
+  = | 'ORDER_NOT_FOUND'
+    | 'ORDER_STATUS_INVALID'
+    | 'ORDER_CANNOT_BE_HIDDEN'
+    | 'INVENTORY_NOT_ENOUGH'
+    | 'SESSION_NOT_FOUND'
+    | 'SESSION_EXPIRED'
+    | 'TICKET_CATEGORY_NOT_FOUND'
+    | 'INVALID_ARGUMENT';
 
 export class OrderDataError extends Error {
   code: ORDER_DATA_ERROR_CODES;
@@ -141,15 +141,17 @@ async function ensureSessionBelongsToExhibition(
 async function getTicketCategoryPriceMap(
   client: DBClient,
   schema: string,
-  exhibitId: string,
+  sessionId: string,
   ticketCategoryIds: string[]
 ): Promise<Map<string, number>> {
   const { rows } = await client.query(
-    `SELECT id, price
-    FROM ${schema}.exhibit_ticket_categories
-    WHERE eid = $1
-      AND id = ANY($2::uuid[])`,
-    [exhibitId, ticketCategoryIds]
+    `SELECT
+      ticket_category_id AS id,
+      session_price AS price
+    FROM ${schema}.exhibit_session_inventories
+    WHERE session_id = $1
+      AND ticket_category_id = ANY($2::uuid[])`,
+    [sessionId, ticketCategoryIds]
   );
 
   if (rows.length !== ticketCategoryIds.length) {
@@ -626,7 +628,7 @@ export async function createOrder(
   const priceMap = await getTicketCategoryPriceMap(
     client,
     schema,
-    input.exhibit_id,
+    input.session_id,
     ticketCategoryIds,
   );
 
@@ -708,7 +710,6 @@ export async function createOrder(
 
   return getOrderById(client, schema, createdOrder.id);
 }
-
 
 export async function releaseOrderInventory(
   client: DBClient,
@@ -827,7 +828,7 @@ export async function markOrderPaid(
   orderId: string,
 ): Promise<{ paid_at: Date }> {
   const { rows } = await client.query<
-   { paid_at: Date | null; cancelled_at: Date | null; expires_at: Date }
+    { paid_at: Date | null; cancelled_at: Date | null; expires_at: Date }
   >(
     `SELECT paid_at, cancelled_at, expires_at
      FROM ${schema}.exhibit_orders

@@ -130,7 +130,6 @@ Feature: manage exhibition
     Given 管理员已创建展览
       And 已为该展览创建票种 "regular"
       And 准备更新票种名称为 "vip"
-      And 准备更新票种价格为 199
       And 准备更新票种有效期为 30 天
       And 准备更新票种退票策略为不可退
       And 准备更新票种准入人数为 4
@@ -139,7 +138,6 @@ Feature: manage exhibition
      Then 票种信息更新成功
      When 管理员查看展会票种列表
       And 展览中的票种已更新为 "vip"
-      And 展览中的票种价格已更新为 199
       And 展览中的票种有效期已更新为 30 天
       And 展览中的票种退票策略已更新为不可退
       And 展览中的票种准入人数已更新为 4

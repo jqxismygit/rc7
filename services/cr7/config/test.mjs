@@ -75,4 +75,4 @@ export default {
     company_bank_account: '6222020202020202020',
     issuer: '测试开票员',
   }
-}
+};

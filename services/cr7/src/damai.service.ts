@@ -2,7 +2,7 @@ import config from 'config';
 import { randomUUID } from 'node:crypto';
 import { format, isDate, parse, parseISO } from 'date-fns';
 import { Context, Errors, ServiceBroker } from 'moleculer';
-import { Damai, Exhibition, Order, Redeem } from '@cr7/types';
+import { Damai, Exhibition, Inventory, Order, Redeem } from '@cr7/types';
 import { RC7BaseService } from './libs/cr7.base.js';
 import { buildDamaiSignature, damaiPostJson, verifyDamaiSignature } from './libs/damai.js';
 import {
@@ -11,7 +11,6 @@ import {
   listDamaiOrderSyncRecordsByOrderId,
   updateDamaiOrderSyncRecord,
 } from './data/damai.js';
-import { getExhibitionById, getSessionById } from './data/exhibition.js';
 
 const { MoleculerClientError } = Errors;
 
@@ -787,21 +786,36 @@ class DamaiService extends RC7BaseService {
     const tickets = await ctx.call<
       ExhibitionSessionTicket[],
       { eid: string; sid: string }
-    >('cr7.exhibition.getSessionTickets', {
-      eid,
-      sid,
-    });
+    >('cr7.exhibition.getSessionTickets', { eid, sid });
 
     const request: DamaiPriceSyncRequest = {
       projectId: exhibition.id,
       performId: sid,
-      priceList: tickets.map(ticket => ({
+      priceList: [],
+    };
+
+    for (const ticket of tickets) {
+      const [calendarItem] = await ctx.call<
+        Inventory.TicketCalendarInventory[],
+        { eid: string; tid: string; start_session_date: Date; end_session_date: Date }
+      >('cr7.exhibition.listTicketCalendarInventory', {
+        eid,
+        tid: ticket.id,
+        start_session_date: session.session_date,
+        end_session_date: session.session_date,
+      });
+
+      if (!calendarItem) {
+        continue;
+      }
+
+      request.priceList.push({
         id: ticket.id,
         name: ticket.name,
-        price: ticket.price,
+        price: calendarItem.price,
         saleState: DAMAI_TICKET_SALE_STATE_ON_SALE,
-      })),
-    };
+      });
+    }
 
     const syncUrl = new URL('/b2b2c/2.0/sync/price', config.damai.base_url).toString();
     await damaiPostJson(syncUrl, {
@@ -877,10 +891,10 @@ class DamaiService extends RC7BaseService {
       const response = previousResponse?.head?.returnCode === '0'
         ? previousResponse
         : buildDamaiCreateOrderSuccess({
-          orderId: firstSuccessRecord.order_id,
-          totalAmount: totalAmountFen,
-          realAmount: realAmountOfFen,
-        });
+            orderId: firstSuccessRecord.order_id,
+            totalAmount: totalAmountFen,
+            realAmount: realAmountOfFen,
+          });
 
       return this.finishWithDamaiResponse(
         recordId,
@@ -938,8 +952,20 @@ class DamaiService extends RC7BaseService {
         return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20015', '票档状态异常'));
       }
 
-      const expectedPriceInCent = ticket.price;
-      if (item.price !== expectedPriceInCent) {
+      const [calendarItem] = await ctx.call<
+        Inventory.TicketCalendarInventory[],
+        { eid: string; tid: string; start_session_date: Date; end_session_date: Date }
+      >('cr7.exhibition.listTicketCalendarInventory', {
+        eid: projectId,
+        tid: ticket.id,
+        start_session_date: session.session_date,
+        end_session_date: session.session_date,
+      });
+      if (!calendarItem) {
+        return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20015', '票档状态异常'));
+      }
+
+      if (item.price !== calendarItem.price) {
         return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20014', '订单价格不一致'));
       }
 
@@ -1021,7 +1047,6 @@ class DamaiService extends RC7BaseService {
       return this.finishWithDamaiResponse(recordId, buildDamaiPayOrderError('20000', '签名错误'));
     }
 
-
     const firstSuccessRecord = await getFirstSuccessfulDamaiOrderSyncRecordByDamaiOrderId(
       this.pool,
       schema,
@@ -1093,7 +1118,7 @@ class DamaiService extends RC7BaseService {
     const order = await ctx.call(
       'cr7.order.getAdmin', { oid: orderId }, { meta: { roles: ['admin'] } }
     )
-    .then((res) => res as Order.OrderWithItems, () => null);
+      .then(res => res as Order.OrderWithItems, () => null);
     if (!order) {
       return this.finishWithDamaiResponse(recordId, buildDamaiCancelOrderError('20040', '取消订单失败 -- 订单不存在'));
     }
@@ -1189,7 +1214,7 @@ class DamaiService extends RC7BaseService {
     const order = await ctx.call(
       'cr7.order.getAdmin', { oid: orderId }, { meta: { roles: ['admin'] } }
     )
-    .then((res) => res as Order.OrderWithItems, () => null);
+      .then(res => res as Order.OrderWithItems, () => null);
     if (!order) {
       return this.finishWithDamaiResponse(recordId, buildDamaiRefundApplyError('20050', '退款失败--订单不存在'));
     }
@@ -1291,11 +1316,10 @@ class DamaiService extends RC7BaseService {
       return buildDamaiGetETicketInfoError('10001', '参数异常');
     }
 
-    const schema = await this.getSchema();
     const order = await ctx.call(
       'cr7.order.getAdmin', { oid: orderId }, { meta: { roles: ['admin'] } }
     )
-    .then((res) => res as Order.OrderWithItems, () => null);
+      .then(res => res as Order.OrderWithItems, () => null);
     if (!order) {
       return buildDamaiGetETicketInfoError('20030', '订单不存在');
     }
@@ -1304,15 +1328,21 @@ class DamaiService extends RC7BaseService {
       return buildDamaiGetETicketInfoError('20030', '订单未支付');
     }
 
-    const [exhibition, session, redemption] = await Promise.all([
-      getExhibitionById(this.pool, schema, order.exhibit_id).catch(() => null),
-      getSessionById(this.pool, schema, order.session_id).catch(() => null),
-      ctx.call<Redeem.RedemptionCodeWithOrder, { oid: string }>(
-        'cr7.redemption.getByOrder',
-        { oid: order.id },
-        { meta: { user: { uid: order.user_id } } },
-      ).catch(() => null),
-    ]);
+    const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
+      'cr7.exhibition.get',
+      { eid: order.exhibit_id },
+    ).catch(() => null);
+
+    const session = await ctx.call<Exhibition.Session, { eid: string; sid: string }>(
+      'cr7.exhibition.getSession',
+      { eid: order.exhibit_id, sid: order.session_id },
+    ).catch(() => null);
+
+    const redemption = await ctx.call<Redeem.RedemptionCodeWithOrder, { oid: string }>(
+      'cr7.redemption.getByOrder',
+      { oid: order.id },
+      { meta: { user: { uid: order.user_id } } },
+    ).catch(() => null);
 
     if (!exhibition || !session || !redemption?.code) {
       return buildDamaiGetETicketInfoError('20030', '获取电子票失败');
@@ -1360,7 +1390,7 @@ class DamaiService extends RC7BaseService {
     const order = await ctx.call(
       'cr7.order.getAdmin', { oid }, { meta: { roles: ['admin'] } }
     )
-    .then((res) => res as Order.OrderWithItems, () => null);
+      .then(res => res as Order.OrderWithItems, () => null);
     if (!order) {
       throw new MoleculerClientError(`No order access context found for order ${oid}`, 404, 'ORDER_NOT_FOUND');
     }

@@ -60,13 +60,13 @@ export function assertAPIError(
 
 function getHeaders(
   options: {
-    headers?: HeadersInit; token?: string
+    headers?: HeadersInit; token?: string;
   }
 ): HeadersInit {
   return Object.assign(
     { ...options.headers },
     { 'content-type': 'application/json' },
-    options.token ? { 'Authorization': `Bearer ${options.token}` } : {},
+    options.token ? { Authorization: `Bearer ${options.token}` } : {},
   ) as HeadersInit;
 }
 
@@ -87,7 +87,7 @@ async function handlerBody<Result>(res: Response): Promise<Result | string | nul
 export async function getJSON<Result>(
   server: Server, path: string,
   options: Omit<RequestInit, 'method' | 'body'> & {
-    query?: Record<string, unknown>; token?: string
+    query?: Record<string, unknown>; token?: string;
   } = {}
 ): Promise<Result> {
   const { query, token, ...rest } = options;
@@ -158,7 +158,7 @@ export async function putJSON<Result>(
 
 export async function deleteJSON<Result>(
   server: Server, path: string,
-  options: Omit<RequestInit, 'method' | 'body'> & { token?: string; } = {}
+  options: Omit<RequestInit, 'method' | 'body'> & { token?: string } = {}
 ): Promise<Result> {
   const url = resolveUrl(server, path);
   const { token, ...rest } = options;
@@ -227,7 +227,7 @@ async function postStream(
 export async function postStreamJSON(
   server: Server, path: string,
   options: Omit<RequestInit, 'method' | 'body'> & {
-    token?: string; body: Stream.Readable
+    token?: string; body: Stream.Readable;
   }
 ) {
   const res = await postStream(server, path, options);

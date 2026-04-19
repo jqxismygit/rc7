@@ -80,7 +80,6 @@ describe('xiecheng api requests', () => {
   });
 
   it('verifies request logic with ctrip sample data', () => {
-
     const accountId = '4965E5E2530767C1';
     const serviceName = 'CreateOrder';
     const requestTime = '2017-11-30 14:43:20';
@@ -130,9 +129,9 @@ describe('xiecheng api requests', () => {
     const sampleBodyObject = JSON.parse(decryptedBody);
     expect(
       JSON.stringify(sampleBodyObject)
-      .replace(/"cost":4.8/, '"cost":4.80')
-      .replace(/"price":5/, '"price":5.00')
-      .replace(/"price":3/, '"price":3.00')
+        .replace(/"cost":4.8/, '"cost":4.80')
+        .replace(/"price":5/, '"price":5.00')
+        .replace(/"price":3/, '"price":3.00')
     ).toBe(decryptedBody);
 
     expect(Object.keys(sampleBodyObject)).toEqual([
@@ -191,5 +190,4 @@ describe('xiecheng api requests', () => {
       },
     })).toThrow(XieChengBusinessError);
   });
-
 });

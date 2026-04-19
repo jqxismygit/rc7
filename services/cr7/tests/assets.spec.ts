@@ -20,9 +20,6 @@ const schema = 'test_assets';
 const services = ['api', 'cr7', 'user'];
 const feature = await loadFeature('tests/features/assets.feature');
 
-
-
-
 interface FeatureContext {
   fixtures: FixturesResult<typeof services_fixtures, 'apiServer'>;
   adminToken: string;

@@ -245,12 +245,12 @@ export class RedemptionService extends RC7BaseService {
     const exhibitionById = await getExhibitionsByIds(
       this.pool,
       schema,
-      [...new Set([...ordersById.values()].map((order) => order.exhibit_id))],
+      [...new Set([...ordersById.values()].map(order => order.exhibit_id))],
     ).catch(handleRedeemError);
     const sessionById = await getSessionsByIds(
       this.pool,
       schema,
-      [...new Set([...ordersById.values()].map((order) => order.session_id))],
+      [...new Set([...ordersById.values()].map(order => order.session_id))],
     ).catch(handleRedeemError);
 
     const redemptions = redemptionRows.redemptions.map((redemption) => {

@@ -1,10 +1,10 @@
-import { Server } from "http";
-import { getJSON, postJSON, patchJSON } from "../lib/api.js";
-import { Exhibition } from "@cr7/types";
-import { expect } from "vitest";
-import { random_text } from "../lib/random.js";
-import { updateTicketCategoryMaxInventory } from "./inventory.js";
-import { toDateLabel } from "../lib/relative-date.js";
+import { Server } from 'http';
+import { getJSON, postJSON, patchJSON } from '../lib/api.js';
+import { Exhibition } from '@cr7/types';
+import { expect } from 'vitest';
+import { random_text } from '../lib/random.js';
+import { updateTicketCategoryMaxInventory } from './inventory.js';
+import { toDateLabel } from '../lib/relative-date.js';
 
 export type DraftExhibition = Omit<
   Exhibition.Exhibition,
@@ -14,7 +14,13 @@ export type DraftExhibition = Omit<
 export type DraftTicketCategory = Omit<
   Exhibition.TicketCategory,
   'id' | 'exhibit_id' | 'created_at' | 'updated_at'
->;
+> & {
+  price: number;
+};
+
+export type PreparedTicketCategory = Exhibition.TicketCategory & {
+  price: number;
+};
 
 export type DraftTicketCategoryPatch = Exhibition.TicketCategoryPatch;
 
@@ -65,10 +71,10 @@ export async function listExhibitions(
   options?: { limit?: number; offset?: number; all?: boolean },
 ) {
   return getJSON<{
-    data: Exhibition.Exhibition[]
-    total: number
-    limit: number
-    offset: number
+    data: Exhibition.Exhibition[];
+    total: number;
+    limit: number;
+    offset: number;
   }>(
     server,
     '/exhibition',
@@ -85,10 +91,10 @@ export async function listAdminExhibitions(
   options?: { limit?: number; offset?: number },
 ) {
   return getJSON<{
-    data: Exhibition.Exhibition[]
-    total: number
-    limit: number
-    offset: number
+    data: Exhibition.Exhibition[];
+    total: number;
+    limit: number;
+    offset: number;
   }>(
     server,
     '/exhibition',
@@ -138,7 +144,7 @@ export async function getSessions(
     `/exhibition/${eid}/sessions`,
     { token, query }
   )
-  .then((res) => res.map(r => Object.assign(r, { session_date: new Date(r.session_date) })));
+    .then(res => res.map(r => Object.assign(r, { session_date: new Date(r.session_date) })));
 }
 
 export async function addTicketCategory(
@@ -218,7 +224,6 @@ export function assertTicketCategory(data: Exhibition.TicketCategory) {
   expect(data).toHaveProperty('id', expect.any(String));
   expect(data).toHaveProperty('exhibit_id', expect.any(String));
   expect(data).toHaveProperty('name', expect.any(String));
-  expect(data).toHaveProperty('price', expect.any(Number));
   expect(data).toHaveProperty('valid_duration_days', expect.any(Number));
   expect(data).toHaveProperty('refund_policy', expect.any(String));
   expect(data).toHaveProperty('admittance', expect.any(Number));

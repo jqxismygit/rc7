@@ -1,4 +1,3 @@
-
 import { createCipheriv, createDecipheriv, createHash } from 'node:crypto';
 import config from 'config';
 import { format } from 'date-fns';
@@ -95,9 +94,6 @@ function getAESAlgorithm(secret: string) {
   }
   return 'aes-256-ecb';
 }
-
-
-
 
 function normalizeContent(content: unknown) {
   return typeof content === 'string' ? content : JSON.stringify(content);
@@ -198,12 +194,12 @@ function parseResponseEnvelope(response: unknown): FapiaoEnvelope {
 
   const candidate = response as FapiaoEnvelope;
   if (
-    typeof candidate.interface !== 'object' ||
-    candidate.interface === null ||
-    typeof candidate.interface.data !== 'object' ||
-    candidate.interface.data === null ||
-    typeof candidate.interface.returnStateInfo !== 'object' ||
-    candidate.interface.returnStateInfo === null
+    typeof candidate.interface !== 'object'
+    || candidate.interface === null
+    || typeof candidate.interface.data !== 'object'
+    || candidate.interface.data === null
+    || typeof candidate.interface.returnStateInfo !== 'object'
+    || candidate.interface.returnStateInfo === null
   ) {
     throw new MoleculerClientError('发票平台响应格式错误', 502, 'FAPIAO_RESPONSE_INVALID');
   }
@@ -222,9 +218,9 @@ export function parseFapiaoResponse<T = unknown>(
     : decodeFapiaoContent(encodedContent);
 
   if (
-		envelope.interface.data.contentKey.length > 0
+    envelope.interface.data.contentKey.length > 0
     && options.secret && encodedContent.length > 0
-	) {
+  ) {
     let decryptedSha = '';
     try {
       decryptedSha = decryptFapiaoContentKey(envelope.interface.data.contentKey, options.secret);
@@ -251,7 +247,6 @@ export function parseFapiaoResponse<T = unknown>(
     returnMessage: envelope.interface.returnStateInfo.returnMessage,
   };
 }
-
 
 /**
  * 构建请求、发送 POST、校验响应，返回解密后的业务内容。
@@ -302,10 +297,10 @@ export async function sendFapiaoRequestWithTrace<T = unknown>(
 
   const decoded = parsed.decodedContent;
   if (
-    typeof decoded === 'object' &&
-    decoded !== null &&
-    'CODE' in decoded &&
-    (decoded as { CODE?: string }).CODE !== '0000'
+    typeof decoded === 'object'
+    && decoded !== null
+    && 'CODE' in decoded
+    && (decoded as { CODE?: string }).CODE !== '0000'
   ) {
     const msg = (decoded as { MESSAGE?: string }).MESSAGE ?? '发票申请失败';
     const error = new MoleculerClientError(msg, 502, 'FAPIAO_REQUEST_FAILED');

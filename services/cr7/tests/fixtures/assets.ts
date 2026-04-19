@@ -19,7 +19,7 @@ export async function uploadImage(
   const res = await fetch(resolveUrl(server, '/assets/images'), {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${token}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'image/jpeg',
     },
     body: data,
@@ -43,7 +43,7 @@ export async function uploadVideo(
   const res = await fetch(resolveUrl(server, '/assets/videos'), {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${token}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'video/mp4',
     },
     body: data,

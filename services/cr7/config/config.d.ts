@@ -2,21 +2,21 @@ declare module 'config' {
   export interface IConfig {
     api: {
       port: number;
-    },
+    };
     jwt: {
       secret: string;
       options: {
         expiresIn: number;
-      }
-    },
+      };
+    };
     broker: {
       nodeID: string;
       hotReload: boolean;
       transporter: {
         type: string;
         options: Record<string, unknown>;
-      }
-    },
+      };
+    };
     pg: {
       host: string;
       port: number;
@@ -24,17 +24,17 @@ declare module 'config' {
       password: string;
       database: string;
       schema: string;
-    },
+    };
     assets: {
       path: string;
       base_url: string;
-    },
+    };
     wechat: {
       base_url: string;
       appid: string;
       secret: string;
       service_url: string;
-    },
+    };
     wechatpay: {
       base_url: string;
       appid: string;
@@ -50,7 +50,7 @@ declare module 'config' {
       // 微信支付公钥路径
       wechat_pay_public_key_path: string;
       callback_base_url: string;
-    },
+    };
     xiecheng: {
       callback_base_url: string;
       order_base_url: string;
@@ -59,7 +59,7 @@ declare module 'config' {
       secret: string;
       aes_key: string;
       aes_iv: string;
-    },
+    };
     mop: {
       callback_base_url: string;
       base_url: string;
@@ -67,13 +67,13 @@ declare module 'config' {
       aes_key: string;
       public_key_path: string;
       private_key_path: string;
-    },
+    };
     damai: {
       base_url: string;
       sign: string;
       api_key: string;
       api_pwd: string;
-    },
+    };
     fapiao: {
       app_id: string;
       secret: string;
@@ -86,7 +86,7 @@ declare module 'config' {
       company_bank: string;
       company_bank_account: string;
       issuer: string;
-    }
+    };
   }
 
   const config: IConfig;

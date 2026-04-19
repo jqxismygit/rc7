@@ -68,12 +68,12 @@ export async function useFixtures<
 
     // 创建控制 promise
     let resolveValue: () => void;
-    const valuePromise = new Promise<void>(resolve => {
+    const valuePromise = new Promise<void>((resolve) => {
       resolveValue = resolve;
     });
 
     let resolveCleanup: () => void;
-    const cleanupPromise = new Promise<void>(resolve => {
+    const cleanupPromise = new Promise<void>((resolve) => {
       resolveCleanup = resolve;
     });
 

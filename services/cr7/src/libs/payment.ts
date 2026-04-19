@@ -242,7 +242,7 @@ export class PaymentService extends RC7BaseService {
   methods = {
     getWechatPayClientPrimaryKey: this.getWechatPayClientPrimaryKey,
     getWechatPayConfig: this.getWechatPayConfig,
-  }
+  };
 
   async initiateWechatPay(
     ctx: Context<{ oid: string }, { user: UserMeta; $statusCode?: number }>
@@ -273,7 +273,7 @@ export class PaymentService extends RC7BaseService {
 
     const createdAt = new Date(orderInfo.created_at);
     const timeExpire = addMinutes(createdAt, 30);
-    const timeExpireStr = format(timeExpire, "yyyy-MM-dd'T'HH:mm:ssxxx");
+    const timeExpireStr = format(timeExpire, 'yyyy-MM-dd\'T\'HH:mm:ssxxx');
 
     const requestBody: WechatPayJSAPIRequestBody = {
       appid,
@@ -327,7 +327,7 @@ export class PaymentService extends RC7BaseService {
       out_trade_no: string;
       out_refund_no: string;
       refund_amount: number;
-    }, {user: UserMeta }>
+    }, { user: UserMeta }>
   ): Promise<Payment.RefundRecord> {
     const {
       oid,
@@ -619,7 +619,7 @@ export class PaymentService extends RC7BaseService {
       await ctx.call(
         'cr7.order.markRefunded',
         { oid: updatedRefundRecord.order_id, out_refund_no: out_refund_no! },
-      )
+      );
     }
 
     await markWechatRefundCallbackProcessed(this.pool, schema, notification.id);

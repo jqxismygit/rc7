@@ -1,12 +1,12 @@
-import { RC7BaseService } from "./libs/cr7.base.js";
+import { RC7BaseService } from './libs/cr7.base.js';
 import { AssetsService } from './libs/assets.js';
-import { ExhibitionService } from "./libs/exhibition.js";
+import { ExhibitionService } from './libs/exhibition.js';
 import { FapiaoService } from './libs/invoice.js';
-import { OrderService } from "./libs/order.js";
-import { PaymentService } from "./libs/payment.js";
+import { OrderService } from './libs/order.js';
+import { PaymentService } from './libs/payment.js';
 import { RedemptionService } from './libs/redeem.js';
 import { TopicService } from './libs/topics.js';
-import { ServiceBroker } from "moleculer";
+import { ServiceBroker } from 'moleculer';
 
 /**
  * RC7Service
@@ -33,7 +33,7 @@ export default class RC7Service extends RC7BaseService {
 
       hooks: {
         before: {
-          "*": ['checkUserRole'],
+          '*': ['checkUserRole'],
         }
       },
 
@@ -62,5 +62,4 @@ export default class RC7Service extends RC7BaseService {
       },
     });
   }
-
 }

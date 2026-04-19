@@ -313,7 +313,7 @@ describeFeature(feature, ({
     });
 
     Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "成人票"', async () => {
-      await prepareExhibitionData(scenarioContext, `CR7_${random_text(4)}`, '成人票', toDateLabel("3天后"), {
+      await prepareExhibitionData(scenarioContext, `CR7_${random_text(4)}`, '成人票', toDateLabel('3天后'), {
         refundPolicy: 'REFUNDABLE_48H_BEFORE',
         maxInventory: 10,
       });
@@ -518,12 +518,12 @@ describeFeature(feature, ({
     const { Given, When, Then, And, context } = s;
 
     Given('用户预订了 1 张 "CR7" 展会 的 "1天后" 场次的 "成人票"', async () => {
-      await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toDateLabel("1天后"));
+      await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toDateLabel('1天后'));
       await createTestOrder(context);
     });
 
     Given('订单已过期', async () => {
-    await expireOrder(scenarioContext.fixtures.values.broker, schema, requireOrder(context).id);
+      await expireOrder(scenarioContext.fixtures.values.broker, schema, requireOrder(context).id);
     });
 
     When('用户尝试发起支付', async () => {
@@ -561,7 +561,7 @@ describeFeature(feature, ({
     let successRefundPayload: MockRefundCallbackPayload | null = null;
 
     Given('用户预订了 2 张 "CR7" 展会 的 "3天后" 场次的 "成人票"', async () => {
-      await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toDateLabel("3天后"), {
+      await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toDateLabel('3天后'), {
         refundPolicy: 'REFUNDABLE_48H_BEFORE',
         maxInventory: 10,
       });
@@ -861,7 +861,7 @@ describeFeature(feature, ({
     const { Given, When, Then, And, context } = s;
 
     Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "早鸟票"', async () => {
-      await prepareExhibitionData(context, `CR7_${random_text(4)}`, '早鸟票', toDateLabel("3天后"), {
+      await prepareExhibitionData(context, `CR7_${random_text(4)}`, '早鸟票', toDateLabel('3天后'), {
         refundPolicy: 'NON_REFUNDABLE',
         maxInventory: 10,
       });
@@ -912,7 +912,7 @@ describeFeature(feature, ({
     const { Given, When, Then, And, context } = s;
 
     Given('用户预订了 1 张 "CR7" 展会 的 "3天后" 场次的 "早鸟票" 和 1 张 "成人票"', async () => {
-      await prepareExhibitionData(context, `CR7_${random_text(4)}`, '早鸟票', toDateLabel("3天后"), {
+      await prepareExhibitionData(context, `CR7_${random_text(4)}`, '早鸟票', toDateLabel('3天后'), {
         refundPolicy: 'NON_REFUNDABLE',
         maxInventory: 10,
       });
@@ -1102,7 +1102,7 @@ describeFeature(feature, ({
     const { Given, When, Then, And, context } = s;
 
     Given('用户预订了 1 张 "CR7" 展会 的 "1天后" 场次的 "成人票"', async () => {
-      await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toDateLabel("1天后"), {
+      await prepareExhibitionData(context, `CR7_${random_text(4)}`, '成人票', toDateLabel('1天后'), {
         refundPolicy: 'REFUNDABLE_48H_BEFORE',
         maxInventory: 10,
       });
