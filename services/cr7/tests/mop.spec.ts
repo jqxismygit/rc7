@@ -10,7 +10,7 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import { format, isDate, parse, parseISO } from 'date-fns';
-import { Exhibition, Inventory, Mop, Order, Payment, Redeem, User } from '@cr7/types';
+import { Exhibition, Mop, Order, Payment, Redeem, User } from '@cr7/types';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
 import { listUsers, prepareAdminToken, suUserToken } from './fixtures/user.js';
 import {
@@ -19,7 +19,7 @@ import {
   prepareTicketCategory,
   updateExhibition,
 } from './fixtures/exhibition.js';
-import { getSessionTickets, updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
+import { getTicketCalendarInventory, updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 import { getOrderRedemption, redeemCode } from './fixtures/redeem.js';
 import { getCityMetaByName, getCityMetaById } from '@/libs/city.js';
 import {
@@ -827,22 +827,19 @@ describeFeature(feature, ({
       const ticket = ticketByName[ticketName];
       expect(ticket).toBeTruthy();
 
-      const sessions = await getSessions(apiServer, exhibition.id, adminToken);
       const targetDate = toDateLabel(dayLabel);
-      const targetSession = sessions.find(
-        item => toSessionDateLabel(item.session_date) === targetDate,
-      );
-      expect(targetSession).toBeTruthy();
-
-      const sessionTickets = await getSessionTickets(
+      const [ticketCalendarInventory] = await getTicketCalendarInventory(
         apiServer,
         adminToken,
         exhibition.id,
-        targetSession!.id,
+        ticket.id,
+        {
+          start_session_date: targetDate,
+          end_session_date: targetDate,
+        },
       );
-      const sessionTicket = sessionTickets.find((item: Inventory.SessionTicketPrice) => item.id === ticket.id);
-      expect(sessionTicket).toBeTruthy();
-      expect(sessionTicket!.quantity).toBe(expectedQuantity);
+      expect(ticketCalendarInventory).toBeTruthy();
+      expect(ticketCalendarInventory!.quantity).toBe(expectedQuantity);
     });
 
     Then('默认展会活动的 {string} 在 {string} 的库存保持为 {number}', async (
@@ -855,22 +852,19 @@ describeFeature(feature, ({
       const ticket = ticketByName[ticketName];
       expect(ticket).toBeTruthy();
 
-      const sessions = await getSessions(apiServer, exhibition.id, adminToken);
       const targetDate = toDateLabel(dayLabel);
-      const targetSession = sessions.find(
-        item => toSessionDateLabel(item.session_date) === targetDate,
-      );
-      expect(targetSession).toBeTruthy();
-
-      const sessionTickets = await getSessionTickets(
+      const [targetInventory] = await getTicketCalendarInventory(
         apiServer,
         adminToken,
         exhibition.id,
-        targetSession!.id,
+        ticket.id,
+        {
+          start_session_date: targetDate,
+          end_session_date: targetDate,
+        },
       );
-      const sessionTicket = sessionTickets.find((item: Inventory.SessionTicketPrice) => item.id === ticket.id);
-      expect(sessionTicket).toBeTruthy();
-      expect(sessionTicket!.quantity).toBe(expectedQuantity);
+      expect(targetInventory).toBeTruthy();
+      expect(targetInventory!.quantity).toBe(expectedQuantity);
     });
 
     When('猫眼将订单同步消息发送给 cr7', async () => {
