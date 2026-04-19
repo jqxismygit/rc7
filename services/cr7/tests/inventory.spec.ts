@@ -146,8 +146,8 @@ describeFeature(feature, ({
 
   Scenario(
     '可以一次更新 exhibition 下某个 ticket category 所有 session 的 inventory',
-    (s: StepTest<{}>) => {
-      const { Given, When, Then, And, context } = s;
+    (s: StepTest<void>) => {
+      const { Given, When, Then, And } = s;
 
       Given(
         '已将票种 {string} 在该展览所有场次的库存设置为 50',

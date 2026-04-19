@@ -81,7 +81,7 @@ export default [
         },
       ],
       '@stylistic/max-len': [
-        'warn',
+        'error',
         {
           code: 120,
           ignoreComments: true,

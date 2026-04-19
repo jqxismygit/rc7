@@ -201,14 +201,14 @@ describeFeature(feature, ({
 
     Given('管理员账号将用户 {string} 设置成运营人员', async (ctx, userName: string) => {
       const { apiServer, adminToken, registeredUsersByName } = featureContext;
-      const userProfile = registeredUsersByName?.[userName]!;
+      const userProfile = registeredUsersByName![userName]!;
       const roleId = await getRoleIdByName(apiServer, adminToken, 'OPERATOR');
       await grantRoleToUser(apiServer, adminToken, userProfile.id, roleId);
     });
 
     Given('管理员账号将用户 {string} 设置成客服人员', async (_ctx, userName: string) => {
       const { apiServer, adminToken, registeredUsersByName } = featureContext;
-      const userProfile = registeredUsersByName?.[userName]!;
+      const userProfile = registeredUsersByName![userName]!;
       const roleName = 'CUSTOMER_SERVICE';
       const targetRole = await createRole(apiServer, adminToken, {
         name: roleName,
@@ -629,12 +629,12 @@ describeFeature(feature, ({
 
   Scenario(
     '管理员可以将其他用户设置成运营人员',
-    (s: StepTest<{}>) => {
+    (s: StepTest<void>) => {
       const { When } = s;
 
       When('管理员账号将用户 {string} 设置成运营人员', async (_ctx, userName: string) => {
         const { apiServer, adminToken, registeredUsersByName } = featureContext;
-        const userProfile = registeredUsersByName?.[userName]!;
+        const userProfile = registeredUsersByName![userName]!;
         const roleId = await getRoleIdByName(apiServer, adminToken, 'OPERATOR');
         await grantRoleToUser(
           apiServer, adminToken, userProfile!.id, roleId,
@@ -647,7 +647,7 @@ describeFeature(feature, ({
     (s: StepTest<
       { userList: User.UserListResult }
     >) => {
-      const { Given, When, Then, And, context } = s;
+      const { Given, When, Then, context } = s;
 
       Given(
         '管理员账号已登录，手机号为 {string}',
@@ -829,12 +829,12 @@ describeFeature(feature, ({
 
   Scenario(
     '将角色授予用户',
-    (s: StepTest<{}>) => {
+    (s: StepTest<void>) => {
       const { When, Then } = s;
 
       const grantRoleStep = async (_ctx: unknown, roleName: string, userName: string) => {
         const { apiServer, adminToken, registeredUsersByName } = featureContext;
-        const userProfile = registeredUsersByName?.[userName]!;
+        const userProfile = registeredUsersByName![userName]!;
         const roleId = await getRoleIdByName(apiServer, adminToken, roleName);
         await grantRoleToUser(apiServer, adminToken, userProfile.id, roleId);
       };
@@ -846,7 +846,7 @@ describeFeature(feature, ({
 
       const grantedAssertStep = async (_ctx: unknown, roleName: string, userName: string) => {
         const { apiServer, adminToken, registeredUsersByName } = featureContext;
-        const userProfile = registeredUsersByName?.[userName]!;
+        const userProfile = registeredUsersByName![userName]!;
         const suToken = await suUserToken(apiServer, adminToken, userProfile.id);
         const userRoles = await getCurrentUserRoles(apiServer, suToken);
         expect(userRoles.roles.some(role => role.name === roleName)).toBe(true);
@@ -859,14 +859,14 @@ describeFeature(feature, ({
 
       When('管理员将角色 {string} 从用户 {string} 收回', async (_ctx, roleName: string, userName: string) => {
         const { apiServer, adminToken, registeredUsersByName } = featureContext;
-        const userProfile = registeredUsersByName?.[userName]!;
+        const userProfile = registeredUsersByName![userName]!;
         const roleId = await getRoleIdByName(apiServer, adminToken, roleName);
         await revokeRoleFromUser(apiServer, adminToken, userProfile.id, roleId);
       });
 
       Then('角色 {string} 已成功从用户 {string} 收回', async (_ctx, roleName: string, userName: string) => {
         const { apiServer, adminToken, registeredUsersByName } = featureContext;
-        const userProfile = registeredUsersByName?.[userName]!;
+        const userProfile = registeredUsersByName![userName]!;
         const suToken = await suUserToken(apiServer, adminToken, userProfile.id);
         const userRoles = await getCurrentUserRoles(apiServer, suToken);
         expect(userRoles.roles.some(role => role.name === roleName)).toBe(false);
@@ -926,7 +926,7 @@ describeFeature(feature, ({
 
       Then('用户列表获取成功，用户列表包含用户 {string}，角色为 {string}', (_ctx, userName: string, roleName: string) => {
         const { registeredUsersByName } = featureContext;
-        const targetProfile = registeredUsersByName?.[userName]!;
+        const targetProfile = registeredUsersByName![userName]!;
         const matchedUser = context.userList.users.find(user => user.id === targetProfile.id);
 
         expect(matchedUser).toBeDefined();
@@ -935,14 +935,14 @@ describeFeature(feature, ({
 
       And('用户列表获取成功，用户列表不包含用户 {string}', (ctx, userName: string) => {
         const { registeredUsersByName } = featureContext;
-        const targetProfile = registeredUsersByName?.[userName]!;
+        const targetProfile = registeredUsersByName![userName]!;
         expect(context.userList.users.some(user => user.id === targetProfile.id)).toBe(false);
       });
 
       Then('用户列表获取成功，用户列表包含用户 {string} 和用户 {string}', (_ctx, userName1: string, userName2: string) => {
         const { registeredUsersByName } = featureContext;
-        const profile1 = registeredUsersByName?.[userName1]!;
-        const profile2 = registeredUsersByName?.[userName2]!;
+        const profile1 = registeredUsersByName![userName1]!;
+        const profile2 = registeredUsersByName![userName2]!;
 
         expect(context.userList.users.some(user => user.id === profile1.id)).toBe(true);
         expect(context.userList.users.some(user => user.id === profile2.id)).toBe(true);
