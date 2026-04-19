@@ -209,6 +209,21 @@ describeFeature(feature, ({
       featureContext.userProfile = profile;
       featureContext.usersByName[userName] = { token, profile };
     });
+
+    Given(
+      '该展会追加了一个 {string} 票种, 退票策略是 {string}',
+      async (_ctx, ticketName: string, policyLabel: string) => {
+        const policy = policyLabel.includes('48') ? 'REFUNDABLE_48H_BEFORE' : 'NON_REFUNDABLE';
+        const { apiServer, adminToken, exhibition, ticketByName } = featureContext;
+        const ticket = await prepareTicketCategory(apiServer, adminToken, exhibition.id, {
+          name: ticketName,
+          refund_policy: policy,
+          admittance: 1,
+          valid_duration_days: 1,
+        });
+        featureContext.ticketByName = { ...ticketByName, [ticketName]: ticket };
+      }
+    );
   });
 
   Background(({ Given, And }) => {
@@ -278,6 +293,7 @@ describeFeature(feature, ({
     '一个完成支付的订单拥有一个核销码',
     (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
       const { Given, And, When, Then, context } = s;
+
       Given(
         '用户预订 {int} 张该展会的 {string} 场次的 {string}',
         async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
@@ -467,6 +483,7 @@ describeFeature(feature, ({
     '使用核销码完成订单核销',
     (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
       const { Given, And, When, Then, context } = s;
+
       Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
         context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
       });
@@ -548,6 +565,7 @@ describeFeature(feature, ({
     '已过期订单的核销码不可用',
     (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
       const { Given, And, When, Then, context } = s;
+
       Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
         context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
       });
@@ -591,6 +609,7 @@ describeFeature(feature, ({
     '已核销订单的核销码不可重复使用',
     (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
       const { Given, And, When, Then, context } = s;
+
       Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
         context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
       });
@@ -640,6 +659,7 @@ describeFeature(feature, ({
     '只有运营人员才能核销',
     (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
       const { Given, And, When, Then, context } = s;
+
       Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
         context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
       });
@@ -694,6 +714,7 @@ describeFeature(feature, ({
     '当天场次的核销码从今天零点起有效',
     (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
       const { Given, And, When, Then, context } = s;
+
       Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
         context.order = await createOrderForCurrentUser(featureContext, sessionDate, ticketName, quantity);
       });
@@ -712,7 +733,6 @@ describeFeature(feature, ({
         const redemption = context.redemption;
         expect(redemption.status).toBe('UNREDEEMED');
       });
-
       And('核销码的有效期起始时间不晚于当前时间', () => {
         // Regression test: valid_from must be local midnight, not UTC midnight.
         // If toValidityStartDate used Date.UTC(), valid_from in UTC+8 would be 8 hours in the
@@ -738,20 +758,6 @@ describeFeature(feature, ({
     '已经核销的订单不能发起退款',
     (s: StepTest<ExhibitionContext & OrderContext & RedemptionContext & ErrorContext>) => {
       const { Given, When, Then, And, context } = s;
-
-      Given(
-        '该展会追加了一个 {string} 票种, 退票策略是 {string}',
-        async (_ctx, ticketName: string, policyLabel: string) => {
-          const policy = policyLabel.includes('48') ? 'REFUNDABLE_48H_BEFORE' : 'NON_REFUNDABLE';
-          const { apiServer, adminToken, exhibition, ticketByName } = featureContext;
-          const ticket = await prepareTicketCategory(apiServer, adminToken, exhibition.id, {
-            name: ticketName,
-            refund_policy: policy,
-            admittance: 1,
-            valid_duration_days: 1,
-          });
-          featureContext.ticketByName = { ...ticketByName, [ticketName]: ticket };
-        });
 
       And('{string} 库存为 {int}', async (_ctx, ticketName: string, maxInventory: number) => {
         const ticket = featureContext.ticketByName[ticketName];
@@ -821,21 +827,6 @@ describeFeature(feature, ({
     '已经处于退款流程的订单不能被核销',
     (s: StepTest<ExhibitionContext & OrderContext & RedemptionContext & RefundContext & ErrorContext>) => {
       const { Given, And, When, Then, context } = s;
-
-      Given(
-        '该展会追加了一个 {string} 票种, 退票策略是 {string}',
-        async (_ctx, ticketName: string, policyLabel: string) => {
-          const policy = policyLabel.includes('48') ? 'REFUNDABLE_48H_BEFORE' : 'NON_REFUNDABLE';
-          const { apiServer, adminToken, exhibition, ticketByName } = featureContext;
-          const ticket = await prepareTicketCategory(apiServer, adminToken, exhibition.id, {
-            name: ticketName,
-            refund_policy: policy,
-            admittance: 1,
-            valid_duration_days: 1,
-          });
-          featureContext.ticketByName = { ...ticketByName, [ticketName]: ticket };
-        }
-      );
 
       And('{string} 库存为 {int}', async (_ctx, ticketName: string, maxInventory: number) => {
         const ticket = featureContext.ticketByName[ticketName];
