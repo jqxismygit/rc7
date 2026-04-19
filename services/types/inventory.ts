@@ -22,6 +22,7 @@ export interface SessionTicketPrice extends TicketCategory {
 export interface TicketCalendarInventory {
   session_id: string;
   session_date: string;
-  quantity: number;
+  inventory: number; // 总库存
+  quantity: number; // 可用库存
   price: number;
 }
