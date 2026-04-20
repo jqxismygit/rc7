@@ -1054,69 +1054,67 @@ a. 在大麦场景中，由于存在预存款、月结等多模式，并且大�
 
 条件退规则推送代码示例如下：
 
+```json
 {
-    "projectInfo": {
-        "chooseSeatFlag": true,
-        "name": "you座测试项目请不要拍",
-        "id": "2549337712832",
-        "posters": "http://xxxx.jpg",
-        "introduce": "详情"
-    },
-    "venueInfo": {
-        "name": "测试场馆",
-        "id": "2549337712832"
-    },
-    "refundRuleInfo": {
-        "refundType": 5,
-        "performEndAutoRefundType": null,
-        "refundProcedureFeeRule": 2,
-        "refundDetailList": [
-            {
-                "endDay": 20,
-                "endHour": 10,
-                "endMinutes": 0,
-                "refundRule": 2,
-                "startDay": 30,
-                "startHour": 10,
-                "startMinutes": 0
-            },
-            {
-                "endDay": 10,
-                "endHour": 10,
-                "endMinutes": 0,
-                "refundRule": 1,
-                "refundRuleFee": 15.88,
-                "startDay": 20,
-                "startHour": 10,
-                "startMinutes": 0
-            },
-            {
-                "endDay": 5,
-                "endHour": 10,
-                "endMinutes": 0,
-                "refundRule": 1,
-                "refundRuleFee": 30,
-                "startDay": 10,
-                "startMinutes": 0
-            }
-        ]
-    }
-}
-
-},
-{
-    "refundRule": 4,
-    "startDay": 5,
-    "startHour": 10,
-    "startMinutes": 0
-}
-]
-},
-"signed": {
+  "projectInfo": {
+    "chooseSeatFlag": true,
+    "name": "you座测试项目请不要拍",
+    "id": "2549337712832",
+    "posters": "http://xxxx.jpg",
+    "introduce": "详情"
+  },
+  "venueInfo": {
+    "name": "测试场馆",
+    "id": "2549337712832"
+  },
+  "refundRuleInfo": {
+    "refundType": 5,
+    "performEndAutoRefundType": null,
+    "refundProcedureFeeRule": 2,
+    "refundDetailList": [
+      {
+        "endDay": 20,
+        "endHour": 10,
+        "endMinutes": 0,
+        "refundRule": 2,
+        "startDay": 30,
+        "startHour": 10,
+        "startMinutes": 0
+      },
+      {
+        "endDay": 10,
+        "endHour": 10,
+        "endMinutes": 0,
+        "refundRule": 1,
+        "refundRuleFee": 15.88,
+        "startDay": 20,
+        "startHour": 10,
+        "startMinutes": 0
+      },
+      {
+        "endDay": 5,
+        "endHour": 10,
+        "endMinutes": 0,
+        "refundRule": 1,
+        "refundRuleFee": 30,
+        "startDay": 10,
+        "startHour": 10,
+        "startMinutes": 0
+      },
+      {
+        "refundRule": 4,
+        "startDay": 5,
+        "startHour": 10,
+        "startMinutes": 0
+      }
+    ]
+  },
+  "signed": {
     "timeStamp": "1631757264606",
     "signInfo": "请使用申请的签名"
+  }
 }
-}
+```
 
 退款规则第1条：场次开始前30天10小时0分～场次开始前20天10时0分免手续费
 

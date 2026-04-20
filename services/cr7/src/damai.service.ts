@@ -43,6 +43,21 @@ type DamaiProjectSyncRequest = {
     id: string;
     name: string;
   };
+  refundRuleInfo: {
+    refundType: number;
+    refundProcedureFeeRule: number;
+    cEndEntrance: number;
+    refundDetailList: Array<{
+      startDay: number;
+      startHour: number;
+      startMinutes: number;
+      endDay: number;
+      endHour: number;
+      endMinutes: number;
+      refundRule: number;
+      refundRuleFee: number;
+    }>;
+  };
 };
 
 type DamaiPerform = {
@@ -253,6 +268,11 @@ const DAMAI_VALIDATE_STATUS_VALIDATED = 2;
 const DAMAI_REFUND_STATUS_SUCCESS = 1;
 const DAMAI_CERT_TYPE_NON_REAL_NAME = 0;
 const DAMAI_QRCODE_TYPE_STATIC = 1;
+const DAMAI_REFUND_TYPE_CONDITIONAL = 5;
+const DAMAI_REFUND_FEE_RULE_COUNTDOWN = 2;
+const DAMAI_REFUND_ENTRANCE_ENABLED = 1;
+const DAMAI_REFUND_RULE_FREE = 2;
+const DAMAI_REFUND_RULE_STOP = 4;
 
 const damaiHeadParamsSchema = {
   type: 'object',
@@ -696,6 +716,33 @@ class DamaiService extends RC7BaseService {
         id: exhibition.id,
         name: exhibition.venue_name,
       },
+      refundRuleInfo: {
+        refundType: DAMAI_REFUND_TYPE_CONDITIONAL,
+        refundProcedureFeeRule: DAMAI_REFUND_FEE_RULE_COUNTDOWN,
+        cEndEntrance: DAMAI_REFUND_ENTRANCE_ENABLED,
+        refundDetailList: [
+          {
+            startDay: 100,
+            startHour: 0,
+            startMinutes: 0,
+            endDay: 2,
+            endHour: 0,
+            endMinutes: 0,
+            refundRule: DAMAI_REFUND_RULE_FREE,
+            refundRuleFee: 0,
+          },
+          {
+            startDay: 2,
+            startHour: 0,
+            startMinutes: 0,
+            endDay: 0,
+            endHour: 0,
+            endMinutes: 0,
+            refundRule: DAMAI_REFUND_RULE_STOP,
+            refundRuleFee: 0,
+          },
+        ],
+      },
     };
 
     const syncUrl = new URL('/b2b2c/2.0/sync/project', config.damai.base_url).toString();
@@ -901,7 +948,7 @@ class DamaiService extends RC7BaseService {
         response,
         'SUCCESS',
         firstSuccessRecord.order_id,
-        firstSuccessRecord.user_id,
+        firstSuccessRecord.user_id!,
       );
     }
 
