@@ -15,11 +15,11 @@ import {
   Breadcrumb,
   Button,
   Card,
-  Cascader,
   Form,
   Modal,
   Popconfirm,
   Radio,
+  Select,
   Space,
   Tag,
   Typography,
@@ -61,16 +61,32 @@ import {
   useSyncExhibitionToMaoyan,
 } from "@/hooks/use-sync";
 import { formatDateTime, formatSessionDateTime } from "@/utils/format-datetime";
-import {
-  CHINA_REGION_CASCADER_OPTIONS,
-  getCascaderValuePathByLeafCode,
-  getRegionLabelByLeafCode,
-} from "@/utils/china-region-cascader";
+import { getRegionLabelByLeafCode } from "@/utils/china-region-cascader";
 import dayjs, { type Dayjs } from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import "./exhibition.less";
 
 dayjs.extend(customParseFormat);
+
+/**
+ * 展会「所在地区」可选项（value 将原样作为接口 `city` 提交，可按业务自行增删）
+ * @example [{ label: "北京市", value: "10011" }]
+ */
+const EXHIBITION_CITY_OPTIONS: { label: string; value: string }[] = [
+  { label: "北京市", value: "10011" },
+  { label: "上海市", value: "10012" },
+];
+
+const EXHIBITION_CITY_VALUE_SET = new Set(
+  EXHIBITION_CITY_OPTIONS.map((o) => o.value),
+);
+
+function getExhibitionCityDisplayLabel(code: string | null | undefined): string {
+  if (code == null || code === "") return "—";
+  const hit = EXHIBITION_CITY_OPTIONS.find((o) => o.value === code);
+  if (hit) return hit.label;
+  return getRegionLabelByLeafCode(code);
+}
 
 /** OTA 同步目标（仅 UI，后续对接接口） */
 type OtaPlatform = "ctrip" | "maoyan" | "damai";
@@ -120,8 +136,8 @@ type ExhibitionCreateFormValues = Omit<
   date_range?: [unknown, unknown] | null;
   session_time_range?: [unknown, unknown] | null;
   cover_url?: string;
-  /** 省市区级联，提交时取末级六位码写入 city */
-  city_cascader?: string[];
+  /** 所在地区，提交时写入 city */
+  city_code?: string;
   venue_name: string;
 };
 
@@ -139,7 +155,7 @@ type ExhibitionEditFormValues = {
   opening_time: Dayjs;
   closing_time: Dayjs;
   last_entry_time: Dayjs;
-  city_cascader?: string[];
+  city_code?: string;
   venue_name: string;
   location: string;
   cover_url?: string;
@@ -430,7 +446,7 @@ const ExhibitionPage = () => {
       last_entry_time: parseExhibitionTime(
         editingRow.last_entry_time as string | null | undefined,
       ),
-      city_cascader: getCascaderValuePathByLeafCode(editingRow.city) ?? [],
+      city_code: editingRow.city,
       venue_name: editingRow.venue_name ?? "",
       location: editingRow.location,
       cover_url: editingRow.cover_url ?? "",
@@ -499,9 +515,9 @@ const ExhibitionPage = () => {
         render: (_, row) => (
           <Typography.Text
             type="secondary"
-            ellipsis={{ tooltip: getRegionLabelByLeafCode(row.city) }}
+            ellipsis={{ tooltip: getExhibitionCityDisplayLabel(row.city) }}
           >
-            {getRegionLabelByLeafCode(row.city)}
+            {getExhibitionCityDisplayLabel(row.city)}
           </Typography.Text>
         ),
       },
@@ -642,7 +658,7 @@ const ExhibitionPage = () => {
   );
 
   async function handleCreateModalFinish(values: ExhibitionCreateFormValues) {
-    const { date_range, session_time_range, city_cascader, ...rest } = values;
+    const { date_range, session_time_range, city_code, ...rest } = values;
     if (!date_range?.[0] || !date_range?.[1]) {
       message.error("请选择展期");
       return false;
@@ -651,12 +667,9 @@ const ExhibitionPage = () => {
       message.error("请选择开闭场时间");
       return false;
     }
-    const leaf =
-      city_cascader && city_cascader.length > 0
-        ? city_cascader[city_cascader.length - 1]
-        : "";
-    if (!leaf || !/^\d{6}$/.test(String(leaf))) {
-      message.error("请选择完整的省 / 市 / 区（须选到区县）");
+    const city = city_code?.trim() ?? "";
+    if (!city || !EXHIBITION_CITY_VALUE_SET.has(city)) {
+      message.error("请选择所在地区");
       return false;
     }
     const start_date = String(formatDayjsLike(date_range[0], "YYYY-MM-DD"));
@@ -672,7 +685,7 @@ const ExhibitionPage = () => {
       : undefined;
     return handleCreate({
       ...rest,
-      city: String(leaf),
+      city,
       cover_url,
       start_date,
       end_date,
@@ -718,12 +731,9 @@ const ExhibitionPage = () => {
     }
     try {
       setEditSubmitting(true);
-      const leaf =
-        values.city_cascader && values.city_cascader.length > 0
-          ? values.city_cascader[values.city_cascader.length - 1]
-          : "";
-      if (!leaf || !/^\d{6}$/.test(String(leaf))) {
-        message.error("请选择完整的省 / 市 / 区（须选到区县）");
+      const city = values.city_code?.trim() ?? "";
+      if (!city || !EXHIBITION_CITY_VALUE_SET.has(city)) {
+        message.error("请选择所在地区");
         return false;
       }
       await updateExhibitionApi(eid, {
@@ -732,7 +742,7 @@ const ExhibitionPage = () => {
         opening_time: formatEditTimeField(values.opening_time),
         closing_time: formatEditTimeField(values.closing_time),
         last_entry_time: formatEditTimeField(values.last_entry_time),
-        city: String(leaf),
+        city,
         venue_name: values.venue_name.trim(),
         location: values.location.trim(),
         cover_url: values.cover_url?.trim() ? values.cover_url.trim() : null,
@@ -892,22 +902,14 @@ const ExhibitionPage = () => {
           rules={[{ required: true, message: "请输入展会描述" }]}
         />
         <Form.Item
-          name="city_cascader"
+          name="city_code"
           label="所在地区"
-          rules={[{ required: true, message: "请选择省 / 市 / 区" }]}
+          rules={[{ required: true, message: "请选择所在地区" }]}
         >
-          <Cascader
-            options={CHINA_REGION_CASCADER_OPTIONS}
-            placeholder="请选择省 / 市 / 区（须选到区县）"
-            showSearch={{
-              filter: (inputValue, path) =>
-                path.some((option) =>
-                  String(option.label)
-                    .toLowerCase()
-                    .includes(inputValue.toLowerCase()),
-                ),
-            }}
-            changeOnSelect={false}
+          <Select
+            allowClear={false}
+            placeholder="请选择所在地区"
+            options={EXHIBITION_CITY_OPTIONS}
             style={{ width: "100%" }}
           />
         </Form.Item>
@@ -1039,22 +1041,14 @@ const ExhibitionPage = () => {
           rules={[{ required: true, message: "请选择最晚入场时间" }]}
         />
         <Form.Item
-          name="city_cascader"
+          name="city_code"
           label="所在地区"
-          rules={[{ required: true, message: "请选择省 / 市 / 区" }]}
+          rules={[{ required: true, message: "请选择所在地区" }]}
         >
-          <Cascader
-            options={CHINA_REGION_CASCADER_OPTIONS}
-            placeholder="请选择省 / 市 / 区（须选到区县）"
-            showSearch={{
-              filter: (inputValue, path) =>
-                path.some((option) =>
-                  String(option.label)
-                    .toLowerCase()
-                    .includes(inputValue.toLowerCase()),
-                ),
-            }}
-            changeOnSelect={false}
+          <Select
+            allowClear={false}
+            placeholder="请选择所在地区"
+            options={EXHIBITION_CITY_OPTIONS}
             style={{ width: "100%" }}
           />
         </Form.Item>
