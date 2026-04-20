@@ -11,6 +11,7 @@ import {
   listDamaiOrderSyncRecordsByOrderId,
   updateDamaiOrderSyncRecord,
 } from './data/damai.js';
+import { HALF_SESSION_ID_REGEX } from './libs/session-id.js';
 
 const { MoleculerClientError } = Errors;
 
@@ -521,7 +522,7 @@ class DamaiService extends RC7BaseService {
           rest: 'POST /:eid/ota/damai/sync',
           roles: ['admin'],
           params: {
-            eid: 'string',
+            eid: 'uuid',
           },
           handler: this.syncExhibitionToDamai,
         },
@@ -529,7 +530,7 @@ class DamaiService extends RC7BaseService {
           rest: 'POST /:eid/ota/damai/sync/sessions',
           roles: ['admin'],
           params: {
-            eid: 'string',
+            eid: 'uuid',
             start_session_date: { type: 'date', convert: true, optional: true },
             end_session_date: { type: 'date', convert: true, optional: true },
           },
@@ -539,8 +540,8 @@ class DamaiService extends RC7BaseService {
           rest: 'POST /:eid/sessions/:sid/ota/damai/sync/tickets',
           roles: ['admin'],
           params: {
-            eid: 'string',
-            sid: 'string',
+            eid: 'uuid',
+            sid: ['uuid', { type: 'string', pattern: HALF_SESSION_ID_REGEX.source }],
           },
           handler: this.syncTicketsToDamai,
         },
@@ -555,8 +556,8 @@ class DamaiService extends RC7BaseService {
                   type: 'object',
                   props: {
                     daMaiOrderId: 'string|min:1',
-                    projectId: 'string|min:1',
-                    performId: 'string|min:1',
+                    projectId: 'uuid',
+                    performId: 'uuid',
                     hasSeat: 'boolean',
                     commodityInfoList: {
                       type: 'array',
@@ -564,7 +565,7 @@ class DamaiService extends RC7BaseService {
                       items: {
                         type: 'object',
                         props: {
-                          priceId: 'string|min:1',
+                          priceId: 'uuid',
                           subOrderId: 'string|min:1',
                           seatId: { type: 'string', optional: true, empty: false },
                           packageId: { type: 'string', optional: true, empty: false },
@@ -577,7 +578,7 @@ class DamaiService extends RC7BaseService {
                       items: {
                         type: 'object',
                         props: {
-                          priceId: 'string|min:1',
+                          priceId: 'uuid',
                           num: { type: 'number', integer: true, positive: true, convert: true },
                           price: { type: 'number', integer: true, min: 0 },
                           type: { type: 'number', integer: true, optional: true },
@@ -627,7 +628,7 @@ class DamaiService extends RC7BaseService {
             cancelOrderInfo: {
               type: 'object',
               props: {
-                orderId: 'string|min:1',
+                orderId: 'uuid',
               },
             },
           },
@@ -644,7 +645,7 @@ class DamaiService extends RC7BaseService {
                   type: 'object',
                   props: {
                     daMaiOrderId: 'string|min:1',
-                    orderId: 'string|min:1',
+                    orderId: 'uuid',
                     refundId: 'string|min:1',
                     refundReason: 'string|min:1',
                     refundAmountFen: { type: 'number', integer: true, min: 0 },
@@ -663,7 +664,7 @@ class DamaiService extends RC7BaseService {
               type: 'object',
               props: {
                 daMaiUserId: { type: 'string', optional: true, empty: false },
-                orderId: 'string|min:1',
+                orderId: 'uuid',
               },
             },
           },
@@ -679,7 +680,7 @@ class DamaiService extends RC7BaseService {
         },
         notifyOrderConsumed: {
           params: {
-            oid: 'string',
+            oid: 'uuid',
             redeemed_at: { type: 'date', convert: true },
           },
           handler: this.notifyOrderConsumed,
