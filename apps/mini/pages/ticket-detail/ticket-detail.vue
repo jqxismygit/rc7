@@ -63,7 +63,7 @@
                 />
                 <text class="meta-text">{{ ticket.eventLocation }}</text>
               </view>
-              <view
+              <!-- <view
                 v-if="showDetailSessionSlots"
                 class="session-slot-row session-slot-row--readonly"
               >
@@ -79,7 +79,7 @@
                 >
                   <text class="session-slot-text">下午场</text>
                 </view>
-              </view>
+              </view> -->
             </view>
           </view>
         </view>
