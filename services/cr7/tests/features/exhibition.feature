@@ -37,6 +37,7 @@ Feature: manage exhibition
   Scenario: add non-refundable ticket category to exhibition
     Given 管理员已创建展览
     Given 为该展览准备票种草稿 "early_bird"
+      And 票种描述为 "早鸟票，早买早享受"
       And 票价为 100
       And 目录价为 120
       And 有效期为 1 天
@@ -48,6 +49,7 @@ Feature: manage exhibition
      When 管理员查看展会票种列表
      Then 展览包含 1 个票种
       And 第 1 个票种名称为 "early_bird"
+      And 第 1 个票种的描述为 "早鸟票，早买早享受"
       And 第 1 个票种目录价为 120
       And 第 1 个票种有效期为 1 天
       And 第 1 个票种退票策略为不可退
@@ -56,6 +58,7 @@ Feature: manage exhibition
   Scenario: add a refundable ticket category
     Given 管理员已创建展览
     Given 为该展览准备票种草稿 "regular"
+      And 票种描述为 "普通票，随时可退"
       And 票价为 150
       And 目录价为 150
       And 有效期为 10 天
@@ -67,6 +70,7 @@ Feature: manage exhibition
      When 管理员查看展会票种列表
      Then 展览包含 1 个票种
       And 第 1 个票种名称为 "regular"
+      And 第 1 个票种的描述为 "普通票，随时可退"
       And 第 1 个票种目录价为 150
       And 第 1 个票种有效期为 10 天
       And 第 1 个票种退票策略为场次前 48 小时可退
@@ -145,6 +149,7 @@ Feature: manage exhibition
   Scenario: 可以更新票种信息
     Given 管理员已创建展览
     Given 为该展览准备票种草稿 "regular"
+      And 票种描述为 "普通票，随时可退"
       And 票价为 100
       And 目录价为 120
       And 有效期为 1 天
@@ -154,6 +159,7 @@ Feature: manage exhibition
      Then 票种 "regular" 添加成功
 
     Given 准备更新票种名称为 "vip"
+      And 准备更新票种描述为 "贵宾票，尊享服务"
       And 准备更新票种有效期为 30 天
       And 准备更新票种退票策略为不可退
       And 准备更新票种准入人数为 4
@@ -164,6 +170,7 @@ Feature: manage exhibition
      When 管理员查看展会票种列表
      Then 展览包含 1 个票种
       And 第 1 个票种名称为 "vip"
+      And 第 1 个票种的描述为 "贵宾票，尊享服务"
       And 第 1 个票种有效期为 30 天
       And 第 1 个票种退票策略为不可退
       And 第 1 个票种准入人数为 4

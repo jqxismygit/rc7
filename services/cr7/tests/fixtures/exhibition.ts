@@ -224,6 +224,7 @@ export function assertTicketCategory(data: Exhibition.TicketCategory) {
   expect(data).toHaveProperty('id', expect.any(String));
   expect(data).toHaveProperty('exhibit_id', expect.any(String));
   expect(data).toHaveProperty('name', expect.any(String));
+  expect(data).toHaveProperty('description', expect.any(String));
   expect(data).toHaveProperty('valid_duration_days', expect.any(Number));
   expect(data).toHaveProperty('refund_policy', expect.any(String));
   expect(data).toHaveProperty('admittance', expect.any(Number));
@@ -363,6 +364,7 @@ export async function prepareTicketCategory(
   const categoryFixture = Object.assign(
     {
       name: `ticket_category_${random_text(5)}`,
+      description: 'ticket category description',
       price: 100,
       list_price: 120,
       valid_duration_days: 1,

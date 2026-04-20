@@ -43,6 +43,7 @@ export interface TicketCategory {
   id: string;
   exhibit_id: string;
   name: string;
+  description: string;
   valid_duration_days: number;
   refund_policy: "NON_REFUNDABLE" | "REFUNDABLE_48H_BEFORE";
   admittance: number;
@@ -56,6 +57,7 @@ export type TicketCategoryPatch = Partial<
   Pick<
     TicketCategory,
     | "name"
+    | "description"
     | "valid_duration_days"
     | "refund_policy"
     | "admittance"

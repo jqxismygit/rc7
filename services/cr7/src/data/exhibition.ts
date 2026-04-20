@@ -12,6 +12,7 @@ const TICKET_CATEGORY_SELECT = `
       c.id,
       c.eid AS exhibit_id,
       c.name,
+  c.description,
       c.valid_duration_days,
       c.refund_policy,
       c.admittance,
@@ -414,13 +415,14 @@ export async function createTicketCategory(
 ): Promise<Exhibition.TicketCategory> {
   const { rows: [result] } = await client.query<Exhibition.TicketCategory>(
     `INSERT INTO ${schema}.exhibit_ticket_categories (
-      eid, name, valid_duration_days, refund_policy, admittance, list_price
+      eid, name, description, valid_duration_days, refund_policy, admittance, list_price
     )
-    VALUES ($1, $2, $3, $4, $5, $6)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING
       id,
       eid AS exhibit_id,
       name,
+      description,
       valid_duration_days,
       refund_policy,
       admittance,
@@ -431,6 +433,7 @@ export async function createTicketCategory(
     [
       eid,
       category.name,
+      category.description,
       category.valid_duration_days,
       category.refund_policy,
       category.admittance,
@@ -578,6 +581,10 @@ export async function updateTicketCategory(
   if ('name' in patch) {
     fields.push(`name = $${idx++}`);
     values.push(patch.name);
+  }
+  if ('description' in patch) {
+    fields.push(`description = $${idx++}`);
+    values.push(patch.description);
   }
   if ('valid_duration_days' in patch) {
     fields.push(`valid_duration_days = $${idx++}`);

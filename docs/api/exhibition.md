@@ -212,7 +212,7 @@
   - `403 Forbidden`：无管理员权限
   - `404 Not Found`：票种不存在或不属于该展会
 - 说明：
-  - 可更新字段范围以 `Exhibition.TicketCategoryPatch` 为准，包含 `name`、`valid_duration_days`、`refund_policy`、`admittance`、`list_price`
+  - 可更新字段范围以 `Exhibition.TicketCategoryPatch` 为准
   - `eid` 与 `tid` 共同定位待更新的票种
   - 未出现在 body 中的字段保持原值不变
   - `list_price`（目录价）在该接口维护

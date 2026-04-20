@@ -42,6 +42,7 @@ const EXHIBITION_UPDATE_FIELDS = [
 
 const TICKET_CATEGORY_UPDATE_FIELDS = [
   'name',
+  'description',
   'valid_duration_days',
   'refund_policy',
   'admittance',
@@ -232,6 +233,7 @@ export class ExhibitionService extends RC7BaseService {
       params: {
         eid: 'uuid',
         name: 'string',
+        description: 'string',
         price: 'number|integer|min:0',
         list_price: { type: 'number', optional: true, integer: true, min: 0 },
         valid_duration_days: 'number',
@@ -266,6 +268,7 @@ export class ExhibitionService extends RC7BaseService {
         eid: 'uuid',
         tid: 'uuid',
         name: { type: 'string', optional: true, min: 1 },
+        description: { type: 'string', optional: true },
         valid_duration_days: { type: 'number', optional: true },
         refund_policy: {
           type: 'enum',

@@ -185,6 +185,12 @@ describeFeature(feature, ({
       featureContext.draftTicket = { name: categoryName } as DraftTicketCategory;
     });
 
+    And('票种描述为 {string}', (_ctx, description: string) => {
+      const { draftTicket } = featureContext;
+      expect(draftTicket).toBeTruthy();
+      draftTicket!.description = description;
+    });
+
     And('票价为 {int}', (_ctx, price: number) => {
       const { draftTicket } = featureContext;
       expect(draftTicket).toBeTruthy();
@@ -242,6 +248,7 @@ describeFeature(feature, ({
         exhibition!.id,
         {
           name: ticketName,
+          description: `${ticketName}_description`,
           price: 150,
           list_price: 200,
           valid_duration_days: 10,
@@ -256,6 +263,7 @@ describeFeature(feature, ({
       expect(draftTicket).toBeTruthy();
       assertTicketCategory(ticket!);
       expect(ticket!.name).toBe(categoryName);
+      expect(ticket!.description).toBe(draftTicket!.description);
       expect(ticket!.valid_duration_days).toBe(draftTicket!.valid_duration_days);
       expect(ticket!.refund_policy).toBe(draftTicket!.refund_policy);
       expect(ticket!.admittance).toBe(draftTicket!.admittance);
@@ -280,6 +288,12 @@ describeFeature(feature, ({
       const ticket = featureContext.ticketCategories![index - 1];
       expect(ticket).toBeTruthy();
       expect(ticket.name).toBe(name);
+    });
+
+    And('第 {number} 个票种的描述为 {string}', (_ctx, index: number, description: string) => {
+      const ticket = featureContext.ticketCategories![index - 1];
+      expect(ticket).toBeTruthy();
+      expect(ticket.description).toBe(description);
     });
 
     And('第 {number} 个票种目录价为 {number}', (_ctx, index: number, listPrice: number) => {
@@ -631,6 +645,7 @@ describeFeature(feature, ({
         const { regularUserToken } = context;
         const draftTicket: DraftTicketCategory = {
           name: 'unauthorized_ticket',
+          description: 'unauthorized ticket description',
           price: 100,
           list_price: 120,
           valid_duration_days: 1,
@@ -807,6 +822,11 @@ describeFeature(feature, ({
         context.ticketPatch!.name = name;
       });
 
+      And('准备更新票种描述为 {string}', (_ctx, description: string) => {
+        context.ticketPatch ??= {};
+        context.ticketPatch!.description = description;
+      });
+
       And('准备更新票种有效期为 {int} 天', (_ctx, validDurationDays: number) => {
         context.ticketPatch ??= {};
         context.ticketPatch!.valid_duration_days = validDurationDays;
@@ -845,6 +865,7 @@ describeFeature(feature, ({
         const { ticket } = context;
         assertTicketCategory(ticket!);
         expect(ticket!.name).toBe('vip');
+        expect(ticket!.description).toBe('贵宾票，尊享服务');
         expect(ticket!.valid_duration_days).toBe(30);
         expect(ticket!.refund_policy).toBe('NON_REFUNDABLE');
         expect(ticket!.admittance).toBe(4);
