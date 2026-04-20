@@ -11,7 +11,7 @@ import {
   listDamaiOrderSyncRecordsByOrderId,
   updateDamaiOrderSyncRecord,
 } from './data/damai.js';
-import { HALF_SESSION_ID_REGEX } from './libs/session-id.js';
+import { HALF_SESSION_ID_REGEX, parseSelectedSessionId } from './libs/session-id.js';
 
 const { MoleculerClientError } = Errors;
 
@@ -808,7 +808,8 @@ class DamaiService extends RC7BaseService {
   async syncTicketsToDamai(
     ctx: Context<{ eid: string; sid: string }, Meta>
   ): Promise<void> {
-    const { eid, sid } = ctx.params;
+    const { eid } = ctx.params;
+    const { sessionId } = parseSelectedSessionId(ctx.params.sid);
     const exhibition = await ctx.call<Exhibition.Exhibition, { eid: string }>(
       'cr7.exhibition.get',
       { eid },
@@ -817,7 +818,7 @@ class DamaiService extends RC7BaseService {
     const session = await ctx
       .call<Exhibition.Session, { eid: string; sid: string }>(
         'cr7.exhibition.getSession',
-        { eid, sid },
+        { eid, sid: sessionId },
       )
       .catch(() => null);
 
@@ -828,11 +829,11 @@ class DamaiService extends RC7BaseService {
     const tickets = await ctx.call<
       ExhibitionSessionTicket[],
       { eid: string; sid: string }
-    >('cr7.exhibition.getSessionTickets', { eid, sid });
+    >('cr7.exhibition.getSessionTickets', { eid, sid: sessionId });
 
     const request: DamaiPriceSyncRequest = {
       projectId: exhibition.id,
-      performId: sid,
+      performId: sessionId,
       priceList: [],
     };
 
