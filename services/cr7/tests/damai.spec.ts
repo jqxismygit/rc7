@@ -178,6 +178,21 @@ interface DamaiProjectSyncPayload {
     id: string;
     name: string;
   };
+  refundRuleInfo: {
+    refundType: number;
+    refundProcedureFeeRule: number;
+    cEndEntrance: number;
+    refundDetailList: Array<{
+      startDay: number;
+      startHour: number;
+      startMinutes: number;
+      endDay: number;
+      endHour: number;
+      endMinutes: number;
+      refundRule: number;
+      refundRuleFee: number;
+    }>;
+  };
   signed: DamaiSignedPayload;
 }
 
@@ -910,6 +925,62 @@ describeFeature(feature, ({
       const { exhibition } = featureContext;
       const body = request.body as DamaiProjectSyncPayload;
       expect(body.venueInfo.name).toBe(exhibition.venue_name);
+    });
+
+    And('展会同步消息中的退款规则是条件退款，值为 {int}', (_ctx, refundType: number) => {
+      const request = getDamaiRequestArg<DamaiProjectSyncPayload>(featureContext.damaiRequestHandler!);
+      const body = request.body as DamaiProjectSyncPayload;
+      expect(body.refundRuleInfo.refundType).toBe(refundType);
+    });
+
+    And('展会同步消息中的退款规则是演出前倒计时规则，值为 {int}', (_ctx, feeRule: number) => {
+      const request = getDamaiRequestArg<DamaiProjectSyncPayload>(featureContext.damaiRequestHandler!);
+      const body = request.body as DamaiProjectSyncPayload;
+      expect(body.refundRuleInfo.refundProcedureFeeRule).toBe(feeRule);
+    });
+
+    And('展会同步消息中的退款入口设置为开启，值为 {int}', (_ctx, enabled: number) => {
+      const request = getDamaiRequestArg<DamaiProjectSyncPayload>(featureContext.damaiRequestHandler!);
+      const body = request.body as DamaiProjectSyncPayload;
+      expect(body.refundRuleInfo.cEndEntrance).toBe(enabled);
+    });
+
+    And('展会同步消息中退款规则有 {int} 条', (
+      _ctx,
+      count: number,
+      dataTable: Array<Record<string, string>>,
+    ) => {
+      const request = getDamaiRequestArg<DamaiProjectSyncPayload>(featureContext.damaiRequestHandler!);
+      const body = request.body as DamaiProjectSyncPayload;
+
+      expect(dataTable).toHaveLength(count);
+      expect(body.refundRuleInfo.refundDetailList).toHaveLength(count);
+
+      const expectedRows = dataTable.map((row) => {
+        const [ruleLabel, ruleValue] = row['退款类型'].split(',').map(part => part.trim());
+        expect(ruleLabel).toBeTruthy();
+
+        return expect.objectContaining({
+          startDay: Number(row['start day']),
+          startHour: Number(row['start hour']),
+          startMinutes: Number(row['start minute']),
+          endDay: Number(row['end day']),
+          endHour: Number(row['end hour']),
+          endMinutes: Number(row['end minute']),
+          refundRule: Number(ruleValue),
+        });
+      });
+
+      expect(body.refundRuleInfo.refundDetailList).toEqual(expectedRows);
+    });
+
+    And('展会同步消息中的退票规则中的退款手续费都是 {int}%', (_ctx, refundFee: number) => {
+      const request = getDamaiRequestArg<DamaiProjectSyncPayload>(featureContext.damaiRequestHandler!);
+      const body = request.body as DamaiProjectSyncPayload;
+
+      body.refundRuleInfo.refundDetailList.forEach((rule) => {
+        expect(rule.refundRuleFee).toBe(refundFee);
+      });
     });
   });
 
