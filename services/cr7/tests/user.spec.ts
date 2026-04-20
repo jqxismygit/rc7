@@ -242,7 +242,7 @@ describeFeature(feature, ({
     });
 
     When(
-      '用户 {string} 第 {number} 次查看个人的角色列表',
+      '用户 {string} 第 {int} 次查看个人的角色列表',
       async (_ctx: unknown, userName: string, count: number) => {
         const { apiServer, adminToken, registeredUsersByName } = featureContext;
         const targetProfile = registeredUsersByName![userName]!;
@@ -259,7 +259,7 @@ describeFeature(feature, ({
       });
 
     And(
-      '用户 {string} 的角色列表有 {number} 个，包含 {string}，不是内置角色，权限包含 {string}',
+      '用户 {string} 的角色列表有 {int} 个，包含 {string}，不是内置角色，权限包含 {string}',
       async (_ctx, userName: string, count: number, roleName: string, permission: string) => {
         const { apiServer, adminToken } = featureContext;
         const { lastCheckedUserName, lastCheckedUserRoles } = featureContext;
@@ -383,7 +383,7 @@ describeFeature(feature, ({
       context.newProfile[key] = value;
     });
 
-    And('用户新的 profile 中有 {string}，值为 {number}', (_ctx, key: string, value: number) => {
+    And('用户新的 profile 中有 {string}，值为 {int}', (_ctx, key: string, value: number) => {
       context.newProfile = context.newProfile ?? {};
       context.newProfile[key] = value;
     });
@@ -417,7 +417,7 @@ describeFeature(feature, ({
       expect(featureContext.userProfile!.profile[key]).toBe(expectedValue);
     });
 
-    And('用户信息 profile 中 {string} 的值为 {number}', (_ctx, key: string, expectedValue: number) => {
+    And('用户信息 profile 中 {string} 的值为 {int}', (_ctx, key: string, expectedValue: number) => {
       expect(featureContext.userProfile!.profile[key]).toBe(expectedValue);
     });
   });
@@ -664,7 +664,7 @@ describeFeature(feature, ({
         context.userList = userListResponse;
       });
 
-      Then('用户列表分页信息为 page {number}、limit {number}', (_ctx, page: number, limit: number) => {
+      Then('用户列表分页信息为 page {int}、limit {int}', (_ctx, page: number, limit: number) => {
         const { userList } = context;
         expect(userList.page).toBe(page);
         expect(userList.limit).toBe(limit);

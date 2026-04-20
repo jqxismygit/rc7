@@ -172,7 +172,7 @@ describeFeature(feature, ({
 
   defineSteps(({ Given, When, Then, And }) => {
     Given(
-      '展会添加票种 {string}, 准入人数为 {number}, 有效期为场次当天, 价格为 {number} 元',
+      '展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天, 价格为 {number} 元',
       async (_ctx, ticketName: string, admittance: number, price: number) => {
         const { apiServer, adminToken, exhibition } = featureContext;
         const ticket = await prepareTicketCategory(
@@ -618,7 +618,7 @@ describeFeature(feature, ({
     });
 
     And(
-      '携程订单的包含 {string} {number} 张，场次时间为 {string}, 价格是 {number} 分',
+      '携程订单的包含 {string} {int} 张，场次时间为 {string}, 价格是 {int} 分',
       (_ctx, ticketName: string, quantity: number, dateLabel: string, price: number) => {
         const ticket = getTicketByName(featureContext, ticketName);
         featureContext.draftOrder!.items = [{
@@ -630,7 +630,7 @@ describeFeature(feature, ({
         }];
       });
 
-    And('携程订单的总价为 {string} 的价格, 即 {number} 分', (_ctx, ticketName: string, totalPrice: number) => {
+    And('携程订单的总价为 {string} 的价格, 即 {int} 分', (_ctx, ticketName: string, totalPrice: number) => {
       featureContext.draftOrder!.items[0].price = totalPrice;
     });
 
@@ -681,7 +681,7 @@ describeFeature(feature, ({
         expect(order?.session_id).toBe(session.id);
       });
 
-    And('订单总价应为 {string} 的价格, 即 {number} 分', (_ctx, ticketName: string, totalPrice: number) => {
+    And('订单总价应为 {string} 的价格, 即 {int} 分', (_ctx, ticketName: string, totalPrice: number) => {
       const { order } = featureContext;
       expect(order!.total_amount).toBe(totalPrice);
     });
@@ -817,7 +817,7 @@ describeFeature(feature, ({
       });
 
     And(
-      '同步记录中包含订单总价 {string} 的价格, 即 {number} 分',
+      '同步记录中包含订单总价 {string} 的价格, 即 {int} 分',
       (_ctx, ticketName: string, totalPrice: number) => {
         const { records: [latestRecord] } = context;
         expect(latestRecord?.total_amount).toBe(totalPrice);

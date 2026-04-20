@@ -508,7 +508,7 @@ describeFeature(feature, ({
     });
 
     And(
-      '大麦的订单中的第 {number} 个订单项 ID 是 {string} 的 ID，数量为 {number}，价格为 {number} 分',
+      '大麦的订单中的第 {int} 个订单项 ID 是 {string} 的 ID，数量为 {int}，价格为 {int} 分',
       (_ctx, index: number, ticketName: string, quantity: number, price: number) => {
         const ticket = featureContext.ticketByName[ticketName];
         expect(ticket).toBeTruthy();
@@ -679,7 +679,7 @@ describeFeature(feature, ({
     });
 
     And(
-      '订单的第 {number} 个订单项是 {string}，数量为 {number}，价格为 {number} 分',
+      '订单的第 {int} 个订单项是 {string}，数量为 {int}，价格为 {int} 分',
       (_ctx, index: number, ticketName: string, quantity: number, price: number) => {
         const order = featureContext.order;
         expect(order).toBeTruthy();

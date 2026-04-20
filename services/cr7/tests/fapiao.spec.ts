@@ -129,7 +129,7 @@ describeFeature(feature, ({
   });
 
   defineSteps(({ Given, When, Then, And }) => {
-    Given('用户预订 {number} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
+    Given('用户预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
       const ticket = featureContext.ticketByName[ticketName];
       const session = featureContext.sessions.find(item => isSameDay(item.session_date, Text2Date(sessionDate)))!;
 
@@ -228,7 +228,7 @@ describeFeature(feature, ({
       );
     });
 
-    Then('发票申请列表有 {number} 条记录', (_ctx, count: number) => {
+    Then('发票申请列表有 {int} 条记录', (_ctx, count: number) => {
       expect(featureContext.fapiaoList!.items.length).toBe(count);
     });
 
@@ -270,7 +270,7 @@ describeFeature(feature, ({
     });
 
     Given(
-      '展会添加票种 {string}, 准入人数为 {number}, 有效期为场次当天, 价格是 {number} 元',
+      '展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天, 价格是 {int} 元',
       async (_ctx, ticketName: string, admittance: number, priceYuan: number) => {
         const ticket = await prepareTicketCategory(
           featureContext.apiServer,
@@ -287,7 +287,7 @@ describeFeature(feature, ({
         featureContext.ticketByName[ticketName] = ticket;
       });
 
-    And('票种 {string} 库存为 {number}', async (_ctx, ticketName: string, inventory: number) => {
+    And('票种 {string} 库存为 {int}', async (_ctx, ticketName: string, inventory: number) => {
       const ticket = featureContext.ticketByName[ticketName];
       await updateTicketCategoryMaxInventory(
         featureContext.apiServer,
@@ -439,7 +439,7 @@ describeFeature(feature, ({
       });
 
     And(
-      '请求中价税合计是 {number} 元，合计金额是 {number} 元，合计税额是 {number} 元',
+      '请求中价税合计是 {int} 元，合计金额是 {int} 元，合计税额是 {int} 元',
       (_ctx, totalYuan: number, amountYuan: number, taxYuan: number) => {
         const { fapiaoRequestData } = featureContext;
         expect(Number(fapiaoRequestData!.JSHJ)).toBe(totalYuan);
@@ -447,27 +447,27 @@ describeFeature(feature, ({
         expect(Number(fapiaoRequestData!.HJSE)).toBe(taxYuan);
       });
 
-    And('请求中有 {number} 个发票行项目', (_ctx, count: number) => {
+    And('请求中有 {int} 个发票行项目', (_ctx, count: number) => {
       const { fapiaoRequestData } = featureContext;
       const rows = fapiaoRequestData!.COMMON_FPKJ_XMXX as unknown[];
       expect(Array.isArray(rows)).toBe(true);
       expect(rows.length).toBe(count);
     });
 
-    And('发票行项目的第 {number} 行的发票行性质是正常行，值为 {string}', (_ctx, index: number, value: string) => {
+    And('发票行项目的第 {int} 行的发票行性质是正常行，值为 {string}', (_ctx, index: number, value: string) => {
       const { fapiaoRequestData } = featureContext;
       const rows = fapiaoRequestData!.COMMON_FPKJ_XMXX as Array<Record<string, unknown>>;
       expect(rows[index - 1].FPHXZ).toBe(value);
     });
 
-    And('发票行项目的第 {number} 行的商品编码是 {string}', (_ctx, index: number, value: string) => {
+    And('发票行项目的第 {int} 行的商品编码是 {string}', (_ctx, index: number, value: string) => {
       const { fapiaoRequestData } = featureContext;
       const rows = fapiaoRequestData!.COMMON_FPKJ_XMXX as Array<Record<string, unknown>>;
       expect(String(rows[index - 1].SPBM)).toBe(value);
     });
 
     And(
-      '发票行项目的第 {number} 行的项目名称是 {string}, 数量是 {number}，单价是 {number} 元',
+      '发票行项目的第 {int} 行的项目名称是 {string}, 数量是 {int}，单价是 {int} 元',
       (_ctx, index: number, name: string, quantity: number, unitPrice: number) => {
         const { fapiaoRequestData } = featureContext;
         const rows = fapiaoRequestData!.COMMON_FPKJ_XMXX as Array<Record<string, unknown>>;
@@ -477,7 +477,7 @@ describeFeature(feature, ({
         expect(Number(row.XMDJ)).toBe(unitPrice);
       });
 
-    And('发票行项目的第 {number} 行的税率是 {number}%， 税额是 {number} 元', (_ctx, index: number, taxRate: number, taxAmount: number) => {
+    And('发票行项目的第 {int} 行的税率是 {int}%， 税额是 {int} 元', (_ctx, index: number, taxRate: number, taxAmount: number) => {
       const { fapiaoRequestData } = featureContext;
       const rows = fapiaoRequestData!.COMMON_FPKJ_XMXX as Array<Record<string, unknown>>;
       const row = rows[index - 1];

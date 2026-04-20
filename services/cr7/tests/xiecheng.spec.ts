@@ -278,7 +278,7 @@ describeFeature(feature, ({
       };
     });
 
-    And('指定库存数量为 {number}', (_ctx, quantity: number) => {
+    And('指定库存数量为 {int}', (_ctx, quantity: number) => {
       expect(featureContext.pendingSync).toBeTruthy();
       featureContext.pendingSync!.quantity = quantity;
     });
@@ -428,7 +428,7 @@ describeFeature(feature, ({
       context.decryptedBody = featureContext.latestDecryptedBody as SessionPriceReqBody;
     });
 
-    And('包含 {number} 天的场次信息', (_ctx, days: number) => {
+    And('包含 {int} 天的场次信息', (_ctx, days: number) => {
       const { decryptedBody } = context;
       expect(decryptedBody.prices).toHaveLength(days);
     });
@@ -484,7 +484,7 @@ describeFeature(feature, ({
       );
     });
 
-    And('{string} 有 {number} 条携程价格同步记录', (_ctx, _ticketName: string, expectedCount: number) => {
+    And('{string} 有 {int} 条携程价格同步记录', (_ctx, _ticketName: string, expectedCount: number) => {
       expect(featureContext.syncLogs).toHaveLength(expectedCount);
     });
 
@@ -503,7 +503,7 @@ describeFeature(feature, ({
       expect(featureContext.syncLogs?.[0].service_name).toBe(serviceName);
     });
 
-    And('场次有 {number} 个', (_ctx, count: number) => {
+    And('场次有 {int} 个', (_ctx, count: number) => {
       expect(featureContext.syncLogs?.[0].sync_items).toHaveLength(count);
     });
 
@@ -596,7 +596,7 @@ describeFeature(feature, ({
       expect(items.at(-1)?.date).toBe(toDateLabel(dateLabel));
     });
 
-    And('每个场次的库存数量为 {string} 的库存 {number}', (_ctx, _ticketName: string, expectedQuantity: number) => {
+    And('每个场次的库存数量为 {string} 的库存 {int}', (_ctx, _ticketName: string, expectedQuantity: number) => {
       const items = featureContext.syncLog?.sync_items as Array<{ quantity: number }>;
       expect(items.every(item => item.quantity === expectedQuantity)).toBe(true);
     });
@@ -621,7 +621,7 @@ describeFeature(feature, ({
       expect(featureContext.latestDecryptedBody).toBeTruthy();
     });
 
-    And('库存数量为 {number}', (_ctx, quantity: number) => {
+    And('库存数量为 {int}', (_ctx, quantity: number) => {
       const items = (featureContext.latestDecryptedBody as SessionInventoryReqBody | undefined)?.inventorys ?? [];
       expect(items.every(item => item.quantity === quantity)).toBe(true);
     });
@@ -641,7 +641,7 @@ describeFeature(feature, ({
       );
     });
 
-    And('{string} 有 {number} 条携程库存同步记录', (_ctx, _ticketName: string, expectedCount: number) => {
+    And('{string} 有 {int} 条携程库存同步记录', (_ctx, _ticketName: string, expectedCount: number) => {
       expect(featureContext.syncLogs).toHaveLength(expectedCount);
     });
 
@@ -660,7 +660,7 @@ describeFeature(feature, ({
       expect(featureContext.syncLogs?.[0].service_name).toBe(serviceName);
     });
 
-    And('场次有 {number} 个', (_ctx, count: number) => {
+    And('场次有 {int} 个', (_ctx, count: number) => {
       expect(featureContext.syncLogs?.[0].sync_items).toHaveLength(count);
     });
 
@@ -674,7 +674,7 @@ describeFeature(feature, ({
       expect(items.at(-1)?.date).toBe(toDateLabel(dateLabel));
     });
 
-    And('每个场次的库存数量为 {string} 的库存 {number}', (_ctx, _ticketName: string, expectedQuantity: number) => {
+    And('每个场次的库存数量为 {string} 的库存 {int}', (_ctx, _ticketName: string, expectedQuantity: number) => {
       const items = featureContext.syncLogs?.[0].sync_items as Array<{ quantity: number }>;
       expect(items.every(item => item.quantity === expectedQuantity)).toBe(true);
     });

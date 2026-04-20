@@ -185,19 +185,19 @@ describeFeature(feature, ({
       featureContext.draftTicket = { name: categoryName } as DraftTicketCategory;
     });
 
-    And('票价为 {number}', (_ctx, price: number) => {
+    And('票价为 {int}', (_ctx, price: number) => {
       const { draftTicket } = featureContext;
       expect(draftTicket).toBeTruthy();
       draftTicket!.price = price;
     });
 
-    And('目录价为 {number}', (_ctx, listPrice: number) => {
+    And('目录价为 {int}', (_ctx, listPrice: number) => {
       const { draftTicket } = featureContext;
       expect(draftTicket).toBeTruthy();
       draftTicket!.list_price = listPrice;
     });
 
-    And('有效期为 {number} 天', (_ctx, days: number) => {
+    And('有效期为 {int} 天', (_ctx, days: number) => {
       const { draftTicket } = featureContext;
       expect(draftTicket).toBeTruthy();
       draftTicket!.valid_duration_days = days;
@@ -215,7 +215,7 @@ describeFeature(feature, ({
       draftTicket!.refund_policy = 'REFUNDABLE_48H_BEFORE';
     });
 
-    And('准入人数为 {number}', (_ctx, count: number) => {
+    And('准入人数为 {int}', (_ctx, count: number) => {
       const { draftTicket } = featureContext;
       expect(draftTicket).toBeTruthy();
       draftTicket!.admittance = count;
@@ -441,7 +441,7 @@ describeFeature(feature, ({
     }>) => {
       const { Given, When, Then, And, context } = s;
 
-      Given('已为列表创建 {number} 个展览', async (_ctx, count: number) => {
+      Given('已为列表创建 {int} 个展览', async (_ctx, count: number) => {
         const { apiServer } = featureContext;
         const createdExhibitions = await createExhibitions(apiServer, featureContext.adminToken, count, {
           namePrefix: 'list_exhibition',
@@ -449,13 +449,13 @@ describeFeature(feature, ({
         context.createdExhibitions = createdExhibitions;
       });
 
-      When('按 limit {number} 和 offset {number} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
+      When('按 limit {int} 和 offset {int} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
         const { apiServer } = featureContext;
         const listResult = await listAdminExhibitions(apiServer, featureContext.adminToken, { limit, offset });
         context.listResult = listResult;
       });
 
-      Then('返回 {number} 个展览', (_ctx, count: number) => {
+      Then('返回 {int} 个展览', (_ctx, count: number) => {
         expect(context.listResult!.data).toHaveLength(count);
       });
 
@@ -478,7 +478,7 @@ describeFeature(feature, ({
     }>) => {
       const { Given, When, Then, And, context } = s;
 
-      Given('已为列表创建 {number} 个展览', async (_ctx, count: number) => {
+      Given('已为列表创建 {int} 个展览', async (_ctx, count: number) => {
         const { apiServer } = featureContext;
         const createdExhibitions = await createExhibitions(apiServer, featureContext.adminToken, count, {
           namePrefix: 'list_exhibition',
@@ -486,13 +486,13 @@ describeFeature(feature, ({
         context.createdExhibitions = createdExhibitions;
       });
 
-      When('按 limit {number} 和 offset {number} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
+      When('按 limit {int} 和 offset {int} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
         const { apiServer } = featureContext;
         const listResult = await listAdminExhibitions(apiServer, featureContext.adminToken, { limit, offset });
         context.listResult = listResult;
       });
 
-      Then('返回 {number} 个展览', (_ctx, count: number) => {
+      Then('返回 {int} 个展览', (_ctx, count: number) => {
         expect(context.listResult!.data).toHaveLength(count);
       });
 
@@ -511,7 +511,7 @@ describeFeature(feature, ({
     }>) => {
       const { Given, When, Then, And, context } = s;
 
-      Given('已为列表创建 {number} 个展览', async (_ctx, count: number) => {
+      Given('已为列表创建 {int} 个展览', async (_ctx, count: number) => {
         const { apiServer } = featureContext;
         const createdExhibitions = await createExhibitions(apiServer, featureContext.adminToken, count, {
           namePrefix: 'list_exhibition',
@@ -519,7 +519,7 @@ describeFeature(feature, ({
         context.createdExhibitions = createdExhibitions;
       });
 
-      And('管理员将第 {number} 个展览状态更新为 {string}', async (_ctx, index: number, status: string) => {
+      And('管理员将第 {int} 个展览状态更新为 {string}', async (_ctx, index: number, status: string) => {
         const { apiServer } = featureContext;
         const { createdExhibitions } = context;
         const target = createdExhibitions![index - 1];
@@ -531,17 +531,17 @@ describeFeature(feature, ({
         );
       });
 
-      When('按 limit {number} 和 offset {number} 查询展览列表', async (_ctx, limit: number, offset: number) => {
+      When('按 limit {int} 和 offset {int} 查询展览列表', async (_ctx, limit: number, offset: number) => {
         const { apiServer } = featureContext;
         const listResult = await listExhibitions(apiServer, featureContext.adminToken, { limit, offset });
         context.listResult = listResult;
       });
 
-      Then('返回 {number} 个展览', (_ctx, count: number) => {
+      Then('返回 {int} 个展览', (_ctx, count: number) => {
         expect(context.listResult!.data).toHaveLength(count);
       });
 
-      And('返回的是第 {number} 个创建的展览', (_ctx, index: number) => {
+      And('返回的是第 {int} 个创建的展览', (_ctx, index: number) => {
         const { createdExhibitions } = context;
         expect(context.listResult!.data[0].id).toBe(createdExhibitions![index - 1].id);
       });
@@ -555,13 +555,13 @@ describeFeature(feature, ({
     }>) => {
       const { When, Then, context } = s;
 
-      When('按 limit {number} 和 offset {number} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
+      When('按 limit {int} 和 offset {int} 查询管理员展览列表', async (_ctx, limit: number, offset: number) => {
         const { apiServer } = featureContext;
         const listResult = await listAdminExhibitions(apiServer, featureContext.adminToken, { limit, offset });
         context.listResult = listResult;
       });
 
-      Then('返回 {number} 个展览', (_ctx, count: number) => {
+      Then('返回 {int} 个展览', (_ctx, count: number) => {
         expect(context.listResult!.data).toHaveLength(count);
       });
     }
@@ -807,7 +807,7 @@ describeFeature(feature, ({
         context.ticketPatch!.name = name;
       });
 
-      And('准备更新票种有效期为 {number} 天', (_ctx, validDurationDays: number) => {
+      And('准备更新票种有效期为 {int} 天', (_ctx, validDurationDays: number) => {
         context.ticketPatch ??= {};
         context.ticketPatch!.valid_duration_days = validDurationDays;
       });
@@ -817,7 +817,7 @@ describeFeature(feature, ({
         context.ticketPatch!.refund_policy = 'NON_REFUNDABLE';
       });
 
-      And('准备更新票种准入人数为 {number}', (_ctx, admittance: number) => {
+      And('准备更新票种准入人数为 {int}', (_ctx, admittance: number) => {
         context.ticketPatch ??= {};
         context.ticketPatch!.admittance = admittance;
       });
