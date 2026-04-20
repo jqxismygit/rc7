@@ -963,14 +963,24 @@ describeFeature(feature, ({
           startDay: Number(row['start day']),
           startHour: Number(row['start hour']),
           startMinutes: Number(row['start minute']),
-          endDay: Number(row['end day']),
-          endHour: Number(row['end hour']),
-          endMinutes: Number(row['end minute']),
           refundRule: Number(ruleValue),
         });
       });
 
       expect(body.refundRuleInfo.refundDetailList).toEqual(expectedRows);
+
+      for (const [index, item] of dataTable.entries()) {
+        const rule = body.refundRuleInfo.refundDetailList[index];
+        if (item['end day'] === '<empty>') {
+          expect(rule).not.toHaveProperty('endDay');
+          expect(rule).not.toHaveProperty('endHour');
+          expect(rule).not.toHaveProperty('endMinutes');
+        } else {
+          expect(rule).toHaveProperty('endDay', Number(item['end day']));
+          expect(rule).toHaveProperty('endHour', Number(item['end hour']));
+          expect(rule).toHaveProperty('endMinutes', Number(item['end minute']));
+        }
+      }
     });
 
     And('展会同步消息中的退票规则中不需要设置手续费', () => {
