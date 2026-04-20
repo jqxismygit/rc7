@@ -878,6 +878,10 @@ class DamaiService extends RC7BaseService {
   ): Promise<T> {
     const schema = await this.getSchema();
 
+    if (syncStatus === 'FAILED') {
+      this.logger.error(`Damai order sync failed for record ${recordId}:`, response);
+    }
+
     await updateDamaiOrderSyncRecord(this.pool, schema, {
       id: recordId,
       responseBody: response,
