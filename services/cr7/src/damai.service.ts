@@ -55,7 +55,6 @@ type DamaiProjectSyncRequest = {
       endHour: number;
       endMinutes: number;
       refundRule: number;
-      refundRuleFee: number;
     }>;
   };
 };
@@ -729,7 +728,6 @@ class DamaiService extends RC7BaseService {
             endHour: 0,
             endMinutes: 0,
             refundRule: DAMAI_REFUND_RULE_FREE,
-            refundRuleFee: 0,
           },
           {
             startDay: 2,
@@ -739,7 +737,6 @@ class DamaiService extends RC7BaseService {
             endHour: 0,
             endMinutes: 0,
             refundRule: DAMAI_REFUND_RULE_STOP,
-            refundRuleFee: 0,
           },
         ],
       },

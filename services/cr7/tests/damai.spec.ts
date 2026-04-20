@@ -190,7 +190,6 @@ interface DamaiProjectSyncPayload {
       endHour: number;
       endMinutes: number;
       refundRule: number;
-      refundRuleFee: number;
     }>;
   };
   signed: DamaiSignedPayload;
@@ -974,12 +973,12 @@ describeFeature(feature, ({
       expect(body.refundRuleInfo.refundDetailList).toEqual(expectedRows);
     });
 
-    And('展会同步消息中的退票规则中的退款手续费都是 {int}%', (_ctx, refundFee: number) => {
+    And('展会同步消息中的退票规则中不需要设置手续费', () => {
       const request = getDamaiRequestArg<DamaiProjectSyncPayload>(featureContext.damaiRequestHandler!);
       const body = request.body as DamaiProjectSyncPayload;
 
       body.refundRuleInfo.refundDetailList.forEach((rule) => {
-        expect(rule.refundRuleFee).toBe(refundFee);
+        expect(rule).not.toHaveProperty('refundRuleFee');
       });
     });
   });

@@ -34,7 +34,7 @@ Feature: 对接大麦 OTA
       | start day | start hour | start minute | end day | end hour | end minute | 退款类型 |
       | 100 | 0 | 0 | 2 | 0 | 0 | 免费退票, 2 |
       | 2 | 0 | 0 | 0 | 0 | 0 | 停止退票, 4 |
-      And 展会同步消息中的退票规则中的退款手续费都是 0%
+      And 展会同步消息中的退票规则中不需要设置手续费
 
   Scenario: 同步场次信息到大麦
     Given cr7 将场次信息同步到大麦, 同步的场次开始时间是 "1天后"，结束时间是 "2天后"
