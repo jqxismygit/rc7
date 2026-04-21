@@ -276,31 +276,36 @@ describeFeature(feature, ({
       );
     });
 
-    Given('展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天, 价格为 {int} 元', async (
-      _ctx,
-      ticketName: string,
-      admittance: number,
-      price: number,
-    ) => {
-      const { apiServer, adminToken, exhibition } = featureContext;
-      const ticket = await prepareTicketCategory(
-        apiServer,
-        adminToken,
-        exhibition.id,
-        {
-          name: ticketName,
-          admittance,
-          price: price * 100,
-          valid_duration_days: 1,
-          refund_policy: 'NON_REFUNDABLE',
-        },
-      );
+    Given(
+      '展会添加票种 {string}, 描述为 {string}, 准入人数为 {int}, 有效期为场次当天, 价格为 {int} 元',
+      async (
+        _ctx,
+        ticketName: string,
+        ticketDescription: string,
+        admittance: number,
+        price: number,
+      ) => {
+        const { apiServer, adminToken, exhibition } = featureContext;
+        const ticket = await prepareTicketCategory(
+          apiServer,
+          adminToken,
+          exhibition.id,
+          {
+            name: ticketName,
+            description: ticketDescription,
+            admittance,
+            price: price * 100,
+            valid_duration_days: 1,
+            refund_policy: 'NON_REFUNDABLE',
+          },
+        );
 
-      featureContext.ticketByName = {
-        ...featureContext.ticketByName,
-        [ticketName]: ticket,
-      };
-    });
+        featureContext.ticketByName = {
+          ...featureContext.ticketByName,
+          [ticketName]: ticket,
+        };
+      }
+    );
 
     And('{string} 库存为 {int}', async (_ctx, ticketName: string, quantity: number) => {
       const { apiServer, adminToken, ticketByName, exhibition } = featureContext;
@@ -543,10 +548,12 @@ describeFeature(feature, ({
         const expectedOffSaleTime = parseDatetimeCell(row['停售时间'], '停售时间');
         const expectedTicketPrice = Number(row['票面价（元）']);
         const expectedTicketSellPrice = Number(row['售卖价（元）']);
+        const expectedTicketDesc = row['描述'];
 
         return expect.objectContaining({
           otShowId: session!.id,
           name: ticket!.name,
+          ticketDesc: expectedTicketDesc,
           otSkuId: ticket!.id,
           skuPrice: expectedTicketPrice.toFixed(2),
           sellPrice: expectedTicketSellPrice.toFixed(2),

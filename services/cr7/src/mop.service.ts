@@ -62,6 +62,7 @@ type MopSku = {
   otSkuId: string;
   otSkuStatus: number;
   name: string;
+  ticketDesc: string;
   skuPrice: string;
   sellPrice: string;
   onSaleTime: string;
@@ -643,6 +644,7 @@ export default class MoeService extends RC7BaseService {
             otSkuId: ticket.id,
             otSkuStatus: MOP_SKU_STATUS_VALID,
             name: ticket.name,
+            ticketDesc: ticket.description,
             skuPrice: toYuanString(price),
             sellPrice: toYuanString(price),
             onSaleTime: formatMopDateTime(exhibition.start_date, exhibition.opening_time),
