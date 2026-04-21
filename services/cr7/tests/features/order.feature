@@ -1,5 +1,6 @@
 Feature: Order ticket
   Background:
+    Given cr7 服务已启动
     Given 系统管理员已经创建并登录
     Given 用户 "Alice" 已注册并登录，手机号为 "12345678901", 国别码为 "86"
       And 用户 "Bob" 已注册并登录，没有绑定手机号
