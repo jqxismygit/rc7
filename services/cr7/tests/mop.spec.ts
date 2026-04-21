@@ -1068,6 +1068,39 @@ describeFeature(feature, ({
       );
     });
 
+    And('订单支付结果中有 {int} 个订单项', (_ctx, itemCount: number) => {
+      const { mopTicketBody } = featureContext;
+      expect(mopTicketBody!.ticketInfo).toHaveLength(itemCount);
+    });
+
+    And('订单支付结果中的第 {int} 个订单项的猫眼 ID 是 {string}', (_ctx, index: number, myTicketId: string) => {
+      const { mopTicketBody } = featureContext;
+      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1].myTicketId).toBe(myTicketId);
+    });
+
+    And('订单支付结果中的第 {int} 个订单项的渠道票 ID 是 {string} 的 ID', (_ctx, index: number, ticketName: string) => {
+      const ticket = featureContext.ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+      const { mopTicketBody } = featureContext;
+      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1].channelTicketId).toBe(ticket.id);
+    });
+
+    And('订单支付结果中的第 {int} 个订单项的检票码是 cr7 的订单的核销码', (_ctx, index: number) => {
+      const { mopTicketBody, orderRedemption } = featureContext;
+      expect(orderRedemption).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1].checkCode).toBe(orderRedemption!.code);
+    });
+
+    And('订单支付结果中的第 {int} 个订单项的检票二维码是 cr7 的订单的核销码', (_ctx, index: number) => {
+      const { mopTicketBody, orderRedemption } = featureContext;
+      expect(orderRedemption).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1].checkQrCode).toBe(orderRedemption!.code);
+    });
+
     // 取消订单
     Given('用户在猫眼取消了订单 {string}', (_ctx, myOrderId: string) => {
       featureContext.mopOrderStatusChangeDraft = {
@@ -1589,39 +1622,6 @@ describeFeature(feature, ({
     And('订单支付结果中的取票二维码是 null', () => {
       const { mopTicketBody } = featureContext;
       expect(mopTicketBody!.fetchQrCode).toBeNull();
-    });
-
-    And('订单支付结果中有 {int} 个订单项', (_ctx, itemCount: number) => {
-      const { mopTicketBody } = featureContext;
-      expect(mopTicketBody!.ticketInfo).toHaveLength(itemCount);
-    });
-
-    And('订单支付结果中的第 {int} 个订单项的猫眼 ID 是 {string}', (_ctx, index: number, myTicketId: string) => {
-      const { mopTicketBody } = featureContext;
-      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
-      expect(mopTicketBody!.ticketInfo[index - 1].myTicketId).toBe(myTicketId);
-    });
-
-    And('订单支付结果中的第 {int} 个订单项的渠道票 ID 是 {string} 的 ID', (_ctx, index: number, ticketName: string) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
-      const { mopTicketBody } = featureContext;
-      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
-      expect(mopTicketBody!.ticketInfo[index - 1].channelTicketId).toBe(ticket.id);
-    });
-
-    And('订单支付结果中的第 {int} 个订单项的检票码是 cr7 的订单的核销码', (_ctx, index: number) => {
-      const { mopTicketBody, orderRedemption } = featureContext;
-      expect(orderRedemption).toBeTruthy();
-      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
-      expect(mopTicketBody!.ticketInfo[index - 1].checkCode).toBe(orderRedemption!.code);
-    });
-
-    And('订单支付结果中的第 {int} 个订单项的检票二维码是 cr7 的订单的核销码', (_ctx, index: number) => {
-      const { mopTicketBody, orderRedemption } = featureContext;
-      expect(orderRedemption).toBeTruthy();
-      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
-      expect(mopTicketBody!.ticketInfo[index - 1].checkQrCode).toBe(orderRedemption!.code);
     });
 
     Then('订单同步记录里有 {int} 条记录', (_ctx, count: number) => {

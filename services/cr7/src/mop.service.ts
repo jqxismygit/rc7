@@ -1155,7 +1155,7 @@ export default class MoeService extends RC7BaseService {
       return this.finishWithMopResponse(recordId, 30002, '订单价格不一致');
     }
 
-    const itemCountBySku = new Map<string, number>();
+    const orderItems = [];
     for (const item of ticketInfo) {
       const ticket = ticketById.get(item.skuId);
       if (!ticket) {
@@ -1181,7 +1181,7 @@ export default class MoeService extends RC7BaseService {
         return this.finishWithMopResponse(recordId, 30002, '订单价格不一致');
       }
 
-      itemCountBySku.set(item.skuId, (itemCountBySku.get(item.skuId) ?? 0) + 1);
+      orderItems.push({ ticket_category_id: item.skuId, quantity: 1 });
     }
 
     const userId = await ctx.call<string, { country_code: string; phone: string; name: string }>(
@@ -1194,25 +1194,16 @@ export default class MoeService extends RC7BaseService {
     );
 
     try {
-      const order = await ctx.call<
-        Order.OrderWithItems,
+      const order = await ctx.call(
+        'cr7.order.create',
         {
-          eid: string;
-          sid: string;
-          items: Order.CreateOrderItem[];
-          source: Order.OrderSource;
-          user_id: string;
+          eid: projectCode,
+          sid: projectShowCode,
+          items: orderItems,
+          source: 'MOP',
+          user_id: userId,
         }
-      >('cr7.order.create', {
-        eid: projectCode,
-        sid: projectShowCode,
-        items: Array.from(itemCountBySku.entries()).map(([ticket_category_id, quantity]) => ({
-          ticket_category_id,
-          quantity,
-        })),
-        source: 'MOP',
-        user_id: userId,
-      });
+      ) as Order.OrderWithItems;
 
       const responseBody: MopOrderCreateResponse = {
         myOrderId,
@@ -1383,13 +1374,13 @@ export default class MoeService extends RC7BaseService {
       { meta: { user: { uid: firstSuccessRecord.user_id } } }
     );
 
-    const redemption = await ctx
-      .call<
-      Redeem.RedemptionCodeWithOrder,
-      { oid: string }
-    >('cr7.redemption.getByOrder', { oid: firstSuccessRecord.order_id }, { meta: { user: { uid: firstSuccessRecord.user_id } } })
+    const redemption = await ctx.call(
+      'cr7.redemption.getByOrder',
+      { oid: firstSuccessRecord.order_id },
+      { meta: { user: { uid: firstSuccessRecord.user_id } } }
+    )
       .then(
-        res => res,
+        (res: unknown) => res as Redeem.RedemptionCodeWithOrder,
         () => null
       );
     const redeemCode = redemption?.code ?? null;
