@@ -1091,16 +1091,12 @@ export default class MoeService extends RC7BaseService {
     let order = null;
 
     if ((firstSuccessRecord?.order_id ?? null) !== null) {
-      order = await ctx
-        .call<
-        Order.OrderWithItems,
-        { oid: string }
-      >(
-          'cr7.order.get',
-          { oid: firstSuccessRecord!.order_id! },
-          { meta: { user: { uid: firstSuccessRecord?.user_id } } }
-        )
-        .then(res => res, () => null);
+      order = await ctx.call(
+        'cr7.order.get',
+        { oid: firstSuccessRecord!.order_id! },
+        { meta: { user: { uid: firstSuccessRecord?.user_id } } }
+      )
+        .then(res => res as Order.OrderWithItems, () => null);
     }
 
     if (order !== null) {
@@ -1111,13 +1107,8 @@ export default class MoeService extends RC7BaseService {
       };
 
       return this.finishWithMopResponse(
-        recordId,
-        10000,
-        '成功',
-        responseBody,
-        'SUCCESS',
-        order.id,
-        order.user_id
+        recordId, 10000, '成功', responseBody, 'SUCCESS',
+        order.id, order.user_id
       );
     }
 
@@ -1150,12 +1141,14 @@ export default class MoeService extends RC7BaseService {
     const ticketById = new Map(ticketCategories.map(ticket => [ticket.id, ticket]));
     const sessionDate = new Date(session.session_date);
 
-    const totalPriceFromItems = ticketInfo.reduce((sum, item) => sum + Number(item.ticketPrice), 0);
+    const totalPriceFromItems = ticketInfo
+      .reduce((sum, { ticketPrice }) => sum + Number(ticketPrice), 0);
+
     if (Number(totalPrice).toFixed(2) !== totalPriceFromItems.toFixed(2)) {
       return this.finishWithMopResponse(recordId, 30002, '订单价格不一致');
     }
 
-    const itemCountBySku = new Map<string, number>();
+    const orderItems = [];
     for (const item of ticketInfo) {
       const ticket = ticketById.get(item.skuId);
       if (!ticket) {
@@ -1181,7 +1174,7 @@ export default class MoeService extends RC7BaseService {
         return this.finishWithMopResponse(recordId, 30002, '订单价格不一致');
       }
 
-      itemCountBySku.set(item.skuId, (itemCountBySku.get(item.skuId) ?? 0) + 1);
+      orderItems.push({ ticket_category_id: item.skuId, quantity: 1 });
     }
 
     const userId = await ctx.call<string, { country_code: string; phone: string; name: string }>(
@@ -1194,25 +1187,17 @@ export default class MoeService extends RC7BaseService {
     );
 
     try {
-      const order = await ctx.call<
-        Order.OrderWithItems,
+      const order = await ctx.call(
+        'cr7.order.create',
         {
-          eid: string;
-          sid: string;
-          items: Order.CreateOrderItem[];
-          source: Order.OrderSource;
-          user_id: string;
+          eid: projectCode,
+          sid: projectShowCode,
+          items: orderItems,
+          merge_items: false,
+          source: 'MOP',
+          user_id: userId,
         }
-      >('cr7.order.create', {
-        eid: projectCode,
-        sid: projectShowCode,
-        items: Array.from(itemCountBySku.entries()).map(([ticket_category_id, quantity]) => ({
-          ticket_category_id,
-          quantity,
-        })),
-        source: 'MOP',
-        user_id: userId,
-      });
+      ) as Order.OrderWithItems;
 
       const responseBody: MopOrderCreateResponse = {
         myOrderId,
@@ -1221,13 +1206,8 @@ export default class MoeService extends RC7BaseService {
       };
 
       return this.finishWithMopResponse(
-        recordId,
-        10000,
-        '成功',
-        responseBody,
-        'SUCCESS',
-        order.id,
-        userId
+        recordId, 10000, '成功', responseBody, 'SUCCESS',
+        order.id, userId
       );
     } catch (error) {
       const errorCode = (error as { type?: string })?.type;
@@ -1286,13 +1266,13 @@ export default class MoeService extends RC7BaseService {
       { meta: { user: { uid: firstSuccessRecord.user_id } } }
     );
 
-    const redemption = await ctx
-      .call<
-      Redeem.RedemptionCodeWithOrder,
-      { oid: string }
-    >('cr7.redemption.getByOrder', { oid: firstSuccessRecord.order_id }, { meta: { user: { uid: firstSuccessRecord.user_id } } })
+    const redemption = await ctx.call(
+      'cr7.redemption.getByOrder',
+      { oid: firstSuccessRecord.order_id },
+      { meta: { user: { uid: firstSuccessRecord.user_id } } }
+    )
       .then(
-        res => res,
+        res => res as Redeem.RedemptionCodeWithOrder,
         () => null
       );
 
@@ -1310,9 +1290,9 @@ export default class MoeService extends RC7BaseService {
       orderStatus: toMopOrderStatus(order.status),
       orderRefundStatus: toMopRefundStatus(order.status),
       orderConsumeStatus,
-      ticketInfo: requestBody.ticketInfo.map(item => ({
+      ticketInfo: requestBody.ticketInfo.map((item, idx) => ({
         myTicketId: item.myTicketId,
-        channelTicketId: item.skuId,
+        channelTicketId: order.items[idx].id,
         ticketConsumeStatus: orderConsumeStatus,
         checkCode: redeemCode,
         checkQrCode: redeemCode,
@@ -1383,13 +1363,13 @@ export default class MoeService extends RC7BaseService {
       { meta: { user: { uid: firstSuccessRecord.user_id } } }
     );
 
-    const redemption = await ctx
-      .call<
-      Redeem.RedemptionCodeWithOrder,
-      { oid: string }
-    >('cr7.redemption.getByOrder', { oid: firstSuccessRecord.order_id }, { meta: { user: { uid: firstSuccessRecord.user_id } } })
+    const redemption = await ctx.call(
+      'cr7.redemption.getByOrder',
+      { oid: firstSuccessRecord.order_id },
+      { meta: { user: { uid: firstSuccessRecord.user_id } } }
+    )
       .then(
-        res => res,
+        (res: unknown) => res as Redeem.RedemptionCodeWithOrder,
         () => null
       );
     const redeemCode = redemption?.code ?? null;
@@ -1400,22 +1380,17 @@ export default class MoeService extends RC7BaseService {
       fetchCode: null,
       fetchQrCode: null,
       orderStatus: toMopOrderStatus(order.status),
-      ticketInfo: requestBody.ticketInfo.map(item => ({
+      ticketInfo: requestBody.ticketInfo.map((item, idx) => ({
         myTicketId: item.myTicketId,
-        channelTicketId: item.skuId,
+        channelTicketId: order.items[idx].id,
         checkCode: redeemCode,
         checkQrCode: redeemCode,
       })),
     };
 
     return this.finishWithMopResponse(
-      recordId,
-      10000,
-      '成功',
-      responseBody,
-      'SUCCESS',
-      order.id,
-      firstSuccessRecord.user_id
+      recordId, 10000, '成功', responseBody, 'SUCCESS',
+      order.id, firstSuccessRecord.user_id
     );
   }
 
