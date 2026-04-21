@@ -1230,7 +1230,7 @@ export default class MoeService extends RC7BaseService {
         userId
       );
     } catch (error) {
-      const errorCode = (error as { code?: string })?.code;
+      const errorCode = (error as { type?: string })?.type;
       if (errorCode === 'INVENTORY_NOT_ENOUGH') {
         return this.finishWithMopResponse(recordId, 30006, '库存不足');
       }
