@@ -1000,15 +1000,17 @@ describeFeature(feature, ({
     });
 
     And('订单详情中的第 {int} 个订单项的猫眼 ID 是 {string}', (_ctx, index: number, myTicketId: string) => {
-      expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1]).toBeTruthy();
-      expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1].myTicketId).toBe(myTicketId);
+      const { mopOrderQueryBody } = featureContext;
+      expect(mopOrderQueryBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(mopOrderQueryBody!.ticketInfo[index - 1].myTicketId).toBe(myTicketId);
     });
 
-    And('订单详情中的第 {int} 个订单项的渠道票 ID 是 {string} 的 ID', (_ctx, index: number, ticketName: string) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
-      expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1]).toBeTruthy();
-      expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1].channelTicketId).toBe(ticket.id);
+    And('订单详情中的第 {int} 个订单项的渠道票 ID 是 cr7 订单项 {int} 的 ID', (_ctx, index: number, orderItemIdx: number) => {
+      const { order, mopOrderQueryBody } = featureContext;
+      const orderItem = order!.items[orderItemIdx - 1];
+      expect(orderItem).toBeTruthy();
+      expect(mopOrderQueryBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(mopOrderQueryBody!.ticketInfo[index - 1].channelTicketId).toBe(orderItem.id);
     });
 
     And('订单详情中的第 {int} 个订单项的核销状态为未消费，值为 {int}', (_ctx, index: number, status: number) => {
@@ -1079,12 +1081,13 @@ describeFeature(feature, ({
       expect(mopTicketBody!.ticketInfo[index - 1].myTicketId).toBe(myTicketId);
     });
 
-    And('订单支付结果中的第 {int} 个订单项的渠道票 ID 是 {string} 的 ID', (_ctx, index: number, ticketName: string) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
+    And('订单支付结果中的第 {int} 个订单项的渠道票 ID 是 cr7 订单项 {int} 的 ID', (_ctx, index: number, orderItemIdx: number) => {
+      const { order } = featureContext;
+      const orderItem = order!.items[orderItemIdx - 1];
+      expect(orderItem).toBeTruthy();
       const { mopTicketBody } = featureContext;
       expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
-      expect(mopTicketBody!.ticketInfo[index - 1].channelTicketId).toBe(ticket.id);
+      expect(mopTicketBody!.ticketInfo[index - 1].channelTicketId).toBe(orderItem.id);
     });
 
     And('订单支付结果中的第 {int} 个订单项的检票码是 cr7 的订单的核销码', (_ctx, index: number) => {

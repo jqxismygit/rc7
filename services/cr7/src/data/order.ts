@@ -11,6 +11,7 @@ type CreateOrderInput = {
   session_id: string;
   session_half?: Order.OrderSessionHalf | null;
   items: Order.CreateOrderItem[];
+  merge_items?: boolean;
   source: Order.OrderSource;
 };
 
@@ -616,6 +617,7 @@ export async function createOrder(
   validateCreateItems(input.items);
 
   const aggregatedItems = normalizeOrderItems(input.items);
+  const orderItems = input.merge_items === false ? input.items : aggregatedItems;
   const ticketCategoryIds = aggregatedItems.map(item => item.ticket_category_id);
 
   await ensureSessionBelongsToExhibition(
@@ -681,7 +683,7 @@ export async function createOrder(
     ]
   );
 
-  for (const item of aggregatedItems) {
+  for (const item of orderItems) {
     const unitPrice = priceMap.get(item.ticket_category_id)!;
     const subtotal = unitPrice * item.quantity;
 
@@ -696,7 +698,9 @@ export async function createOrder(
       VALUES ($1, $2, $3, $4, $5)`,
       [createdOrder.id, item.ticket_category_id, item.quantity, unitPrice, subtotal]
     );
+  }
 
+  for (const item of aggregatedItems) {
     await client.query(
       `UPDATE ${schema}.exhibit_session_inventories
       SET
