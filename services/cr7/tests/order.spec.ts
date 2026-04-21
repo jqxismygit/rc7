@@ -94,6 +94,7 @@ interface FeatureContext extends
   ExhibitionSetupContext {
   broker: ServiceBroker;
   apiServer: Server;
+  order?: Order.OrderWithItems;
 }
 
 function getSessionByDate(
@@ -200,6 +201,7 @@ async function bindPhoneForUser(
 describeFeature(feature, ({
   BeforeAllScenarios,
   AfterAllScenarios,
+  defineSteps,
   Background,
   Scenario,
   ScenarioOutline,
@@ -267,6 +269,43 @@ describeFeature(feature, ({
     await mockWechatServer?.close();
   });
 
+  defineSteps(({ Given, Then }) => {
+    Given(
+      '用户 {string} 已成功预订 {int} 张该展会的 {string} 场次的 {string}',
+      async (
+        _ctx: unknown,
+        userName: string,
+        quantity: number,
+        sessionDate: string,
+        ticketName: string,
+      ) => {
+        const order = await createOrderWithItems(
+          featureContext,
+          sessionDate,
+          [{ ticketName, quantity }],
+          getUserTokenByName(featureContext, userName),
+        );
+        featureContext.order = order;
+      }
+    );
+
+    Given('{string} 所有场次库存为 {int}', async (_ctx, ticketName: string, quantity: number) => {
+      const { adminToken, exhibition, ticketByName, apiServer } = featureContext;
+      const ticket = ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+      await updateTicketCategoryMaxInventory(apiServer, adminToken, exhibition.id, ticket.id, quantity);
+    });
+
+    Then('场次 {string} 的 {string} 库存为 {int}', async (
+      _ctx: unknown,
+      sessionDate: string,
+      ticketName: string,
+      quantity: number,
+    ) => {
+      const availableQuantity = await availableInventoryByTicketName(featureContext, sessionDate, ticketName);
+      expect(availableQuantity).toBe(quantity);
+    });
+  });
 
   Background(({ Given, And }) => {
     Given('cr7 服务已启动', async () => {
@@ -311,17 +350,10 @@ describeFeature(feature, ({
       const ticket = await prepareTicketCategory(apiServer, adminToken, exhibition.id);
       featureContext.ticketByName = { [ticketName]: ticket };
     });
-
-    Given('{string} 所有场次库存为 {int}', async (_ctx, ticketName: string, quantity: number) => {
-      const { adminToken, exhibition, ticketByName, apiServer } = featureContext;
-      const ticket = ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
-      await updateTicketCategoryMaxInventory(apiServer, adminToken, exhibition.id, ticket.id, quantity);
-    });
   });
 
   Scenario('用户没有绑定手机号时，无法创建订单', (s: StepTest<OrderResultContext & ErrorContext>) => {
-    const { Given, When, Then, And, context } = s;
+    const { Given, When, Then, context } = s;
 
     Given('用户 {string} 预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, userName: string, quantity: number, sessionDate: string, ticketName: string) => {
       try {
@@ -360,11 +392,6 @@ describeFeature(feature, ({
       expect(context.order).toBeTruthy();
       expect(context.order.status).toBe('PENDING_PAYMENT');
     });
-
-    And('场次 {string} 的 {string} 库存为 {int}', async (_ctx, sessionDate: string, ticketName: string, quantity: number) => {
-      const availableQuantity = await availableInventoryByTicketName(featureContext, sessionDate, ticketName);
-      expect(availableQuantity).toBe(quantity);
-    });
   });
 
   Scenario('创建订单成功', (s: StepTest<OrderResultContext>) => {
@@ -386,11 +413,6 @@ describeFeature(feature, ({
 
     And('订单来源为 {string}', (_ctx, source: string) => {
       expect(context.order.source).toBe(source);
-    });
-
-    And('场次 {string} 的 {string} 库存为 {int}', async (_ctx, sessionDate: string, ticketName: string, quantity: number) => {
-      const availableQuantity = await availableInventoryByTicketName(featureContext, sessionDate, ticketName);
-      expect(availableQuantity).toBe(quantity);
     });
   });
 
@@ -431,11 +453,6 @@ describeFeature(feature, ({
       expect(expectedHalf).toBe('PM');
       expect(context.order.session_half).toBe(expectedHalf);
     });
-
-    And('场次 {string} 的 {string} 库存为 {int}', async (_ctx, sessionDate: string, ticketName: string, quantity: number) => {
-      const availableQuantity = await availableInventoryByTicketName(featureContext, sessionDate, ticketName);
-      expect(availableQuantity).toBe(quantity);
-    });
   });
 
   Scenario('用户预订多个票种', (s: StepTest<OrderResultContext>) => {
@@ -456,17 +473,6 @@ describeFeature(feature, ({
       };
     });
 
-    And('{string} 所有场次库存为 {int}', async (_ctx, ticketName: string, quantity: number) => {
-      const { exhibition, ticketByName, adminToken, apiServer } = featureContext;
-      const ticket = ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
-
-      await updateTicketCategoryMaxInventory(
-        apiServer, adminToken,
-        exhibition.id, ticket.id, quantity,
-      );
-    });
-
     When('用户 {string} 预订 1 张该展会的 {string} 场次的 "成人票" 和 2 张 "儿童票"', async (_ctx, userName: string, sessionDate: string) => {
       context.order = await createOrderWithItems(
         featureContext,
@@ -479,16 +485,6 @@ describeFeature(feature, ({
     Then('预订成功', () => {
       expect(context.order).toBeTruthy();
       expect(context.order.items).toHaveLength(2);
-    });
-
-    And('场次 {string} 的 "成人票" 库存为 {int}', async (_ctx, sessionDate: string, quantity: number) => {
-      const availableQuantity = await availableInventoryByTicketName(featureContext, sessionDate, '成人票');
-      expect(availableQuantity).toBe(quantity);
-    });
-
-    And('场次 {string} 的 "儿童票" 库存为 {int}', async (_ctx, sessionDate: string, quantity: number) => {
-      const availableQuantity = await availableInventoryByTicketName(featureContext, sessionDate, '儿童票');
-      expect(availableQuantity).toBe(quantity);
     });
   });
 
@@ -511,15 +507,10 @@ describeFeature(feature, ({
       expect(order.items).toHaveLength(1);
       expect(order.items[0].quantity).toBe(quantity);
     });
-
-    And('场次 {string} 的 {string} 库存为 {int}', async (_ctx, sessionDate: string, ticketName: string, quantity: number) => {
-      const availableQuantity = await availableInventoryByTicketName(featureContext, sessionDate, ticketName);
-      expect(availableQuantity).toBe(quantity);
-    });
   });
 
   Scenario('预订超过库存数量的门票', (s: StepTest<ErrorContext>) => {
-    const { When, Then, And, context } = s;
+    const { When, Then, context } = s;
 
     When(
       '用户 {string} 预订 {int} 张该展会的 {string} 场次的 {string}',
@@ -542,11 +533,6 @@ describeFeature(feature, ({
         context.lastError,
         { status: 409, messageIncludes: '库存不足' }
       );
-    });
-
-    And('场次 {string} 的 {string} 库存为 {int}', async (_ctx, sessionDate: string, ticketName: string, quantity: number) => {
-      const availableQuantity = await availableInventoryByTicketName(featureContext, sessionDate, ticketName);
-      expect(availableQuantity).toBe(quantity);
     });
   });
 
@@ -572,64 +558,30 @@ describeFeature(feature, ({
     Then('创建失败，提示场次已过期', () => {
       assertAPIError(context.lastError, { status: 410, messageIncludes: '场次已过期' });
     });
-
-    And('场次 "1天前" 的 "成人票" 库存为 3', async () => {
-      const { exhibition, sessions, ticketByName, apiServer } = featureContext;
-      const session = sessions[0];
-      const tickets = await getSessionTickets(apiServer, featureContext.userToken, exhibition.id, session.id);
-      const target = tickets.find(t => t.id === ticketByName['成人票'].id);
-      expect(target?.quantity).toBe(3);
-    });
   });
 
   Scenario('取消付款', (s: StepTest<OrderResultContext>) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given(
-      '用户 {string} 已成功预订 {int} 张该展会的 {string} 场次的 {string}',
-      async (_ctx, userName: string, quantity: number, sessionDate: string, ticketName: string) => {
-        const order = await createOrderWithItems(
-          featureContext,
-          sessionDate,
-          [{ ticketName, quantity }],
-          getUserTokenByName(featureContext, userName)
-        );
-        context.order = order;
-      }
-    );
+    const { When, Then, context } = s;
 
     When('用户 {string} 取消订单', async (_ctx, userName: string) => {
       const { apiServer } = featureContext;
-      expect(context.order).toBeTruthy();
+      expect(featureContext.order).toBeTruthy();
+      context.order = featureContext.order!;
       await cancelOrderByApi(apiServer, context.order.id, getUserTokenByName(featureContext, userName));
     });
 
     Then('订单取消成功', () => {
       expect(context.order).toBeTruthy();
     });
-
-    And('场次 {string} 的 {string} 库存为 {int}', async (_ctx, sessionDate: string, ticketName: string, quantity: number) => {
-      const availableQuantity = await availableInventoryByTicketName(featureContext, sessionDate, ticketName);
-      expect(availableQuantity).toBe(quantity);
-    });
   });
 
   Scenario('订单过期未付款', (s: StepTest<OrderResultContext>) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given('用户 {string} 已成功预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, userName: string, quantity: number, sessionDate: string, ticketName: string) => {
-      const order = await createOrderWithItems(
-        featureContext,
-        sessionDate,
-        [{ ticketName, quantity }],
-        getUserTokenByName(featureContext, userName)
-      );
-      context.order = order;
-    });
+    const { When, Then, And, context } = s;
 
     When('订单过期未付款', async () => {
       const { broker } = featureContext;
-      expect(context.order).toBeTruthy();
+      expect(featureContext.order).toBeTruthy();
+      context.order = featureContext.order!;
       await expireOrder(broker, schema, context.order.id);
     });
 
@@ -644,35 +596,15 @@ describeFeature(feature, ({
       const { broker } = featureContext;
       await broker.call('cr7.order.expire', { batchSize: 100 });
     });
-
-    And(
-      '场次 {string} 的 {string} 库存为 {int}',
-      async (_ctx, sessionDate: string, ticketName: string, quantity: number) => {
-        const availableQuantity = await availableInventoryByTicketName(featureContext, sessionDate, ticketName);
-        expect(availableQuantity).toBe(quantity);
-      }
-    );
   });
 
   Scenario('重复取消同一订单不会重复释放库存', (s: StepTest<OrderResultContext>) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given(
-      '用户 {string} 已成功预订 {int} 张该展会的 {string} 场次的 {string}',
-      async (_ctx, userName: string, quantity: number, sessionDate: string, ticketName: string) => {
-        const order = await createOrderWithItems(
-          featureContext,
-          sessionDate,
-          [{ ticketName, quantity }],
-          getUserTokenByName(featureContext, userName)
-        );
-        context.order = order;
-      }
-    );
+    const { When, Then, And, context } = s;
 
     When('用户 {string} 取消订单', async (_ctx, userName: string) => {
       const { apiServer } = featureContext;
-      expect(context.order).toBeTruthy();
+      expect(featureContext.order).toBeTruthy();
+      context.order = featureContext.order!;
       await cancelOrderByApi(apiServer, context.order.id, getUserTokenByName(featureContext, userName));
     });
 
@@ -698,24 +630,12 @@ describeFeature(feature, ({
   });
 
   Scenario('过期处理任务重复执行不会重复释放库存', (s: StepTest<OrderResultContext>) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given(
-      '用户 {string} 已成功预订 {int} 张该展会的 {string} 场次的 {string}',
-      async (_ctx, userName: string, quantity: number, sessionDate: string, ticketName: string) => {
-        const order = await createOrderWithItems(
-          featureContext,
-          sessionDate,
-          [{ ticketName, quantity }],
-          getUserTokenByName(featureContext, userName)
-        );
-        context.order = order;
-      }
-    );
+    const { When, And, context } = s;
 
     When('订单过期未付款', async () => {
       const { broker } = featureContext;
-      expect(context.order).toBeTruthy();
+      expect(featureContext.order).toBeTruthy();
+      context.order = featureContext.order!;
       await expireOrder(broker, schema, context.order.id);
     });
 
@@ -728,35 +648,15 @@ describeFeature(feature, ({
       const { broker } = featureContext;
       await broker.call('cr7.order.expire', { batchSize: 100 });
     });
-
-    Then(
-      '场次 {string} 的 {string} 库存为 {int}',
-      async (_ctx, sessionDate: string, ticketName: string, quantity: number) => {
-        const availableQuantity = await availableInventoryByTicketName(featureContext, sessionDate, ticketName);
-        expect(availableQuantity).toBe(quantity);
-      }
-    );
   });
 
   Scenario('用户可以获取自己的订单详情', (s: StepTest<OrderResultContext & { orderDetail: Order.OrderWithItems }>) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given(
-      '用户 {string} 已成功预订 {int} 张该展会的 {string} 场次的 {string}',
-      async (_ctx, userName: string, quantity: number, sessionDate: string, ticketName: string) => {
-        const order = await createOrderWithItems(
-          featureContext,
-          sessionDate,
-          [{ ticketName, quantity }],
-          getUserTokenByName(featureContext, userName)
-        );
-        context.order = order;
-      }
-    );
+    const { When, Then, And, context } = s;
 
     When('用户 {string} 查看该订单详情', async (_ctx, userName: string) => {
       const { apiServer } = featureContext;
-      expect(context.order).toBeTruthy();
+      expect(featureContext.order).toBeTruthy();
+      context.order = featureContext.order!;
       context.orderDetail = await getOrderByApi(
         apiServer,
         context.order.id,
@@ -792,7 +692,7 @@ describeFeature(feature, ({
   });
 
   Scenario('用户不能获取他人的订单详情', (s: StepTest<OrderResultContext & ErrorContext & { bobToken: string }>) => {
-    const { Given, When, Then, And, context } = s;
+    const { Given, When, Then, context } = s;
 
     Given('用户 {string} 已注册并登录', async (_ctx, userName: string) => {
       context.bobToken = await registerFeatureUser(featureContext, userName);
@@ -801,21 +701,11 @@ describeFeature(feature, ({
       await bindPhoneForUser(featureContext, userName, '86', phone);
     });
 
-    And('用户 {string} 已成功预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, _userName: string, quantity: number, sessionDate: string, ticketName: string) => {
-      const token = context.bobToken;
-      expect(token).toBeTruthy();
-      context.order = await createOrderWithItems(
-        featureContext,
-        sessionDate,
-        [{ ticketName, quantity }],
-        token,
-      );
-    });
-
     When('用户 {string} 查看 {string} 的订单详情', async (_ctx, viewerName: string, _ownerName: string) => {
       const { userToken, apiServer } = featureContext;
       try {
-        expect(context.order).toBeTruthy();
+        expect(featureContext.order).toBeTruthy();
+        context.order = featureContext.order!;
         await getOrderByApi(
           apiServer,
           context.order.id,
@@ -1022,22 +912,12 @@ describeFeature(feature, ({
   });
 
   Scenario('管理员可以查看所有订单列表', (s: StepTest<OrderListContext & OrderResultContext>) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given(
-      '用户 {string} 已成功预订 {int} 张该展会的 {string} 场次的 {string}',
-      async (_ctx, userName: string, quantity: number, sessionDate: string, ticketName: string) => {
-        context.order = await createOrderWithItems(
-          featureContext,
-          sessionDate,
-          [{ ticketName, quantity }],
-          getUserTokenByName(featureContext, userName)
-        );
-      }
-    );
+    const { When, Then, And, context } = s;
 
     When('管理员查看订单列表', async () => {
       const { apiServer } = featureContext;
+      expect(featureContext.order).toBeTruthy();
+      context.order = featureContext.order!;
       context.orders = await listOrdersAdminByApi(apiServer, featureContext.adminToken);
     });
 
@@ -1055,20 +935,12 @@ describeFeature(feature, ({
   });
 
   Scenario('管理员可以查看单条订单详情', (s: StepTest<OrderResultContext & { orderDetail: Order.OrderWithItems }>) => {
-    const { Given, When, Then, And, context } = s;
-
-    Given('用户 {string} 已成功预订 {int} 张该展会的 {string} 场次的 {string}', async (_ctx, userName: string, quantity: number, sessionDate: string, ticketName: string) => {
-      context.order = await createOrderWithItems(
-        featureContext,
-        sessionDate,
-        [{ ticketName, quantity }],
-        getUserTokenByName(featureContext, userName)
-      );
-    });
+    const { When, Then, And, context } = s;
 
     When('管理员查看该订单详情', async () => {
       const { apiServer } = featureContext;
-      expect(context.order).toBeTruthy();
+      expect(featureContext.order).toBeTruthy();
+      context.order = featureContext.order!;
       context.orderDetail = await getOrderAdminByApi(apiServer, context.order.id, featureContext.adminToken);
     });
 
