@@ -307,7 +307,13 @@ export async function mopPostJSON<Res = unknown>(
     body: requestBody,
   });
 
-  const responseBody = await res.json() as MopResponseEnvelope;
+  const body = await res.text();
+  let responseBody: MopResponseEnvelope;
+  try {
+    responseBody = JSON.parse(body);
+  } catch {
+    throw new MopAPIError(res.status, url, 'POST', `Invalid JSON response: ${body}`);
+  }
 
   if (!res.ok) {
     throw new MopAPIError(res.status, url, 'POST', responseBody);
