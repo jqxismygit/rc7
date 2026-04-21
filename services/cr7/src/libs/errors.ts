@@ -159,6 +159,7 @@ export function handleRedeemError(error: unknown): never {
   if (
     error.code === 'REDEMPTION_ALREADY_REDEEMED'
     || error.code === 'REDEMPTION_EXPIRED'
+    || error.code === 'REDEMPTION_NOT_YET_VALID'
   ) {
     throw new MoleculerClientError('核销码不可用', 409, error.code);
   }

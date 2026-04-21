@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { format, isAfter, isBefore } from 'date-fns';
 import { Context, ServiceBroker, ServiceSchema } from 'moleculer';
 import type { Exhibition, Order, Redeem } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
@@ -18,7 +18,7 @@ import {
   getSessionsByIds,
   getTicketCategoriesByExhibitionId,
 } from '../data/exhibition.js';
-import { handleOrderError, handleRedeemError } from './errors.js';
+import { handleExhibitionError, handleOrderError, handleRedeemError } from './errors.js';
 
 interface UserMeta {
   uid: string;
@@ -323,83 +323,97 @@ export class RedemptionService extends RC7BaseService {
     const { eid, code } = ctx.params;
     const { uid } = ctx.meta.user;
     const schema = await this.getSchema();
-    const dbClient = await this.pool.connect();
+    const dbClient = this.pool;
 
-    try {
-      await dbClient.query('BEGIN');
+    const redemption = await getRedemptionRowByCode(dbClient, schema, eid, code)
+      .catch(handleRedeemError);
+    const order = await getOrderById(dbClient, schema, redemption.order_id)
+      .catch(handleOrderError);
 
-      const codeRow = await getRedemptionRowByCode(dbClient, schema, eid, code);
-
-      const order = await getOrderById(dbClient, schema, codeRow.order_id)
-        .catch(handleOrderError);
-
-      if (
-        order.status === 'REFUND_REQUESTED'
-        || order.status === 'REFUND_PROCESSING'
-        || order.status === 'REFUNDED'
-      ) {
-        throw new RedeemDataError('Order is in refund flow', 'ORDER_REFUND_IN_PROGRESS');
-      }
-
-      const categories = await getTicketCategoriesByExhibitionId(dbClient, schema, order.exhibit_id);
-      const items = buildItems(order.items, categories);
-      const exhibition = await getExhibitionById(this.pool, schema, order.exhibit_id);
-      const session = await getSessionById(dbClient, schema, order.session_id);
-
-      if (order.source === 'CTRIP') {
-        await ctx.call('xiecheng.notifyOrderConsumed', { oid: order.id });
-      }
-
-      if (order.source === 'MOP') {
-        await ctx.call('mop.notifyOrderConsumed', { oid: order.id });
-      }
-
-      if (order.source === 'DAMAI') {
-        const redeemed_at = codeRow.redeemed_at ?? new Date();
-        await ctx.call('damai.notifyOrderConsumed', { oid: order.id, redeemed_at });
-      }
-
-      const updatedRow = await redeemCode(dbClient, schema, eid, code, uid);
-
-      const redemption: Redeem.RedemptionCodeWithOrder = {
-        ...updatedRow,
-        order: {
-          id: order.id,
-          user_id: order.user_id,
-          source: order.source,
-          exhibit_id: order.exhibit_id,
-          session_id: order.session_id,
-          total_amount: order.total_amount,
-          status: order.status,
-        },
-        exhibition: {
-          id: exhibition.id,
-          name: exhibition.name,
-          description: exhibition.description,
-          cover_url: exhibition.cover_url,
-          location: exhibition.location,
-          city: exhibition.city,
-          venue_name: exhibition.venue_name,
-          start_date: exhibition.start_date,
-          end_date: exhibition.end_date,
-        },
-        session: {
-          id: session.id,
-          session_date: format(new Date(session.session_date), 'yyyy-MM-dd'),
-          opening_time: exhibition.opening_time,
-          closing_time: exhibition.closing_time,
-          last_entry_time: exhibition.last_entry_time,
-        },
-        items,
-      };
-
-      await dbClient.query('COMMIT');
-      return redemption;
-    } catch (error) {
-      await dbClient.query('ROLLBACK');
-      return handleRedeemError(error);
-    } finally {
-      dbClient.release();
+    if (
+      order.status === 'REFUND_REQUESTED'
+      || order.status === 'REFUND_PROCESSING'
+      || order.status === 'REFUNDED'
+    ) {
+      handleRedeemError(
+        new RedeemDataError('Order is in refund flow', 'ORDER_REFUND_IN_PROGRESS')
+      );
     }
+    if (redemption.status === 'REDEEMED') {
+      handleRedeemError(
+        new RedeemDataError('Redemption code already redeemed', 'REDEMPTION_ALREADY_REDEEMED')
+      );
+    }
+
+    const now = new Date();
+    if (isAfter(now, new Date(redemption.valid_until))) {
+      handleRedeemError(
+        new RedeemDataError('Redemption code expired', 'REDEMPTION_EXPIRED')
+      );
+    }
+    if (isBefore(now, new Date(redemption.valid_from))) {
+      handleRedeemError(
+        new RedeemDataError('Redemption code not yet valid', 'REDEMPTION_NOT_YET_VALID')
+      );
+    }
+
+    const categories = await getTicketCategoriesByExhibitionId(dbClient, schema, order.exhibit_id)
+      .catch(handleExhibitionError);
+    const items = buildItems(order.items, categories);
+
+    if (order.source === 'CTRIP') {
+      await ctx.call('xiecheng.notifyOrderConsumed', { oid: order.id });
+    }
+
+    if (order.source === 'MOP') {
+      await ctx.call('mop.notifyOrderConsumed', { oid: order.id });
+    }
+
+    if (order.source === 'DAMAI') {
+      const redeemed_at = redemption.redeemed_at ?? new Date();
+      await ctx.call('damai.notifyOrderConsumed', { oid: order.id, redeemed_at });
+    }
+
+    const updatedRow = await redeemCode(dbClient, schema, eid, code, uid)
+      .catch(handleRedeemError);
+
+    const exhibition = await getExhibitionById(this.pool, schema, order.exhibit_id)
+      .catch(handleExhibitionError);
+    const session = await getSessionById(dbClient, schema, order.session_id)
+      .catch(handleExhibitionError);
+
+    const res: Redeem.RedemptionCodeWithOrder = {
+      ...updatedRow,
+      order: {
+        id: order.id,
+        user_id: order.user_id,
+        source: order.source,
+        exhibit_id: order.exhibit_id,
+        session_id: order.session_id,
+        total_amount: order.total_amount,
+        status: order.status,
+      },
+      exhibition: {
+        id: exhibition.id,
+        name: exhibition.name,
+        description: exhibition.description,
+        cover_url: exhibition.cover_url,
+        location: exhibition.location,
+        city: exhibition.city,
+        venue_name: exhibition.venue_name,
+        start_date: exhibition.start_date,
+        end_date: exhibition.end_date,
+      },
+      session: {
+        id: session.id,
+        session_date: format(new Date(session.session_date), 'yyyy-MM-dd'),
+        opening_time: exhibition.opening_time,
+        closing_time: exhibition.closing_time,
+        last_entry_time: exhibition.last_entry_time,
+      },
+      items,
+    };
+
+    return res;
   }
 }

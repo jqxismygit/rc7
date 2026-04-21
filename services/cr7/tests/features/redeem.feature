@@ -66,6 +66,14 @@ Feature: 用户已购票的查询与核销
      Then 操作失败，状态码为 409
       And 错误类型为 "REDEMPTION_EXPIRED"
 
+  Scenario: 未生效订单的核销码不可用
+    Given 用户预订 1 张该展会的 "1天后" 场次的 "early_bird"
+     When 用户完成支付
+     Then 用户有一个有效的核销码
+     When 运营人员将用户 "Alice" 的订单核销码扫码核销
+     Then 操作失败，状态码为 409
+      And 错误类型为 "REDEMPTION_NOT_YET_VALID"
+
   Scenario: 已核销订单的核销码不可重复使用
     Given 用户预订 1 张该展会的 "今天" 场次的 "early_bird"
      When 用户完成支付

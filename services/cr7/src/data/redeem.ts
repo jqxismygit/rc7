@@ -37,7 +37,8 @@ export type REDEEM_DATA_ERROR_CODES
     | 'ORDER_REFUND_IN_PROGRESS'
     | 'REDEMPTION_NOT_FOUND'
     | 'REDEMPTION_ALREADY_REDEEMED'
-    | 'REDEMPTION_EXPIRED';
+    | 'REDEMPTION_EXPIRED'
+    | 'REDEMPTION_NOT_YET_VALID';
 
 export class RedeemDataError extends Error {
   code: REDEEM_DATA_ERROR_CODES;
@@ -299,19 +300,6 @@ export async function redeemCode(
   code: string,
   redeemedBy: string,
 ): Promise<RedemptionRow> {
-  const redemption = await getRedemptionRowByCode(client, schema, exhibitId, code);
-
-  if (redemption.status === 'REDEEMED') {
-    throw new RedeemDataError('Redemption code already redeemed', 'REDEMPTION_ALREADY_REDEEMED');
-  }
-
-  const now = new Date();
-  const validFrom = new Date(redemption.valid_from);
-  const validUntil = new Date(redemption.valid_until);
-  if (now < validFrom || now >= validUntil) { // right-open: [valid_from, valid_until)
-    throw new RedeemDataError('Redemption code expired', 'REDEMPTION_EXPIRED');
-  }
-
   await client.query(
     `UPDATE ${schema}.exhibit_redemption_codes
     SET

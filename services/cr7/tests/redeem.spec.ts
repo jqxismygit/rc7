@@ -605,6 +605,27 @@ describeFeature(feature, ({
   );
 
   Scenario(
+    '未生效订单的核销码不可用',
+    (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
+      const { And, When, Then, context } = s;
+
+      When('运营人员将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
+        const { usersByName, operatorToken, redemption } = featureContext;
+        expect(usersByName[userName]).toBeTruthy();
+        context.lastErrorPromise = performRedeem(featureContext, redemption!, operatorToken);
+      });
+
+      Then('操作失败，状态码为 {int}', async (_ctx, statusCode: number) => {
+        await expect(context.lastErrorPromise).rejects.toMatchObject({ status: statusCode });
+      });
+
+      And('错误类型为 {string}', async (_ctx, errorType: string) => {
+        await expect(context.lastErrorPromise).rejects.toMatchObject({ body: { type: errorType } });
+      });
+    },
+  );
+
+  Scenario(
     '已核销订单的核销码不可重复使用',
     (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
       const { And, When, Then, context } = s;
