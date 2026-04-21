@@ -456,7 +456,7 @@ describeFeature(feature, ({
   });
 
   Scenario('用户预订多个票种', (s: StepTest<OrderResultContext>) => {
-    const { Given, When, Then, And, context } = s;
+    const { Given, When, Then, context } = s;
 
     Given('该展览已追加票种 {string}', async (_ctx, ticketName: string) => {
       const { exhibition, ticketByName, adminToken, apiServer } = featureContext;
@@ -537,7 +537,7 @@ describeFeature(feature, ({
   });
 
   Scenario('预订已过期场次的门票', (s: StepTest<ErrorContext>) => {
-    const { When, Then, And, context } = s;
+    const { When, Then, context } = s;
 
     When(
       '用户 {string} 预订 {int} 张该展会的 {string} 场次的 {string}',
@@ -560,35 +560,33 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('取消付款', (s: StepTest<OrderResultContext>) => {
-    const { When, Then, context } = s;
+  Scenario('取消付款', (s: StepTest) => {
+    const { When, Then } = s;
 
     When('用户 {string} 取消订单', async (_ctx, userName: string) => {
       const { apiServer } = featureContext;
       expect(featureContext.order).toBeTruthy();
-      context.order = featureContext.order!;
-      await cancelOrderByApi(apiServer, context.order.id, getUserTokenByName(featureContext, userName));
+      await cancelOrderByApi(apiServer, featureContext.order!.id, getUserTokenByName(featureContext, userName));
     });
 
     Then('订单取消成功', () => {
-      expect(context.order).toBeTruthy();
+      expect(featureContext.order).toBeTruthy();
     });
   });
 
-  Scenario('订单过期未付款', (s: StepTest<OrderResultContext>) => {
-    const { When, Then, And, context } = s;
+  Scenario('订单过期未付款', (s: StepTest) => {
+    const { When, Then, And } = s;
 
     When('订单过期未付款', async () => {
       const { broker } = featureContext;
       expect(featureContext.order).toBeTruthy();
-      context.order = featureContext.order!;
-      await expireOrder(broker, schema, context.order.id);
+      await expireOrder(broker, schema, featureContext.order!.id);
     });
 
     Then('订单变为过期状态不可再付款', async () => {
-      expect(context.order).toBeTruthy();
+      expect(featureContext.order).toBeTruthy();
       const { userToken, apiServer } = featureContext;
-      const latestOrder = await getOrderByApi(apiServer, context.order.id, userToken);
+      const latestOrder = await getOrderByApi(apiServer, featureContext.order!.id, userToken);
       expect(latestOrder.status).toBe('EXPIRED');
     });
 
@@ -598,14 +596,13 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('重复取消同一订单不会重复释放库存', (s: StepTest<OrderResultContext>) => {
-    const { When, Then, And, context } = s;
+  Scenario('重复取消同一订单不会重复释放库存', (s: StepTest) => {
+    const { When, Then, And } = s;
 
     When('用户 {string} 取消订单', async (_ctx, userName: string) => {
       const { apiServer } = featureContext;
       expect(featureContext.order).toBeTruthy();
-      context.order = featureContext.order!;
-      await cancelOrderByApi(apiServer, context.order.id, getUserTokenByName(featureContext, userName));
+      await cancelOrderByApi(apiServer, featureContext.order!.id, getUserTokenByName(featureContext, userName));
     });
 
     And('第一次取消后场次 {string} 的 {string} 库存应为 {int}', async (_ctx, sessionDate: string, ticketName: string, quantity: number) => {
@@ -615,12 +612,12 @@ describeFeature(feature, ({
 
     And('用户 {string} 再次取消同一订单', async (_ctx, userName: string) => {
       const { apiServer } = featureContext;
-      expect(context.order).toBeTruthy();
-      await cancelOrderByApi(apiServer, context.order.id, getUserTokenByName(featureContext, userName));
+      expect(featureContext.order).toBeTruthy();
+      await cancelOrderByApi(apiServer, featureContext.order!.id, getUserTokenByName(featureContext, userName));
     });
 
     Then('订单取消成功', () => {
-      expect(context.order).toBeTruthy();
+      expect(featureContext.order).toBeTruthy();
     });
 
     And('重复取消后场次 {string} 的 {string} 库存应为 {int}', async (_ctx, sessionDate: string, ticketName: string, quantity: number) => {
@@ -629,14 +626,13 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('过期处理任务重复执行不会重复释放库存', (s: StepTest<OrderResultContext>) => {
-    const { When, And, context } = s;
+  Scenario('过期处理任务重复执行不会重复释放库存', (s: StepTest) => {
+    const { When, And } = s;
 
     When('订单过期未付款', async () => {
       const { broker } = featureContext;
       expect(featureContext.order).toBeTruthy();
-      context.order = featureContext.order!;
-      await expireOrder(broker, schema, context.order.id);
+      await expireOrder(broker, schema, featureContext.order!.id);
     });
 
     And('执行订单过期处理任务', async () => {
@@ -650,24 +646,23 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('用户可以获取自己的订单详情', (s: StepTest<OrderResultContext & { orderDetail: Order.OrderWithItems }>) => {
+  Scenario('用户可以获取自己的订单详情', (s: StepTest<{ orderDetail: Order.OrderWithItems }>) => {
     const { When, Then, And, context } = s;
 
     When('用户 {string} 查看该订单详情', async (_ctx, userName: string) => {
       const { apiServer } = featureContext;
       expect(featureContext.order).toBeTruthy();
-      context.order = featureContext.order!;
       context.orderDetail = await getOrderByApi(
         apiServer,
-        context.order.id,
+        featureContext.order!.id,
         getUserTokenByName(featureContext, userName)
       );
     });
 
     Then('返回订单详情成功', () => {
       expect(context.orderDetail).toBeTruthy();
-      expect(context.order).toBeTruthy();
-      expect(context.orderDetail!.id).toBe(context.order.id);
+      expect(featureContext.order).toBeTruthy();
+      expect(context.orderDetail!.id).toBe(featureContext.order!.id);
     });
 
     And('订单有场次时间，为 {string}', (_ctx, expectedSessionDate: string) => {
@@ -691,7 +686,7 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('用户不能获取他人的订单详情', (s: StepTest<OrderResultContext & ErrorContext & { bobToken: string }>) => {
+  Scenario('用户不能获取他人的订单详情', (s: StepTest<ErrorContext & { bobToken: string }>) => {
     const { Given, When, Then, context } = s;
 
     Given('用户 {string} 已注册并登录', async (_ctx, userName: string) => {
@@ -705,10 +700,9 @@ describeFeature(feature, ({
       const { userToken, apiServer } = featureContext;
       try {
         expect(featureContext.order).toBeTruthy();
-        context.order = featureContext.order!;
         await getOrderByApi(
           apiServer,
-          context.order.id,
+          featureContext.order!.id,
           viewerName === 'Alice' ? userToken : getUserTokenByName(featureContext, viewerName),
         );
       } catch (error) {
@@ -911,13 +905,12 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('管理员可以查看所有订单列表', (s: StepTest<OrderListContext & OrderResultContext>) => {
+  Scenario('管理员可以查看所有订单列表', (s: StepTest<OrderListContext>) => {
     const { When, Then, And, context } = s;
 
     When('管理员查看订单列表', async () => {
       const { apiServer } = featureContext;
       expect(featureContext.order).toBeTruthy();
-      context.order = featureContext.order!;
       context.orders = await listOrdersAdminByApi(apiServer, featureContext.adminToken);
     });
 
@@ -927,33 +920,32 @@ describeFeature(feature, ({
     });
 
     And('订单列表包含用户 "Alice" 的订单', () => {
-      expect(context.order).toBeTruthy();
+      expect(featureContext.order).toBeTruthy();
       expect(context.orders).toBeTruthy();
-      const found = context.orders.orders.find(o => o.id === context.order.id);
+      const found = context.orders.orders.find(o => o.id === featureContext.order!.id);
       expect(found).toBeTruthy();
     });
   });
 
-  Scenario('管理员可以查看单条订单详情', (s: StepTest<OrderResultContext & { orderDetail: Order.OrderWithItems }>) => {
+  Scenario('管理员可以查看单条订单详情', (s: StepTest<{ orderDetail: Order.OrderWithItems }>) => {
     const { When, Then, And, context } = s;
 
     When('管理员查看该订单详情', async () => {
       const { apiServer } = featureContext;
       expect(featureContext.order).toBeTruthy();
-      context.order = featureContext.order!;
-      context.orderDetail = await getOrderAdminByApi(apiServer, context.order.id, featureContext.adminToken);
+      context.orderDetail = await getOrderAdminByApi(apiServer, featureContext.order!.id, featureContext.adminToken);
     });
 
     Then('返回订单详情成功', () => {
-      expect(context.order).toBeTruthy();
+      expect(featureContext.order).toBeTruthy();
       expect(context.orderDetail).toBeTruthy();
-      expect(context.orderDetail.id).toBe(context.order.id);
+      expect(context.orderDetail.id).toBe(featureContext.order!.id);
     });
 
     And('订单包含用户信息', () => {
-      expect(context.order).toBeTruthy();
+      expect(featureContext.order).toBeTruthy();
       expect(context.orderDetail).toBeTruthy();
-      expect(context.orderDetail.user_id).toBe(context.order.user_id);
+      expect(context.orderDetail.user_id).toBe(featureContext.order!.user_id);
     });
 
     And('订单包含 1 条订单项', () => {
