@@ -66,14 +66,48 @@ function sessionDateKey(session) {
   return text.slice(0, 10);
 }
 
-/** 按当前本地日期匹配场次 session_date（YYYY-MM-DD）；同日有上午/下午时默认上午场 */
-function findTodaySession(sessions) {
-  const today = dayjs().format("YYYY-MM-DD");
-  const matches = (sessions || []).filter((s) => sessionDateKey(s) === today);
-  if (!matches.length) return undefined;
-  const am = matches.find((s) => String(s.id || "").endsWith("-AM"));
-  if (am) return am;
-  return matches[0];
+function inferSessionSlot(session) {
+  const id = String(session?.id || "");
+  const name = String(session?.name || "");
+  if (/-PM$/.test(id) || /下午/.test(name)) return "PM";
+  if (/-AM$/.test(id) || /上午/.test(name)) return "AM";
+  return "";
+}
+
+function sessionSortValue(session) {
+  const opening = dayjs(String(session?.opening_time || "").trim());
+  if (opening.isValid()) return opening.valueOf();
+
+  const lastEntry = dayjs(String(session?.last_entry_time || "").trim());
+  if (lastEntry.isValid()) return lastEntry.valueOf();
+
+  const baseDate = dayjs(sessionDateKey(session));
+  if (!baseDate.isValid()) return Number.MAX_SAFE_INTEGER;
+  return (
+    baseDate.startOf("day").valueOf() + (inferSessionSlot(session) === "PM" ? 1 : 0)
+  );
+}
+
+function compareSessions(a, b) {
+  const diff = sessionSortValue(a) - sessionSortValue(b);
+  if (diff !== 0) return diff;
+  return String(a?.id || "").localeCompare(String(b?.id || ""));
+}
+
+function isSessionPurchasable(session, now = dayjs()) {
+  if (!session?.id || !sessionDateKey(session)) return false;
+  const lastEntryText = String(session?.last_entry_time || "").trim();
+  if (!lastEntryText) return true;
+  const lastEntry = dayjs(lastEntryText);
+  if (!lastEntry.isValid()) return true;
+  return !now.isAfter(lastEntry);
+}
+
+/** 取最近可买的场次；今天上午过期后自动落下午，再不行则落未来最近场次 */
+function findNearestPurchasableSession(sessions) {
+  return (sessions || [])
+    .filter((session) => isSessionPurchasable(session))
+    .sort(compareSessions)[0];
 }
 
 function refundHint(policy) {
@@ -132,6 +166,11 @@ function mapSessionOptions(rows) {
     .map((row) => ({
       id: row?.id || "",
       date: sessionDateKey(row),
+      session_date: row?.session_date || "",
+      name: row?.name || "",
+      opening_time: row?.opening_time || "",
+      closing_time: row?.closing_time || "",
+      last_entry_time: row?.last_entry_time || "",
     }))
     .filter((row) => row.id && row.date);
 }
@@ -157,13 +196,13 @@ export async function loadHomeTicketSection() {
   ]);
 
   const list = Array.isArray(sessions) ? sessions : [];
-  const todaySession = findTodaySession(list);
-  const ticketEvent = buildTicketEvent(exhibition, todaySession);
+  const selectedSession = findNearestPurchasableSession(list);
+  const ticketEvent = buildTicketEvent(exhibition, selectedSession);
   const sessionOptions = mapSessionOptions(list);
 
   let ticketTypes = [];
-  if (todaySession?.id) {
-    const sid = encodeURIComponent(todaySession.id);
+  if (selectedSession?.id) {
+    const sid = encodeURIComponent(selectedSession.id);
     const inv = await request.get(`/exhibition/${eid}/sessions/${sid}/tickets`);
     ticketTypes = mapSessionInventoryToHomeTickets(
       Array.isArray(inv) ? inv : [],
@@ -175,7 +214,7 @@ export async function loadHomeTicketSection() {
     ticketTypes,
     sessions: sessionOptions,
     /** 当前用于加载票价的场次，创建订单时作为 :sid */
-    sessionId: todaySession?.id || "",
+    sessionId: selectedSession?.id || "",
   };
 }
 
