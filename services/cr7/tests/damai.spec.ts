@@ -1419,50 +1419,47 @@ describeFeature(feature, ({
     });
 
     And('电子票信息中的电子票有 {int} 张', (_ctx, count: number) => {
-      expect(featureContext.getETicketResponse).toBeTruthy();
-      expect(featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos).toHaveLength(count);
+      const { getETicketResponse } = featureContext;
+      expect(getETicketResponse).toBeTruthy();
+      expect(getETicketResponse!.body.bodyGetESeatInfo.eticketInfos).toHaveLength(count);
     });
 
     And('电子票信息中的电子票的票单号为 cr7 订单 item ID，不是票种 ID', () => {
-      const eticketInfos = featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos;
-      const orderItemIds = new Set(featureContext.order!.items.map(item => item.id));
-      const ticketCategoryIds = new Set(featureContext.order!.items.map(item => item.ticket_category_id));
-
-      eticketInfos.forEach((ticket) => {
-        expect(orderItemIds.has(ticket.aoDetailId)).toBe(true);
-        expect(ticketCategoryIds.has(ticket.aoDetailId)).toBe(false);
-      });
+      const { getETicketResponse, order } = featureContext;
+      const eticketInfos = getETicketResponse!.body.bodyGetESeatInfo.eticketInfos;
+      expect(eticketInfos).toEqual(
+        eticketInfos.map(
+          (_, idx) => expect.objectContaining({ aoDetailId: order!.items[idx].id })
+        )
+      );
     });
 
     And('电子票信息中的证件类型为非实名制，值为 {int}', (_ctx, certType: number) => {
-      featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach((ticket) => {
+      const { getETicketResponse } = featureContext;
+      getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach((ticket) => {
         expect(ticket.certType).toBe(certType);
       });
     });
 
     And('电子票信息中的是否有座位为无座，值为 {boolean}', (_ctx, hasSeatLabel: boolean) => {
-      featureContext.getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach((ticket) => {
+      const { getETicketResponse } = featureContext;
+      getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.forEach((ticket) => {
         expect(ticket.hasSeat).toBe(hasSeatLabel);
       });
     });
 
     And('电子票信息中的票价为订单 item 价格，单位为分', () => {
       const { order, getETicketResponse } = featureContext;
-      const expectedPrices = order!.items.flatMap(item => Array.from(
-        { length: item.quantity },
-        () => item.unit_price,
-      ));
-      const actualPrices = getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.map(ticket => ticket.price);
-      expect(actualPrices).toEqual(expectedPrices);
+      const expectedPrices = order!.items.map(item => item.unit_price);
+      const eticketInfos = getETicketResponse!.body.bodyGetESeatInfo.eticketInfos;
+      expect(eticketInfos.map(ticket => ticket.price)).toEqual(expectedPrices);
     });
 
     And('电子票信息中的价格 ID 是票种 ID', () => {
       const { order, getETicketResponse } = featureContext;
-      const expectedPriceIds = order!.items.flatMap(item => Array.from(
-        { length: item.quantity },
-        () => item.ticket_category_id,
-      ));
-      const actualPriceIds = getETicketResponse!.body.bodyGetESeatInfo.eticketInfos.map(ticket => ticket.priceId);
+      const expectedPriceIds = order!.items.map(item => item.ticket_category_id);
+      const eticketInfos = getETicketResponse!.body.bodyGetESeatInfo.eticketInfos;
+      const actualPriceIds = eticketInfos.map(ticket => ticket.priceId);
       expect(actualPriceIds).toEqual(expectedPriceIds);
     });
 
