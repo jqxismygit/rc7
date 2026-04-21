@@ -1395,7 +1395,7 @@ class DamaiService extends RC7BaseService {
       return buildDamaiGetETicketInfoError('20030', '获取电子票失败');
     }
 
-    const eticketInfos = order.items.flatMap(item => Array.from({ length: item.quantity }, () => ({
+    const eticketInfos = order.items.map(item => ({
       aoDetailId: item.id,
       certType: DAMAI_CERT_TYPE_NON_REAL_NAME,
       hasSeat: false,
@@ -1404,7 +1404,7 @@ class DamaiService extends RC7BaseService {
       qrcodeType: DAMAI_QRCODE_TYPE_STATIC,
       qrCode: redemption.code,
       seatByNumber: false,
-    })));
+    }));
 
     return buildDamaiGetETicketInfoSuccess({
       projectName: exhibition.name,
@@ -1442,14 +1442,12 @@ class DamaiService extends RC7BaseService {
       throw new MoleculerClientError(`No order access context found for order ${oid}`, 404, 'ORDER_NOT_FOUND');
     }
 
-    const validateVoucherRequestList = order.items.flatMap(item =>
-      Array.from({ length: item.quantity }, () => ({
-        aoDetailId: item.id,
-        validateStatus: DAMAI_VALIDATE_STATUS_VALIDATED,
-        validateCount: 1,
-        validateTime: formatDamaiDateTime(redeemed_at),
-      }))
-    );
+    const validateVoucherRequestList = order.items.map(item => ({
+      aoDetailId: item.id,
+      validateStatus: DAMAI_VALIDATE_STATUS_VALIDATED,
+      validateCount: 1,
+      validateTime: formatDamaiDateTime(redeemed_at),
+    }));
 
     const body = {
       cOrderId: daMaiOrderId,
