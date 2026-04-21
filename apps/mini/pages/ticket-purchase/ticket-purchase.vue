@@ -162,14 +162,20 @@
         <view v-if="halfDaySessionsEnabled" class="session-slot-row">
           <view
             class="session-slot-pill"
-            :class="{ active: sessionSlot === 'AM' }"
+            :class="{
+              active: sessionSlot === 'AM',
+              disabled: !sessionSlotAvailable('AM'),
+            }"
             @click="onSessionSlotClick('AM')"
           >
             <text class="session-slot-text">上午场</text>
           </view>
           <view
             class="session-slot-pill"
-            :class="{ active: sessionSlot === 'PM' }"
+            :class="{
+              active: sessionSlot === 'PM',
+              disabled: !sessionSlotAvailable('PM'),
+            }"
             @click="onSessionSlotClick('PM')"
           >
             <text class="session-slot-text">下午场</text>
@@ -307,7 +313,7 @@ export default {
       /** 与首页 loadHomeTicketSection 返回的 sessionId 一致，用于创建订单 */
       sessionId: "",
       sessionOptions: [],
-      /** 上午场 AM / 下午场 PM；从首页进入默认上午场 */
+      /** 上午场 AM / 下午场 PM */
       sessionSlot: "AM",
       /** 按场次 id 缓存票种列表，切换上/下午不重复请求 */
       ticketTypesCache: {},
@@ -384,11 +390,10 @@ export default {
       return Math.min(MAX_TICKETS_PER_ORDER, stock || 1);
     },
 
-    /** 与 initDateSelection 一致：首个有场次的预设日，用于判断是否为「默认」选中 */
+    /** 与 initDateSelection 一致：默认落到最近可买日期 */
     defaultDateChipKey() {
-      const chips = this.dateChips.filter((c) => c.key !== "all");
-      const firstAvailable = chips.find((c) => !c.disabled && c.date);
-      return firstAvailable?.key || "today";
+      const selection = this.getNearestAvailableSelection();
+      return selection?.activeKey || "today";
     },
 
     dateChips() {
@@ -535,33 +540,131 @@ export default {
       return text.slice(0, 10);
     },
 
-    hasSessionForDate(date) {
+    sessionDateKey(session) {
+      return this.normalizeDateKey(session?.date || session?.session_date);
+    },
+
+    sessionLastEntryAt(session) {
+      const text = String(session?.last_entry_time || "").trim();
+      if (!text) return null;
+      const d = dayjs(text);
+      return d.isValid() ? d : null;
+    },
+
+    inferSessionSlot(session) {
+      const id = String(session?.id || "");
+      const name = String(session?.name || "");
+      if (/-PM$/.test(id) || /下午/.test(name)) return "PM";
+      if (/-AM$/.test(id) || /上午/.test(name)) return "AM";
+      return "";
+    },
+
+    sessionSortValue(session) {
+      const opening = dayjs(String(session?.opening_time || "").trim());
+      if (opening.isValid()) return opening.valueOf();
+
+      const lastEntry = this.sessionLastEntryAt(session);
+      if (lastEntry) return lastEntry.valueOf();
+
+      const baseDate = dayjs(this.sessionDateKey(session));
+      if (!baseDate.isValid()) return Number.MAX_SAFE_INTEGER;
+      return (
+        baseDate.startOf("day").valueOf() +
+        (this.inferSessionSlot(session) === "PM" ? 1 : 0)
+      );
+    },
+
+    compareSessions(a, b) {
+      const diff = this.sessionSortValue(a) - this.sessionSortValue(b);
+      if (diff !== 0) return diff;
+      return String(a?.id || "").localeCompare(String(b?.id || ""));
+    },
+
+    isSessionAvailable(session) {
+      if (!session?.id || !this.sessionDateKey(session)) return false;
+      const lastEntry = this.sessionLastEntryAt(session);
+      if (!lastEntry) return true;
+      return !dayjs().isAfter(lastEntry);
+    },
+
+    sessionsForDate(date, { availableOnly = false } = {}) {
       const target = dayjs(String(date || "").trim());
-      if (!target.isValid()) return false;
-      return this.sessionOptions.some((s) => {
-        if (!s?.id || !s?.date) return false;
-        const current = dayjs(String(s.date).trim());
-        return current.isValid() && current.isSame(target, "day");
-      });
+      if (!target.isValid()) return [];
+
+      return (this.sessionOptions || [])
+        .filter((session) => {
+          const current = dayjs(this.sessionDateKey(session));
+          if (!current.isValid() || !current.isSame(target, "day")) return false;
+          if (!availableOnly) return true;
+          return this.isSessionAvailable(session);
+        })
+        .sort((a, b) => this.compareSessions(a, b));
+    },
+
+    resolveActiveKeyForDate(date) {
+      const target = this.normalizeDateKey(date);
+      if (!target) return "all";
+
+      const today = dayjs().format("YYYY-MM-DD");
+      if (target === today) return "today";
+      if (target === dayjs().add(1, "day").format("YYYY-MM-DD")) {
+        return "tomorrow";
+      }
+      if (target === dayjs().add(2, "day").format("YYYY-MM-DD")) {
+        return "day_after_tomorrow";
+      }
+      return "all";
+    },
+
+    formatChipDateLabel(date) {
+      const d = dayjs(String(date || "").trim());
+      if (!d.isValid()) return "";
+      return `${d.month() + 1}月${d.date()}日`;
+    },
+
+    resolveSelectableSession(date, preferredSlot = this.sessionSlot) {
+      const availableSessions = this.sessionsForDate(date, { availableOnly: true });
+      if (!availableSessions.length) return null;
+
+      const preferred = availableSessions.find(
+        (session) => this.inferSessionSlot(session) === preferredSlot,
+      );
+      return preferred || availableSessions[0];
+    },
+
+    getNearestAvailableSelection() {
+      const availableSessions = (this.sessionOptions || [])
+        .filter((session) => this.isSessionAvailable(session))
+        .sort((a, b) => this.compareSessions(a, b));
+      const session = availableSessions[0];
+      if (!session) return null;
+
+      const date = this.sessionDateKey(session);
+      const activeKey = this.resolveActiveKeyForDate(date);
+      const slot = this.inferSessionSlot(session) || "AM";
+
+      return {
+        session,
+        date,
+        slot,
+        activeKey,
+        allDateLabel: activeKey === "all" ? this.formatChipDateLabel(date) : "",
+      };
+    },
+
+    hasSessionForDate(date) {
+      return this.sessionsForDate(date, { availableOnly: true }).length > 0;
     },
 
     /** 按日期 + 上/下午选择场次 id；无半日拆分时退回当日唯一场次 */
     sessionIdByDateAndSlot(date, slot) {
-      const target = dayjs(String(date || "").trim());
-      if (!target.isValid()) return "";
-      const sameDay = (this.sessionOptions || []).filter(
-        (s) =>
-          s?.id &&
-          s?.date &&
-          dayjs(String(s.date).trim()).isValid() &&
-          dayjs(String(s.date).trim()).isSame(target, "day"),
-      );
+      const sameDay = this.sessionsForDate(date, { availableOnly: true });
       if (!sameDay.length) return "";
       const suffix = slot === "PM" ? "-PM" : "-AM";
       const bySuffix = sameDay.find((s) => String(s.id).endsWith(suffix));
       if (bySuffix) return bySuffix.id;
       if (sameDay.length === 1) return sameDay[0].id;
-      return sameDay[0].id;
+      return "";
     },
 
     sessionSlotAvailable(slot) {
@@ -575,7 +678,7 @@ export default {
       if (slot === this.sessionSlot) return;
       if (!this.selectedDate) return;
       if (!this.sessionSlotAvailable(slot)) {
-        uni.showToast({ title: "该时段暂无场次", icon: "none" });
+        uni.showToast({ title: "该时段已不可购买", icon: "none" });
         return;
       }
       this.sessionSlot = slot;
@@ -656,39 +759,37 @@ export default {
 
     async applyDateSelection(date, activeKey) {
       if (!date) return;
-      let sid = this.sessionIdByDateAndSlot(date, this.sessionSlot);
-      if (!sid && this.sessionSlot === "PM") {
-        sid = this.sessionIdByDateAndSlot(date, "AM");
-        if (sid) this.sessionSlot = "AM";
-      }
-      if (!sid) {
+      const session = this.resolveSelectableSession(date, this.sessionSlot);
+      if (!session?.id) {
         uni.showToast({ title: "该日期暂无可选场次", icon: "none" });
         return;
       }
+      const slot = this.inferSessionSlot(session) || this.sessionSlot || "AM";
       this.selectedDate = date;
       this.activeDateKey = activeKey;
-      this.sessionId = sid;
+      this.allDateLabel =
+        activeKey === "all" ? this.formatChipDateLabel(date) : "";
+      this.sessionSlot = slot;
+      this.sessionId = session.id;
       await this.loadTicketsForDateSelection(date);
     },
 
     initDateSelection() {
-      const chips = this.dateChips.filter((c) => c.key !== "all");
-      const firstAvailable = chips.find((c) => !c.disabled && c.date);
-      if (!firstAvailable) {
+      const selection = this.getNearestAvailableSelection();
+      if (!selection?.session?.id) {
         this.selectedDate = "";
         this.activeDateKey = "today";
+        this.allDateLabel = "";
         this.sessionId = "";
         this.ticketTypes = [];
         this.selectedTicket = null;
         return;
       }
-      this.selectedDate = firstAvailable.date;
-      this.activeDateKey = firstAvailable.key;
-      const sid = this.sessionIdByDateAndSlot(
-        firstAvailable.date,
-        this.sessionSlot,
-      );
-      this.sessionId = sid;
+      this.selectedDate = selection.date;
+      this.activeDateKey = selection.activeKey;
+      this.allDateLabel = selection.allDateLabel;
+      this.sessionSlot = selection.slot;
+      this.sessionId = selection.session.id;
     },
 
     /** 取消当前日期筛选：回到首个有场次的预设日，并刷新票种 */
@@ -764,28 +865,7 @@ export default {
 
     async onAllDateChange(e) {
       const pickedDate = e.detail.value;
-      let sid = this.sessionIdByDateAndSlot(pickedDate, this.sessionSlot);
-      if (!sid && this.sessionSlot === "PM") {
-        sid = this.sessionIdByDateAndSlot(pickedDate, "AM");
-        if (sid) this.sessionSlot = "AM";
-      }
-      if (!sid) {
-        uni.showToast({ title: "该日期暂无可选场次", icon: "none" });
-        return;
-      }
-      this.selectedDate = pickedDate;
-      this.activeDateKey = "all";
-      this.sessionId = sid;
-      await this.loadTicketsForDateSelection(pickedDate);
-
-      if (this.selectedDate) {
-        const d = new Date(this.selectedDate.replace(/-/g, "/"));
-        const month = d.getMonth() + 1;
-        const day = d.getDate();
-        this.allDateLabel = `${month}月${day}日`;
-      } else {
-        this.allDateLabel = "";
-      }
+      await this.applyDateSelection(pickedDate, "all");
     },
 
     getToken() {
@@ -1172,6 +1252,10 @@ export default {
 
 .session-slot-pill.active .session-slot-text {
   color: $cr7-gold;
+}
+
+.session-slot-pill.disabled {
+  opacity: 0.45;
 }
 
 /* ===== 票种列表 ===== */

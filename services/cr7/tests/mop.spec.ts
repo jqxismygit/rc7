@@ -276,31 +276,36 @@ describeFeature(feature, ({
       );
     });
 
-    Given('展会添加票种 {string}, 准入人数为 {int}, 有效期为场次当天, 价格为 {int} 元', async (
-      _ctx,
-      ticketName: string,
-      admittance: number,
-      price: number,
-    ) => {
-      const { apiServer, adminToken, exhibition } = featureContext;
-      const ticket = await prepareTicketCategory(
-        apiServer,
-        adminToken,
-        exhibition.id,
-        {
-          name: ticketName,
-          admittance,
-          price: price * 100,
-          valid_duration_days: 1,
-          refund_policy: 'NON_REFUNDABLE',
-        },
-      );
+    Given(
+      '展会添加票种 {string}, 描述为 {string}, 准入人数为 {int}, 有效期为场次当天, 价格为 {int} 元',
+      async (
+        _ctx,
+        ticketName: string,
+        ticketDescription: string,
+        admittance: number,
+        price: number,
+      ) => {
+        const { apiServer, adminToken, exhibition } = featureContext;
+        const ticket = await prepareTicketCategory(
+          apiServer,
+          adminToken,
+          exhibition.id,
+          {
+            name: ticketName,
+            description: ticketDescription,
+            admittance,
+            price: price * 100,
+            valid_duration_days: 1,
+            refund_policy: 'NON_REFUNDABLE',
+          },
+        );
 
-      featureContext.ticketByName = {
-        ...featureContext.ticketByName,
-        [ticketName]: ticket,
-      };
-    });
+        featureContext.ticketByName = {
+          ...featureContext.ticketByName,
+          [ticketName]: ticket,
+        };
+      }
+    );
 
     And('{string} 库存为 {int}', async (_ctx, ticketName: string, quantity: number) => {
       const { apiServer, adminToken, ticketByName, exhibition } = featureContext;
@@ -543,10 +548,12 @@ describeFeature(feature, ({
         const expectedOffSaleTime = parseDatetimeCell(row['停售时间'], '停售时间');
         const expectedTicketPrice = Number(row['票面价（元）']);
         const expectedTicketSellPrice = Number(row['售卖价（元）']);
+        const expectedTicketDesc = row['描述'];
 
         return expect.objectContaining({
           otShowId: session!.id,
           name: ticket!.name,
+          ticketDesc: expectedTicketDesc,
           otSkuId: ticket!.id,
           skuPrice: expectedTicketPrice.toFixed(2),
           sellPrice: expectedTicketSellPrice.toFixed(2),
@@ -993,15 +1000,17 @@ describeFeature(feature, ({
     });
 
     And('订单详情中的第 {int} 个订单项的猫眼 ID 是 {string}', (_ctx, index: number, myTicketId: string) => {
-      expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1]).toBeTruthy();
-      expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1].myTicketId).toBe(myTicketId);
+      const { mopOrderQueryBody } = featureContext;
+      expect(mopOrderQueryBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(mopOrderQueryBody!.ticketInfo[index - 1].myTicketId).toBe(myTicketId);
     });
 
-    And('订单详情中的第 {int} 个订单项的渠道票 ID 是 {string} 的 ID', (_ctx, index: number, ticketName: string) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
-      expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1]).toBeTruthy();
-      expect(featureContext.mopOrderQueryBody!.ticketInfo[index - 1].channelTicketId).toBe(ticket.id);
+    And('订单详情中的第 {int} 个订单项的渠道票 ID 是 cr7 订单项 {int} 的 ID', (_ctx, index: number, orderItemIdx: number) => {
+      const { order, mopOrderQueryBody } = featureContext;
+      const orderItem = order!.items[orderItemIdx - 1];
+      expect(orderItem).toBeTruthy();
+      expect(mopOrderQueryBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(mopOrderQueryBody!.ticketInfo[index - 1].channelTicketId).toBe(orderItem.id);
     });
 
     And('订单详情中的第 {int} 个订单项的核销状态为未消费，值为 {int}', (_ctx, index: number, status: number) => {
@@ -1059,6 +1068,40 @@ describeFeature(feature, ({
       featureContext.mopTicketBody = await parseMopEncryptedResponse<MopTicketConfirmationResponse>(
         mopTicketEnvelope!
       );
+    });
+
+    And('订单支付结果中有 {int} 个订单项', (_ctx, itemCount: number) => {
+      const { mopTicketBody } = featureContext;
+      expect(mopTicketBody!.ticketInfo).toHaveLength(itemCount);
+    });
+
+    And('订单支付结果中的第 {int} 个订单项的猫眼 ID 是 {string}', (_ctx, index: number, myTicketId: string) => {
+      const { mopTicketBody } = featureContext;
+      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1].myTicketId).toBe(myTicketId);
+    });
+
+    And('订单支付结果中的第 {int} 个订单项的渠道票 ID 是 cr7 订单项 {int} 的 ID', (_ctx, index: number, orderItemIdx: number) => {
+      const { order } = featureContext;
+      const orderItem = order!.items[orderItemIdx - 1];
+      expect(orderItem).toBeTruthy();
+      const { mopTicketBody } = featureContext;
+      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1].channelTicketId).toBe(orderItem.id);
+    });
+
+    And('订单支付结果中的第 {int} 个订单项的检票码是 cr7 的订单的核销码', (_ctx, index: number) => {
+      const { mopTicketBody, orderRedemption } = featureContext;
+      expect(orderRedemption).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1].checkCode).toBe(orderRedemption!.code);
+    });
+
+    And('订单支付结果中的第 {int} 个订单项的检票二维码是 cr7 的订单的核销码', (_ctx, index: number) => {
+      const { mopTicketBody, orderRedemption } = featureContext;
+      expect(orderRedemption).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
+      expect(mopTicketBody!.ticketInfo[index - 1].checkQrCode).toBe(orderRedemption!.code);
     });
 
     // 取消订单
@@ -1582,39 +1625,6 @@ describeFeature(feature, ({
     And('订单支付结果中的取票二维码是 null', () => {
       const { mopTicketBody } = featureContext;
       expect(mopTicketBody!.fetchQrCode).toBeNull();
-    });
-
-    And('订单支付结果中有 {int} 个订单项', (_ctx, itemCount: number) => {
-      const { mopTicketBody } = featureContext;
-      expect(mopTicketBody!.ticketInfo).toHaveLength(itemCount);
-    });
-
-    And('订单支付结果中的第 {int} 个订单项的猫眼 ID 是 {string}', (_ctx, index: number, myTicketId: string) => {
-      const { mopTicketBody } = featureContext;
-      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
-      expect(mopTicketBody!.ticketInfo[index - 1].myTicketId).toBe(myTicketId);
-    });
-
-    And('订单支付结果中的第 {int} 个订单项的渠道票 ID 是 {string} 的 ID', (_ctx, index: number, ticketName: string) => {
-      const ticket = featureContext.ticketByName[ticketName];
-      expect(ticket).toBeTruthy();
-      const { mopTicketBody } = featureContext;
-      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
-      expect(mopTicketBody!.ticketInfo[index - 1].channelTicketId).toBe(ticket.id);
-    });
-
-    And('订单支付结果中的第 {int} 个订单项的检票码是 cr7 的订单的核销码', (_ctx, index: number) => {
-      const { mopTicketBody, orderRedemption } = featureContext;
-      expect(orderRedemption).toBeTruthy();
-      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
-      expect(mopTicketBody!.ticketInfo[index - 1].checkCode).toBe(orderRedemption!.code);
-    });
-
-    And('订单支付结果中的第 {int} 个订单项的检票二维码是 cr7 的订单的核销码', (_ctx, index: number) => {
-      const { mopTicketBody, orderRedemption } = featureContext;
-      expect(orderRedemption).toBeTruthy();
-      expect(mopTicketBody!.ticketInfo[index - 1]).toBeTruthy();
-      expect(mopTicketBody!.ticketInfo[index - 1].checkQrCode).toBe(orderRedemption!.code);
     });
 
     Then('订单同步记录里有 {int} 条记录', (_ctx, count: number) => {

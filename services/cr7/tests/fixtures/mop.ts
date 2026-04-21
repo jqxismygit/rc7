@@ -38,6 +38,7 @@ export interface SyncTicketsToMopRequest {
     otSkuId: string;
     otSkuStatus: number;
     name: string;
+    ticketDesc: string;
     skuPrice: string;
     sellPrice: string;
     onSaleTime: string;

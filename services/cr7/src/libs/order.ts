@@ -74,6 +74,12 @@ export class OrderService extends RC7BaseService {
           { type: 'string', pattern: HALF_SESSION_ID_REGEX.source },
         ],
         items: createOrderItemsParamsSchema,
+        merge_items: {
+          type: 'boolean',
+          optional: true,
+          default: true,
+          convert: true,
+        },
         source: {
           type: 'enum',
           values: ['CTRIP', 'MOP', 'DAMAI'],
@@ -245,15 +251,24 @@ export class OrderService extends RC7BaseService {
       eid: string;
       sid: string;
       items: Order.CreateOrderItem[];
+      merge_items?: boolean;
       source: Order.OrderSource;
     }>
   ) {
-    const { id, user_id, eid, sid, items, source } = ctx.params;
+    const { id, user_id, eid, sid, items, merge_items, source } = ctx.params;
     if (!user_id) {
       throw new MoleculerClientError('Missing user_id', 400, 'USER_ID_REQUIRED');
     }
 
-    return this.createOrderWithTransaction({ id, user_id, eid, sid, items, source });
+    return this.createOrderWithTransaction({
+      id,
+      user_id,
+      eid,
+      sid,
+      items,
+      merge_items,
+      source,
+    });
   }
 
   async createOrderWithTransaction(params: {
@@ -262,6 +277,7 @@ export class OrderService extends RC7BaseService {
     eid: string;
     sid: string;
     items: Order.CreateOrderItem[];
+    merge_items?: boolean;
     source: Order.OrderSource;
   }) {
     const schema = await this.getSchema();
@@ -277,6 +293,7 @@ export class OrderService extends RC7BaseService {
         session_id: sessionId,
         session_half: sessionHalf,
         items: params.items,
+        merge_items: params.merge_items,
         source: params.source,
       });
       await dbClient.query('COMMIT');

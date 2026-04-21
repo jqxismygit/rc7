@@ -41,6 +41,7 @@ import {
   ProFormDigit,
   ProFormSelect,
   ProFormText,
+  ProFormTextArea,
 } from "@ant-design/pro-components";
 import type { Exhibition as ExhibitionTypes } from "@cr7/types";
 import type { Inventory as InventoryTypes } from "@cr7/types";
@@ -150,6 +151,7 @@ const ticketFormInitial: CreateTicketCategoryInput = {
   valid_duration_days: 1,
   refund_policy: "NON_REFUNDABLE",
   admittance: 1,
+  description: "",
 };
 
 export default function ExhibitionDetailPage() {
@@ -531,6 +533,13 @@ export default function ExhibitionDetailPage() {
         dataIndex: "name",
         width: 160,
         ellipsis: true,
+      },
+      {
+        title: "票种描述",
+        dataIndex: "description",
+        width: 220,
+        ellipsis: true,
+        render: (text: string) => text || "—",
       },
       {
         title: "价格（元）",
@@ -1400,6 +1409,7 @@ export default function ExhibitionDetailPage() {
           editTicketData
             ? {
                 name: editTicketData.name,
+                description: editTicketData.description,
                 list_price: editTicketData.list_price * 0.01,
                 valid_duration_days: editTicketData.valid_duration_days,
                 refund_policy: editTicketData.refund_policy,
@@ -1426,6 +1436,12 @@ export default function ExhibitionDetailPage() {
           label="票种名称"
           placeholder="请输入票种名称"
           rules={[{ required: true, message: "请输入票种名称" }]}
+        />
+        <ProFormTextArea
+          name="description"
+          label="票种描述"
+          placeholder="请输入票种描述"
+          fieldProps={{ maxLength: 200, showCount: true, rows: 4 }}
         />
         <ProFormDigit
           name="list_price"
@@ -1483,8 +1499,14 @@ export default function ExhibitionDetailPage() {
           placeholder="请输入票种名称"
           rules={[{ required: true, message: "请输入票种名称" }]}
         />
+        <ProFormTextArea
+          name="description"
+          label="票种描述"
+          placeholder="请输入票种描述"
+          fieldProps={{ maxLength: 200, showCount: true, rows: 4 }}
+        />
         <ProFormDigit
-          name="price"
+          name="list_price"
           label="价格（元）"
           placeholder="0"
           fieldProps={{ min: 0, precision: 2, style: { width: "100%" } }}
