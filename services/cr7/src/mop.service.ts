@@ -899,11 +899,6 @@ export default class MoeService extends RC7BaseService {
     );
 
     await this.pushMopSyncRequest(
-      '/supply/open/mop/show/push',
-      this.buildShowSyncRequest(exhibition, sortedSessions),
-    );
-
-    await this.pushMopSyncRequest(
       '/supply/open/mop/sku/push',
       this.buildSkuSyncRequest(
         exhibition,
