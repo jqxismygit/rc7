@@ -807,7 +807,7 @@ describeFeature(feature, ({
       await expireOrder(broker, schema, context.order.id);
     });
 
-    When('用户 {string} 取消该订单', async (_ctx, userName: string) => {
+    When('用户 {string} 取消订单', async (_ctx, userName: string) => {
       const { apiServer } = featureContext;
 
       try {

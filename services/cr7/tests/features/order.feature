@@ -121,7 +121,7 @@ Feature: Order ticket
 
   Scenario: 用户取消已过期订单失败
     Given 用户 "Alice" 有一笔已过期订单
-     When 用户 "Alice" 取消该订单
+     When 用户 "Alice" 取消订单
      Then 取消失败，提示订单状态不允许取消
 
   Scenario: 用户创建空订单失败
