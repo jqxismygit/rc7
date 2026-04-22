@@ -60,7 +60,6 @@ type RedemptionContext = {
 };
 
 type RedemptionListContext = {
-  paidOrders: Order.OrderWithItems[];
   redemptionList: Redeem.RedemptionCodeListResult;
 };
 
@@ -83,7 +82,8 @@ interface DefaultUserContext {
 
 interface FeatureContext extends
   DefaultUserContext,
-  ExhibitionContext {
+  ExhibitionContext,
+  Partial<RedemptionListContext> {
   wechatFixture: WechatFixture;
   broker: ServiceBroker;
   apiServer: Server;
@@ -204,23 +204,59 @@ describeFeature(feature, ({
 
   defineSteps(({ Given, When, Then }) => {
     Given(
-      '用户预订 {int} 张该展会的 {string} 场次的 {string}',
-      async (_ctx, quantity: number, sessionDate: string, ticketName: string) => {
-        featureContext.currentOrder = await createOrderForCurrentUser(
-          featureContext,
-          sessionDate,
-          ticketName,
-          quantity,
+      '用户 {string} 预订 {int} 张该展会的 {string} 场次的 {string}',
+      async (
+        _ctx,
+        userName: string,
+        quantity: number,
+        sessionDate: string,
+        ticketName: string
+      ) => {
+        const {
+          exhibition, sessions, ticketByName, apiServer, usersByName
+        } = featureContext;
+        const user = usersByName[userName];
+        expect(user).toBeTruthy();
+        const { token } = user;
+
+        const session = getSessionByDate(sessions, sessionDate);
+        const ticket = ticketByName[ticketName];
+        expect(ticket, `Ticket '${ticketName}' not found`).toBeTruthy();
+        featureContext.currentOrder = await createOrderByApi(
+          apiServer,
+          exhibition.id,
+          session.id,
+          [{ ticket_category_id: ticket.id, quantity }],
+          token,
         );
       },
     );
+
+    When('用户 {string} 完成支付', async (_ctx, userName: string) => {
+      const { apiServer, usersByName, currentOrder } = featureContext;
+      const { token, profile } = usersByName[userName];
+      await markOrderAsPaidForTest(apiServer, token, currentOrder!, profile.openid!);
+    });
+
+    When('用户 {string} 查询订单核销信息', async (_ctx, userName: string) => {
+      const { apiServer, currentOrder, usersByName } = featureContext;
+      const { token } = usersByName[userName];
+      featureContext.redemption = await getOrderRedemption(
+        apiServer,
+        currentOrder!.id,
+        token,
+      );
+    });
 
     Given('用户 {string} 已注册并登录，已绑定手机号', async (_ctx, userName: string) => {
       const { apiServer, wechatFixture } = featureContext;
       const { token, profile } = await wechatFixture
         .registerAndBindPhone(apiServer, `${userName}_${Date.now()}`);
-      featureContext.userToken = token;
-      featureContext.userProfile = profile;
+      // 应该在 feature step 中指定用户，这里先做兼容处理
+      if (userName === 'Alice') {
+        featureContext.userToken = token;
+        featureContext.userProfile = profile;
+      }
       featureContext.usersByName[userName] = { token, profile };
     });
 
@@ -251,21 +287,46 @@ describeFeature(feature, ({
       }
     );
 
-    When('用户完成支付', async () => {
-      const { currentOrder } = featureContext;
-      await payOrderForCurrentUser(featureContext, currentOrder!);
-    });
-
-    Then('用户有一个有效的核销码', async () => {
-      const { currentOrder, apiServer, userToken } = featureContext;
+    Then('用户 {string} 有一个有效的核销码', async (_ctx, userName: string) => {
+      const { currentOrder, apiServer, usersByName } = featureContext;
+      const { token } = usersByName[userName];
       const redemption = await getOrderRedemption(
         apiServer,
         currentOrder!.id,
-        userToken,
+        token,
       );
       expect(redemption?.status).toBe('UNREDEEMED');
       featureContext.redemption = redemption;
     });
+
+    // list redemptions
+    When('用户 {string} 查询自己的核销码列表，第 {int} 页，每页 {int} 条', async (
+      _ctx,
+      userName: string,
+      page: number,
+      limit: number
+    ) => {
+      const { apiServer, usersByName } = featureContext;
+      const { token } = usersByName[userName];
+      featureContext.redemptionList = await listMyRedemptions(
+        apiServer,
+        token,
+        { page, limit },
+      );
+    });
+
+    When(
+      '用户 {string} 按状态 {string} 查询自己的核销码列表，第 {int} 页，每页 {int} 条',
+      async (_ctx, userName: string, status: Redeem.RedemptionStatus, page: number, limit: number) => {
+        const { apiServer, usersByName } = featureContext;
+        const { token } = usersByName[userName];
+        featureContext.redemptionList = await listMyRedemptions(
+          apiServer,
+          token,
+          { status, page, limit },
+        );
+      }
+    );
   });
 
   Background(({ Given, And }) => {
@@ -329,17 +390,7 @@ describeFeature(feature, ({
   Scenario(
     '一个完成支付的订单拥有一个核销码',
     (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
-      const { And, When, Then } = s;
-
-      When('用户查询订单核销信息', async () => {
-        const { currentOrder } = featureContext;
-        const { apiServer, userToken } = featureContext;
-        featureContext.redemption = await getOrderRedemption(
-          apiServer,
-          currentOrder!.id,
-          userToken,
-        );
-      });
+      const { And, Then } = s;
 
       Then('订单详情中包含一个核销码', () => {
         const { currentOrder, redemption } = featureContext;
@@ -424,8 +475,8 @@ describeFeature(feature, ({
 
   Scenario(
     '用户可以分页查询自己的核销码列表并按状态筛选',
-    (s: StepTest<RedemptionListContext>) => {
-      const { Given, When, Then, And, context } = s;
+    (s: StepTest<{ paidOrders: Order.OrderWithItems[] }>) => {
+      const { Given, Then, And, context } = s;
 
       Given('用户已完成 {int} 个订单支付用于核销码列表查询', async (_ctx, count: number) => {
         const total = count;
@@ -443,29 +494,24 @@ describeFeature(feature, ({
         }
       });
 
-      When('用户查询自己的核销码列表，第 {int} 页，每页 {int} 条', async (_ctx, page: number, limit: number) => {
-        const { apiServer, userToken } = featureContext;
-        context.redemptionList = await listMyRedemptions(
-          apiServer,
-          userToken,
-          { page, limit },
-        );
-      });
-
       Then('核销码列表总数为 {int}', (_ctx, total: number) => {
-        expect(context.redemptionList.total).toBe(total);
+        const { redemptionList } = featureContext;
+        expect(redemptionList!.total).toBe(total);
       });
 
       And('核销码列表当前页为 {int}', (_ctx, page: number) => {
-        expect(context.redemptionList.page).toBe(page);
+        const { redemptionList } = featureContext;
+        expect(redemptionList!.page).toBe(page);
       });
 
       And('核销码列表每页数量为 {int}', (_ctx, limit: number) => {
-        expect(context.redemptionList.limit).toBe(limit);
+        const { redemptionList } = featureContext;
+        expect(redemptionList!.limit).toBe(limit);
       });
 
       And('核销码列表返回 {int} 条记录', (_ctx, count: number) => {
-        expect(context.redemptionList.redemptions).toHaveLength(count);
+        const { redemptionList } = featureContext;
+        expect(redemptionList!.redemptions).toHaveLength(count);
       });
 
       Given('运营人员核销用户 {string} 的第 {int} 个订单核销码', async (_ctx, userName: string, index: number) => {
@@ -484,33 +530,26 @@ describeFeature(feature, ({
         await performRedeem(featureContext, redemption, operatorToken);
       });
 
-      When(
-        '用户按状态 {string} 查询自己的核销码列表，第 {int} 页，每页 {int} 条',
-        async (_ctx, status: Redeem.RedemptionStatus, page: number, limit: number) => {
-          const { apiServer, userToken } = featureContext;
-          context.redemptionList = await listMyRedemptions(
-            apiServer,
-            userToken,
-            { status, page, limit },
-          );
-        });
-
       Then('按状态筛选的核销码列表总数为 {int}', (_ctx, total: number) => {
-        expect(context.redemptionList.total).toBe(total);
+        const { redemptionList } = featureContext;
+        expect(redemptionList!.total).toBe(total);
       });
 
       And('按状态筛选的核销码列表返回 {int} 条记录', (_ctx, count: number) => {
-        expect(context.redemptionList.redemptions).toHaveLength(count);
+        const { redemptionList } = featureContext;
+        expect(redemptionList!.redemptions).toHaveLength(count);
       });
 
       And('按状态筛选结果中的订单 ID 与第 {int} 个订单一致', (_ctx, index: number) => {
         const order = context.paidOrders[index - 1];
         expect(order).toBeTruthy();
-        expect(context.redemptionList.redemptions[0].order_id).toBe(order.id);
+        const { redemptionList } = featureContext;
+        expect(redemptionList!.redemptions[0].order_id).toBe(order.id);
       });
 
       And('按状态筛选结果中的订单场次日期为 {string}', (_ctx, sessionDate: string) => {
-        expect(context.redemptionList.redemptions[0].session.session_date).toBe(toDateLabel(sessionDate));
+        const { redemptionList } = featureContext;
+        expect(redemptionList!.redemptions[0].session.session_date).toBe(toDateLabel(sessionDate));
       });
     },
   );
@@ -556,24 +595,27 @@ describeFeature(feature, ({
 
   Scenario(
     '一个未完成支付的订单没有核销码',
-    (s: StepTest<OrderContext & ErrorContext>) => {
+    (s: StepTest<{
+      redemptionRequest: Promise<Redeem.RedemptionCodeWithOrder>;
+    }>) => {
       const { And, When, Then, context } = s;
 
-      When('用户查询订单核销信息', async () => {
-        const { currentOrder, apiServer, userToken } = featureContext;
-        context.lastErrorPromise = getOrderRedemption(
+      When('用户 {string} 查询订单核销信息', async (_ctx, userName: string) => {
+        const { currentOrder, apiServer, usersByName } = featureContext;
+        const { token } = usersByName[userName];
+        context.redemptionRequest = getOrderRedemption(
           apiServer,
           currentOrder!.id,
-          userToken,
+          token,
         );
       });
 
       Then('操作失败，状态码为 {int}', async (_ctx, statusCode: number) => {
-        await expect(context.lastErrorPromise).rejects.toMatchObject({ status: statusCode });
+        await expect(context.redemptionRequest).rejects.toMatchObject({ status: statusCode });
       });
 
       And('错误类型为 {string}', async (_ctx, errorType: string) => {
-        await expect(context.lastErrorPromise).rejects.toMatchObject({ body: { type: errorType } });
+        await expect(context.redemptionRequest).rejects.toMatchObject({ body: { type: errorType } });
       });
     },
   );
@@ -877,4 +919,8 @@ describeFeature(feature, ({
       });
     },
   );
+
+  // Scenario.skip('转移核销码', () => {
+
+  // });
 });
