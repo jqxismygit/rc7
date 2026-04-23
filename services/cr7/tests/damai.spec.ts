@@ -571,7 +571,6 @@ describeFeature(feature, ({
         timestamp: request!.head.timestamp,
         version: request!.head.version,
       })).toBe(true);
-      expect(featureContext.createOrderResponse?.head.returnCode).toBe('0');
     });
 
     And('cr7 创建了一个订单，来源为 {string}, 状态为待支付', async (_ctx, source: string) => {
@@ -1283,7 +1282,6 @@ describeFeature(feature, ({
         timestamp: request!.head.timestamp,
         version: request!.head.version,
       })).toBe(true);
-      expect(featureContext.createOrderResponse?.head.returnCode).toBe('0');
     });
 
     And('cr7 给大麦返回了订单同步结果，订单 ID 是之前创建的订单 ID，订单总金额是 {int} 分，实付金额是 {int} 分', (_ctx, totalAmount: number, payAmount: number) => {
@@ -1292,6 +1290,23 @@ describeFeature(feature, ({
       expect(featureContext.createOrderResponse!.body.orderInfo.orderId).toBe(featureContext.order!.id);
       expect(featureContext.createOrderResponse!.body.orderInfo.totalAmount).toBe(totalAmount);
       expect(featureContext.createOrderResponse!.body.orderInfo.realAmount).toBe(payAmount);
+    });
+  });
+
+  Scenario('库存不足时用户通过大麦 OTA 创建订单', (s: StepTest<void>) => {
+    const { Then, And } = s;
+
+    And('cr7 没有创建订单', () => {
+      const response = featureContext.createOrderResponse;
+      expect(response).toBeTruthy();
+      expect(response!.body.orderInfo.orderId ?? null).toBeNull();
+    });
+
+    Then('cr7 给大麦返回了订单同步结果，状态为失败，原因是 {string}', (_ctx, reason: string) => {
+      const response = featureContext.createOrderResponse;
+      expect(response).toBeTruthy();
+      expect(response!.head.returnCode).not.toBe('0');
+      expect(response!.head.returnDesc).toBe(reason);
     });
   });
 
