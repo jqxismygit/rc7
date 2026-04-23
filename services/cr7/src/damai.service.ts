@@ -11,7 +11,6 @@ import {
   updateDamaiOrderSyncRecord,
 } from './data/damai.js';
 import { HALF_SESSION_ID_REGEX, parseSelectedSessionId } from './libs/session-id.js';
-import { PaymentDataError } from './data/payment.js';
 
 const { MoleculerClientError } = Errors;
 
@@ -266,7 +265,7 @@ const DAMAI_PAY_STATUS_SUCCESS = 1;
 const DAMAI_VALIDATE_URI = '/b2b2c/2.0/sync/validate';
 const DAMAI_REFUND_CALLBACK_NOTIFY_URI = '/b2b2c/2.0/refund/callback/notify';
 const DAMAI_VALIDATE_STATUS_VALIDATED = 2;
-const DAMAI_REFUND_STATUS_SUCCESS = 1;
+const DAMAI_REFUND_STATUS_SUCCESS = 0;
 const DAMAI_CERT_TYPE_NON_REAL_NAME = 0;
 const DAMAI_QRCODE_TYPE_STATIC = 1;
 const DAMAI_REFUND_TYPE_CONDITIONAL = 5;
@@ -1404,6 +1403,7 @@ class DamaiService extends RC7BaseService {
       sign: config.damai.sign,
       body: refundNotifyBody,
     });
+    return;
   }
 
   async getETicketInfoFromDamai(
