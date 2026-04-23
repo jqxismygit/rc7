@@ -191,9 +191,7 @@ type DamaiRefundApplyInfo = {
 
 type DamaiRefundApplyRequest = {
   head: DamaiHeadPayload;
-  bodyRefund: {
-    refundInfo: DamaiRefundApplyInfo;
-  };
+  bodyRefund: DamaiRefundApplyInfo;
 };
 
 type DamaiRefundApplyResponse = {
@@ -641,16 +639,11 @@ class DamaiService extends RC7BaseService {
             bodyRefund: {
               type: 'object',
               props: {
-                refundInfo: {
-                  type: 'object',
-                  props: {
-                    daMaiOrderId: 'string|min:1',
-                    orderId: 'uuid',
-                    daMaiRefundId: 'string|min:1',
-                    refundReason: 'string|min:1',
-                    orderAmount: { type: 'number', integer: true, min: 0 },
-                  },
-                },
+                daMaiOrderId: 'string|min:1',
+                orderId: 'uuid',
+                daMaiRefundId: 'string|min:1',
+                refundReason: 'string|min:1',
+                orderAmount: { type: 'number', integer: true, min: 0 },
               },
             },
           },
@@ -1227,7 +1220,7 @@ class DamaiService extends RC7BaseService {
 
     const payload = ctx.params;
     const schema = await this.getSchema();
-    const damaiOrderId = payload.bodyRefund?.refundInfo?.daMaiOrderId ?? null;
+    const damaiOrderId = payload.bodyRefund?.daMaiOrderId ?? null;
 
     const { id: recordId } = await createDamaiOrderSyncRecord(this.pool, schema, {
       damaiOrderId,
@@ -1242,16 +1235,16 @@ class DamaiService extends RC7BaseService {
       return this.finishWithDamaiResponse(recordId, buildDamaiRefundApplyError('20000', '签名错误'));
     }
 
-    const refundInfo = payload.bodyRefund?.refundInfo;
-    const orderId = refundInfo?.orderId;
-    const refundId = refundInfo?.daMaiRefundId;
-    const orderAmount = refundInfo?.orderAmount;
+    const bodyRefund = payload.bodyRefund;
+    const orderId = bodyRefund?.orderId;
+    const refundId = bodyRefund?.daMaiRefundId;
+    const orderAmount = bodyRefund?.orderAmount;
     if (
-      !refundInfo
-      || !refundInfo.daMaiOrderId
+      !bodyRefund
+      || !bodyRefund.daMaiOrderId
       || !orderId
       || !refundId
-      || !refundInfo.refundReason
+      || !bodyRefund.refundReason
       || typeof orderAmount !== 'number'
       || orderAmount < 0
     ) {
@@ -1284,9 +1277,9 @@ class DamaiService extends RC7BaseService {
         {
           oid: order.id,
           payment_method: 'DAMAI' as const,
-          out_trade_no: refundInfo.daMaiOrderId,
+          out_trade_no: bodyRefund.daMaiOrderId,
           out_refund_no: outRefundNo,
-          reason: refundInfo.refundReason,
+          reason: bodyRefund.refundReason,
           refund_amount: orderAmount,
         },
         { meta: { user: { uid: order.user_id } } }
@@ -1305,7 +1298,7 @@ class DamaiService extends RC7BaseService {
       await ctx.call('cr7.order.markRefunded', { oid: order.id });
 
       const refundNotifyBody = {
-        daMaiOrderId: refundInfo.daMaiOrderId,
+        daMaiOrderId: bodyRefund.daMaiOrderId,
         daMaiRefundId: refundId,
         orderId: order.id,
         refundId: outRefundNo,

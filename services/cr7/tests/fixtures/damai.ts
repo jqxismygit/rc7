@@ -347,9 +347,7 @@ export interface DamaiRefundApplyRequest {
     timestamp: string;
     signed: string;
   };
-  bodyRefund: {
-    refundInfo: DamaiRefundCallBackBody;
-  };
+  bodyRefund: DamaiRefundCallBackBody;
 }
 
 export interface DamaiRefundApplyResponse {
@@ -360,7 +358,7 @@ export interface DamaiRefundApplyResponse {
 }
 
 export function buildDamaiRefundApplyRequest(
-  refundInfo: DamaiRefundCallBackBody,
+  bodyRefund: DamaiRefundCallBackBody,
 ): DamaiRefundApplyRequest {
   const signature = buildDamaiSignature({
     apiKey: config.damai.api_key,
@@ -376,9 +374,7 @@ export function buildDamaiRefundApplyRequest(
       timestamp: signature.timestamp,
       signed: signature.signed,
     },
-    bodyRefund: {
-      refundInfo,
-    },
+    bodyRefund,
   };
 }
 
