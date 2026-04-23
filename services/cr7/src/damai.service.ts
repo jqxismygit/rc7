@@ -191,7 +191,7 @@ type DamaiRefundApplyInfo = {
 
 type DamaiRefundApplyRequest = {
   head: DamaiHeadPayload;
-  bodyRefundApply: {
+  bodyRefund: {
     refundInfo: DamaiRefundApplyInfo;
   };
 };
@@ -638,7 +638,7 @@ class DamaiService extends RC7BaseService {
           rest: 'POST /refundApply',
           params: {
             head: damaiHeadParamsSchema,
-            bodyRefundApply: {
+            bodyRefund: {
               type: 'object',
               props: {
                 refundInfo: {
@@ -1227,7 +1227,7 @@ class DamaiService extends RC7BaseService {
 
     const payload = ctx.params;
     const schema = await this.getSchema();
-    const damaiOrderId = payload.bodyRefundApply?.refundInfo?.daMaiOrderId ?? null;
+    const damaiOrderId = payload.bodyRefund?.refundInfo?.daMaiOrderId ?? null;
 
     const { id: recordId } = await createDamaiOrderSyncRecord(this.pool, schema, {
       damaiOrderId,
@@ -1242,7 +1242,7 @@ class DamaiService extends RC7BaseService {
       return this.finishWithDamaiResponse(recordId, buildDamaiRefundApplyError('20000', '签名错误'));
     }
 
-    const refundInfo = payload.bodyRefundApply?.refundInfo;
+    const refundInfo = payload.bodyRefund?.refundInfo;
     const orderId = refundInfo?.orderId;
     const refundId = refundInfo?.refundId;
     const refundAmountFen = refundInfo?.refundAmountFen;

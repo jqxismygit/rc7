@@ -347,7 +347,7 @@ export interface DamaiRefundApplyRequest {
     timestamp: string;
     signed: string;
   };
-  bodyRefundApply: {
+  bodyRefund: {
     refundInfo: DamaiRefundCallBackBody;
   };
 }
@@ -376,7 +376,7 @@ export function buildDamaiRefundApplyRequest(
       timestamp: signature.timestamp,
       signed: signature.signed,
     },
-    bodyRefundApply: {
+    bodyRefund: {
       refundInfo,
     },
   };

@@ -1657,23 +1657,23 @@ describeFeature(feature, ({
     });
 
     And('订单退款申请消息中的大麦订单 ID 是 {string}', (_ctx, damaiOrderId: string) => {
-      expect(featureContext.refundApplyRequest!.bodyRefundApply.refundInfo.daMaiOrderId).toBe(damaiOrderId);
+      expect(featureContext.refundApplyRequest!.bodyRefund.refundInfo.daMaiOrderId).toBe(damaiOrderId);
     });
 
     And('订单退款申请消息中的订单 ID 是 cr7 创建的订单 ID', () => {
-      expect(featureContext.refundApplyRequest!.bodyRefundApply.refundInfo.orderId).toBe(featureContext.order!.id);
+      expect(featureContext.refundApplyRequest!.bodyRefund.refundInfo.orderId).toBe(featureContext.order!.id);
     });
 
     And('订单退款申请消息中的退款 ID 是 {string}', (_ctx, refundId: string) => {
-      expect(featureContext.refundApplyRequest!.bodyRefundApply.refundInfo.refundId).toBe(refundId);
+      expect(featureContext.refundApplyRequest!.bodyRefund.refundInfo.refundId).toBe(refundId);
     });
 
     And('订单退款申请消息中的退款原因是 {string}', (_ctx, refundReason: string) => {
-      expect(featureContext.refundApplyRequest!.bodyRefundApply.refundInfo.refundReason).toBe(refundReason);
+      expect(featureContext.refundApplyRequest!.bodyRefund.refundInfo.refundReason).toBe(refundReason);
     });
 
     And('订单退款申请消息中的退款金额是 {int} 分', (_ctx, refundAmountFen: number) => {
-      expect(featureContext.refundApplyRequest!.bodyRefundApply.refundInfo.refundAmountFen).toBe(refundAmountFen);
+      expect(featureContext.refundApplyRequest!.bodyRefund.refundInfo.refundAmountFen).toBe(refundAmountFen);
     });
 
     Then('cr7 将订单状态更新为已退款', async () => {
