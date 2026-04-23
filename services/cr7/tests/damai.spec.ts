@@ -1364,7 +1364,7 @@ describeFeature(feature, ({
       );
     });
 
-    Then('大麦收到查询电子票信息的请求，可以正常验证签名', () => {
+    Then('cr7 收到查询电子票信息的请求，可以正常验证签名', () => {
       const request = featureContext.getETicketRequest;
       expect(request).toBeTruthy();
       expect(verifyDamaiSignature(request!.head.signed, {

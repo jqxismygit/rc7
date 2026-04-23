@@ -966,7 +966,10 @@ class DamaiService extends RC7BaseService {
       { eid: projectId },
     ).catch(() => null);
     if (!exhibition) {
-      return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20015', '项目状态异常'));
+      return this.finishWithDamaiResponse(
+        recordId,
+        buildDamaiCreateOrderError('20015', '项目状态异常')
+      );
     }
 
     const session = await ctx
@@ -976,7 +979,10 @@ class DamaiService extends RC7BaseService {
       )
       .catch(() => null);
     if (!session) {
-      return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20013', '场次状态异常'));
+      return this.finishWithDamaiResponse(
+        recordId,
+        buildDamaiCreateOrderError('20013', '场次状态异常')
+      );
     }
 
     const tickets = await ctx.call<Exhibition.TicketCategory[], { eid: string }>(
@@ -987,50 +993,74 @@ class DamaiService extends RC7BaseService {
 
     for (const commodity of commodityInfoList) {
       if (!commodity.priceId || !commodity.subOrderId) {
-        return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20001', '参数异常'));
+        return this.finishWithDamaiResponse(
+          recordId,
+          buildDamaiCreateOrderError('20001', '参数异常')
+        );
       }
 
       if (!ticketById.has(commodity.priceId)) {
-        return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20015', '票档状态异常'));
+        return this.finishWithDamaiResponse(
+          recordId,
+          buildDamaiCreateOrderError('20015', '票档状态异常')
+        );
       }
     }
 
     let calculatedTotalAmountFen = 0;
-    const itemCountBySku = new Map<string, number>();
+    const orderItems: Order.CreateOrderItem[] = [];
     for (const item of priceInfo) {
       const quantity = typeof item.num === 'string' ? Number(item.num) : item.num;
       if (!item || !item.priceId || !Number.isInteger(quantity) || quantity <= 0) {
-        return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20001', '参数异常'));
+        return this.finishWithDamaiResponse(
+          recordId,
+          buildDamaiCreateOrderError('20001', '参数异常')
+        );
       }
 
       const ticket = ticketById.get(item.priceId);
       if (!ticket) {
-        return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20015', '票档状态异常'));
+        return this.finishWithDamaiResponse(
+          recordId,
+          buildDamaiCreateOrderError('20015', '票档状态异常')
+        );
       }
 
-      const [calendarItem] = await ctx.call<
-        Inventory.TicketCalendarInventory[],
-        { eid: string; tid: string; start_session_date: Date; end_session_date: Date }
-      >('cr7.exhibition.listTicketCalendarInventory', {
-        eid: projectId,
-        tid: ticket.id,
-        start_session_date: session.session_date,
-        end_session_date: session.session_date,
-      });
+      const [calendarItem] = await ctx.call(
+        'cr7.exhibition.listTicketCalendarInventory',
+        {
+          eid: projectId,
+          tid: ticket.id,
+          start_session_date: session.session_date,
+          end_session_date: session.session_date,
+        }
+      ) as Inventory.TicketCalendarInventory[];
+
       if (!calendarItem) {
-        return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20015', '票档状态异常'));
+        return this.finishWithDamaiResponse(
+          recordId,
+          buildDamaiCreateOrderError('20015', '票档状态异常')
+        );
       }
 
       if (item.price !== calendarItem.price) {
-        return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20014', '订单价格不一致'));
+        return this.finishWithDamaiResponse(
+          recordId,
+          buildDamaiCreateOrderError('20014', '订单价格不一致')
+        );
       }
 
       calculatedTotalAmountFen += item.price * quantity;
-      itemCountBySku.set(item.priceId, (itemCountBySku.get(item.priceId) ?? 0) + quantity);
+      Array.from({ length: quantity }, () => {
+        orderItems.push({ ticket_category_id: ticket.id, quantity: 1 });
+      });
     }
 
     if (calculatedTotalAmountFen !== totalAmountFen || realAmountOfFen !== totalAmountFen) {
-      return this.finishWithDamaiResponse(recordId, buildDamaiCreateOrderError('20014', '订单价格不一致'));
+      return this.finishWithDamaiResponse(
+        recordId,
+        buildDamaiCreateOrderError('20014', '订单价格不一致')
+      );
     }
 
     const userId = await ctx.call<string, { damai_user_id: string; name: string }>(
@@ -1042,22 +1072,17 @@ class DamaiService extends RC7BaseService {
     );
 
     try {
-      const order = await ctx.call<Order.OrderWithItems, {
-        eid: string;
-        sid: string;
-        items: Order.CreateOrderItem[];
-        source: Order.OrderSource;
-        user_id: string;
-      }>('cr7.order.create', {
-        eid: projectId,
-        sid: performId,
-        items: Array.from(itemCountBySku.entries()).map(([ticket_category_id, quantity]) => ({
-          ticket_category_id,
-          quantity,
-        })),
-        source: 'DAMAI',
-        user_id: userId,
-      });
+      const order = await ctx.call(
+        'cr7.order.create',
+        {
+          eid: projectId,
+          sid: performId,
+          items: orderItems,
+          source: 'DAMAI',
+          merge_items: false,
+          user_id: userId,
+        }
+      ) as Order.OrderWithItems;
 
       return this.finishWithDamaiResponse(
         recordId,
