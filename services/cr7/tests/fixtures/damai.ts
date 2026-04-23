@@ -333,9 +333,9 @@ export async function syncDamaiCancelOrderToCr7(
 export interface DamaiRefundCallBackBody {
   daMaiOrderId: string;
   orderId: string;
-  refundId: string;
+  daMaiRefundId: string;
   refundReason: string;
-  refundAmountFen: number;
+  orderAmount: number;
 }
 
 export interface DamaiRefundApplyRequest {

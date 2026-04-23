@@ -184,9 +184,9 @@ type DamaiCancelOrderResponse = {
 type DamaiRefundApplyInfo = {
   daMaiOrderId: string;
   orderId: string;
-  refundId: string;
+  daMaiRefundId: string;
   refundReason: string;
-  refundAmountFen: number;
+  orderAmount: number;
 };
 
 type DamaiRefundApplyRequest = {
@@ -646,9 +646,9 @@ class DamaiService extends RC7BaseService {
                   props: {
                     daMaiOrderId: 'string|min:1',
                     orderId: 'uuid',
-                    refundId: 'string|min:1',
+                    daMaiRefundId: 'string|min:1',
                     refundReason: 'string|min:1',
-                    refundAmountFen: { type: 'number', integer: true, min: 0 },
+                    orderAmount: { type: 'number', integer: true, min: 0 },
                   },
                 },
               },
@@ -1244,16 +1244,16 @@ class DamaiService extends RC7BaseService {
 
     const refundInfo = payload.bodyRefund?.refundInfo;
     const orderId = refundInfo?.orderId;
-    const refundId = refundInfo?.refundId;
-    const refundAmountFen = refundInfo?.refundAmountFen;
+    const refundId = refundInfo?.daMaiRefundId;
+    const orderAmount = refundInfo?.orderAmount;
     if (
       !refundInfo
       || !refundInfo.daMaiOrderId
       || !orderId
       || !refundId
       || !refundInfo.refundReason
-      || typeof refundAmountFen !== 'number'
-      || refundAmountFen < 0
+      || typeof orderAmount !== 'number'
+      || orderAmount < 0
     ) {
       return this.finishWithDamaiResponse(recordId, buildDamaiRefundApplyError('20001', '参数异常'));
     }
@@ -1266,7 +1266,7 @@ class DamaiService extends RC7BaseService {
       return this.finishWithDamaiResponse(recordId, buildDamaiRefundApplyError('20050', '退款失败--订单不存在'));
     }
 
-    if (refundAmountFen !== order.total_amount) {
+    if (orderAmount !== order.total_amount) {
       return this.finishWithDamaiResponse(
         recordId,
         buildDamaiRefundApplyError('20051', '退款金额不一致'),
@@ -1287,7 +1287,7 @@ class DamaiService extends RC7BaseService {
           out_trade_no: refundInfo.daMaiOrderId,
           out_refund_no: outRefundNo,
           reason: refundInfo.refundReason,
-          refund_amount: refundAmountFen,
+          refund_amount: orderAmount,
         },
         { meta: { user: { uid: order.user_id } } }
       );
