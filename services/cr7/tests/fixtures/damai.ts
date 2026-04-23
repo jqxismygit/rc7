@@ -355,6 +355,9 @@ export interface DamaiRefundApplyResponse {
     returnCode: string;
     returnDesc: string;
   };
+  body: {
+    refundId: string;
+  };
 }
 
 export function buildDamaiRefundApplyRequest(

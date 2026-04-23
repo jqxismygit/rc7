@@ -285,10 +285,11 @@ function formatDamaiSessionDateTime(sessionDate: string | Date, time: string): s
 }
 
 function getDamaiRequestArg<Body = DamaiRequestBody>(
-  mock: DamaiRequestHandler<Body>
+  mock: DamaiRequestHandler<Body>,
+  index = -1,
 ): DamaiMockRequest<Body> {
   expect(mock).toHaveBeenCalled();
-  const [request] = mock!.mock.calls.at(-1) ?? [];
+  const [request] = mock!.mock.calls.at(index) ?? [];
   expect(request).toBeTruthy();
   return request as DamaiMockRequest<Body>;
 }
@@ -1624,38 +1625,6 @@ describeFeature(feature, ({
 
   Scenario('用户在大麦申请了退款', (s: StepTest<void>) => {
     const { Then, And, When } = s;
-
-    When('携程收到 cr7 推送的退款结果消息', () => {
-      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(featureContext.damaiRequestHandler!);
-      expect(request.path).toBe('/b2b2c/2.0/refund/callback/notify');
-      expect(request.method).toBe('POST');
-    });
-
-    Then('退款成功消息中的大麦订单号 {string}，商家订单号是 cr7 创建的订单 ID', (_ctx, damaiOrderId: string) => {
-      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(featureContext.damaiRequestHandler!);
-      expect(request.body.daMaiOrderId).toBe(damaiOrderId);
-      expect(request.body.orderId).toBe(featureContext.order!.id);
-    });
-
-    And('退款成功消息中的退款 ID 是 {string}', (_ctx, daMaiRefundId: string) => {
-      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(featureContext.damaiRequestHandler!);
-      expect(request.body.daMaiRefundId).toBe(daMaiRefundId);
-    });
-
-    And('退款成功消息中的商家退款号是 cr7 生成的退款单号', () => {
-      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(featureContext.damaiRequestHandler!);
-      expect(request.body.refundId).toBe(featureContext.order!.current_refund_out_refund_no);
-    });
-
-    And('退款成功消息中的退款状态是成功 ，值为 {int}', (_ctx, status: number) => {
-      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(featureContext.damaiRequestHandler!);
-      expect(request.body.status).toBe(status);
-    });
-
-    Then('携程返回接收退款消息的响应，状态为成功，值为 {int}', (_ctx, responseCode: number) => {
-      expect(responseCode).toBe(0);
-    });
-
     And('订单退款申请消息中的大麦订单 ID 是 {string}', (_ctx, damaiOrderId: string) => {
       expect(featureContext.refundApplyRequest!.bodyRefund.daMaiOrderId).toBe(damaiOrderId);
     });
@@ -1696,13 +1665,39 @@ describeFeature(feature, ({
     });
 
     Then('cr7 返回的订单退款结果里的退款 ID 是 cr7生成的 uuid 去掉短横线的字符串', async () => {
-      const order = await getOrderAdmin(
-        featureContext.apiServer,
-        featureContext.order!.id,
-        featureContext.adminToken,
-      );
-      expect(order.current_refund_out_refund_no).toMatch(/^[0-9a-f]{32}$/i);
-      featureContext.order = order;
+      const { refundApplyResponse } = featureContext;
+      expect(refundApplyResponse!.body.refundId).toMatch(/^[0-9a-f]{32}$/i);
+    });
+
+    When('大麦收到 cr7 推送的退款结果消息', () => {
+      const { damaiRequestHandler } = featureContext;
+      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(damaiRequestHandler!);
+      expect(damaiRequestHandler).toHaveBeenCalledTimes(1);
+      expect(request.path).toBe('/b2b2c/2.0/refund/callback/notify');
+      expect(request.method).toBe('POST');
+    });
+
+    Then('退款成功消息中的大麦订单号 {string}，商家订单号是 cr7 创建的订单 ID', (_ctx, damaiOrderId: string) => {
+      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.daMaiOrderId).toBe(damaiOrderId);
+      expect(request.body.orderId).toBe(featureContext.order!.id);
+    });
+
+    And('退款成功消息中的退款 ID 是 {string}', (_ctx, daMaiRefundId: string) => {
+      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.daMaiRefundId).toBe(daMaiRefundId);
+    });
+
+    And('退款成功消息中的商家退款号是 cr7 生成的退款单号', () => {
+      const { damaiRequestHandler, refundApplyResponse } = featureContext;
+      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(damaiRequestHandler!);
+      expect(request.body.refundId).toBe(refundApplyResponse!.body.refundId);
+    });
+
+    And('退款成功消息中的退款状态是成功 ，值为 {int}', (_ctx, status: number) => {
+      const { damaiRequestHandler } = featureContext;
+      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(damaiRequestHandler!);
+      expect(request.body.status).toBe(status);
     });
 
     When('管理员查看订单的退款记录', async () => {
@@ -1735,7 +1730,7 @@ describeFeature(feature, ({
 
     And('退款记录里的第三方退款 ID 是 {string}', (_ctx, refundId: string) => {
       const refundRecord = featureContext.refundRecords![0];
-      expect(refundRecord.refund_id).toBe(refundId);
+      expect(refundRecord.out_refund_no).toBe(refundId);
     });
 
     And('退款记录里的退款金额是 {int} 分', (_ctx, orderAmount: number) => {
@@ -1751,6 +1746,58 @@ describeFeature(feature, ({
     And('退款记录里的退款状态是已退款', () => {
       const refundRecord = featureContext.refundRecords![0];
       expect(refundRecord.refund_status).toBe('SUCCESS');
+    });
+
+    When('大麦再次把相同的订单退款申请消息发送给 cr7', async () => {
+      const request = featureContext.refundApplyRequest;
+      expect(request).toBeTruthy();
+
+      featureContext.refundApplyResponse = await syncDamaiRefundApplyToCr7(
+        featureContext.apiServer,
+        request!,
+      );
+
+      expect(verifyDamaiSignature(request!.head.signed, {
+        apiKey: config.damai.api_key,
+        apiPw: config.damai.api_pwd,
+        msgId: request!.head.msgId,
+        timestamp: request!.head.timestamp,
+        version: request!.head.version,
+      })).toBe(true);
+      expect(featureContext.refundApplyResponse?.head.returnCode).toBe('0');
+    });
+
+    When('大麦再次收到 cr7 推送的相同的退款结果消息', () => {
+      const { damaiRequestHandler } = featureContext;
+      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(damaiRequestHandler!);
+      expect(damaiRequestHandler).toHaveBeenCalledTimes(2);
+      expect(request.path).toBe('/b2b2c/2.0/refund/callback/notify');
+      expect(request.method).toBe('POST');
+    });
+
+    Then('再次退款成功消息中的大麦订单号 {string}，商家订单号是 cr7 创建的订单 ID', (_ctx, damaiOrderId: string) => {
+      const { damaiRequestHandler } = featureContext;
+      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(damaiRequestHandler!);
+      expect(request.body.daMaiOrderId).toBe(damaiOrderId);
+      expect(request.body.orderId).toBe(featureContext.order!.id);
+    });
+
+    And('再次退款成功消息中的退款 ID 是 {string}', (_ctx, daMaiRefundId: string) => {
+      const { damaiRequestHandler } = featureContext;
+      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(damaiRequestHandler!);
+      expect(request.body.daMaiRefundId).toBe(daMaiRefundId);
+    });
+
+    And('再次退款成功消息中的商家退款号是 cr7 第一次生成的退款单号', () => {
+      const { damaiRequestHandler } = featureContext;
+      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(damaiRequestHandler!);
+      const lastSecondRefundRecord = getDamaiRequestArg<DamaiRefundNotifyPayload>(damaiRequestHandler!, -2);
+      expect(request.body.refundId).toBe(lastSecondRefundRecord.body.refundId);
+    });
+
+    And('再次退款成功消息中的退款状态是成功 ，值为 {int}', (_ctx, status: number) => {
+      const request = getDamaiRequestArg<DamaiRefundNotifyPayload>(featureContext.damaiRequestHandler!);
+      expect(request.body.status).toBe(status);
     });
   });
 });
