@@ -297,20 +297,16 @@ function toDateValue(value: string | Date): Date {
 
 function toDateLabel(value: string | Date): string {
   const parsed = toDateValue(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return String(value).slice(0, 10);
-  }
-
   return format(parsed, 'yyyy-MM-dd');
 }
 
-function normalizeTimeLabel(time: string): string {
-  const secondPrecision = parse(time, 'HH:mm:ss', new Date());
+function normalizeTimeLabel(time: string, date = new Date()): string {
+  const secondPrecision = parse(time, 'HH:mm:ss', date);
   if (!Number.isNaN(secondPrecision.getTime()) && format(secondPrecision, 'HH:mm:ss') === time) {
     return time;
   }
 
-  const minutePrecision = parse(time, 'HH:mm', new Date());
+  const minutePrecision = parse(time, 'HH:mm', date);
   if (!Number.isNaN(minutePrecision.getTime()) && format(minutePrecision, 'HH:mm') === time) {
     return format(minutePrecision, 'HH:mm:ss');
   }
@@ -328,11 +324,14 @@ function formatDamaiDateTime(value: string | Date): string {
   return format(parsed, 'yyyy-MM-dd HH:mm:ss');
 }
 
-function formatDamaiSessionDateTime(sessionDate: string | Date, time: string, pattern: 'HH:mm' | 'HH:mm:ss'): string {
-  const dateLabel = toDateLabel(sessionDate);
-  const dateTimeLabel = `${dateLabel} ${normalizeTimeLabel(time)}`;
-  const parsed = parse(dateTimeLabel, 'yyyy-MM-dd HH:mm:ss', new Date());
-  return format(parsed, `yyyy-MM-dd ${pattern}`);
+function formatDamaiSessionDateTime(
+  sessionDate: string | Date,
+  time: string,
+  pattern: 'HH:mm' | 'HH:mm:ss'
+): string {
+  const day = toDateValue(sessionDate);
+  const dayTime = parse(time, pattern, day);
+  return format(dayTime, `yyyy-MM-dd ${pattern}`);
 }
 
 function buildDamaiCreateOrderError(
