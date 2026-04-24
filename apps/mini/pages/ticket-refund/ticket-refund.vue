@@ -39,8 +39,7 @@
             <view class="event-meta-item ticket-info">
               <sx-svg name="ticket" :width="24" :height="24" color="#ADADAD" />
               <text class="meta-text"
-                >{{ ticket.ticketType }} x
-                {{ ticket.quantity }} 开场前48小时可退</text
+                >{{ ticket.ticketType }} 开场前48小时可退</text
               >
             </view>
           </view>
@@ -192,6 +191,7 @@ export default {
           exhibition = null;
         }
         this.ticket = buildTicketDetailFromOrder(order, exhibition);
+        console.log("ticket", this.ticket);
       } catch (e) {
         console.error("loadRefundTicket", e);
         uni.showToast({
