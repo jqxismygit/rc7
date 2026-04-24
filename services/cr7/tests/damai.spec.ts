@@ -1296,16 +1296,15 @@ describeFeature(feature, ({
   Scenario('库存不足时用户通过大麦 OTA 创建订单', (s: StepTest<void>) => {
     const { Then, And } = s;
 
-    And('cr7 没有创建订单', () => {
-      const response = featureContext.createOrderResponse;
-      expect(response).toBeTruthy();
-      expect(response!.body.orderInfo.orderId ?? null).toBeNull();
+    And('cr7 没有创建订单', async () => {
+      const { createOrderResponse } = featureContext;
+      expect(createOrderResponse).not.toHaveProperty('body');
     });
 
     Then('cr7 给大麦返回了订单同步结果，状态为失败，原因是 {string}', (_ctx, reason: string) => {
       const response = featureContext.createOrderResponse;
       expect(response).toBeTruthy();
-      expect(response!.head.returnCode).not.toBe('0');
+      expect(response!.head.returnCode).toBe('20010');
       expect(response!.head.returnDesc).toBe(reason);
     });
   });
