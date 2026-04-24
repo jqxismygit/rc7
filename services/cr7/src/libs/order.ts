@@ -24,7 +24,7 @@ interface UserMeta {
 const createOrderItemsParamsSchema = {
   type: 'array',
   min: 1,
-  max: 3,
+  max: 6,
   items: {
     type: 'object',
     props: {
