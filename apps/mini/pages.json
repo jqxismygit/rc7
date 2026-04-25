@@ -55,6 +55,24 @@
       }
     },
     {
+      "path": "pages/game/game-detail",
+      "style": {
+        "navigationBarTitleText": "互动",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#090a07",
+        "backgroundColor": "#090a07"
+      }
+    },
+    {
+      "path": "pages/game/payment-bridge",
+      "style": {
+        "navigationBarTitleText": "支付处理中",
+        "navigationStyle": "custom",
+        "navigationBarBackgroundColor": "#090a07",
+        "backgroundColor": "#090a07"
+      }
+    },
+    {
       "path": "pages/profile/profile",
       "style": {
         "navigationBarTitleText": "我的",

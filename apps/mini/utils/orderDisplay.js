@@ -42,11 +42,21 @@ export async function loadExhibitionsMap(exhibitIds) {
 export function buildTicketRowFromOrder(order, exhibition) {
   const items = order.items || [];
   const totalQty = items.reduce((s, it) => s + (it.quantity || 0), 0);
-  let ticketType = "门票";
+  const itemNames = items
+    .map((it) =>
+      String(
+        it?.category_name || it?.ticket_category_name || it?.name || "",
+      ).trim(),
+    )
+    .filter(Boolean);
+  const uniqueNames = [...new Set(itemNames)];
+  let ticketType = uniqueNames[0] || "门票";
   if (items.length === 1) {
-    ticketType = `门票 ×${items[0].quantity}`;
+    ticketType = `${uniqueNames[0] || "门票"} ×${items[0].quantity}`;
   } else if (items.length > 1) {
-    ticketType = `${items.length} 种票 · 共 ${totalQty} 张`;
+    ticketType = uniqueNames.length
+      ? `${uniqueNames.join(" / ")} · 共 ${totalQty} 张`
+      : `${items.length} 种票 · 共 ${totalQty} 张`;
   }
 
   const ev = exhibition;
@@ -90,16 +100,15 @@ export function buildTicketRowFromOrder(order, exhibition) {
  */
 export function buildTicketDetailFromOrder(order, exhibition) {
   const row = buildTicketRowFromOrder(order, exhibition);
-  const startTime =
-    exhibition?.start_date
-      ? dayjs(exhibition.start_date).format("YYYY-MM-DD HH:mm")
-      : "";
-  const startClock =
-    exhibition?.start_date ? dayjs(exhibition.start_date).format("HH:mm") : "";
-  const startDateText =
-    exhibition?.start_date
-      ? dayjs(exhibition.start_date).format("YYYY-MM-DD")
-      : "";
+  const startTime = exhibition?.start_date
+    ? dayjs(exhibition.start_date).format("YYYY-MM-DD HH:mm")
+    : "";
+  const startClock = exhibition?.start_date
+    ? dayjs(exhibition.start_date).format("HH:mm")
+    : "";
+  const startDateText = exhibition?.start_date
+    ? dayjs(exhibition.start_date).format("YYYY-MM-DD")
+    : "";
   const lastEntryClock = (exhibition?.last_entry_time || "").slice(0, 5);
   const entryTimeRange =
     startDateText && startClock && lastEntryClock

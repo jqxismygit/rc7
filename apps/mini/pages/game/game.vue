@@ -3,7 +3,7 @@
     <cr7-nav-bar title="互动" fallback-url="/pages/index/index" />
     <view class="nav-spacer" :style="{ height: navInsetPx + 'px' }" />
 
-    <view class="game-img-area">
+    <view class="game-img-area" @click="goGameDetail">
       <image :src="gameImage" class="game-img" mode="aspectFill" />
     </view>
 
@@ -15,12 +15,14 @@
         <view class="game-card-header">
           <text class="game-badge">互动游戏</text>
           <text class="game-title">⚡ 反应力挑战</text>
-          <text class="game-desc">测试你的瞬时反应速度，看看能否冲进 CR7 球迷榜单。</text>
+          <text class="game-desc"
+            >测试你的瞬时反应速度，看看能否冲进 CR7 球迷榜单。</text
+          >
         </view>
         <view class="game-card-footer">
           <view class="my-score">
             <text class="my-score-label">我的得分：</text>
-            <text class="my-score-value">{{ score || '暂未游戏' }}</text>
+            <text class="my-score-value">{{ score || "暂未游戏" }}</text>
           </view>
           <button class="btn-gold start-btn" @click="startGame">
             开始挑战
@@ -31,11 +33,7 @@
       <!-- 排行榜 -->
       <view class="ranking-card card-dark">
         <text class="ranking-title">今日排行榜</text>
-        <view
-          v-for="item in topRanking"
-          :key="item.rank"
-          class="rank-item"
-        >
+        <view v-for="item in topRanking" :key="item.rank" class="rank-item">
           <text class="rank-num">{{ item.rank }}</text>
           <image :src="item.avatar" class="rank-avatar" mode="aspectFill" />
           <view class="rank-info">
@@ -47,9 +45,9 @@
         <view class="my-rank">
           <text class="my-rank-text">
             我的排名：
-            <text class="my-rank-value">{{ myRanking || '暂未上榜' }}</text>
+            <text class="my-rank-value">{{ myRanking || "暂未上榜" }}</text>
           </text>
-          <text class="my-rank-score">当前记录：{{ score || '暂无成绩' }}</text>
+          <text class="my-rank-score">当前记录：{{ score || "暂无成绩" }}</text>
         </view>
       </view>
 
@@ -96,7 +94,7 @@
         <text class="ranking-text">
           排名：
           <text class="ranking-highlight">
-            {{ myRanking ? `第 ${myRanking} 名` : '暂未上榜' }}
+            {{ myRanking ? `第 ${myRanking} 名` : "暂未上榜" }}
           </text>
         </text>
         <button class="btn-gold result-btn" @click="restartGame">
@@ -111,139 +109,156 @@
 </template>
 
 <script>
-import { mockGameRanking } from '@/utils/mockData.js'
-import createTabBarMixin from '@/mixins/tabBar.js'
-import Cr7NavBar from '@/components/cr7-nav-bar/cr7-nav-bar.vue'
-import { getNavBarInsetPx } from '@/utils/navBar.js'
+import { mockGameRanking } from "@/utils/mockData.js";
+import createTabBarMixin from "@/mixins/tabBar.js";
+import Cr7NavBar from "@/components/cr7-nav-bar/cr7-nav-bar.vue";
+import { getNavBarInsetPx } from "@/utils/navBar.js";
+import { DEFAULT_GAME_H5_URL } from "@/config/game-h5-url.js";
+import { pickUserFromStore } from "@/utils/gameH5User.js";
 
 export default {
   mixins: [createTabBarMixin(2)],
   components: {
-    Cr7NavBar
+    Cr7NavBar,
   },
   data() {
     return {
       navInsetPx: 0,
-      gameImage: '/static/images/game.png',
+      gameImage: "/static/images/game.png",
       gameStarted: false,
       gameOver: false,
       score: 0,
       timeLeft: 25,
       showTarget: false,
       targetStyle: {},
-      gameTip: '点击绿色区域出现的足球，越快越好！',
+      gameTip: "点击绿色区域出现的足球，越快越好！",
       topRanking: [],
       myRanking: null,
       timer: null,
-      targetTimer: null
-    }
+      targetTimer: null,
+    };
   },
 
   onLoad() {
-    this.navInsetPx = getNavBarInsetPx()
-    this.loadRanking()
+    this.navInsetPx = getNavBarInsetPx();
+    this.loadRanking();
   },
 
   onUnload() {
-    this.clearTimers()
+    this.clearTimers();
   },
 
   methods: {
+    goGameDetail() {
+      const h5 = (DEFAULT_GAME_H5_URL || "").trim();
+      const u = pickUserFromStore();
+      const parts = [];
+      if (h5) parts.push(`url=${encodeURIComponent(h5)}`);
+      if (u.id) parts.push(`id=${encodeURIComponent(u.id)}`);
+      if (u.avatar) parts.push(`avatar=${encodeURIComponent(u.avatar)}`);
+      if (u.nickname) parts.push(`nickname=${encodeURIComponent(u.nickname)}`);
+      const q = parts.length ? `?${parts.join("&")}` : "";
+      uni.navigateTo({
+        url: `/pages/game/game-detail${q}`,
+      });
+    },
+
     loadRanking() {
-      this.topRanking = mockGameRanking.slice(0, 3)
+      this.topRanking = mockGameRanking.slice(0, 3);
     },
 
     startGame() {
-      this.clearTimers()
-      this.gameStarted = true
-      this.gameOver = false
-      this.score = 0
-      this.timeLeft = 25
-      this.gameTip = '准备好，足球即将出现...'
-      this.startTimer()
-      this.showNextTarget()
+      this.clearTimers();
+      this.gameStarted = true;
+      this.gameOver = false;
+      this.score = 0;
+      this.timeLeft = 25;
+      this.gameTip = "准备好，足球即将出现...";
+      this.startTimer();
+      this.showNextTarget();
     },
 
     startTimer() {
       this.timer = setInterval(() => {
-        this.timeLeft--
+        this.timeLeft--;
         if (this.timeLeft <= 0) {
-          this.endGame()
+          this.endGame();
         }
-      }, 1000)
+      }, 1000);
     },
 
     showNextTarget() {
-      this.showTarget = false
-      const delay = Math.random() * 350 + 250
+      this.showTarget = false;
+      const delay = Math.random() * 350 + 250;
       this.targetTimer = setTimeout(() => {
         if (this.timeLeft > 0) {
-          this.showTarget = true
+          this.showTarget = true;
           this.targetStyle = {
-            left: Math.random() * 70 + '%',
-            top: Math.random() * 60 + '%'
-          }
+            left: Math.random() * 70 + "%",
+            top: Math.random() * 60 + "%",
+          };
         }
-      }, delay)
+      }, delay);
     },
 
     hitTarget() {
-      this.score += 100
-      this.showTarget = false
-      this.gameTip = '干得漂亮！继续保持节奏。'
-      this.showNextTarget()
-      uni.vibrateShort()
+      this.score += 100;
+      this.showTarget = false;
+      this.gameTip = "干得漂亮！继续保持节奏。";
+      this.showNextTarget();
+      uni.vibrateShort();
     },
 
     endGame() {
-      this.clearTimers()
-      this.gameStarted = false
-      this.gameOver = true
-      const ranking = mockGameRanking.filter(item => item.score > this.score).length + 1
-      this.myRanking = ranking
+      this.clearTimers();
+      this.gameStarted = false;
+      this.gameOver = true;
+      const ranking =
+        mockGameRanking.filter((item) => item.score > this.score).length + 1;
+      this.myRanking = ranking;
     },
 
     clearTimers() {
       if (this.timer) {
-        clearInterval(this.timer)
-        this.timer = null
+        clearInterval(this.timer);
+        this.timer = null;
       }
       if (this.targetTimer) {
-        clearTimeout(this.targetTimer)
-        this.targetTimer = null
+        clearTimeout(this.targetTimer);
+        this.targetTimer = null;
       }
     },
 
     restartGame() {
-      this.startGame()
+      this.startGame();
     },
 
     quitGame() {
       uni.showModal({
-        title: '退出游戏',
-        content: '确定退出？当前成绩将不保存',
+        title: "退出游戏",
+        content: "确定退出？当前成绩将不保存",
         success: (res) => {
           if (res.confirm) {
-            this.clearTimers()
-            this.gameStarted = false
-            this.showTarget = false
+            this.clearTimers();
+            this.gameStarted = false;
+            this.showTarget = false;
           }
-        }
-      })
+        },
+      });
     },
 
     closeResult() {
-      this.gameOver = false
+      this.gameOver = false;
     },
 
     backToHome() {
-      this.gameOver = false
+      this.gameOver = false;
       uni.switchTab({
-        url: '/pages/index/index'
-      })
-    }
-  }
-}
+        url: "/pages/index/index",
+      });
+    },
+  },
+};
 </script>
 
 <style lang="scss" scoped>
@@ -266,6 +281,7 @@ export default {
   width: 100%;
   overflow: hidden;
   background: $cr7-black;
+  position: relative;
 }
 
 .game-img {
