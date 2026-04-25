@@ -11,6 +11,7 @@ ignoreWords:
   - skus
 words:
   - apiclient
+  - cdkey
   - Ctrip
   - Damai
   - eticket
