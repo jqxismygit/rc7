@@ -28,11 +28,11 @@ function toCdkeyStatus(redeemedAt: string | null): Cdkey.CdkeyStatus {
   return redeemedAt === null ? 'UNUSED' : 'USED';
 }
 
-async function assembleCdkeyBatchRow(
+function assembleCdkeyBatchRow(
   exhibitionById: Map<string, { id: string; name: string }>,
   ticketCategoryById: Map<string, { id: string; name: string; list_price: number }>,
   row: CdkeyBatchRecord,
-): Promise<Cdkey.CdkeyBatch> {
+): Cdkey.CdkeyBatch {
   const exhibition = exhibitionById.get(row.exhibit_id);
   const ticketCategory = ticketCategoryById.get(row.ticket_category_id);
 
@@ -62,13 +62,13 @@ async function assembleCdkeyBatchRow(
   };
 }
 
-async function assembleCdkeyRow(
+function assembleCdkeyRow(
   exhibitionById: Map<string, { id: string; name: string }>,
   ticketCategoryById: Map<string, { id: string; name: string; list_price: number }>,
   sessionById: Map<string, { id: string; session_date: Date | string }>,
   userById: Map<string, { id: string; phone: string | null }>,
   row: CdkeyRecord,
-): Promise<Cdkey.Cdkey> {
+): Cdkey.Cdkey {
   const exhibition = exhibitionById.get(row.exhibit_id);
   const ticketCategory = ticketCategoryById.get(row.ticket_category_id);
 
@@ -215,6 +215,11 @@ export class CdkeyService extends RC7BaseService {
     },
   };
 
+  methods = {
+    assembleCdkeys: this.assembleCdkeys,
+    assembleBatch: this.assembleBatch,
+  };
+
   async createBatch(
     ctx: Context<{
       eid: string;
@@ -312,22 +317,8 @@ export class CdkeyService extends RC7BaseService {
     const rows = await listCdkeyBatches(this.pool, schema, eid, { page, limit })
       .catch(handleCdkeyError);
 
-    const exhibitionIds = new Set<string>();
-    const ticketCategoryIds = new Set<string>();
-    for (const batch of rows.batches) {
-      exhibitionIds.add(batch.exhibit_id);
-      ticketCategoryIds.add(batch.ticket_category_id);
-    }
+    const batches = await this.assembleBatch(schema, rows.batches);
 
-    const exhibitionById = await getExhibitionsByIds(this.pool, schema, [...exhibitionIds])
-      .catch(handleExhibitionError);
-    const ticketCategoryById = await getTicketCategoriesByIds(this.pool, schema, [...ticketCategoryIds])
-      .catch(handleExhibitionError);
-
-    const batches: Cdkey.CdkeyBatch[] = [];
-    for (const batch of rows.batches) {
-      batches.push(await assembleCdkeyBatchRow(exhibitionById, ticketCategoryById, batch));
-    }
     return {
       batches,
       total: rows.total,
@@ -352,39 +343,8 @@ export class CdkeyService extends RC7BaseService {
     const rows = await listCdkeysByBatch(this.pool, schema, bid, { page, limit })
       .catch(handleCdkeyError);
 
-    const exhibitionIds = new Set<string>();
-    const ticketCategoryIds = new Set<string>();
-    const sessionIds = new Set<string>();
-    const userIds = new Set<string>();
-    for (const code of rows.codes) {
-      exhibitionIds.add(code.exhibit_id);
-      ticketCategoryIds.add(code.ticket_category_id);
-      if (code.redeemed_session_id !== null) {
-        sessionIds.add(code.redeemed_session_id);
-      }
-      if (code.redeemed_by !== null) {
-        userIds.add(code.redeemed_by);
-      }
-    }
+    const codes = await this.assembleCdkeys(schema, rows.codes);
 
-    const exhibitionById = await getExhibitionsByIds(this.pool, schema, [...exhibitionIds])
-      .catch(handleExhibitionError);
-    const ticketCategoryById = await getTicketCategoriesByIds(this.pool, schema, [...ticketCategoryIds])
-      .catch(handleExhibitionError);
-    const sessionById = await getSessionsByIds(this.pool, schema, [...sessionIds])
-      .catch(handleExhibitionError);
-    const userById = await getUserProfilesByIds(this.pool, schema, [...userIds]);
-
-    const codes: Cdkey.Cdkey[] = [];
-    for (const code of rows.codes) {
-      codes.push(await assembleCdkeyRow(
-        exhibitionById,
-        ticketCategoryById,
-        sessionById,
-        userById,
-        code,
-      ));
-    }
     return {
       codes,
       total: rows.total,
@@ -401,27 +361,64 @@ export class CdkeyService extends RC7BaseService {
     const row = await getCdkeyByCode(this.pool, schema, code)
       .catch(handleCdkeyError);
 
-    const exhibitionById = await getExhibitionsByIds(this.pool, schema, [row.exhibit_id])
-      .catch(handleExhibitionError);
-    const ticketCategoryById = await getTicketCategoriesByIds(this.pool, schema, [row.ticket_category_id])
-      .catch(handleExhibitionError);
-    const sessionById = await getSessionsByIds(
-      this.pool,
-      schema,
-      row.redeemed_session_id === null ? [] : [row.redeemed_session_id],
-    ).catch(handleExhibitionError);
-    const userById = await getUserProfilesByIds(
-      this.pool,
-      schema,
-      row.redeemed_by === null ? [] : [row.redeemed_by],
-    );
+    const [res] = await this.assembleCdkeys(schema, [row]);
+    return res;
+  }
 
-    return assembleCdkeyRow(
+  async assembleBatch(
+    schema: string,
+    batches: CdkeyBatchRecord[],
+  ): Promise<Cdkey.CdkeyBatch[]> {
+    const exhibitionIds = new Set<string>();
+    const ticketCategoryIds = new Set<string>();
+    for (const batch of batches) {
+      exhibitionIds.add(batch.exhibit_id);
+      ticketCategoryIds.add(batch.ticket_category_id);
+    }
+
+    const exhibitionById = await getExhibitionsByIds(this.pool, schema, [...exhibitionIds])
+      .catch(handleExhibitionError);
+    const ticketCategoryById = await getTicketCategoriesByIds(this.pool, schema, [...ticketCategoryIds])
+      .catch(handleExhibitionError);
+
+    return batches.map(batch => assembleCdkeyBatchRow(exhibitionById, ticketCategoryById, batch));
+  }
+
+  async assembleCdkeys(
+    schema: string,
+    codes: CdkeyRecord[],
+  ): Promise<Cdkey.Cdkey[]> {
+    const client = this.pool;
+
+    const exhibitionIds = new Set<string>();
+    const ticketCategoryIds = new Set<string>();
+    const sessionIds = new Set<string>();
+    const userIds = new Set<string>();
+    for (const code of codes) {
+      exhibitionIds.add(code.exhibit_id);
+      ticketCategoryIds.add(code.ticket_category_id);
+      if (code.redeemed_session_id !== null) {
+        sessionIds.add(code.redeemed_session_id);
+      }
+      if (code.redeemed_by !== null) {
+        userIds.add(code.redeemed_by);
+      }
+    }
+
+    const exhibitionById = await getExhibitionsByIds(client, schema, [...exhibitionIds])
+      .catch(handleExhibitionError);
+    const ticketCategoryById = await getTicketCategoriesByIds(client, schema, [...ticketCategoryIds])
+      .catch(handleExhibitionError);
+    const sessionById = await getSessionsByIds(client, schema, [...sessionIds])
+      .catch(handleExhibitionError);
+    const userById = await getUserProfilesByIds(client, schema, [...userIds]);
+
+    return codes.map(code => assembleCdkeyRow(
       exhibitionById,
       ticketCategoryById,
       sessionById,
       userById,
-      row,
-    );
+      code,
+    ));
   }
 }
