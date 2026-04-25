@@ -9,10 +9,11 @@ export interface RedemptionCode {
   exhibit_id: string;
   status: RedemptionStatus;
   quantity: number; // 准入人数
-  valid_from: string; // ISO 8601 timestamp
-  valid_until: string; // ISO 8601 timestamp
+  valid_from: string;
+  valid_until: string;
   redeemed_at: string | null;
   redeemed_by: string | null; // 核销人 user_id，仅当 status = REDEEMED 时有值
+  owner_user_id: string; // 当前持有者 user_id，转移后更新
   created_at: string;
   updated_at: string;
 }
@@ -62,4 +63,17 @@ export interface RedemptionCodeListResult {
   total: number;
   page: number;
   limit: number;
+}
+
+export interface RedemptionTransfer {
+  id: string;
+  code: string;
+  exhibit_id: string;
+  from_user_id: string;
+  to_user_id: string;
+  created_at: string;
+}
+
+export interface RedemptionTransferListResult {
+  transfers: RedemptionTransfer[];
 }

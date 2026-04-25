@@ -164,6 +164,10 @@ export function handleRedeemError(error: unknown): never {
     throw new MoleculerClientError('核销码不可用', 409, error.code);
   }
 
+  if (error.code === 'REDEMPTION_ALREADY_OWNED') {
+    throw new MoleculerClientError('核销码已归属当前用户', 409, error.code);
+  }
+
   if (error.code === 'ORDER_REFUND_IN_PROGRESS') {
     throw new MoleculerClientError('订单退款中，无法核销', 409, error.code);
   }

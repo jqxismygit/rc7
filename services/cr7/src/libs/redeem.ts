@@ -8,9 +8,11 @@ import {
   getRedemptionRowByOrderId,
   upsertRedemptionCodeByOrderId,
   redeemCode,
+  transferRedemptionCode,
+  getTransfersByCode,
   RedeemDataError,
 } from '../data/redeem.js';
-import { getOrderById, getOrdersByIdsForUser, OrderDataError } from '../data/order.js';
+import { getOrderById, getOrdersByIds, OrderDataError } from '../data/order.js';
 import {
   getExhibitionById,
   getExhibitionsByIds,
@@ -110,6 +112,23 @@ export class RedemptionService extends RC7BaseService {
       },
       handler: this.redeem,
     },
+
+    'redemption.transfer': {
+      rest: 'POST /transfer',
+      params: {
+        code: 'string',
+      },
+      handler: this.transfer,
+    },
+
+    'redemption.getTransfers': {
+      rest: 'GET /:code/transfers',
+      roles: ['admin'],
+      params: {
+        code: 'string',
+      },
+      handler: this.getTransfers,
+    },
   };
 
   async generateByOrder(
@@ -138,7 +157,7 @@ export class RedemptionService extends RC7BaseService {
     const quantity = items.reduce((sum, item) => sum + item.quantity, 0);
 
     await upsertRedemptionCodeByOrderId(
-      dbClient, schema, order.exhibit_id, order.id,
+      dbClient, schema, order.exhibit_id, order.id, order.user_id,
       quantity, session.session_date, validDurationDays,
     )
       .catch(handleRedeemError);
@@ -230,7 +249,7 @@ export class RedemptionService extends RC7BaseService {
     }).catch(handleRedeemError);
 
     const orderIds = redemptionRows.redemptions.map(redemption => redemption.order_id);
-    const ordersById = await getOrdersByIdsForUser(this.pool, schema, uid, orderIds)
+    const ordersById = await getOrdersByIds(this.pool, schema, orderIds)
       .catch(handleOrderError);
 
     const ticketCategoriesByExhibitionId = new Map<string, Exhibition.TicketCategory[]>();
@@ -325,8 +344,13 @@ export class RedemptionService extends RC7BaseService {
     const schema = await this.getSchema();
     const dbClient = this.pool;
 
-    const redemption = await getRedemptionRowByCode(dbClient, schema, eid, code)
+    const redemption = await getRedemptionRowByCode(dbClient, schema, code)
       .catch(handleRedeemError);
+    if (redemption.exhibit_id !== eid) {
+      handleRedeemError(
+        new RedeemDataError('Redemption code not found', 'REDEMPTION_NOT_FOUND')
+      );
+    }
     const order = await getOrderById(dbClient, schema, redemption.order_id)
       .catch(handleOrderError);
 
@@ -374,7 +398,7 @@ export class RedemptionService extends RC7BaseService {
       await ctx.call('damai.notifyOrderConsumed', { oid: order.id, redeemed_at });
     }
 
-    const updatedRow = await redeemCode(dbClient, schema, eid, code, uid)
+    const updatedRow = await redeemCode(dbClient, schema, code, uid)
       .catch(handleRedeemError);
 
     const exhibition = await getExhibitionById(this.pool, schema, order.exhibit_id)
@@ -415,5 +439,47 @@ export class RedemptionService extends RC7BaseService {
     };
 
     return res;
+  }
+
+  async transfer(
+    ctx: Context<{ code: string }, { user: UserMeta }>
+  ): Promise<null> {
+    const { code } = ctx.params;
+    const { uid } = ctx.meta.user;
+    const schema = await this.getSchema();
+    const client = this.pool;
+
+    const redemption = await getRedemptionRowByCode(client, schema, code)
+      .catch(handleRedeemError);
+    if (redemption.owner_user_id === uid) {
+      handleRedeemError(
+        new RedeemDataError(
+          'Redemption code already owned by this user',
+          'REDEMPTION_ALREADY_OWNED'
+        )
+      );
+    }
+
+    const ownerId = redemption.owner_user_id;
+    await transferRedemptionCode(client, schema, code, uid, ownerId)
+      .catch(handleRedeemError);
+
+    Object.assign(ctx.meta, { $statusCode: 204 });
+    return null;
+  }
+
+  async getTransfers(
+    ctx: Context<{ code: string }>
+  ): Promise<Redeem.RedemptionTransferListResult> {
+    const { code } = ctx.params;
+    const schema = await this.getSchema();
+
+    await getRedemptionRowByCode(this.pool, schema, code)
+      .catch(handleRedeemError);
+
+    const transfers = await getTransfersByCode(this.pool, schema, code)
+      .catch(handleRedeemError);
+
+    return { transfers };
   }
 }

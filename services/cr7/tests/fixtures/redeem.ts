@@ -185,3 +185,27 @@ export async function listMyRedemptions(
 export function toSessionDateLabel(value: string) {
   return toDateLabel(value);
 }
+
+export async function transferRedemptionCode(
+  server: Server,
+  code: string,
+  token: string,
+): Promise<null> {
+  return postJSON<null>(
+    server,
+    '/redemptions/transfer',
+    { token, body: { code } },
+  );
+}
+
+export async function getRedemptionTransfers(
+  server: Server,
+  code: string,
+  token: string,
+): Promise<Redeem.RedemptionTransferListResult> {
+  return getJSON<Redeem.RedemptionTransferListResult>(
+    server,
+    `/redemptions/${code}/transfers`,
+    { token },
+  );
+}

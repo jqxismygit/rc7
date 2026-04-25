@@ -79,6 +79,47 @@
   - 支持按核销状态筛选（`UNREDEEMED`、`REDEEMED`）
   - 支持分页查询，按核销码创建时间倒序返回
 
+## 转移核销码
+
+- URL: `/redemptions/transfer`
+- Method: `POST`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Body:
+  ```ts
+  { code: string }
+  ```
+
+- Response Status:
+  - `204 No Content`：转移成功
+  - `400 Bad Request`：参数错误
+  - `401 Unauthorized`：未认证
+  - `404 Not Found`：核销码不存在
+
+## 查询核销码转移记录
+
+- URL: `/redemptions/:code/transfers`
+- Method: `GET`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Params:
+  ```ts
+  { code: string }
+  ```
+- Response Body:
+  ```ts
+  Redeem.RedemptionTransferListResult
+  ```
+- Response Status:
+  - `200 OK`：查询成功
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：非管理员
+  - `404 Not Found`：核销码不存在
+
 ## 完成核销
 
 - URL: `/exhibition/:eid/redeem`

@@ -295,10 +295,9 @@ export async function getOrderById(
   };
 }
 
-export async function getOrdersByIdsForUser(
+export async function getOrdersByIds(
   client: DBClient,
   schema: string,
-  userId: string,
   orderIds: string[],
 ): Promise<Map<string, Order.OrderWithItems>> {
   if (orderIds.length === 0) {
@@ -334,9 +333,8 @@ export async function getOrdersByIdsForUser(
     JOIN ${schema}.exhibit_sessions s ON s.id = o.session_id
     LEFT JOIN ${schema}.order_refunds current_refund
       ON current_refund.out_refund_no = o.current_refund_out_refund_no
-    WHERE o.user_id = $1
-      AND o.id = ANY($2::uuid[])`,
-    [userId, orderIds],
+    WHERE o.id = ANY($1::uuid[])`,
+    [orderIds],
   );
 
   const fetchedOrderIds = orders.map(order => order.id);

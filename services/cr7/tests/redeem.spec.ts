@@ -27,6 +27,8 @@ import {
   isValidRedemptionCodeLuhn,
   listMyRedemptions,
   redeemCode,
+  transferRedemptionCode,
+  getRedemptionTransfers,
 } from './fixtures/redeem.js';
 import {
   grantRoleToUser as grantRoleToUserAPI,
@@ -300,9 +302,10 @@ describeFeature(feature, ({
     });
 
     // list redemptions
-    When('用户 {string} 查询自己的核销码列表，第 {int} 页，每页 {int} 条', async (
+    When('用户 {string} 第 {int} 次查询自己的核销码列表，第 {int} 页，每页 {int} 条', async (
       _ctx,
       userName: string,
+      _queryCount: number,
       page: number,
       limit: number
     ) => {
@@ -327,6 +330,17 @@ describeFeature(feature, ({
         );
       }
     );
+
+    Then('用户 {string} 核销码列表总数为 {int}', (_ctx, _userName: string, total: number) => {
+      const { redemptionList, usersByName } = featureContext;
+      expect(redemptionList!.total).toBe(total);
+      const user = usersByName[_userName];
+      if (total > 0) {
+        redemptionList?.redemptions.forEach((redeem) => {
+          expect(redeem.owner_user_id).toBe(user.profile.id);
+        });
+      }
+    });
   });
 
   Background(({ Given, And }) => {
@@ -923,4 +937,86 @@ describeFeature(feature, ({
   // Scenario.skip('转移核销码', () => {
 
   // });
+
+  Scenario(
+    '转移核销码',
+    (s: StepTest<{
+      bobCode: string;
+      transferPromise: Promise<null>;
+      transferRecords: Redeem.RedemptionTransfer[];
+    }>) => {
+      const { When, Then, And, context } = s;
+
+      When('用户 {string} 在三方票同步页面输入用户 {string} 的核销码并提交转移请求', async (
+        _ctx,
+        toUserName: string,
+        fromUserName: string,
+      ) => {
+        const { apiServer, usersByName, redemption } = featureContext;
+        expect(redemption, 'redemption should be set from previous step').toBeTruthy();
+        context.bobCode = redemption!.code;
+        expect(usersByName[fromUserName]).toBeTruthy();
+        const { token } = usersByName[toUserName];
+        context.transferPromise = transferRedemptionCode(
+          apiServer,
+          context.bobCode,
+          token,
+        );
+      });
+
+      Then('转移成功', async () => {
+        await expect(context.transferPromise).resolves.toBeNull();
+      });
+
+      When('管理员查看该核销码的转移记录', async () => {
+        const { apiServer, adminToken } = featureContext;
+        const result = await getRedemptionTransfers(
+          apiServer,
+          context.bobCode,
+          adminToken,
+        );
+        context.transferRecords = result.transfers;
+      });
+
+      Then(
+        '核销码的转移记录中有一条记录，转出用户为 {string}，转入用户为 {string}',
+        (_ctx, fromUserName: string, toUserName: string) => {
+          const { usersByName } = featureContext;
+          const fromUser = usersByName[fromUserName];
+          const toUser = usersByName[toUserName];
+          expect(fromUser).toBeTruthy();
+          expect(toUser).toBeTruthy();
+          expect(context.transferRecords).toHaveLength(1);
+          expect(context.transferRecords[0]).toHaveProperty('from_user_id', fromUser.profile.id);
+          expect(context.transferRecords[0]).toHaveProperty('to_user_id', toUser.profile.id);
+        },
+      );
+
+      And('核销码列表返回的核销码与用户 {string} 的核销码一致', (_ctx, _userName: string) => {
+        const { redemptionList } = featureContext;
+        expect(redemptionList!.redemptions[0].code).toBe(context.bobCode);
+      });
+
+      When('运营人员将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
+        const { usersByName, operatorToken, redemption } = featureContext;
+        expect(usersByName[userName]).toBeTruthy();
+        featureContext.redemption = await performRedeem(
+          featureContext,
+          redemption!,
+          operatorToken,
+        );
+      });
+
+      Then('核销成功', () => {
+        const { redemption } = featureContext;
+        expect(redemption?.status).toBe('REDEEMED');
+      });
+
+      And('核销码状态变为 {string}', (_ctx, statusLabel: string) => {
+        expect(statusLabel).toBe('已核销');
+        const { redemption } = featureContext;
+        expect(redemption?.status).toBe('REDEEMED');
+      });
+    },
+  );
 });

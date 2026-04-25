@@ -20,6 +20,7 @@ type RedemptionListRow = {
   valid_until: string;
   redeemed_at: string | null;
   redeemed_by: string | null;
+  owner_user_id: string;
   created_at: string;
   updated_at: string;
 };
@@ -38,7 +39,8 @@ export type REDEEM_DATA_ERROR_CODES
     | 'REDEMPTION_NOT_FOUND'
     | 'REDEMPTION_ALREADY_REDEEMED'
     | 'REDEMPTION_EXPIRED'
-    | 'REDEMPTION_NOT_YET_VALID';
+    | 'REDEMPTION_NOT_YET_VALID'
+    | 'REDEMPTION_ALREADY_OWNED';
 
 export class RedeemDataError extends Error {
   code: REDEEM_DATA_ERROR_CODES;
@@ -130,6 +132,7 @@ export async function getRedemptionRowByOrderId(
       valid_until,
       redeemed_at,
       redeemed_by,
+      owner_user_id,
       created_at,
       updated_at
     FROM ${schema}.exhibit_redemption_codes
@@ -162,8 +165,7 @@ export async function getRedemptionListByUser(
   const { rows: countRows } = await client.query<{ total: string }>(
     `SELECT COUNT(*)::text AS total
     FROM ${schema}.exhibit_redemption_codes rc
-    JOIN ${schema}.exhibit_orders o ON o.id = rc.order_id
-    WHERE o.user_id = $1
+    WHERE rc.owner_user_id = $1
       AND ($2::text IS NULL OR rc.status = $2)`,
     [userId, status ?? null],
   );
@@ -181,11 +183,11 @@ export async function getRedemptionListByUser(
       rc.valid_until,
       rc.redeemed_at,
       rc.redeemed_by,
+      rc.owner_user_id,
       rc.created_at,
       rc.updated_at
     FROM ${schema}.exhibit_redemption_codes rc
-    JOIN ${schema}.exhibit_orders o ON o.id = rc.order_id
-    WHERE o.user_id = $1
+    WHERE rc.owner_user_id = $1
       AND ($2::text IS NULL OR rc.status = $2)
     ORDER BY rc.created_at DESC
     LIMIT $3 OFFSET $4`,
@@ -203,7 +205,6 @@ export async function getRedemptionListByUser(
 export async function getRedemptionRowByCode(
   client: DBClient,
   schema: string,
-  exhibitId: string,
   code: string,
 ): Promise<RedemptionRow> {
   const { rows } = await client.query<RedemptionRow>(
@@ -217,13 +218,14 @@ export async function getRedemptionRowByCode(
       valid_until,
       redeemed_at,
       redeemed_by,
+      owner_user_id,
       created_at,
       updated_at
     FROM ${schema}.exhibit_redemption_codes
-    WHERE exhibit_id = $1
-      AND code = $2
+    WHERE code = $1
+    ORDER BY created_at DESC
     LIMIT 1`,
-    [exhibitId, code],
+    [code],
   );
 
   if (rows[0] === undefined) {
@@ -238,6 +240,7 @@ export async function upsertRedemptionCodeByOrderId(
   schema: string,
   exhibitId: string,
   orderId: string,
+  userId: string,
   quantity: number,
   sessionDate: Date,
   validDurationDays: number,
@@ -254,12 +257,13 @@ export async function upsertRedemptionCodeByOrderId(
             code,
             exhibit_id,
             order_id,
+            owner_user_id,
             status,
             quantity,
             valid_from,
             valid_until
           )
-          VALUES ($1, $2, $3, 'UNREDEEMED', $4, $5, $6)
+          VALUES ($1, $2, $3, $7, 'UNREDEEMED', $4, $5, $6)
           ON CONFLICT (order_id) DO NOTHING
           RETURNING
             exhibit_id,
@@ -277,7 +281,7 @@ export async function upsertRedemptionCodeByOrderId(
         WHERE order_id = $3
           AND NOT EXISTS (SELECT 1 FROM inserted)
         LIMIT 1`,
-        [code, exhibitId, orderId, quantity, sessionDate, valid_until],
+        [code, exhibitId, orderId, quantity, sessionDate, valid_until, userId],
       );
 
       if (rows[0] !== undefined) {
@@ -296,7 +300,6 @@ export async function upsertRedemptionCodeByOrderId(
 export async function redeemCode(
   client: DBClient,
   schema: string,
-  exhibitId: string,
   code: string,
   redeemedBy: string,
 ): Promise<RedemptionRow> {
@@ -305,12 +308,68 @@ export async function redeemCode(
     SET
       status = 'REDEEMED',
       redeemed_at = NOW(),
-      redeemed_by = $3,
+      redeemed_by = $2,
       updated_at = NOW()
-    WHERE exhibit_id = $1
-      AND code = $2`,
-    [exhibitId, code, redeemedBy],
+    WHERE code = $1`,
+    [code, redeemedBy],
   );
 
-  return getRedemptionRowByCode(client, schema, exhibitId, code);
+  return getRedemptionRowByCode(client, schema, code);
+}
+
+export async function transferRedemptionCode(
+  client: DBClient,
+  schema: string,
+  code: string,
+  toUserId: string,
+  fromUserId: string,
+): Promise<void> {
+  const { rows } = await client.query<{ id: string }>(
+    `WITH updated AS (
+      UPDATE ${schema}.exhibit_redemption_codes rc
+      SET
+        owner_user_id = $3,
+        updated_at = NOW()
+      WHERE rc.code = $1 AND rc.owner_user_id = $2
+      RETURNING
+        rc.code,
+        rc.exhibit_id,
+        $2 AS from_user_id
+    ),
+    inserted AS (
+      INSERT INTO ${schema}.exhibit_redemption_code_transfers
+      ( code, exhibit_id, from_user_id, to_user_id)
+      SELECT code, exhibit_id, from_user_id, $3
+      FROM updated
+      RETURNING id
+    )
+    SELECT id FROM inserted`,
+    [code, fromUserId, toUserId],
+  );
+
+  if (rows.length === 0) {
+    throw new RedeemDataError('Redemption code not found', 'REDEMPTION_NOT_FOUND');
+  }
+}
+
+export async function getTransfersByCode(
+  client: DBClient,
+  schema: string,
+  code: string,
+): Promise<Redeem.RedemptionTransfer[]> {
+  const { rows } = await client.query<Redeem.RedemptionTransfer>(
+    `SELECT
+      id,
+      code,
+      exhibit_id,
+      from_user_id,
+      to_user_id,
+      created_at
+    FROM ${schema}.exhibit_redemption_code_transfers
+    WHERE code = $1
+    ORDER BY created_at ASC`,
+    [code],
+  );
+
+  return rows;
 }

@@ -189,10 +189,16 @@ const routes = [
   ),
   routeConfig(
     '/redemptions',
-    ['cr7.redemption.listByUser'],
+    [
+      'cr7.redemption.listByUser',
+      'cr7.redemption.transfer',
+      'cr7.redemption.getTransfers',
+    ],
     {
       aliases: {
         'GET /': 'cr7.redemption.listByUser',
+        'POST /transfer': 'cr7.redemption.transfer',
+        'GET /:code/transfers': 'cr7.redemption.getTransfers',
       },
     }
   ),
