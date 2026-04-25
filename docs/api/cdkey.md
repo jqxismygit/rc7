@@ -26,7 +26,7 @@
   Cdkey.CreateCdkeyBatchResult
   ```
 - Response Status:
-  - `200 OK`：创建成功
+  - `201 Created`：创建成功
   - `400 Bad Request`：参数错误
   - `401 Unauthorized`：未认证
   - `403 Forbidden`：非管理员

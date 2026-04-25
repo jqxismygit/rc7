@@ -61,8 +61,7 @@ interface FeatureContext extends ExhibitionContext, UserContext {
   broker: ServiceBroker;
   wechatFixture: WechatFixture;
   cdkeyDraft: CdkeyDraftContext;
-  createdCdkeyBatch?: Cdkey.CdkeyBatch;
-  createdCdkeys: Cdkey.Cdkey[];
+  createdCdkeyBatchId: string | null;
   batchListsByViewIndex: Record<number, Cdkey.CdkeyBatchListResult>;
   codeListsByViewIndex: Record<number, Cdkey.CdkeyListResult>;
   codeDetailsByViewIndex: Record<number, Record<number, Cdkey.Cdkey>>;
@@ -96,8 +95,7 @@ describeFeature(feature, ({
       quantity: 0,
       redeemValidUntil: '',
     };
-    featureContext.createdCdkeyBatch = undefined;
-    featureContext.createdCdkeys = [];
+    featureContext.createdCdkeyBatchId = null;
     featureContext.batchListsByViewIndex = {};
     featureContext.codeListsByViewIndex = {};
     featureContext.codeDetailsByViewIndex = {};
@@ -118,8 +116,7 @@ describeFeature(feature, ({
       quantity: 0,
       redeemValidUntil: '',
     };
-    featureContext.createdCdkeyBatch = undefined;
-    featureContext.createdCdkeys = [];
+    featureContext.createdCdkeyBatchId = null;
     featureContext.batchListsByViewIndex = {};
     featureContext.codeListsByViewIndex = {};
     featureContext.codeDetailsByViewIndex = {};
@@ -221,18 +218,12 @@ describeFeature(feature, ({
         redeem_valid_until: toDateLabel(cdkeyDraft.redeemValidUntil),
       });
 
-      featureContext.createdCdkeyBatch = result.batch;
-      featureContext.createdCdkeys = result.codes;
+      featureContext.createdCdkeyBatchId = result.id;
     });
 
     Then('兑换码批次创建成功', async () => {
-      const { createdCdkeyBatch, createdCdkeys, cdkeyDraft } = featureContext;
-      expect(createdCdkeyBatch).toBeTruthy();
-      expect(createdCdkeyBatch!.name).toBe(cdkeyDraft.name);
-      expect(createdCdkeyBatch!.quantity).toBe(cdkeyDraft.quantity);
-      expect(createdCdkeyBatch!.redeem_quantity).toBe(cdkeyDraft.redeemQuantity);
-      expect(createdCdkeyBatch!.used_count).toBe(0);
-      expect(createdCdkeys).toHaveLength(cdkeyDraft.quantity);
+      const { createdCdkeyBatchId } = featureContext;
+      expect(createdCdkeyBatchId).toBeTruthy();
     });
 
     // list cd-key batches
@@ -282,8 +273,8 @@ describeFeature(feature, ({
       page: number,
       pageSize: number,
     ) => {
-      const { apiServer, adminToken, createdCdkeyBatch } = featureContext;
-      const batchId = createdCdkeyBatch?.id;
+      const { apiServer, adminToken, createdCdkeyBatchId } = featureContext;
+      const batchId = createdCdkeyBatchId;
       expect(batchId, `Batch '${batchName}' not found`).toBeTruthy();
 
       const list = await listCdkeysByBatch(apiServer, adminToken, batchId!, {

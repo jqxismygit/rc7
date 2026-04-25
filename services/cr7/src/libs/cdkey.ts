@@ -228,7 +228,7 @@ export class CdkeyService extends RC7BaseService {
       redeem_quantity: number;
       quantity: number;
       redeem_valid_until: Date;
-    }, { user: UserMeta }>,
+    }, { user: UserMeta; $statusCode?: number }>,
   ): Promise<Cdkey.CreateCdkeyBatchResult> {
     const { uid } = ctx.meta.user;
     const {
@@ -257,46 +257,8 @@ export class CdkeyService extends RC7BaseService {
         created_by: uid,
       }).catch(handleCdkeyError);
       await client.query('COMMIT');
-
-      const exhibitionIds = new Set<string>([result.batch.exhibit_id]);
-      const ticketCategoryIds = new Set<string>([result.batch.ticket_category_id]);
-      const sessionIds = new Set<string>();
-      const userIds = new Set<string>();
-
-      for (const code of result.codes) {
-        exhibitionIds.add(code.exhibit_id);
-        ticketCategoryIds.add(code.ticket_category_id);
-        if (code.redeemed_session_id !== null) {
-          sessionIds.add(code.redeemed_session_id);
-        }
-        if (code.redeemed_by !== null) {
-          userIds.add(code.redeemed_by);
-        }
-      }
-
-      const exhibitionById = await getExhibitionsByIds(this.pool, schema, [...exhibitionIds])
-        .catch(handleExhibitionError);
-      const ticketCategoryById = await getTicketCategoriesByIds(this.pool, schema, [...ticketCategoryIds])
-        .catch(handleExhibitionError);
-      const sessionById = await getSessionsByIds(this.pool, schema, [...sessionIds])
-        .catch(handleExhibitionError);
-      const userById = await getUserProfilesByIds(this.pool, schema, [...userIds]);
-
-      const batch = await assembleCdkeyBatchRow(exhibitionById, ticketCategoryById, result.batch);
-      const codes: Cdkey.Cdkey[] = [];
-      for (const code of result.codes) {
-        codes.push(await assembleCdkeyRow(
-          exhibitionById,
-          ticketCategoryById,
-          sessionById,
-          userById,
-          code,
-        ));
-      }
-      return {
-        batch,
-        codes,
-      };
+      ctx.meta.$statusCode = 201;
+      return { id: result.batch.id };
     } catch (error) {
       await client.query('ROLLBACK');
       return handleCdkeyError(error);

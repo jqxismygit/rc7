@@ -51,8 +51,7 @@ export interface Cdkey {
 }
 
 export interface CreateCdkeyBatchResult {
-  batch: CdkeyBatch;
-  codes: Cdkey[];
+  id: string;
 }
 
 export interface CdkeyBatchListResult {
