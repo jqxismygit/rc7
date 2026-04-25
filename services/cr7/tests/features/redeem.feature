@@ -45,11 +45,15 @@ Feature: 用户已购票的查询与核销
     Given 用户 "Alice" 预订 2 张该展会的 "今天" 场次的 "early_bird"
      When 用户 "Alice" 完成支付
      Then 用户 "Alice" 有一个有效的核销码
+
      When 运营人员将用户 "Alice" 的订单核销码扫码核销
      Then 核销成功
       And 核销码状态变为 "已核销"
       And 核销码的核销时间被记录
       And 核销码的核销人为运营人员
+
+     Then 运营人员根据核销码查询用户 "Alice" 的订单核销信息
+      And 核销信息显示订单已核销，核销时间是刚才的核销时间，核销人为运营人员
 
   Scenario: 一个未完成支付的订单没有核销码
     Given 用户 "Alice" 预订 1 张该展会的 "今天" 场次的 "early_bird"

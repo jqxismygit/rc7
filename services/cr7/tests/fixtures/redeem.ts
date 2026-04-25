@@ -182,6 +182,21 @@ export async function listMyRedemptions(
   return redemptionList;
 }
 
+export async function getRedemptionByCode(
+  server: Server,
+  code: string,
+  token: string,
+) {
+  const redemption = await getJSON<Redeem.RedemptionCodeWithOrder>(
+    server,
+    `/redemptions/${code}`,
+    { token },
+  );
+
+  assertRedeem(redemption);
+  return redemption;
+}
+
 export function toSessionDateLabel(value: string) {
   return toDateLabel(value);
 }

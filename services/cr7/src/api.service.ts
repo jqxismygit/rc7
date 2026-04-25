@@ -190,6 +190,7 @@ const routes = [
   routeConfig(
     '/redemptions',
     [
+      'cr7.redemption.getByCode',
       'cr7.redemption.listByUser',
       'cr7.redemption.transfer',
       'cr7.redemption.getTransfers',
@@ -197,6 +198,7 @@ const routes = [
     {
       aliases: {
         'GET /': 'cr7.redemption.listByUser',
+        'GET /:code': 'cr7.redemption.getByCode',
         'POST /transfer': 'cr7.redemption.transfer',
         'GET /:code/transfers': 'cr7.redemption.getTransfers',
       },

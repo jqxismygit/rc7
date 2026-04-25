@@ -24,6 +24,7 @@ import {
 import { createOrder as createOrderByApi } from './fixtures/order.js';
 import {
   getOrderRedemption,
+  getRedemptionByCode,
   isValidRedemptionCodeLuhn,
   listMyRedemptions,
   redeemCode,
@@ -581,12 +582,38 @@ describeFeature(feature, ({
 
   Scenario(
     '使用核销码完成订单核销',
-    (s: StepTest<OrderContext>) => {
-      const { And } = s;
+    (s: StepTest<OrderContext & { redemptionFromOp?: Redeem.RedemptionCodeWithOrder }>) => {
+      const { Then, And, context } = s;
+
+      Then('运营人员根据核销码查询用户 {string} 的订单核销信息', async (_ctx, userName: string) => {
+        const { apiServer, operatorToken, redemption, usersByName } = featureContext;
+        const user = usersByName[userName];
+        expect(user).toBeTruthy();
+
+        const queried = await getRedemptionByCode(
+          apiServer,
+          redemption!.code,
+          operatorToken,
+        );
+
+        expect(queried.order.user_id).toBe(user.profile.id);
+        context.redemptionFromOp = queried;
+      });
 
       And('核销码的核销时间被记录', async () => {
         const { redeemPromise } = featureContext;
         await expect(redeemPromise).resolves.toHaveProperty('redeemed_at');
+      });
+
+      And('核销信息显示订单已核销，核销时间是刚才的核销时间，核销人为运营人员', () => {
+        const { redemptionFromOp } = context;
+        const { redemption, operatorProfile } = featureContext;
+        expect(redemptionFromOp).toBeTruthy();
+        expect(redemption).toBeTruthy();
+
+        expect(redemptionFromOp!.status).toBe('REDEEMED');
+        expect(redemptionFromOp!.redeemed_at).toBe(redemption!.redeemed_at);
+        expect(redemptionFromOp!.redeemed_by).toBe(operatorProfile.id);
       });
     },
   );

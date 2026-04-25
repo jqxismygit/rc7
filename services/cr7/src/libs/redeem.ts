@@ -97,6 +97,15 @@ export class RedemptionService extends RC7BaseService {
       handler: this.listByUser,
     },
 
+    'redemption.getByCode': {
+      rest: 'GET /redemptions/:code',
+      roles: ['admin', 'operator'],
+      params: {
+        code: 'string',
+      },
+      handler: this.getByCode,
+    },
+
     'redemption.redeem': {
       rest: 'POST /redeem',
       roles: ['admin', 'operator'],
@@ -129,6 +138,10 @@ export class RedemptionService extends RC7BaseService {
       },
       handler: this.getTransfers,
     },
+  };
+
+  methods = {
+    assembleRedemption: this.assembleRedemption,
   };
 
   async generateByOrder(
@@ -184,47 +197,10 @@ export class RedemptionService extends RC7BaseService {
       handleRedeemError(new RedeemDataError('Order has no redemption code', 'ORDER_NOT_REDEEMABLE'));
     }
 
-    const categories = await getTicketCategoriesByExhibitionId(this.pool, schema, order.exhibit_id)
-      .catch(handleRedeemError);
-    const items = buildItems(order.items, categories);
     const redemptionRow = await getRedemptionRowByOrderId(this.pool, schema, order.id)
       .catch(handleRedeemError);
-    const exhibition = await getExhibitionById(this.pool, schema, order.exhibit_id)
-      .catch(handleRedeemError);
-    const session = await getSessionById(this.pool, schema, order.session_id)
-      .catch(handleRedeemError);
 
-    return {
-      ...redemptionRow,
-      order: {
-        id: order.id,
-        user_id: order.user_id,
-        source: order.source,
-        exhibit_id: order.exhibit_id,
-        session_id: order.session_id,
-        total_amount: order.total_amount,
-        status: order.status,
-      },
-      exhibition: {
-        id: exhibition.id,
-        name: exhibition.name,
-        description: exhibition.description,
-        cover_url: exhibition.cover_url,
-        location: exhibition.location,
-        city: exhibition.city,
-        venue_name: exhibition.venue_name,
-        start_date: exhibition.start_date,
-        end_date: exhibition.end_date,
-      },
-      session: {
-        id: session.id,
-        session_date: format(new Date(session.session_date), 'yyyy-MM-dd'),
-        opening_time: exhibition.opening_time,
-        closing_time: exhibition.closing_time,
-        last_entry_time: exhibition.last_entry_time,
-      },
-      items,
-    };
+    return this.assembleRedemption(schema, redemptionRow);
   }
 
   async listByUser(
@@ -333,6 +309,64 @@ export class RedemptionService extends RC7BaseService {
       total: redemptionRows.total,
       page: redemptionRows.page,
       limit: redemptionRows.limit,
+    };
+  }
+
+  async getByCode(
+    ctx: Context<{ code: string }>
+  ): Promise<Redeem.RedemptionCodeWithOrder> {
+    const { code } = ctx.params;
+    const schema = await this.getSchema();
+    const redemptionRow = await getRedemptionRowByCode(this.pool, schema, code)
+      .catch(handleRedeemError);
+
+    return this.assembleRedemption(schema, redemptionRow);
+  }
+
+  async assembleRedemption(
+    schema: string,
+    redemptionRow: Redeem.RedemptionCode
+  ): Promise<Redeem.RedemptionCodeWithOrder> {
+    const order = await getOrderById(this.pool, schema, redemptionRow.order_id)
+      .catch(handleOrderError);
+    const categories = await getTicketCategoriesByExhibitionId(this.pool, schema, order.exhibit_id)
+      .catch(handleRedeemError);
+    const items = buildItems(order.items, categories);
+    const exhibition = await getExhibitionById(this.pool, schema, order.exhibit_id)
+      .catch(handleRedeemError);
+    const session = await getSessionById(this.pool, schema, order.session_id)
+      .catch(handleRedeemError);
+
+    return {
+      ...redemptionRow,
+      order: {
+        id: order.id,
+        user_id: order.user_id,
+        source: order.source,
+        exhibit_id: order.exhibit_id,
+        session_id: order.session_id,
+        total_amount: order.total_amount,
+        status: order.status,
+      },
+      exhibition: {
+        id: exhibition.id,
+        name: exhibition.name,
+        description: exhibition.description,
+        cover_url: exhibition.cover_url,
+        location: exhibition.location,
+        city: exhibition.city,
+        venue_name: exhibition.venue_name,
+        start_date: exhibition.start_date,
+        end_date: exhibition.end_date,
+      },
+      session: {
+        id: session.id,
+        session_date: format(new Date(session.session_date), 'yyyy-MM-dd'),
+        opening_time: exhibition.opening_time,
+        closing_time: exhibition.closing_time,
+        last_entry_time: exhibition.last_entry_time,
+      },
+      items,
     };
   }
 

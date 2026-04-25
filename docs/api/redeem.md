@@ -79,6 +79,31 @@
   - 支持按核销状态筛选（`UNREDEEMED`、`REDEEMED`）
   - 支持分页查询，按核销码创建时间倒序返回
 
+## 管理端根据核销码查询订单核销信息
+
+- URL: `/redemptions/:code`
+- Method: `GET`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Params:
+  ```ts
+  { code: string }
+  ```
+- Response Body:
+  ```ts
+  Redeem.RedemptionCodeWithOrder
+  ```
+- Response Status:
+  - `200 OK`：查询成功
+  - `401 Unauthorized`：未认证
+  - `403 Forbidden`：非管理员/运营人员
+  - `404 Not Found`：核销码不存在
+- 说明：
+  - 仅管理员或运营人员可查询
+  - 返回核销码、关联订单、展会、场次和票种明细
+
 ## 转移核销码
 
 - URL: `/redemptions/transfer`
