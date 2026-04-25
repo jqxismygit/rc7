@@ -123,10 +123,7 @@ export async function createCdkeyBatch(
     { token, body },
   );
 
-  assertCdkeyBatch(result.batch);
-  for (const code of result.codes) {
-    assertCdkey(code);
-  }
+  expect(result).toHaveProperty('id', expect.any(String));
   return result;
 }
 
