@@ -22,3 +22,13 @@ export function redeemTicket(exhibitId, payload) {
   const eid = encodeURIComponent(exhibitId);
   return request.post(`/exhibition/${eid}/redeem`, payload);
 }
+
+/**
+ * 三方票同步（转移核销码）
+ * @param {{ code: string }} payload
+ * @returns {Promise<void>}
+ * @see docs/api/redeem.md
+ */
+export function transferRedemption(payload) {
+  return request.post("/redemptions/transfer", payload);
+}

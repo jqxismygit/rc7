@@ -30,8 +30,12 @@
             placeholder-style="color:#787878"
             maxlength="32"
           />
-          <button class="submit-btn" :disabled="!code" @click="handleSubmit">
-            立即兑换
+          <button
+            class="submit-btn"
+            :disabled="!code || submitting"
+            @click="handleSubmit"
+          >
+            {{ submitting ? "同步中..." : "立即兑换" }}
           </button>
         </view>
 
@@ -61,6 +65,7 @@
 <script>
 import Cr7NavBar from "@/components/cr7-nav-bar/cr7-nav-bar.vue";
 import { getNavBarInsetPx } from "@/utils/navBar.js";
+import { transferRedemption } from "@/services/redeem.js";
 
 export default {
   components: {
@@ -71,6 +76,7 @@ export default {
     return {
       code: "",
       navInsetPx: 0,
+      submitting: false,
     };
   },
 
@@ -79,12 +85,46 @@ export default {
   },
 
   methods: {
-    handleSubmit() {
+    pickTransferErrorMessage(err) {
+      const code = err?.statusCode;
+      if (code === 400) return "兑换码格式错误，请检查后重试";
+      if (code === 401) return "请先登录后再同步";
+      if (code === 404) return "兑换码不存在或已失效";
+      if (code === 409) return "兑换码已使用，不能重复同步";
+      return "同步失败，请稍后重试";
+    },
+
+    async handleSubmit() {
       if (!this.code) {
         uni.showToast({ title: "请输入兑换码", icon: "none" });
         return;
       }
-      uni.showToast({ title: "暂未支持", icon: "none" });
+      if (this.submitting) return;
+
+      this.submitting = true;
+      try {
+        uni.showLoading({ title: "同步中...", mask: true });
+        await transferRedemption({ code: this.code });
+        uni.hideLoading();
+        uni.showToast({
+          title: "同步成功，已转入票夹",
+          icon: "success",
+        });
+        this.code = "";
+        setTimeout(() => {
+          uni.switchTab({
+            url: "/pages/my-tickets/my-tickets",
+          });
+        }, 1200);
+      } catch (err) {
+        uni.hideLoading();
+        uni.showToast({
+          title: this.pickTransferErrorMessage(err),
+          icon: "none",
+        });
+      } finally {
+        this.submitting = false;
+      }
     },
   },
 };
