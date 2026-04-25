@@ -150,20 +150,14 @@ export default {
 
   methods: {
     goGameDetail() {
-      console.log(
-        "DEFAULT_GAME_H5_URL====================>>>",
-        DEFAULT_GAME_H5_URL,
-      );
       const h5 = (DEFAULT_GAME_H5_URL || "").trim();
       const u = pickUserFromStore();
-      console.log("u====================>>>", u);
       const parts = [];
       if (h5) parts.push(`url=${encodeURIComponent(h5)}`);
       if (u.id) parts.push(`id=${encodeURIComponent(u.id)}`);
       if (u.avatar) parts.push(`avatar=${encodeURIComponent(u.avatar)}`);
       if (u.nickname) parts.push(`nickname=${encodeURIComponent(u.nickname)}`);
       const q = parts.length ? `?${parts.join("&")}` : "";
-      console.log("q====================>>>", q);
       uni.navigateTo({
         url: `/pages/game/game-detail${q}`,
       });

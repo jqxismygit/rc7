@@ -6,8 +6,7 @@ import { useUserStore } from "@/stores/user.js";
  */
 export function pickUserFromStore() {
   const p = useUserStore().profile || {};
-  const extra =
-    p.profile && typeof p.profile === "object" ? p.profile : {};
+  const extra = p.profile && typeof p.profile === "object" ? p.profile : {};
   return {
     id: p.id != null ? String(p.id) : "",
     avatar: p.avatar || extra.avatar || "",

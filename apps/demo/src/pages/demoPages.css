@@ -130,6 +130,43 @@
   font-size: 14px;
 }
 
+.demo-result-card {
+  width: 100%;
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--code-bg);
+  box-sizing: border-box;
+}
+
+.demo-result-card.is-success {
+  border-color: rgba(63, 185, 80, 0.5);
+}
+
+.demo-result-card.is-error {
+  border-color: rgba(248, 81, 73, 0.5);
+}
+
+.demo-result-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.demo-result-text {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.demo-result-text:last-child {
+  margin-bottom: 0;
+}
+
 .demo-page code {
   font-size: 13px;
   padding: 2px 6px;
