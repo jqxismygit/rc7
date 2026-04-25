@@ -3,6 +3,7 @@ import Moleculer from 'moleculer';
 import { UserDataError } from '../data/user.js';
 import { OrderDataError } from '../data/order.js';
 import { PaymentDataError } from '../data/payment.js';
+import { CdkeyDataError } from '../data/cdkey.js';
 import { RedeemDataError } from '../data/redeem.js';
 import { ExhibitionDataError } from '../data/exhibition.js';
 import { XiechengDataError } from '../data/xiecheng.js';
@@ -173,6 +174,18 @@ export function handleRedeemError(error: unknown): never {
   }
 
   throw new MoleculerClientError('核销服务错误', 500, 'REDEEM_ERROR');
+}
+
+export function handleCdkeyError(error: unknown): never {
+  if ((error instanceof CdkeyDataError) === false) {
+    throw error;
+  }
+
+  if (error.code === 'CDKEY_NOT_FOUND' || error.code === 'CDKEY_BATCH_NOT_FOUND') {
+    throw new MoleculerClientError('资源不存在', 404, error.code);
+  }
+
+  throw new MoleculerClientError('兑换码服务错误', 500, 'CDKEY_ERROR');
 }
 
 export function handleExhibitionError(error: unknown): never {

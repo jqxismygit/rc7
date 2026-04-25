@@ -12,6 +12,7 @@ ignoreWords:
 words:
   - apiclient
   - cdkey
+  - cdkeys
   - Ctrip
   - Damai
   - eticket

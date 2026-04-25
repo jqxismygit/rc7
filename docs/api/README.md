@@ -4,6 +4,8 @@
 - [展览活动](./exhibition.md)
 - [库存管理](./inventory.md)
 - [订单管理](./order.md)
+- [核销](./redeem.md)
+- [兑换码](./cdkey.md)
 - [发票管理](./invoices.md)
 - [资源上传](./assets.md)
 - [话题与文章](./topics.md)

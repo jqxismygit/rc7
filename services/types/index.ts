@@ -5,6 +5,7 @@ export * as Order from './order.js';
 export * as Invoice from './invoice.js';
 export * as Payment from './payment.js';
 export * as Redeem from './redeem.js';
+export * as Cdkey from './cdkey.js';
 export * as Xiecheng from './xiecheng.js';
 export * as Mop from './mop.js';
 export * as Damai from './damai.js';

@@ -97,6 +97,31 @@ export async function getUserProfile(
   return rows[0];
 }
 
+export async function getUserProfilesByIds(
+  client: DBClient,
+  schema: string,
+  userIds: string[],
+): Promise<Map<string, { id: string; phone: string | null }>> {
+  if (userIds.length === 0) {
+    return new Map();
+  }
+
+  const { rows } = await client.query<{ id: string; phone: string | null }>(
+    `SELECT
+      u.id,
+      CASE
+        WHEN up.uid IS NULL THEN NULL
+        ELSE up.country_code || ' ' || up.phone
+      END AS phone
+    FROM ${schema}.users u
+    LEFT JOIN ${schema}.user_phone up ON u.id = up.uid
+    WHERE u.id = ANY($1::uuid[])`,
+    [[...new Set(userIds)]],
+  );
+
+  return new Map(rows.map(row => [row.id, row]));
+}
+
 export async function listUserProfiles(
   client: DBClient,
   schema: string,

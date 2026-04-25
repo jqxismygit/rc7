@@ -4,13 +4,20 @@ import {
   loadFeature,
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
-import { Exhibition, User } from '@cr7/types';
+import { Cdkey, Exhibition, User } from '@cr7/types';
 import { expect, vi } from 'vitest';
 import type { ServiceBroker } from 'moleculer';
 import { Server } from 'node:http';
 import { bootstrap, dropSchema, migrate } from '@/scripts/index.js';
 
 import { toDateLabel } from './lib/relative-date.js';
+import {
+  createCdkeyBatch,
+  getCdkeyByCode,
+  isValidCdkeyLuhn,
+  listCdkeyBatches,
+  listCdkeysByBatch,
+} from './fixtures/cdkey.js';
 import { prepareAPIServer, prepareServices } from './fixtures/services.js';
 import { prepareAdminToken } from './fixtures/user.js';
 import { setupWechatFixture, WechatFixture } from './fixtures/wechat.js';
@@ -41,10 +48,24 @@ interface UserContext {
   usersByName: Record<string, { token: string; profile: User.Profile }>;
 }
 
+interface CdkeyDraftContext {
+  name: string;
+  ticketName: string;
+  redeemQuantity: number;
+  quantity: number;
+  redeemValidUntil: string;
+}
+
 interface FeatureContext extends ExhibitionContext, UserContext {
   apiServer: Server;
   broker: ServiceBroker;
   wechatFixture: WechatFixture;
+  cdkeyDraft: CdkeyDraftContext;
+  createdCdkeyBatch?: Cdkey.CdkeyBatch;
+  createdCdkeys: Cdkey.Cdkey[];
+  batchListsByViewIndex: Record<number, Cdkey.CdkeyBatchListResult>;
+  codeListsByViewIndex: Record<number, Cdkey.CdkeyListResult>;
+  codeDetailsByViewIndex: Record<number, Record<number, Cdkey.Cdkey>>;
 }
 
 describeFeature(feature, ({
@@ -68,6 +89,18 @@ describeFeature(feature, ({
     featureContext.apiServer = apiServer;
     featureContext.usersByName = {};
     featureContext.wechatFixture = wechatFixture;
+    featureContext.cdkeyDraft = {
+      name: '',
+      ticketName: '',
+      redeemQuantity: 0,
+      quantity: 0,
+      redeemValidUntil: '',
+    };
+    featureContext.createdCdkeyBatch = undefined;
+    featureContext.createdCdkeys = [];
+    featureContext.batchListsByViewIndex = {};
+    featureContext.codeListsByViewIndex = {};
+    featureContext.codeDetailsByViewIndex = {};
   });
 
   AfterAllScenarios(async () => {
@@ -78,6 +111,18 @@ describeFeature(feature, ({
 
   BeforeEachScenario(async () => {
     await migrate({ schema });
+    featureContext.cdkeyDraft = {
+      name: '',
+      ticketName: '',
+      redeemQuantity: 0,
+      quantity: 0,
+      redeemValidUntil: '',
+    };
+    featureContext.createdCdkeyBatch = undefined;
+    featureContext.createdCdkeys = [];
+    featureContext.batchListsByViewIndex = {};
+    featureContext.codeListsByViewIndex = {};
+    featureContext.codeDetailsByViewIndex = {};
   });
 
   defineSteps(({ Given, When, Then, And }) => {
@@ -120,31 +165,74 @@ describeFeature(feature, ({
 
     // create cd-keys
     Given('管理员填写兑换码批次信息，批次名称为 {string}', async (_ctx, batchName: string) => {
-      void batchName;
+      featureContext.cdkeyDraft = {
+        ...featureContext.cdkeyDraft,
+        name: batchName,
+      };
     });
 
     And('兑换码类型为 {string}, 可以兑换 {int} 张', async (_ctx, ticketName: string, count: number) => {
-      void ticketName;
-      void count;
+      featureContext.cdkeyDraft = {
+        ...featureContext.cdkeyDraft,
+        ticketName,
+        redeemQuantity: count,
+      };
     });
 
     And('兑换码类型为 {string}，可以兑换 {int} 张', async (_ctx, ticketName: string, count: number) => {
-      void ticketName;
-      void count;
+      featureContext.cdkeyDraft = {
+        ...featureContext.cdkeyDraft,
+        ticketName,
+        redeemQuantity: count,
+      };
     });
 
     And('兑换码数量为 {int}', async (_ctx, quantity: number) => {
-      void quantity;
+      featureContext.cdkeyDraft = {
+        ...featureContext.cdkeyDraft,
+        quantity,
+      };
     });
 
     And('兑换码批次兑换有效期到 {string}', async (_ctx, expiry: string) => {
-      void expiry;
+      featureContext.cdkeyDraft = {
+        ...featureContext.cdkeyDraft,
+        redeemValidUntil: expiry,
+      };
     });
 
     When('管理员提交兑换码批次创建请求', async () => {
+      const {
+        apiServer,
+        adminToken,
+        exhibition,
+        ticketByName,
+        cdkeyDraft,
+      } = featureContext;
+      const ticket = ticketByName[cdkeyDraft.ticketName];
+      expect(ticket, `Ticket '${cdkeyDraft.ticketName}' not found`).toBeTruthy();
+
+      const result = await createCdkeyBatch(apiServer, adminToken, {
+        eid: exhibition.id,
+        name: cdkeyDraft.name,
+        ticket_category_id: ticket.id,
+        redeem_quantity: cdkeyDraft.redeemQuantity,
+        quantity: cdkeyDraft.quantity,
+        redeem_valid_until: toDateLabel(cdkeyDraft.redeemValidUntil),
+      });
+
+      featureContext.createdCdkeyBatch = result.batch;
+      featureContext.createdCdkeys = result.codes;
     });
 
     Then('兑换码批次创建成功', async () => {
+      const { createdCdkeyBatch, createdCdkeys, cdkeyDraft } = featureContext;
+      expect(createdCdkeyBatch).toBeTruthy();
+      expect(createdCdkeyBatch!.name).toBe(cdkeyDraft.name);
+      expect(createdCdkeyBatch!.quantity).toBe(cdkeyDraft.quantity);
+      expect(createdCdkeyBatch!.redeem_quantity).toBe(cdkeyDraft.redeemQuantity);
+      expect(createdCdkeyBatch!.used_count).toBe(0);
+      expect(createdCdkeys).toHaveLength(cdkeyDraft.quantity);
     });
 
     // list cd-key batches
@@ -154,14 +242,19 @@ describeFeature(feature, ({
       page: number,
       pageSize: number,
     ) => {
-      void viewIndex;
-      void page;
-      void pageSize;
+      const { apiServer, adminToken, exhibition } = featureContext;
+      const list = await listCdkeyBatches(apiServer, adminToken, {
+        eid: exhibition.id,
+        page,
+        limit: pageSize,
+      });
+      featureContext.batchListsByViewIndex[viewIndex] = list;
     });
 
     Then('第 {int} 次查看兑换码批次列表总数为 {int}', async (_ctx, viewIndex: number, total: number) => {
-      void viewIndex;
-      void total;
+      const list = featureContext.batchListsByViewIndex[viewIndex];
+      expect(list).toBeTruthy();
+      expect(list.total).toBe(total);
     });
 
     And('第 {int} 次查看兑换码批次列表中有 {int} 个批次', async (
@@ -169,8 +262,16 @@ describeFeature(feature, ({
       viewIndex: number,
       count: number,
     ) => {
-      void viewIndex;
-      void count;
+      const { cdkeyDraft } = featureContext;
+      const list = featureContext.batchListsByViewIndex[viewIndex];
+      expect(list).toBeTruthy();
+      expect(list.batches).toHaveLength(count);
+      if (count > 0) {
+        expect(list.batches[0].name).toBe(cdkeyDraft.name);
+        expect(list.batches[0].ticket_category.name).toBe(cdkeyDraft.ticketName);
+        expect(list.batches[0].quantity).toBe(cdkeyDraft.quantity);
+        expect(list.batches[0].redeem_valid_until).toBe(toDateLabel(cdkeyDraft.redeemValidUntil));
+      }
     });
 
     // list cd-keys in batch
@@ -181,20 +282,27 @@ describeFeature(feature, ({
       page: number,
       pageSize: number,
     ) => {
-      void viewIndex;
-      void batchName;
-      void page;
-      void pageSize;
+      const { apiServer, adminToken, createdCdkeyBatch } = featureContext;
+      const batchId = createdCdkeyBatch?.id;
+      expect(batchId, `Batch '${batchName}' not found`).toBeTruthy();
+
+      const list = await listCdkeysByBatch(apiServer, adminToken, batchId!, {
+        page,
+        limit: pageSize,
+      });
+      featureContext.codeListsByViewIndex[viewIndex] = list;
     });
 
     Then('第 {int} 次查看兑换码列表总数为 {int}', async (_ctx, viewIndex: number, total: number) => {
-      void viewIndex;
-      void total;
+      const list = featureContext.codeListsByViewIndex[viewIndex];
+      expect(list).toBeTruthy();
+      expect(list.total).toBe(total);
     });
 
     And('第 {int} 次查看兑换码列表中有 {int} 个兑换码', async (_ctx, viewIndex: number, count: number) => {
-      void viewIndex;
-      void count;
+      const list = featureContext.codeListsByViewIndex[viewIndex];
+      expect(list).toBeTruthy();
+      expect(list.codes).toHaveLength(count);
     });
 
     And('第 {int} 次查看兑换码列表的兑换有效期为 {string}', async (
@@ -202,20 +310,36 @@ describeFeature(feature, ({
       viewIndex: number,
       expiry: string,
     ) => {
-      void viewIndex;
-      void expiry;
+      const list = featureContext.codeListsByViewIndex[viewIndex];
+      expect(list).toBeTruthy();
+      const expected = toDateLabel(expiry);
+      for (const code of list.codes) {
+        expect(code.redeem_valid_until).toBe(expected);
+      }
     });
 
     And('第 {int} 次查看兑换码列表的场次信息为 null', async (_ctx, viewIndex: number) => {
-      void viewIndex;
+      const list = featureContext.codeListsByViewIndex[viewIndex];
+      expect(list).toBeTruthy();
+      for (const code of list.codes) {
+        expect(code.redeemed_session).toBeNull();
+      }
     });
 
     And('第 {int} 次查看兑换码列表的兑换人为 null', async (_ctx, viewIndex: number) => {
-      void viewIndex;
+      const list = featureContext.codeListsByViewIndex[viewIndex];
+      expect(list).toBeTruthy();
+      for (const code of list.codes) {
+        expect(code.redeemed_by).toBeNull();
+      }
     });
 
     And('第 {int} 次查看兑换码列表的核销时间为 null', async (_ctx, viewIndex: number) => {
-      void viewIndex;
+      const list = featureContext.codeListsByViewIndex[viewIndex];
+      expect(list).toBeTruthy();
+      for (const code of list.codes) {
+        expect(code.redeemed_at).toBeNull();
+      }
     });
 
     // view cd-key details
@@ -224,8 +348,17 @@ describeFeature(feature, ({
       viewIndex: number,
       codeIndex: number,
     ) => {
-      void viewIndex;
-      void codeIndex;
+      const list = featureContext.codeListsByViewIndex[viewIndex]
+        ?? featureContext.codeListsByViewIndex[1];
+      expect(list).toBeTruthy();
+      const item = list.codes[codeIndex - 1];
+      expect(item).toBeTruthy();
+
+      const { apiServer, adminToken } = featureContext;
+      const detail = await getCdkeyByCode(apiServer, adminToken, item.code);
+      const details = featureContext.codeDetailsByViewIndex[viewIndex] ?? {};
+      details[codeIndex] = detail;
+      featureContext.codeDetailsByViewIndex[viewIndex] = details;
     });
 
     And('第 {int} 次查看时第 {int} 个兑换码详情中兑换码状态为未使用', async (
@@ -233,8 +366,9 @@ describeFeature(feature, ({
       viewIndex: number,
       codeIndex: number,
     ) => {
-      void viewIndex;
-      void codeIndex;
+      const detail = featureContext.codeDetailsByViewIndex[viewIndex]?.[codeIndex];
+      expect(detail).toBeTruthy();
+      expect(detail.status).toBe('UNUSED');
     });
 
     And('第 {int} 次查看时第 {int} 个兑换码详情中兑换码状态为已使用', async (
@@ -251,8 +385,9 @@ describeFeature(feature, ({
       viewIndex: number,
       codeIndex: number,
     ) => {
-      void viewIndex;
-      void codeIndex;
+      const detail = featureContext.codeDetailsByViewIndex[viewIndex]?.[codeIndex];
+      expect(detail).toBeTruthy();
+      expect(detail.redeem_valid_until).toBe(toDateLabel('3天后'));
     });
 
     And('第 {int} 次查看时第 {int} 个兑换码详情中场次信息为 null', async (
@@ -260,8 +395,9 @@ describeFeature(feature, ({
       viewIndex: number,
       codeIndex: number,
     ) => {
-      void viewIndex;
-      void codeIndex;
+      const detail = featureContext.codeDetailsByViewIndex[viewIndex]?.[codeIndex];
+      expect(detail).toBeTruthy();
+      expect(detail.redeemed_session).toBeNull();
     });
 
     And('第 {int} 次查看时第 {int} 个兑换码详情中核销时间为 null', async (
@@ -269,8 +405,9 @@ describeFeature(feature, ({
       viewIndex: number,
       codeIndex: number,
     ) => {
-      void viewIndex;
-      void codeIndex;
+      const detail = featureContext.codeDetailsByViewIndex[viewIndex]?.[codeIndex];
+      expect(detail).toBeTruthy();
+      expect(detail.redeemed_at).toBeNull();
     });
 
     And('第 {int} 次查看时第 {int} 个兑换码详情中兑换人为 null', async (
@@ -278,8 +415,9 @@ describeFeature(feature, ({
       viewIndex: number,
       codeIndex: number,
     ) => {
-      void viewIndex;
-      void codeIndex;
+      const detail = featureContext.codeDetailsByViewIndex[viewIndex]?.[codeIndex];
+      expect(detail).toBeTruthy();
+      expect(detail.redeemed_by).toBeNull();
     });
 
     And('第 {int} 次查看时第 {int} 个兑换码详情中场次信息为 {string}', async (
@@ -426,12 +564,45 @@ describeFeature(feature, ({
 
   Scenario('管理员创建兑换码批次', ({ And }) => {
     And('兑换码的长度为 "12" 位', () => {
+      const { codeListsByViewIndex } = featureContext;
+      const list = codeListsByViewIndex[1];
+      expect(list).toBeTruthy();
+      for (const code of list.codes) {
+        expect(code.code).toHaveLength(12);
+      }
     });
     And('兑换码的第一位是 "C" 先做保留字', () => {
+      const { codeListsByViewIndex } = featureContext;
+      const list = codeListsByViewIndex[1];
+      expect(list).toBeTruthy();
+      for (const code of list.codes) {
+        expect(code.code.startsWith('C')).toBe(true);
+      }
     });
     And('兑换码最后两位是 Luhn 校验码且正确', () => {
+      const { codeListsByViewIndex } = featureContext;
+      const list = codeListsByViewIndex[1];
+      expect(list).toBeTruthy();
+      for (const code of list.codes) {
+        expect(isValidCdkeyLuhn(code.code)).toBe(true);
+      }
     });
     And('兑换码中间的9位字符集 "23456789ABCDEFGHJKLMNPQRSTUVWXYZ" 组成, 不包含易混淆的字符如 "0", "1", "I", "O"', () => {
+      const charset = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+      const { codeListsByViewIndex } = featureContext;
+      const list = codeListsByViewIndex[1];
+      expect(list).toBeTruthy();
+      for (const code of list.codes) {
+        const middle = code.code.slice(1, 10);
+        expect(middle).toHaveLength(9);
+        for (const char of middle) {
+          expect(charset.includes(char)).toBe(true);
+        }
+        expect(middle.includes('0')).toBe(false);
+        expect(middle.includes('1')).toBe(false);
+        expect(middle.includes('I')).toBe(false);
+        expect(middle.includes('O')).toBe(false);
+      }
     });
   });
 

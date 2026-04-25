@@ -212,6 +212,23 @@ const routes = [
     }
   ),
   routeConfig(
+    '/cdkeys',
+    [
+      'cr7.cdkey.createBatch',
+      'cr7.cdkey.listBatches',
+      'cr7.cdkey.listByBatch',
+      'cr7.cdkey.getByCode',
+    ],
+    {
+      aliases: {
+        'POST /batches': 'cr7.cdkey.createBatch',
+        'GET /batches': 'cr7.cdkey.listBatches',
+        'GET /batches/:bid/codes': 'cr7.cdkey.listByBatch',
+        'GET /:code': 'cr7.cdkey.getByCode',
+      },
+    }
+  ),
+  routeConfig(
     '/exhibition/:eid/redeem', ['cr7.redemption.redeem'], {
       aliases: {
         'POST /': 'cr7.redemption.redeem'

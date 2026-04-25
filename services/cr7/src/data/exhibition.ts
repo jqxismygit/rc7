@@ -241,6 +241,26 @@ export async function getTicketCategoryById(
   return rows[0];
 }
 
+export async function getTicketCategoriesByIds(
+  client: DBClient,
+  schema: string,
+  ticketCategoryIds: string[],
+): Promise<Map<string, Exhibition.TicketCategory>> {
+  if (ticketCategoryIds.length === 0) {
+    return new Map();
+  }
+
+  const { rows } = await client.query<Exhibition.TicketCategory>(
+    `SELECT
+      ${TICKET_CATEGORY_SELECT}
+    FROM ${schema}.exhibit_ticket_categories c
+    WHERE c.id = ANY($1::uuid[])`,
+    [[...new Set(ticketCategoryIds)]],
+  );
+
+  return new Map(rows.map(row => [row.id, row]));
+}
+
 export async function updateTicketCategoryOtaXcOptionId(
   client: DBClient,
   schema: string,
