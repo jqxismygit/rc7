@@ -5,7 +5,7 @@ import {
   StepTest,
 } from '@amiceli/vitest-cucumber';
 import config from 'config';
-import { isSameDay } from 'date-fns';
+import { isSameDay, startOfDay } from 'date-fns';
 import { Exhibition, Order, Payment, Redeem, User } from '@cr7/types';
 import { expect, vi } from 'vitest';
 import type { ServiceBroker } from 'moleculer';
@@ -56,23 +56,18 @@ type ExhibitionContext = {
 type OrderContext = {
   order: Order.OrderWithItems;
 };
-
-type RedemptionContext = {
+interface RedemptionContext {
+  redeemPromise: Promise<Redeem.RedemptionCodeWithOrder>;
   redemption: Redeem.RedemptionCodeWithOrder;
-};
+}
 
-type RedemptionListContext = {
+interface RedemptionListContext {
   redemptionList: Redeem.RedemptionCodeListResult;
 };
 
 type RefundContext = {
   refundRecord: Payment.RefundRecord;
 };
-
-type ErrorContext = {
-  lastErrorPromise: Promise<unknown>;
-};
-
 interface DefaultUserContext {
   adminToken: string;
   userToken: string;
@@ -85,12 +80,12 @@ interface DefaultUserContext {
 interface FeatureContext extends
   DefaultUserContext,
   ExhibitionContext,
-  Partial<RedemptionListContext> {
+  Partial<RedemptionListContext>,
+  Partial<RedemptionContext> {
   wechatFixture: WechatFixture;
   broker: ServiceBroker;
   apiServer: Server;
   currentOrder?: Order.OrderWithItems;
-  redemption?: Redeem.RedemptionCodeWithOrder;
 }
 
 interface ServiceWithPool {
@@ -152,25 +147,6 @@ async function payOrderForCurrentUser(
   await markOrderAsPaidForTest(apiServer, userToken, order, userProfile.openid!);
 }
 
-async function expireRedemptionForOrder(
-  featureContext: FeatureContext,
-  orderId: string,
-): Promise<void> {
-  const { broker } = featureContext;
-  const cr7Service = broker.getLocalService('cr7') as unknown as ServiceWithPool;
-  expect(cr7Service).toBeTruthy();
-
-  // Keep valid_until > valid_from while making the code effectively expired now.
-  await cr7Service.pool.query(
-    `UPDATE ${schema}.exhibit_redemption_codes
-    SET
-      valid_until = valid_from + INTERVAL '1 second',
-      updated_at = NOW()
-    WHERE order_id = $1`,
-    [orderId],
-  );
-}
-
 describeFeature(feature, ({
   BeforeAllScenarios,
   AfterAllScenarios,
@@ -204,7 +180,7 @@ describeFeature(feature, ({
     await migrate({ schema });
   });
 
-  defineSteps(({ Given, When, Then }) => {
+  defineSteps(({ Given, When, Then, And }) => {
     Given(
       '用户 {string} 预订 {int} 张该展会的 {string} 场次的 {string}',
       async (
@@ -299,6 +275,41 @@ describeFeature(feature, ({
       );
       expect(redemption?.status).toBe('UNREDEEMED');
       featureContext.redemption = redemption;
+    });
+
+    // redeem
+    When('运营人员将用户 {string} 的订单核销码扫码核销', (_ctx, userName: string) => {
+      const { usersByName, operatorToken, redemption } = featureContext;
+      expect(usersByName[userName]).toBeTruthy();
+      featureContext.redeemPromise = performRedeem(
+        featureContext,
+        redemption!,
+        operatorToken,
+      );
+    });
+
+    Then('核销成功', async () => {
+      const { redeemPromise } = featureContext;
+      await expect(redeemPromise).resolves.toMatchObject({ status: 'REDEEMED' });
+      featureContext.redemption = await redeemPromise;
+    });
+
+    And('核销码状态变为 {string}', async (_ctx, statusLabel: string) => {
+      expect(statusLabel).toBe('已核销');
+      const { redeemPromise } = featureContext;
+      await expect(redeemPromise).resolves.toMatchObject({ status: 'REDEEMED' });
+    });
+
+    And('核销码状态变为 {string}', async (_ctx, statusLabel: string) => {
+      expect(statusLabel).toBe('已核销');
+      const { redeemPromise } = featureContext;
+      await expect(redeemPromise).resolves.toMatchObject({ status: 'REDEEMED' });
+    });
+
+    And('核销码的核销人为运营人员', async () => {
+      const { redeemPromise, operatorProfile } = featureContext;
+      const operatorId = operatorProfile.id;
+      await expect(redeemPromise).resolves.toHaveProperty('redeemed_by', operatorId);
     });
 
     // list redemptions
@@ -403,7 +414,7 @@ describeFeature(feature, ({
 
   Scenario(
     '一个完成支付的订单拥有一个核销码',
-    (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
+    (s: StepTest<OrderContext>) => {
       const { And, Then } = s;
 
       Then('订单详情中包含一个核销码', () => {
@@ -570,39 +581,12 @@ describeFeature(feature, ({
 
   Scenario(
     '使用核销码完成订单核销',
-    (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
-      const { And, When, Then } = s;
+    (s: StepTest<OrderContext>) => {
+      const { And } = s;
 
-      When('运营人员将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
-        const { usersByName, operatorToken, redemption } = featureContext;
-        expect(usersByName[userName]).toBeTruthy();
-        featureContext.redemption = await performRedeem(
-          featureContext,
-          redemption!,
-          operatorToken,
-        );
-      });
-
-      Then('核销成功', () => {
-        const { redemption } = featureContext;
-        expect(redemption?.status).toBe('REDEEMED');
-      });
-
-      And('核销码状态变为 {string}', (_ctx, statusLabel: string) => {
-        expect(statusLabel).toBe('已核销');
-        const { redemption } = featureContext;
-        expect(redemption?.status).toBe('REDEEMED');
-      });
-
-      And('核销码的核销时间被记录', () => {
-        const { redemption } = featureContext;
-        expect(redemption?.redeemed_at).toBeTruthy();
-      });
-
-      And('核销码的核销人为运营人员', () => {
-        const { redemption, operatorProfile } = featureContext;
-        const operatorId = operatorProfile.id;
-        expect(redemption?.redeemed_by).toBe(operatorId);
+      And('核销码的核销时间被记录', async () => {
+        const { redeemPromise } = featureContext;
+        await expect(redeemPromise).resolves.toHaveProperty('redeemed_at');
       });
     },
   );
@@ -636,176 +620,125 @@ describeFeature(feature, ({
 
   Scenario(
     '已过期订单的核销码不可用',
-    (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
-      const { Given, And, When, Then, context } = s;
+    (s: StepTest<OrderContext>) => {
+      const { Given, And, Then } = s;
 
       Given('核销码已过期', async () => {
-        const { currentOrder } = featureContext;
-        await expireRedemptionForOrder(featureContext, currentOrder!.id);
-      });
+        const { broker, currentOrder } = featureContext;
+        const orderId = currentOrder!.id;
 
-      When('运营人员将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
-        const { usersByName, operatorToken, redemption } = featureContext;
-        expect(usersByName[userName]).toBeTruthy();
-        context.lastErrorPromise = performRedeem(featureContext, redemption!, operatorToken);
+        const cr7Service = broker.getLocalService('cr7') as unknown as ServiceWithPool;
+        expect(cr7Service).toBeTruthy();
+
+        // Keep valid_until > valid_from while making the code effectively expired now.
+        await cr7Service.pool.query(
+          `UPDATE ${schema}.exhibit_redemption_codes
+          SET
+            valid_until = valid_from + INTERVAL '1 second',
+            updated_at = NOW()
+          WHERE order_id = $1`,
+          [orderId],
+        );
       });
 
       Then('操作失败，状态码为 {int}', async (_ctx, statusCode: number) => {
-        await expect(context.lastErrorPromise).rejects.toMatchObject({ status: statusCode });
+        const { redeemPromise } = featureContext;
+        await expect(redeemPromise).rejects.toMatchObject({ status: statusCode });
       });
 
       And('错误类型为 {string}', async (_ctx, errorType: string) => {
-        await expect(context.lastErrorPromise).rejects.toMatchObject({ body: { type: errorType } });
+        const { redeemPromise } = featureContext;
+        await expect(redeemPromise).rejects.toMatchObject({ body: { type: errorType } });
       });
     },
   );
 
   Scenario(
     '未生效订单的核销码不可用',
-    (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
-      const { And, When, Then, context } = s;
-
-      When('运营人员将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
-        const { usersByName, operatorToken, redemption } = featureContext;
-        expect(usersByName[userName]).toBeTruthy();
-        context.lastErrorPromise = performRedeem(featureContext, redemption!, operatorToken);
-      });
-
+    (s: StepTest<OrderContext>) => {
+      const { And, Then } = s;
       Then('操作失败，状态码为 {int}', async (_ctx, statusCode: number) => {
-        await expect(context.lastErrorPromise).rejects.toMatchObject({ status: statusCode });
+        const { redeemPromise } = featureContext;
+        await expect(redeemPromise).rejects.toMatchObject({ status: statusCode });
       });
 
       And('错误类型为 {string}', async (_ctx, errorType: string) => {
-        await expect(context.lastErrorPromise).rejects.toMatchObject({ body: { type: errorType } });
+        const { redeemPromise } = featureContext;
+        await expect(redeemPromise).rejects.toMatchObject({ body: { type: errorType } });
       });
     },
   );
 
   Scenario(
     '已核销订单的核销码不可重复使用',
-    (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
+    (s: StepTest<OrderContext & { secondsRedeemPromise: Promise<Redeem.RedemptionCodeWithOrder> }>) => {
       const { And, When, Then, context } = s;
-
-      When('运营人员将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
-        const { usersByName, redemption, operatorToken } = featureContext;
-        expect(usersByName[userName]).toBeTruthy();
-        featureContext.redemption = await performRedeem(
-          featureContext,
-          redemption!,
-          operatorToken,
-        );
-      });
-
-      Then('核销成功', () => {
-        const { redemption } = featureContext;
-        expect(redemption?.status).toBe('REDEEMED');
-      });
-
       When('运营人员再次将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
         const { usersByName, operatorToken, redemption } = featureContext;
         expect(usersByName[userName]).toBeTruthy();
-        context.lastErrorPromise = performRedeem(featureContext, redemption!, operatorToken);
+        context.secondsRedeemPromise = performRedeem(featureContext, redemption!, operatorToken);
       });
 
       Then('操作失败，状态码为 {int}', async (_ctx, statusCode: number) => {
-        await expect(context.lastErrorPromise).rejects.toMatchObject({ status: statusCode });
+        const { secondsRedeemPromise } = context;
+        await expect(secondsRedeemPromise).rejects.toMatchObject({ status: statusCode });
       });
 
       And('错误类型为 {string}', async (_ctx, errorType: string) => {
-        await expect(context.lastErrorPromise).rejects.toMatchObject({ body: { type: errorType } });
+        const { secondsRedeemPromise } = context;
+        await expect(secondsRedeemPromise).rejects.toMatchObject({ body: { type: errorType } });
       });
     },
   );
 
   Scenario(
     '只有运营人员才能核销',
-    (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
+    (s: StepTest<OrderContext & { nonOperatorRedeemPromise: Promise<Redeem.RedemptionCodeWithOrder> }>) => {
       const { And, When, Then, context } = s;
 
-      When('用户 "Alice" 尝试核销用户 {string} 的订单核销码', async (_ctx, userName: string) => {
+      When('用户 {string} 尝试核销用户 {string} 的订单核销码', async (_ctx, userName: string) => {
         const { usersByName, redemption } = featureContext;
-        expect(usersByName[userName]).toBeTruthy();
-        const token = usersByName.Alice.token;
-        context.lastErrorPromise = performRedeem(featureContext, redemption!, token);
+        const user = usersByName[userName];
+        expect(user).toBeTruthy();
+        const { token } = user;
+        context.nonOperatorRedeemPromise = performRedeem(featureContext, redemption!, token);
       });
 
       Then('操作失败，状态码为 {int}', async (_ctx, statusCode: number) => {
-        await expect(context.lastErrorPromise).rejects.toMatchObject({ status: statusCode });
+        const { nonOperatorRedeemPromise } = context;
+        await expect(nonOperatorRedeemPromise).rejects.toMatchObject({ status: statusCode });
       });
 
       And('错误类型为 {string}', async (_ctx, errorType: string) => {
-        await expect(context.lastErrorPromise).rejects.toMatchObject({ body: { type: errorType } });
-      });
-
-      When('运营人员将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
-        const { usersByName, redemption, operatorToken } = featureContext;
-        expect(usersByName[userName]).toBeTruthy();
-        featureContext.redemption = await performRedeem(
-          featureContext,
-          redemption!,
-          operatorToken,
-        );
-      });
-
-      Then('核销成功', () => {
-        const { redemption } = featureContext;
-        expect(redemption?.status).toBe('REDEEMED');
-      });
-
-      And('核销码的核销人为 "运营人员"', () => {
-        const { operatorProfile, redemption } = featureContext;
-        const operatorId = operatorProfile.id;
-        expect(redemption?.redeemed_by).toBe(operatorId);
+        const { nonOperatorRedeemPromise } = context;
+        await expect(nonOperatorRedeemPromise).rejects.toMatchObject({ body: { type: errorType } });
       });
     },
   );
 
   Scenario(
     '当天场次的核销码从今天零点起有效',
-    (s: StepTest<OrderContext & RedemptionContext & ErrorContext>) => {
+    (s: StepTest<OrderContext>) => {
       const { And } = s;
 
       And('核销码的有效期起始时间不晚于当前时间', () => {
         const { redemption } = featureContext;
-        // Regression test: valid_from must be local midnight, not UTC midnight.
-        // If toValidityStartDate used Date.UTC(), valid_from in UTC+8 would be 8 hours in the
-        // future, making the code appear expired immediately after purchase.
         const validFrom = new Date(redemption!.valid_from);
         expect(validFrom.getTime()).toBeLessThanOrEqual(Date.now());
-        // Explicit: valid_from must be exactly today's local midnight (00:00:00.000)
-        const todayMidnight = new Date();
-        todayMidnight.setHours(0, 0, 0, 0);
+        const todayMidnight = startOfDay(new Date());
         expect(validFrom.getTime()).toBe(todayMidnight.getTime());
-      });
-
-      And('运营人员将用户 "Alice" 的订单核销码立即扫码核销成功', async () => {
-        const { redemption, operatorToken } = featureContext;
-        await expect(
-          performRedeem(featureContext, redemption!, operatorToken),
-        ).resolves.to.toMatchObject({
-          status: 'REDEEMED',
-        });
       });
     },
   );
 
   Scenario(
     '已经核销的订单不能发起退款',
-    (s: StepTest<ExhibitionContext & OrderContext & RedemptionContext & ErrorContext>) => {
-      const { Given, When, Then, And, context } = s;
-
-      Given('订单已被核销', async () => {
-        const { redemption, operatorToken } = featureContext;
-        featureContext.redemption = await performRedeem(
-          featureContext,
-          redemption!,
-          operatorToken,
-        );
-      });
+    (s: StepTest<ExhibitionContext & { refundPromise: Promise<unknown> }>) => {
+      const { When, Then, And, context } = s;
 
       When('用户发起退款请求', async () => {
         const { apiServer, userToken, currentOrder } = featureContext;
-        context.lastErrorPromise = requestRefundWithMock(
+        context.refundPromise = requestRefundWithMock(
           apiServer,
           currentOrder!,
           userToken,
@@ -813,11 +746,13 @@ describeFeature(feature, ({
       });
 
       Then('操作失败，状态码为 {int}', async (_ctx, statusCode: number) => {
-        await expect(context.lastErrorPromise).rejects.toMatchObject({ status: statusCode });
+        const { refundPromise } = context;
+        await expect(refundPromise).rejects.toMatchObject({ status: statusCode });
       });
 
       And('错误信息包含 {string}', async (_ctx, message: string) => {
-        await expect(context.lastErrorPromise).rejects.toMatchObject({
+        const { refundPromise } = context;
+        await expect(refundPromise).rejects.toMatchObject({
           message: expect.stringContaining(message),
         });
       });
@@ -838,7 +773,10 @@ describeFeature(feature, ({
 
   Scenario(
     '已经处于退款流程的订单不能被核销',
-    (s: StepTest<ExhibitionContext & OrderContext & RedemptionContext & RefundContext & ErrorContext>) => {
+    (s: StepTest<ExhibitionContext & OrderContext & RefundContext & {
+      secondsRedeemPromise: Promise<Redeem.RedemptionCodeWithOrder>;
+      thirdRedeemPromise: Promise<Redeem.RedemptionCodeWithOrder>;
+    }>) => {
       const { Given, When, Then, context } = s;
 
       Given('用户已发起退款请求，订单状态为 {string}', async (_ctx, statusLabel: string) => {
@@ -859,24 +797,16 @@ describeFeature(feature, ({
         expect(order.status).toBe('REFUND_REQUESTED');
       });
 
-      When('运营人员扫码核销用户的订单核销码', async () => {
-        const { redemption, operatorToken } = featureContext;
-        context.lastErrorPromise = performRedeem(featureContext, redemption!, operatorToken);
-      });
-
-      Then('核销失败，状态码为 {int}, 错误信息为 {string}', async (_ctx, statusCode: number, message: string) => {
-        await expect(context.lastErrorPromise).rejects.toMatchObject({
-          status: statusCode,
-          message: expect.stringContaining(message),
-        });
-      });
-
-      Then('退款处理中导致再次核销失败，状态码为 {int}, 错误信息为 {string}', async (_ctx, statusCode: number, message: string) => {
-        await expect(context.lastErrorPromise).rejects.toMatchObject({
-          status: statusCode,
-          message: expect.stringContaining(message),
-        });
-      });
+      Then(
+        '核销失败，状态码为 {int}, 错误信息为 {string}',
+        async (_ctx, statusCode: number, message: string) => {
+          const { redeemPromise } = featureContext;
+          await expect(redeemPromise).rejects.toMatchObject({
+            status: statusCode,
+            message: expect.stringContaining(message),
+          });
+        }
+      );
 
       Given('微信支付服务通知 cr7 支付服务退款状态为 {string}', async (_ctx, statusLabel: string) => {
         const { refundRecord } = context;
@@ -899,8 +829,19 @@ describeFeature(feature, ({
 
       When('运营人员再次扫码核销用户的订单核销码', async () => {
         const { redemption, operatorToken } = featureContext;
-        context.lastErrorPromise = performRedeem(featureContext, redemption!, operatorToken);
+        context.secondsRedeemPromise = performRedeem(featureContext, redemption!, operatorToken);
       });
+
+      Then(
+        '退款处理中导致再次核销失败，状态码为 {int}, 错误信息为 {string}',
+        async (_ctx, statusCode: number, message: string) => {
+          const { secondsRedeemPromise } = context;
+          await expect(secondsRedeemPromise).rejects.toMatchObject({
+            status: statusCode,
+            message: expect.stringContaining(message),
+          });
+        }
+      );
 
       Given('微信支付服务通知 cr7 支付服务退款结果，退款成功', async () => {
         const { apiServer, userToken, currentOrder } = featureContext;
@@ -922,21 +863,21 @@ describeFeature(feature, ({
 
       When('运营人员在退款成功后再次扫码核销用户的订单核销码', async () => {
         const { redemption, operatorToken } = featureContext;
-        context.lastErrorPromise = performRedeem(featureContext, redemption!, operatorToken);
+        context.thirdRedeemPromise = performRedeem(featureContext, redemption!, operatorToken);
       });
 
-      Then('退款成功导致的核销失败，状态码为 {int}, 错误信息为 {string}', async (_ctx, statusCode: number, message: string) => {
-        await expect(context.lastErrorPromise).rejects.toMatchObject({
-          status: statusCode,
-          message: expect.stringContaining(message),
-        });
-      });
+      Then(
+        '退款成功导致的核销失败，状态码为 {int}, 错误信息为 {string}',
+        async (_ctx, statusCode: number, message: string) => {
+          const { thirdRedeemPromise } = context;
+          await expect(thirdRedeemPromise).rejects.toMatchObject({
+            status: statusCode,
+            message: expect.stringContaining(message),
+          });
+        }
+      );
     },
   );
-
-  // Scenario.skip('转移核销码', () => {
-
-  // });
 
   Scenario(
     '转移核销码',
@@ -995,27 +936,6 @@ describeFeature(feature, ({
       And('核销码列表返回的核销码与用户 {string} 的核销码一致', (_ctx, _userName: string) => {
         const { redemptionList } = featureContext;
         expect(redemptionList!.redemptions[0].code).toBe(context.bobCode);
-      });
-
-      When('运营人员将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
-        const { usersByName, operatorToken, redemption } = featureContext;
-        expect(usersByName[userName]).toBeTruthy();
-        featureContext.redemption = await performRedeem(
-          featureContext,
-          redemption!,
-          operatorToken,
-        );
-      });
-
-      Then('核销成功', () => {
-        const { redemption } = featureContext;
-        expect(redemption?.status).toBe('REDEEMED');
-      });
-
-      And('核销码状态变为 {string}', (_ctx, statusLabel: string) => {
-        expect(statusLabel).toBe('已核销');
-        const { redemption } = featureContext;
-        expect(redemption?.status).toBe('REDEEMED');
       });
     },
   );
