@@ -43,6 +43,7 @@ export default class RC7Service extends RC7BaseService {
         ...orderService.methods_order,
         ...redemptionService.methods,
         ...cdkeyService.methods,
+        ...invoiceService.methods,
       },
 
       actions: {
