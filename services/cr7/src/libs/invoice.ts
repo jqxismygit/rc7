@@ -27,6 +27,10 @@ interface ListFapiaoApplicationsRequest {
   oid?: string;
 }
 
+interface GetFapiaoApplicationAdminRequest {
+  oid: string;
+}
+
 function getPdfUrlFromResponse(response: Record<string, unknown>) {
   const data = response.DATA;
   if (typeof data !== 'object' || data === null) {
@@ -36,6 +40,7 @@ function getPdfUrlFromResponse(response: Record<string, unknown>) {
   const pdfUrl = (data as Record<string, unknown>).PDF_URL;
   return typeof pdfUrl === 'string' ? pdfUrl : null;
 }
+
 
 export class FapiaoService extends RC7BaseService {
   constructor(broker: ServiceBroker) {
@@ -66,19 +71,31 @@ export class FapiaoService extends RC7BaseService {
       },
       handler: this.listFapiaoApplications,
     },
+    'invoice.getFapiaoApplication': {
+      rest: 'GET /:oid/invoice',
+      params: {
+        oid: 'string',
+      },
+      handler: this.getFapiaoApplication,
+    },
   };
 
   async applyFapiao(
-    ctx: Context<ApplyFapiaoRequest, { user: UserMeta }>,
+    ctx: Context<ApplyFapiaoRequest, { user: UserMeta; roles?: string[] }>,
   ) {
     const { oid, invoice_title, tax_no = '', email } = ctx.params;
     const { uid } = ctx.meta.user;
+    const roleSet = new Set((ctx.meta.roles ?? []).map(role => role.toLowerCase()));
+    const asAdmin = roleSet.has('admin');
+    const client = this.pool;
     const schema = await this.getSchema();
 
     const order = await ctx.call(
-      'cr7.order.get',
+      asAdmin ? 'cr7.order.getAdmin' : 'cr7.order.get',
       { oid },
-      { meta: { user: { uid } } },
+      asAdmin
+        ? { meta: { user: { uid }, roles: ['admin'] } }
+        : { meta: { user: { uid } } },
     ) as Order.OrderWithItems;
 
     if (order.status === 'REFUNDED') {
@@ -96,24 +113,23 @@ export class FapiaoService extends RC7BaseService {
     const ticketCategories = await ctx.call(
       'cr7.exhibition.getTicketCategories',
       { eid: order.exhibit_id },
-      { meta: { user: { uid } } },
     ) as Exhibition.TicketCategory[];
 
     const nameByTicketCategoryId = new Map(
       ticketCategories.map(category => [category.id, category.name]),
     );
 
-    let application = await getInvoiceApplicationByOrder(this.pool, schema, oid);
+    let application = await getInvoiceApplicationByOrder(client, schema, oid);
 
     if (application?.status === 'SUCCESS') {
       throw new MoleculerClientError('该订单的发票已经开具成功', 409, 'ORDER_INVOICE_ALREADY_SUCCESS');
     }
 
     if (application === null) {
-      // Persist first to lock in one sequence_id for the order before calling external fapiao service.
-      application = await createInvoiceApplication(this.pool, schema, {
+    // Persist first to lock in one sequence_id for the order before calling external fapiao service.
+      application = await createInvoiceApplication(client, schema, {
         order_id: oid,
-        user_id: uid,
+        user_id: order.user_id,
         invoice_title,
         tax_no,
         email,
@@ -140,7 +156,7 @@ export class FapiaoService extends RC7BaseService {
 
       const resultData = result.DATA;
 
-      const persisted = await markInvoiceApplicationSuccess(this.pool, schema, application.id, {
+      const persisted = await markInvoiceApplicationSuccess(client, schema, application.id, {
         request: request as unknown as Record<string, unknown>,
         response: response as Record<string, unknown>,
         invoice_no: resultData.FP_HM,
@@ -149,7 +165,7 @@ export class FapiaoService extends RC7BaseService {
       return persisted;
     } catch (error) {
       const fapiaoError = error as Error & FapiaoTraceableError;
-      await markInvoiceApplicationFailed(this.pool, schema, application.id, {
+      await markInvoiceApplicationFailed(client, schema, application.id, {
         request: typeof fapiaoError.fapiaoRequest === 'object' && fapiaoError.fapiaoRequest !== null
           ? fapiaoError.fapiaoRequest as unknown as Record<string, unknown>
           : {},
@@ -162,6 +178,42 @@ export class FapiaoService extends RC7BaseService {
       });
       throw error;
     }
+  }
+
+  async getFapiaoApplication(
+    ctx: Context<GetFapiaoApplicationAdminRequest, { user: UserMeta; roles?: string[] }>,
+  ) {
+    const { oid } = ctx.params;
+    const { uid } = ctx.meta.user;
+    const isAdmin = (ctx.meta.roles ?? []).some(role => role.toLowerCase() === 'admin');
+
+    await ctx.call(
+      isAdmin ? 'cr7.order.getAdmin' : 'cr7.order.get',
+      { oid },
+      isAdmin
+        ? { meta: { user: { uid }, roles: ['admin'] } }
+        : { meta: { user: { uid } } },
+    );
+
+    const schema = await this.getSchema();
+    const record = await getInvoiceApplicationByOrder(this.pool, schema, oid);
+    if (record === null) {
+      throw new MoleculerClientError('订单发票记录不存在', 404, 'ORDER_INVOICE_NOT_FOUND');
+    }
+
+    return {
+      id: record.id,
+      order_id: record.order_id,
+      invoice_title: record.invoice_title,
+      tax_no: record.tax_no,
+      email: record.email,
+      status: record.status,
+      sequence_id: record.sequence_id,
+      invoice_no: record.invoice_no,
+      pdf_url: getPdfUrlFromResponse(record.response),
+      created_at: record.created_at,
+      updated_at: record.updated_at,
+    } as Invoice.InvoiceRecord;
   }
 
   async listFapiaoApplications(

@@ -19,6 +19,8 @@ import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
 import { createOrder, getOrder } from './fixtures/order.js';
 import {
   applyOrderInvoice,
+  applyOrderInvoiceAsAdmin,
+  getOrderInvoiceApplication,
   listInvoiceApplications,
 } from './fixtures/invoice.js';
 import { getOrderRedemption, redeemCode } from './fixtures/redeem.js';
@@ -78,6 +80,7 @@ interface CreateFapiaoContext {
 
 interface ListFapiaoContext {
   fapiaoList: Invoice.InvoiceListResult;
+  orderInvoice: Invoice.InvoiceRecord;
 }
 
 interface FeatureContext extends
@@ -183,6 +186,22 @@ describeFeature(feature, ({
         );
       });
 
+    When(
+      '管理员申请该订单的发票，发票抬头为 {string}，税号为 {string}, 邮箱为 {string}',
+      (_ctx, invoiceTitle: string, taxNo: string, email: string) => {
+        featureContext.applyInvoicePromise = applyOrderInvoiceAsAdmin(
+          featureContext.apiServer,
+          featureContext.order.id,
+          {
+            invoice_title: invoiceTitle,
+            tax_no: taxNo,
+            email,
+          },
+          featureContext.adminToken,
+        );
+      }
+    );
+
     Then('发票服务接收到发票开具请求, 可以正常解密出发票申请信息', async () => {
       await vi.waitFor(() => {
         expect(featureContext.fapiaoRequestHandler).toHaveBeenCalled();
@@ -228,6 +247,24 @@ describeFeature(feature, ({
       );
     });
 
+    When('管理员查看该订单的发票申请记录', async () => {
+      const { apiServer, order, adminToken } = featureContext;
+      featureContext.orderInvoice = await getOrderInvoiceApplication(
+        apiServer,
+        order.id,
+        adminToken,
+      );
+    });
+
+    When('用户查看该订单的发票申请记录', async () => {
+      const { apiServer, order, userToken } = featureContext;
+      featureContext.orderInvoice = await getOrderInvoiceApplication(
+        apiServer,
+        order.id,
+        userToken,
+      );
+    });
+
     Then('发票申请列表有 {int} 条记录', (_ctx, count: number) => {
       expect(featureContext.fapiaoList!.items.length).toBe(count);
     });
@@ -235,6 +272,22 @@ describeFeature(feature, ({
     And('该记录的订单 ID 是用户预订的订单 ID', () => {
       const [first] = featureContext.fapiaoList!.items;
       expect(first.order_id).toBe(featureContext.order.id);
+    });
+
+    Then('管理员看到该记录的订单 ID 是用户预订的订单 ID', () => {
+      expect(featureContext.orderInvoice!.order_id).toBe(featureContext.order.id);
+    });
+
+    And('管理员看到该记录的状态是开具成功', () => {
+      expect(featureContext.orderInvoice!.status).toBe('SUCCESS');
+    });
+
+    Then('用户看到该记录的订单 ID 是用户预订的订单 ID', () => {
+      expect(featureContext.orderInvoice!.order_id).toBe(featureContext.order.id);
+    });
+
+    And('用户看到该记录的状态是开具成功', () => {
+      expect(featureContext.orderInvoice!.status).toBe('SUCCESS');
     });
   });
 
@@ -577,6 +630,8 @@ describeFeature(feature, ({
       expect(context.redemption.status).toBe('REDEEMED');
     });
   });
+
+  Scenario('管理员为用户订单申请发票', () => {});
 
   Scenario('用户订单退款后申请发票', (s: StepTest<void>) => {
     const { When, Then } = s;

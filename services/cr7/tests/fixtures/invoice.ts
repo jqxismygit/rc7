@@ -19,6 +19,31 @@ export async function applyOrderInvoice(
   );
 }
 
+export async function applyOrderInvoiceAsAdmin(
+  server: Server,
+  orderId: string,
+  payload: ApplyInvoicePayload,
+  token: string,
+) {
+  return postJSON<Invoice.InvoiceRecord>(
+    server,
+    `/orders/${orderId}/invoice`,
+    { body: payload, token },
+  );
+}
+
+export async function getOrderInvoiceApplication(
+  server: Server,
+  orderId: string,
+  token: string,
+) {
+  return getJSON<Invoice.InvoiceRecord>(
+    server,
+    `/orders/${orderId}/invoice`,
+    { token },
+  );
+}
+
 export async function listInvoiceApplications(
   server: Server,
   token: string,
