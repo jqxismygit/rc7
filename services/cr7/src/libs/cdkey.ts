@@ -345,7 +345,7 @@ export class CdkeyService extends RC7BaseService {
       sid: string;
       code: string;
     }, { user: UserMeta }>,
-  ): Promise<Redeem.RedemptionCodeWithOrder> {
+  ): Promise<Redeem.RedemptionCodeWithCDKey> {
     const { sid, code } = ctx.params;
     const { uid } = ctx.meta.user;
     const schema = await this.getSchema();
@@ -402,7 +402,7 @@ export class CdkeyService extends RC7BaseService {
       }).catch(handleCdkeyError);
 
       await client.query('COMMIT');
-      const [res] = await this.assembleRedemption(schema, [redemptionRow]);
+      const [res] = await this.assembleRedemption(schema, [redemptionRow]) as Redeem.RedemptionCodeWithCDKey[];
       return res;
     } catch (error) {
       await client.query('ROLLBACK');

@@ -568,7 +568,9 @@ describeFeature(feature, ({
     When('管理员核销了用户的订单', async () => {
       const { apiServer, order, userToken, exhibition, adminToken } = featureContext;
       const redemption = await getOrderRedemption(apiServer, order.id, userToken);
-      context.redemption = await redeemCode(apiServer, exhibition.id, redemption.code, adminToken);
+      context.redemption = await redeemCode(
+        apiServer, exhibition.id, redemption.code, adminToken
+      ) as Redeem.RedemptionCodeWithOrder;
     });
 
     Then('订单状态为已核销', () => {

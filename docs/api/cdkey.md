@@ -95,7 +95,7 @@
   ```
 - Response Body:
   ```ts
-  Redeem.RedemptionCodeWithOrder
+  Redeem.RedemptionCode
   ```
 - Response Status:
   - `200 OK`：兑换成功

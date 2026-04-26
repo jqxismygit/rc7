@@ -135,7 +135,7 @@ async function performRedeem(
     exhibition.id,
     redemption.code,
     token,
-  );
+  ) as Redeem.RedemptionCodeWithOrder;
 
   return redeemed;
 }
@@ -582,7 +582,7 @@ describeFeature(feature, ({
 
   Scenario(
     '使用核销码完成订单核销',
-    (s: StepTest<OrderContext & { redemptionFromOp?: Redeem.RedemptionCodeWithOrder }>) => {
+    (s: StepTest<OrderContext & { redemptionFromOp?: Redeem.RedemptionCode }>) => {
       const { Then, And, context } = s;
 
       Then('运营人员根据核销码查询用户 {string} 的订单核销信息', async (_ctx, userName: string) => {
@@ -621,7 +621,7 @@ describeFeature(feature, ({
   Scenario(
     '一个未完成支付的订单没有核销码',
     (s: StepTest<{
-      redemptionRequest: Promise<Redeem.RedemptionCodeWithOrder>;
+      redemptionRequest: Promise<Redeem.RedemptionCode>;
     }>) => {
       const { And, When, Then, context } = s;
 
@@ -698,7 +698,7 @@ describeFeature(feature, ({
 
   Scenario(
     '已核销订单的核销码不可重复使用',
-    (s: StepTest<OrderContext & { secondsRedeemPromise: Promise<Redeem.RedemptionCodeWithOrder> }>) => {
+    (s: StepTest<OrderContext & { secondsRedeemPromise: Promise<Redeem.RedemptionCode> }>) => {
       const { And, When, Then, context } = s;
       When('运营人员再次将用户 {string} 的订单核销码扫码核销', async (_ctx, userName: string) => {
         const { usersByName, operatorToken, redemption } = featureContext;
@@ -720,7 +720,7 @@ describeFeature(feature, ({
 
   Scenario(
     '只有运营人员才能核销',
-    (s: StepTest<OrderContext & { nonOperatorRedeemPromise: Promise<Redeem.RedemptionCodeWithOrder> }>) => {
+    (s: StepTest<OrderContext & { nonOperatorRedeemPromise: Promise<Redeem.RedemptionCode> }>) => {
       const { And, When, Then, context } = s;
 
       When('用户 {string} 尝试核销用户 {string} 的订单核销码', async (_ctx, userName: string) => {
@@ -801,8 +801,8 @@ describeFeature(feature, ({
   Scenario(
     '已经处于退款流程的订单不能被核销',
     (s: StepTest<ExhibitionContext & OrderContext & RefundContext & {
-      secondsRedeemPromise: Promise<Redeem.RedemptionCodeWithOrder>;
-      thirdRedeemPromise: Promise<Redeem.RedemptionCodeWithOrder>;
+      secondsRedeemPromise: Promise<Redeem.RedemptionCode>;
+      thirdRedeemPromise: Promise<Redeem.RedemptionCode>;
     }>) => {
       const { Given, When, Then, context } = s;
 

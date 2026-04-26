@@ -39,7 +39,7 @@
   ```
 - Response Body:
   ```ts
-  Redeem.RedemptionCodeWithOrder
+  Redeem.RedemptionCode
   ```
 - Response Status:
   - `200 OK`：查询成功
@@ -93,7 +93,7 @@
   ```
 - Response Body:
   ```ts
-  Redeem.RedemptionCodeWithOrder
+  Redeem.RedemptionCode
   ```
 - Response Status:
   - `200 OK`：查询成功
@@ -163,7 +163,7 @@
   ```
 - Response Body:
   ```ts
-  Redeem.RedemptionCodeWithOrder
+  Redeem.RedemptionCode
   ```
 - Response Status:
   - `200 OK`：核销成功

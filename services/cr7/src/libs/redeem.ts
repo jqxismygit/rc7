@@ -29,7 +29,7 @@ interface UserMeta {
 function buildItems(
   orderItems: Order.OrderItem[],
   categoryMap: Map<string, Exhibition.TicketCategory>,
-): Redeem.RedemptionCodeWithOrder['items'] {
+): Redeem.RedemptionCode['items'] {
   return orderItems.map((item) => {
     return {
       id: item.id,
@@ -57,7 +57,7 @@ function assembleRedemption(
   ticketCategoryMap: Map<string, Exhibition.TicketCategory>,
   orderMap: Map<string, Order.OrderWithItems>,
   cdkeyMap: Map<string, CdkeyRecord>,
-): Redeem.RedemptionCodeWithOrder {
+): Redeem.RedemptionCode {
   const { exhibit_id, session_id, order_id, source } = redemption;
   const exhibition = exhibitionMap.get(exhibit_id)!;
   const session = sessionMap.get(session_id)!;
@@ -97,24 +97,21 @@ function assembleRedemption(
       status: order.status,
     };
     const items = buildItems(order!.items, ticketCategoryMap);
-    Object.assign(res, { order: redemptionOrder, items });
+    return { ...res, order: redemptionOrder, items } as Redeem.RedemptionCodeWithOrder;
   }
 
-  if (source === 'CDKEY') {
-    const cdkey = cdkeyMap.get(redemption.cdkey!)!;
-    const ticketCategory = ticketCategoryMap.get(cdkey.ticket_category_id)!;
+  const cdkey = cdkeyMap.get(redemption.cdkey!)!;
+  const ticketCategory = ticketCategoryMap.get(cdkey.ticket_category_id)!;
 
-    const item: Redeem.RedemptionCodeWithOrder['items'][number] = {
-      id: cdkey.id,
-      quantity: redemption.quantity,
-      unit_price: ticketCategory.list_price,
-      ticket_category_id: cdkey.ticket_category_id,
-      category_name: ticketCategory.name,
-    };
-    Object.assign(res, { items: [item] });
-  }
+  const item: Redeem.RedemptionCode['items'][number] = {
+    id: cdkey.id,
+    quantity: redemption.quantity,
+    unit_price: ticketCategory.list_price,
+    ticket_category_id: cdkey.ticket_category_id,
+    category_name: ticketCategory.name,
+  };
 
-  return res as Redeem.RedemptionCodeWithOrder;
+  return { ...res, items: [item] } as Redeem.RedemptionCodeWithCDKey;
 }
 
 export class RedemptionService extends RC7BaseService {
@@ -272,7 +269,7 @@ export class RedemptionService extends RC7BaseService {
     const redemptionRow = await getRedemptionRowByOrderId(this.pool, schema, order.id)
       .catch(handleRedeemError);
 
-    const [res] = await this.assembleRedemption(schema, [redemptionRow]);
+    const [res] = await this.assembleRedemption(schema, [redemptionRow]) as Redeem.RedemptionCodeWithOrder[];
     return res;
   }
 
@@ -309,7 +306,7 @@ export class RedemptionService extends RC7BaseService {
 
   async getByCode(
     ctx: Context<{ code: string }>
-  ): Promise<Redeem.RedemptionCodeWithOrder> {
+  ): Promise<Redeem.RedemptionCode> {
     const { code } = ctx.params;
     const schema = await this.getSchema();
     const redemptionRow = await getRedemptionRowByCode(this.pool, schema, code)
@@ -322,7 +319,7 @@ export class RedemptionService extends RC7BaseService {
   async assembleRedemption(
     schema: string,
     redemptionRows: Redeem.RedemptionRow[]
-  ): Promise<Redeem.RedemptionCodeWithOrder[]> {
+  ): Promise<Redeem.RedemptionCode[]> {
     const client = this.pool;
     const exhibitionIds = [...new Set(redemptionRows.map(row => row.exhibit_id))];
     const exhibitionMap = await getExhibitionsByIds(client, schema, exhibitionIds)
@@ -361,7 +358,7 @@ export class RedemptionService extends RC7BaseService {
 
   async redeem(
     ctx: Context<Redeem.RedeemRequest & { eid: string }, { user: UserMeta }>
-  ): Promise<Redeem.RedemptionCodeWithOrder> {
+  ): Promise<Redeem.RedemptionCode> {
     const { eid, code } = ctx.params;
     const { uid } = ctx.meta.user;
     const schema = await this.getSchema();

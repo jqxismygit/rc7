@@ -69,8 +69,8 @@ interface CdkeyBatchContext {
 }
 
 interface RedeemContext {
-  cdkeyRedeemPromise: Promise<Redeem.RedemptionCodeWithOrder>;
-  redemptionRedeemPromise: Promise<Redeem.RedemptionCodeWithOrder>;
+  cdkeyRedeemPromise: Promise<Redeem.RedemptionCodeWithCDKey>;
+  redemptionRedeemPromise: Promise<Redeem.RedemptionCodeWithCDKey>;
   myRedemptionList: Redeem.RedemptionCodeListResult;
 }
 
@@ -293,11 +293,31 @@ describeFeature(feature, ({
       expect(cdkeyList.total).toBe(total);
     });
 
-    And('第 {int} 次查看兑换码列表中有 {int} 个兑换码', async (_ctx, viewIndex: number, count: number) => {
+    And('第 {int} 次查看兑换码列表中有 {int} 个兑换码', async (
+      _ctx,
+      viewIndex: number,
+      count: number,
+      dataTable: Array<Record<string, string>>,
+    ) => {
       const { cdkeyList } = featureContext;
       expect(cdkeyList).toBeTruthy();
       expect(cdkeyList.codes).toHaveLength(count);
-      // data table
+      expect(dataTable).toHaveLength(count);
+
+      for (const row of dataTable) {
+        const idx = Number(row['idx']);
+        expect(Number.isInteger(idx) && idx > 0).toBeTruthy();
+
+        const code = cdkeyList.codes[idx - 1];
+        expect(code).toBeTruthy();
+
+        const statusLabel = row['兑换码状态'];
+        const expectedStatus = statusLabel === '已使用'
+          ? 'USED'
+          : 'UNUSED';
+        expect(expectedStatus).toBeTruthy();
+        expect(code.status).toBe(expectedStatus);
+      }
     });
 
     And('第 {int} 次查看兑换码列表的兑换有效期为 {string}', async (
@@ -443,9 +463,10 @@ describeFeature(feature, ({
       expect(code).toBeTruthy();
       const session = getSessionByDate(sessions, sessionDate);
 
-      featureContext.cdkeyRedeemPromise = redeemCdkey(apiServer, user.token, session.id, {
-        code: code.code,
-      });
+      featureContext.cdkeyRedeemPromise = redeemCdkey(
+        apiServer, user.token, session.id,
+        { code: code.code }
+      ) as Promise<Redeem.RedemptionCodeWithCDKey>;
     });
 
     Then('兑换成功', async () => {
@@ -531,7 +552,7 @@ describeFeature(feature, ({
         exhibition.id,
         redemption.code,
         operatorToken,
-      );
+      ) as Promise<Redeem.RedemptionCodeWithCDKey>;
     });
 
     Then('核销成功', async () => {
