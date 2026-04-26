@@ -69,8 +69,8 @@ interface CdkeyBatchContext {
 }
 
 interface RedeemContext {
-  cdkeyRedeemPromise: Promise<Redeem.RedemptionCodeWithOrder>;
-  redemptionRedeemPromise: Promise<Redeem.RedemptionCodeWithOrder>;
+  cdkeyRedeemPromise: Promise<Redeem.RedemptionCodeWithCDKey>;
+  redemptionRedeemPromise: Promise<Redeem.RedemptionCodeWithCDKey>;
   myRedemptionList: Redeem.RedemptionCodeListResult;
 }
 
@@ -443,9 +443,10 @@ describeFeature(feature, ({
       expect(code).toBeTruthy();
       const session = getSessionByDate(sessions, sessionDate);
 
-      featureContext.cdkeyRedeemPromise = redeemCdkey(apiServer, user.token, session.id, {
-        code: code.code,
-      });
+      featureContext.cdkeyRedeemPromise = redeemCdkey(
+        apiServer, user.token, session.id,
+        { code: code.code }
+      ) as Promise<Redeem.RedemptionCodeWithCDKey>;
     });
 
     Then('兑换成功', async () => {
@@ -531,7 +532,7 @@ describeFeature(feature, ({
         exhibition.id,
         redemption.code,
         operatorToken,
-      );
+      ) as Promise<Redeem.RedemptionCodeWithCDKey>;
     });
 
     Then('核销成功', async () => {

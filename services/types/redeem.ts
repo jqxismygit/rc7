@@ -22,16 +22,7 @@ export interface RedemptionRow {
   updated_at: string;
 }
 
-export interface RedemptionCodeWithOrder extends RedemptionRow {
-  order: null | {
-    id: string;
-    user_id: string;
-    source: OrderSource;
-    exhibit_id: string;
-    session_id: string;
-    total_amount: number;
-    status: string;
-  };
+interface RedemptionBase extends RedemptionRow {
   exhibition: Pick<
     Exhibition.Exhibition,
     | "id"
@@ -57,13 +48,39 @@ export interface RedemptionCodeWithOrder extends RedemptionRow {
   }>;
 }
 
+export interface RedemptionCodeWithOrder extends RedemptionBase {
+  source: "ORDER";
+  order_id: string;
+  order: {
+    id: string;
+    user_id: string;
+    source: OrderSource;
+    exhibit_id: string;
+    session_id: string;
+    total_amount: number;
+    status: string;
+  };
+  cdkey: null;
+}
+
+export interface RedemptionCodeWithCDKey extends RedemptionBase {
+  source: "CDKEY";
+  cdkey: string;
+  order_id: null;
+  order: null;
+}
+
+export type RedemptionCode
+  = | RedemptionCodeWithOrder
+    | RedemptionCodeWithCDKey;
+
 export interface RedeemRequest {
   code: string; // 核销码
   quantity?: number; // 本次核销人数，可选
 }
 
 export interface RedemptionCodeListResult {
-  redemptions: RedemptionCodeWithOrder[];
+  redemptions: RedemptionCode[];
   total: number;
   page: number;
   limit: number;

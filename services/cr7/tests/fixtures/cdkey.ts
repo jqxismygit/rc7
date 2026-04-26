@@ -202,8 +202,8 @@ export async function redeemCdkey(
   body: {
     code: string;
   },
-): Promise<Redeem.RedemptionCodeWithOrder> {
-  const result = await postJSON<Redeem.RedemptionCodeWithOrder>(
+): Promise<Redeem.RedemptionCode> {
+  const result = await postJSON<Redeem.RedemptionCode>(
     server,
     `/cdkeys/sessions/${sid}/redeem`,
     { token, body },

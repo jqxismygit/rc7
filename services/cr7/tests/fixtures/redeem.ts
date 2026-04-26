@@ -8,10 +8,6 @@ const CODE_LENGTH = 12;
 const CODE_PREFIX = 'R';
 const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
-type RedemptionWithOrder = Redeem.RedemptionCodeWithOrder & {
-  order: NonNullable<Redeem.RedemptionCodeWithOrder['order']>;
-};
-
 function toLuhnDigits(input: string) {
   const digits: number[] = [];
   for (const char of input) {
@@ -89,7 +85,7 @@ export function assertRedeem(data: unknown) {
   expect(data).toHaveProperty('redeemed_by', expect.toBeOneOf([expect.any(String), null]));
   expect(data).not.toHaveProperty('id');
 
-  const redeem = data as Redeem.RedemptionCodeWithOrder;
+  const redeem = data as Redeem.RedemptionCode;
   if (redeem.redeemed_at !== null) {
     expect(redeem.redeemed_at).toEqual(expect.any(String));
     expect(redeem.redeemed_by).toEqual(expect.any(String));
@@ -149,8 +145,8 @@ export async function getOrderRedemption(
   server: Server,
   orderId: string,
   token: string,
-): Promise<RedemptionWithOrder> {
-  const redemption = await getJSON<Redeem.RedemptionCodeWithOrder>(
+): Promise<Redeem.RedemptionCodeWithOrder> {
+  const redemption = await getJSON<Redeem.RedemptionCode>(
     server,
     `/orders/${orderId}/redemption`,
     { token },
@@ -158,7 +154,7 @@ export async function getOrderRedemption(
 
   assertRedeem(redemption);
   expect(redemption.order).toBeTruthy();
-  return redemption as RedemptionWithOrder;
+  return redemption as Redeem.RedemptionCodeWithOrder;
 }
 
 export async function redeemCode(
@@ -167,7 +163,7 @@ export async function redeemCode(
   code: string,
   token: string,
 ) {
-  return postJSON<Redeem.RedemptionCodeWithOrder>(
+  return postJSON<Redeem.RedemptionCode>(
     server,
     `/exhibition/${exhibitionId}/redeem`,
     {
@@ -200,8 +196,8 @@ export async function getRedemptionByCode(
   server: Server,
   code: string,
   token: string,
-): Promise<RedemptionWithOrder> {
-  const redemption = await getJSON<Redeem.RedemptionCodeWithOrder>(
+): Promise<Redeem.RedemptionCode> {
+  const redemption = await getJSON<Redeem.RedemptionCode>(
     server,
     `/redemptions/${code}`,
     { token },
@@ -209,7 +205,7 @@ export async function getRedemptionByCode(
 
   assertRedeem(redemption);
   expect(redemption.order).toBeTruthy();
-  return redemption as RedemptionWithOrder;
+  return redemption;
 }
 
 export function toSessionDateLabel(value: string) {
