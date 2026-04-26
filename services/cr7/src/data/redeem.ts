@@ -119,6 +119,25 @@ function buildCandidateCode() {
   return `${payload}${buildLuhn2(payload)}`;
 }
 
+function buildCandidateCodes(
+  count: number,
+  generatedCodes: Set<string>,
+): string[] {
+  const candidates: string[] = [];
+
+  while (candidates.length < count) {
+    const code = buildCandidateCode();
+    if (generatedCodes.has(code)) {
+      continue;
+    }
+
+    generatedCodes.add(code);
+    candidates.push(code);
+  }
+
+  return candidates;
+}
+
 export async function getRedemptionRowByOrderId(
   client: DBClient,
   schema: string,
@@ -260,13 +279,20 @@ export async function upsertRedemptionCodeByOrderId(
   validDurationDays: number,
 ): Promise<string> {
   const valid_until = addDays(sessionDate, validDurationDays);
+  const generatedCodes = new Set<string>();
+  const maxGeneratedCount = 50;
 
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const code = buildCandidateCode();
+  while (generatedCodes.size < maxGeneratedCount) {
+    const generationBudget = maxGeneratedCount - generatedCodes.size;
+    const candidateCount = Math.min(20, generationBudget);
+    const candidates = buildCandidateCodes(candidateCount, generatedCodes);
 
     try {
       const { rows } = await client.query<RedemptionRow>(
-        `WITH inserted AS (
+        `WITH candidate_codes AS (
+          SELECT UNNEST($1::varchar[]) AS code
+        ),
+        inserted AS (
           INSERT INTO ${schema}.exhibit_redemption_codes (
             code,
             source,
@@ -279,8 +305,19 @@ export async function upsertRedemptionCodeByOrderId(
             valid_from,
             valid_until
           )
-          VALUES ($1, 'ORDER', $2, $3, $8, $7, 'UNREDEEMED', $4, $5, $6)
-          ON CONFLICT (order_id) DO NOTHING
+          SELECT
+            candidate_codes.code,
+            'ORDER',
+            $2,
+            $3,
+            $8,
+            $7,
+            'UNREDEEMED',
+            $4,
+            $5,
+            $6
+          FROM candidate_codes
+          ON CONFLICT DO NOTHING
           RETURNING
             exhibit_id,
             order_id,
@@ -297,7 +334,7 @@ export async function upsertRedemptionCodeByOrderId(
         WHERE order_id = $3
           AND NOT EXISTS (SELECT 1 FROM inserted)
         LIMIT 1`,
-        [code, exhibitId, orderId, quantity, sessionDate, valid_until, userId, sessionId],
+        [candidates, exhibitId, orderId, quantity, sessionDate, valid_until, userId, sessionId],
       );
 
       if (rows[0] !== undefined) {
@@ -327,13 +364,20 @@ export async function createRedemptionCodeByCdkey(
 ): Promise<RedemptionRow> {
   const validFrom = startOfDay(input.session_date);
   const validUntil = addDays(validFrom, 1);
+  const generatedCodes = new Set<string>();
+  const maxGeneratedCount = 50;
 
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const code = buildCandidateCode();
+  while (generatedCodes.size < maxGeneratedCount) {
+    const generationBudget = maxGeneratedCount - generatedCodes.size;
+    const candidateCount = Math.min(20, generationBudget);
+    const candidates = buildCandidateCodes(candidateCount, generatedCodes);
 
     try {
       const { rows } = await client.query<RedemptionRow>(
-        `WITH inserted AS (
+        `WITH candidate_codes AS (
+          SELECT UNNEST($1::varchar[]) AS code
+        ),
+        inserted AS (
           INSERT INTO ${schema}.exhibit_redemption_codes (
             code,
             source,
@@ -347,8 +391,8 @@ export async function createRedemptionCodeByCdkey(
             valid_from,
             valid_until
           )
-          VALUES (
-            $1,
+          SELECT
+            candidate_codes.code,
             'CDKEY',
             $2,
             NULL,
@@ -359,8 +403,8 @@ export async function createRedemptionCodeByCdkey(
             $6,
             $7,
             $8
-          )
-          ON CONFLICT (cdkey) DO NOTHING
+          FROM candidate_codes
+          ON CONFLICT DO NOTHING
           RETURNING
             exhibit_id,
             order_id,
@@ -402,7 +446,7 @@ export async function createRedemptionCodeByCdkey(
           AND NOT EXISTS (SELECT 1 FROM inserted)
         LIMIT 1`,
         [
-          code,
+          candidates,
           input.exhibit_id,
           input.cdkey,
           input.session_id,

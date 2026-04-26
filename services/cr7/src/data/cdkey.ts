@@ -125,6 +125,25 @@ function buildCandidateCdkeyCode() {
   return `${payload}${buildLuhn2(payload)}`;
 }
 
+function buildCandidateCdkeyCodes(
+  count: number,
+  generatedCodes: Set<string>,
+): string[] {
+  const candidates: string[] = [];
+
+  while (candidates.length < count) {
+    const code = buildCandidateCdkeyCode();
+    if (generatedCodes.has(code)) {
+      continue;
+    }
+
+    generatedCodes.add(code);
+    candidates.push(code);
+  }
+
+  return candidates;
+}
+
 export async function getCdkeyBatchById(
   client: DBClient,
   schema: string,
@@ -202,22 +221,24 @@ export async function createCdkeyBatch(
     throw new Error('Failed to create cdkey batch');
   }
 
-  const codes: CdkeyRecord[] = [];
-  const localCodes = new Set<string>();
-  const maxAttempts = Math.max(draft.quantity * 20, 50);
-  let attempts = 0;
+  const insertedByCode = new Map<string, CdkeyRecord>();
+  const generatedCodes = new Set<string>();
+  const maxGeneratedCount = Math.max(draft.quantity * 20, 50);
 
-  while (codes.length < draft.quantity && attempts < maxAttempts) {
-    attempts += 1;
-
-    const code = buildCandidateCdkeyCode();
-    if (localCodes.has(code)) {
-      continue;
-    }
-    localCodes.add(code);
+  while (
+    insertedByCode.size < draft.quantity
+    && generatedCodes.size < maxGeneratedCount
+  ) {
+    const remaining = draft.quantity - insertedByCode.size;
+    const generationBudget = maxGeneratedCount - generatedCodes.size;
+    const candidateCount = Math.min(remaining, generationBudget);
+    const candidates = buildCandidateCdkeyCodes(candidateCount, generatedCodes);
 
     const { rows } = await client.query<CdkeyRecord>(
-      `INSERT INTO ${schema}.exhibit_cdkeys (
+      `WITH candidate_codes AS (
+        SELECT UNNEST($4::varchar[]) AS code
+      )
+      INSERT INTO ${schema}.exhibit_cdkeys (
         batch_id,
         exhibit_id,
         ticket_category_id,
@@ -225,7 +246,14 @@ export async function createCdkeyBatch(
         redeem_quantity,
         redeem_valid_until
       )
-      VALUES ($1, $2, $3, $4, $5, $6)
+      SELECT
+        $1,
+        $2,
+        $3,
+        candidate_codes.code,
+        $5,
+        $6
+      FROM candidate_codes
       ON CONFLICT (code) DO NOTHING
       RETURNING
         id,
@@ -244,21 +272,22 @@ export async function createCdkeyBatch(
         batchId,
         draft.exhibit_id,
         draft.ticket_category_id,
-        code,
+        candidates,
         draft.redeem_quantity,
         draft.redeem_valid_until,
       ],
     );
 
-    if (rows[0] !== undefined) {
-      codes.push(rows[0]);
+    for (const row of rows) {
+      insertedByCode.set(row.code, row);
     }
   }
 
-  if (codes.length !== draft.quantity) {
+  if (insertedByCode.size !== draft.quantity) {
     throw new Error('Failed to generate unique cdkey code');
   }
 
+  const codes = [...insertedByCode.values()];
   const batch = await getCdkeyBatchById(client, schema, batchId);
   return { batch, codes };
 }
