@@ -9,6 +9,8 @@ import {
   markInvoiceApplicationFailed,
   markInvoiceApplicationSuccess,
 } from '../data/invoice.js';
+import { getTicketCategoriesByIds } from '../data/exhibition.js';
+import { getOrderById } from '../data/order.js';
 
 const { MoleculerClientError } = Errors;
 
@@ -25,6 +27,10 @@ interface ApplyFapiaoRequest {
 
 interface ListFapiaoApplicationsRequest {
   oid?: string;
+}
+
+interface GetFapiaoApplicationAdminRequest {
+  oid: string;
 }
 
 function getPdfUrlFromResponse(response: Record<string, unknown>) {
@@ -66,20 +72,56 @@ export class FapiaoService extends RC7BaseService {
       },
       handler: this.listFapiaoApplications,
     },
+    'invoice.getFapiaoApplication': {
+      rest: 'GET /:oid/invoice',
+      params: {
+        oid: 'string',
+      },
+      handler: this.getFapiaoApplication,
+    },
+  };
+
+  methods = {
+    applyFapiaoByOrder: this.applyFapiaoByOrder,
   };
 
   async applyFapiao(
-    ctx: Context<ApplyFapiaoRequest, { user: UserMeta }>,
+    ctx: Context<ApplyFapiaoRequest, { user: UserMeta; roles?: string[] }>,
   ) {
     const { oid, invoice_title, tax_no = '', email } = ctx.params;
     const { uid } = ctx.meta.user;
+    const isAdmin = this.hasRole(ctx, ['admin']);
     const schema = await this.getSchema();
+    const client = this.pool;
 
-    const order = await ctx.call(
-      'cr7.order.get',
-      { oid },
-      { meta: { user: { uid } } },
-    ) as Order.OrderWithItems;
+    const order = await getOrderById(client, schema, oid);
+    if (order.user_id !== uid && isAdmin === false) {
+      throw new MoleculerClientError('无权限为该订单申请发票', 403, 'FORBIDDEN_ACCESS');
+    }
+
+    const ticketCategoryIds = order.items.map(item => item.ticket_category_id);
+    const ticketCategoryMap = await getTicketCategoriesByIds(client, schema, ticketCategoryIds);
+
+    return this.applyFapiaoByOrder(
+      schema,
+      order,
+      ticketCategoryMap,
+      invoice_title,
+      tax_no,
+      email,
+    );
+  }
+
+  async applyFapiaoByOrder(
+    schema: string,
+    order: Order.OrderWithItems,
+    ticketCategoryMap: Map<string, Exhibition.TicketCategory>,
+    invoice_title: string,
+    tax_no: string,
+    email: string,
+  ) {
+    const oid = order.id;
+    const client = this.pool;
 
     if (order.status === 'REFUNDED') {
       throw new MoleculerClientError('订单已退款，无法申请发票', 409, 'ORDER_REFUNDED');
@@ -93,27 +135,17 @@ export class FapiaoService extends RC7BaseService {
       throw new MoleculerClientError('Invalid order items', 400, 'INVALID_ARGUMENT');
     }
 
-    const ticketCategories = await ctx.call(
-      'cr7.exhibition.getTicketCategories',
-      { eid: order.exhibit_id },
-      { meta: { user: { uid } } },
-    ) as Exhibition.TicketCategory[];
-
-    const nameByTicketCategoryId = new Map(
-      ticketCategories.map(category => [category.id, category.name]),
-    );
-
-    let application = await getInvoiceApplicationByOrder(this.pool, schema, oid);
+    let application = await getInvoiceApplicationByOrder(client, schema, oid);
 
     if (application?.status === 'SUCCESS') {
       throw new MoleculerClientError('该订单的发票已经开具成功', 409, 'ORDER_INVOICE_ALREADY_SUCCESS');
     }
 
     if (application === null) {
-      // Persist first to lock in one sequence_id for the order before calling external fapiao service.
-      application = await createInvoiceApplication(this.pool, schema, {
+    // Persist first to lock in one sequence_id for the order before calling external fapiao service.
+      application = await createInvoiceApplication(client, schema, {
         order_id: oid,
-        user_id: uid,
+        user_id: order.user_id,
         invoice_title,
         tax_no,
         email,
@@ -122,6 +154,15 @@ export class FapiaoService extends RC7BaseService {
       });
     }
 
+    const items = order.items.map((item) => {
+      const ticket_name = ticketCategoryMap.get(item.ticket_category_id)!.name;
+      return {
+        ticket_name,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        subtotal: item.subtotal,
+      };
+    });
     try {
       const { result, request, response } = await sendFapiaoKpjRequest({
         oid,
@@ -130,17 +171,11 @@ export class FapiaoService extends RC7BaseService {
         email,
         sequence_id: application.sequence_id,
         total_amount: order.total_amount,
-        items: order.items.map(item => ({
-          ticket_name: nameByTicketCategoryId.get(item.ticket_category_id) ?? item.ticket_category_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          subtotal: item.subtotal,
-        })),
+        items,
       });
 
       const resultData = result.DATA;
-
-      const persisted = await markInvoiceApplicationSuccess(this.pool, schema, application.id, {
+      const persisted = await markInvoiceApplicationSuccess(client, schema, application.id, {
         request: request as unknown as Record<string, unknown>,
         response: response as Record<string, unknown>,
         invoice_no: resultData.FP_HM,
@@ -149,19 +184,53 @@ export class FapiaoService extends RC7BaseService {
       return persisted;
     } catch (error) {
       const fapiaoError = error as Error & FapiaoTraceableError;
-      await markInvoiceApplicationFailed(this.pool, schema, application.id, {
-        request: typeof fapiaoError.fapiaoRequest === 'object' && fapiaoError.fapiaoRequest !== null
-          ? fapiaoError.fapiaoRequest as unknown as Record<string, unknown>
-          : {},
-        response: typeof fapiaoError.fapiaoResponse === 'object' && fapiaoError.fapiaoResponse !== null
-          ? fapiaoError.fapiaoResponse as Record<string, unknown>
-          : {
-              CODE: 'FAILED',
-              MESSAGE: error instanceof Error ? error.message : '发票申请失败',
-            },
-      });
+      const request = typeof fapiaoError.fapiaoRequest === 'object' && fapiaoError.fapiaoRequest !== null
+        ? fapiaoError.fapiaoRequest as unknown as Record<string, unknown>
+        : {};
+      const response = typeof fapiaoError.fapiaoResponse === 'object' && fapiaoError.fapiaoResponse !== null
+        ? fapiaoError.fapiaoResponse as Record<string, unknown>
+        : {
+            CODE: 'FAILED',
+            MESSAGE: error instanceof Error ? error.message : '发票申请失败',
+          };
+      await markInvoiceApplicationFailed(
+        client, schema, application.id,
+        { request, response }
+      );
       throw error;
     }
+  }
+
+  async getFapiaoApplication(
+    ctx: Context<GetFapiaoApplicationAdminRequest, { user: UserMeta; roles?: string[] }>,
+  ) {
+    const { oid } = ctx.params;
+    const { uid } = ctx.meta.user;
+    const isAdmin = this.hasRole(ctx, ['admin']);
+
+    const schema = await this.getSchema();
+    const record = await getInvoiceApplicationByOrder(this.pool, schema, oid);
+    if (record === null) {
+      throw new MoleculerClientError('订单发票记录不存在', 404, 'ORDER_INVOICE_NOT_FOUND');
+    }
+
+    if (isAdmin === false && record.user_id !== uid) {
+      throw new MoleculerClientError('无权限访问该发票记录', 403, 'FORBIDDEN_ACCESS');
+    }
+
+    return {
+      id: record.id,
+      order_id: record.order_id,
+      invoice_title: record.invoice_title,
+      tax_no: record.tax_no,
+      email: record.email,
+      status: record.status,
+      sequence_id: record.sequence_id,
+      invoice_no: record.invoice_no,
+      pdf_url: getPdfUrlFromResponse(record.response),
+      created_at: record.created_at,
+      updated_at: record.updated_at,
+    } as Invoice.InvoiceRecord;
   }
 
   async listFapiaoApplications(

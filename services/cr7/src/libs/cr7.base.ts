@@ -65,4 +65,13 @@ export class RC7BaseService extends Service {
       throw new MoleculerClientError('Insufficient permissions', 403, 'FORBIDDEN_ACCESS');
     }
   }
+
+  hasRole(
+    ctx: Context<unknown, { user?: { uid?: string }; roles?: Array<string> }>,
+    roles: Array<string>,
+  ): boolean {
+    const userRoles: string[] = ctx.meta.roles ?? [];
+    const roleSet = new Set(userRoles.map(role => role.toLowerCase()));
+    return roles.some(role => roleSet.has(role));
+  }
 }

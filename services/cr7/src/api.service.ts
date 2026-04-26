@@ -177,8 +177,10 @@ const routes = [
     '/orders',
     [
       'cr7.order.get', 'cr7.order.list', 'cr7.order.cancel',
-      'cr7.order.hide', 'cr7.invoice.applyFapiao', 'cr7.invoice.listFapiaoApplications',
-      'cr7.order.wechatpay', 'cr7.order.refund', 'cr7.redemption.getByOrder'
+      'cr7.order.hide',
+      'cr7.order.wechatpay', 'cr7.order.refund', 'cr7.redemption.getByOrder',
+      'cr7.invoice.applyFapiao', 'cr7.invoice.listFapiaoApplications',
+      'cr7.invoice.getFapiaoApplication',
     ],
     {
       aliases: {
