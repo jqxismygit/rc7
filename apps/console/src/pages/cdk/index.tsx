@@ -21,12 +21,10 @@ import {
   EyeOutlined,
   HomeOutlined,
   PlusOutlined,
-  ReloadOutlined,
 } from "@ant-design/icons";
 import type {
   ActionType,
   ProColumns,
-  ProFormInstance,
 } from "@ant-design/pro-components";
 import { ProTable } from "@ant-design/pro-components";
 import type { Cdkey as CdkeyTypes, Exhibition as ExhibitionTypes } from "@cr7/types";
@@ -59,7 +57,6 @@ type CdkeyCreateFormValues = {
 const CdkPage = () => {
   const { message } = App.useApp();
   const actionRef = useRef<ActionType>(null);
-  const searchFormRef = useRef<ProFormInstance | undefined>(undefined);
   const [form] = Form.useForm<CdkeyCreateFormValues>();
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [selectedEid, setSelectedEid] = useState<string>();
@@ -75,6 +72,7 @@ const CdkPage = () => {
   const [codeDetailModalOpen, setCodeDetailModalOpen] = useState(false);
   const [codeDetailLoading, setCodeDetailLoading] = useState(false);
   const [selectedCdkey, setSelectedCdkey] = useState<CdkeyTypes.Cdkey | null>(null);
+  const [tableEid, setTableEid] = useState<string>();
 
   const { proTablePagination, rowIndexBase } = useTableQuery({
     defaultPageSize: 20,
@@ -129,27 +127,11 @@ const CdkPage = () => {
 
   useEffect(() => {
     if (!defaultActiveEid) return;
-    const currentEid = String(searchFormRef.current?.getFieldValue?.("eid") || "");
-    if (currentEid) return;
-    searchFormRef.current?.setFieldValue?.("eid", defaultActiveEid);
-    searchFormRef.current?.submit?.();
+    setTableEid((prev) => prev || defaultActiveEid);
   }, [defaultActiveEid]);
 
   const columns = useMemo<ProColumns<CdkeyBatchRow>[]>(
     () => [
-      {
-        title: "筛选展会",
-        dataIndex: "eid",
-        hideInTable: true,
-        initialValue: defaultActiveEid,
-        valueType: "select",
-        fieldProps: {
-          showSearch: true,
-          options: exhibitionOptions,
-          optionFilterProp: "label",
-          placeholder: "请选择展会后查询",
-        },
-      },
       {
         title: "序号",
         width: 64,
@@ -617,7 +599,6 @@ const CdkPage = () => {
         <Card className="cdk-list-card" title="CDK 批次列表">
           <ProTable<CdkeyBatchRow>
             actionRef={actionRef}
-            formRef={searchFormRef}
             rowKey="id"
             size="middle"
             cardBordered={false}
@@ -626,7 +607,21 @@ const CdkPage = () => {
             dateFormatter="string"
             pagination={proTablePagination}
             columns={columns}
+            params={{ eid: tableEid }}
             toolbar={{
+              title: (
+                <Select
+                  style={{ width: 240 }}
+                  showSearch
+                  value={tableEid}
+                  options={exhibitionOptions}
+                  optionFilterProp="label"
+                  placeholder="筛选展会"
+                  onChange={(value) => {
+                    setTableEid(value);
+                  }}
+                />
+              ),
               actions: [
                 <Input.Search
                   key="search-cdkey"
@@ -640,11 +635,12 @@ const CdkPage = () => {
                   onSearch={(value) => void handleSearchCdkey(value)}
                 />,
                 <Button
-                  key="reload"
-                  icon={<ReloadOutlined />}
-                  onClick={() => actionRef.current?.reload()}
+                  key="create-batch"
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={openCreateModal}
                 >
-                  刷新
+                  创建批次
                 </Button>,
               ],
             }}
@@ -674,21 +670,7 @@ const CdkPage = () => {
                 return { data: [], success: false, total: 0 };
               }
             }}
-            search={{
-              labelWidth: 92,
-              defaultCollapsed: false,
-              optionRender: (searchConfig, props, dom) => [
-                ...dom,
-                <Button
-                  key="create-batch"
-                  type="primary"
-                  icon={<PlusOutlined />}
-                  onClick={openCreateModal}
-                >
-                  创建批次
-                </Button>,
-              ],
-            }}
+            search={false}
           />
         </Card>
       </Space>
