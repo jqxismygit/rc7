@@ -32,3 +32,15 @@ export function redeemTicket(exhibitId, payload) {
 export function transferRedemption(payload) {
   return request.post("/redemptions/transfer", payload);
 }
+
+/**
+ * 兑换码兑换核销码（按场次）
+ * @param {string} sessionId
+ * @param {{ code: string }} payload
+ * @returns {Promise<object>}
+ * @see docs/api/cdkey.md
+ */
+export function redeemCdkeyForSession(sessionId, payload) {
+  const sid = encodeURIComponent(String(sessionId || ""));
+  return request.post(`/cdkeys/sessions/${sid}/redeem`, payload);
+}

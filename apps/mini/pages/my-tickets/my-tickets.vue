@@ -17,7 +17,7 @@
       @click.stop
       :style="{ marginTop: navBlockPx + 'px' }"
     >
-      <view class="tool-item" @click="syncThirdTickets">
+      <view class="tool-item" @click="goToTicketCodeRedeem">
         <view class="tool-icon-box">
           <sx-svg name="ticket" :width="36" :height="36" color="#FFFFFF" />
         </view>
@@ -531,6 +531,13 @@ export default {
     goToExchange() {
       uni.navigateTo({
         url: "/pages/vote/vote",
+      });
+    },
+
+    goToTicketCodeRedeem() {
+      console.log("goToTicketCodeRedeem");
+      uni.navigateTo({
+        url: "/pages/ticket-code-redeem/ticket-code-redeem",
       });
     },
 
