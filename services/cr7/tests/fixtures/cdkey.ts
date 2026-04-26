@@ -1,7 +1,8 @@
 import { Server } from 'http';
 import { expect } from 'vitest';
-import { Cdkey } from '@cr7/types';
+import { Cdkey, Redeem } from '@cr7/types';
 import { getJSON, postJSON } from '../lib/api.js';
+import { assertRedeem } from './redeem.js';
 
 const CODE_LENGTH = 12;
 const CODE_PREFIX = 'C';
@@ -191,5 +192,23 @@ export async function getCdkeyByCode(
   );
 
   assertCdkey(result);
+  return result;
+}
+
+export async function redeemCdkey(
+  server: Server,
+  token: string,
+  sid: string,
+  body: {
+    code: string;
+  },
+): Promise<Redeem.RedemptionCodeWithOrder> {
+  const result = await postJSON<Redeem.RedemptionCodeWithOrder>(
+    server,
+    `/cdkeys/sessions/${sid}/redeem`,
+    { token, body },
+  );
+
+  assertRedeem(result);
   return result;
 }

@@ -185,6 +185,18 @@ export function handleCdkeyError(error: unknown): never {
     throw new MoleculerClientError('资源不存在', 404, error.code);
   }
 
+  if (error.code === 'CDKEY_SESSION_NOT_FOUND') {
+    throw new MoleculerClientError('场次不存在', 404, error.code);
+  }
+
+  if (error.code === 'CDKEY_EXPIRED') {
+    throw new MoleculerClientError('兑换码已过期', 410, error.code);
+  }
+
+  if (error.code === 'CDKEY_ALREADY_USED') {
+    throw new MoleculerClientError('兑换码已使用', 409, error.code);
+  }
+
   throw new MoleculerClientError('兑换码服务错误', 500, 'CDKEY_ERROR');
 }
 

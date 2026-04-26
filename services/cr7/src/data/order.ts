@@ -184,6 +184,49 @@ async function lockInventories(
   return new Map(rows.map(row => [row.ticket_category_id, row]));
 }
 
+export async function reserveSessionInventories(
+  client: DBClient,
+  schema: string,
+  input: {
+    session_id: string;
+    items: Array<{
+      ticket_category_id: string;
+      quantity: number;
+    }>;
+  },
+) {
+  const aggregatedItems = normalizeOrderItems(input.items);
+  const ticketCategoryIds = aggregatedItems.map(item => item.ticket_category_id);
+
+  const inventoryMap = await lockInventories(
+    client,
+    schema,
+    input.session_id,
+    ticketCategoryIds,
+  );
+
+  for (const item of aggregatedItems) {
+    const inventory = inventoryMap.get(item.ticket_category_id);
+    const available = (inventory?.quantity ?? 0) - (inventory?.reserved_quantity ?? 0);
+
+    if (available < item.quantity) {
+      throw new OrderDataError('Inventory not enough', 'INVENTORY_NOT_ENOUGH');
+    }
+  }
+
+  for (const item of aggregatedItems) {
+    await client.query(
+      `UPDATE ${schema}.exhibit_session_inventories
+      SET
+        reserved_quantity = reserved_quantity + $3,
+        updated_at = NOW()
+      WHERE session_id = $1
+        AND ticket_category_id = $2`,
+      [input.session_id, item.ticket_category_id, item.quantity]
+    );
+  }
+}
+
 async function getOrderItemsByOrderId(
   client: DBClient,
   schema: string,
@@ -632,22 +675,6 @@ export async function createOrder(
     ticketCategoryIds,
   );
 
-  const inventoryMap = await lockInventories(
-    client,
-    schema,
-    input.session_id,
-    ticketCategoryIds,
-  );
-
-  for (const item of aggregatedItems) {
-    const inventory = inventoryMap.get(item.ticket_category_id);
-    const available = (inventory?.quantity ?? 0) - (inventory?.reserved_quantity ?? 0);
-
-    if (available < item.quantity) {
-      throw new OrderDataError('Inventory not enough', 'INVENTORY_NOT_ENOUGH');
-    }
-  }
-
   const totalAmount = aggregatedItems.reduce((sum, item) => {
     const price = priceMap.get(item.ticket_category_id) ?? 0;
     return sum + (price * item.quantity);
@@ -698,17 +725,10 @@ export async function createOrder(
     );
   }
 
-  for (const item of aggregatedItems) {
-    await client.query(
-      `UPDATE ${schema}.exhibit_session_inventories
-      SET
-        reserved_quantity = reserved_quantity + $3,
-        updated_at = NOW()
-      WHERE session_id = $1
-        AND ticket_category_id = $2`,
-      [input.session_id, item.ticket_category_id, item.quantity]
-    );
-  }
+  await reserveSessionInventories(client, schema, {
+    session_id: input.session_id,
+    items: aggregatedItems,
+  });
 
   return getOrderById(client, schema, createdOrder.id);
 }

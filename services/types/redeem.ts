@@ -2,11 +2,15 @@ import { type OrderSource } from "./order.js";
 import { Exhibition } from "./index.js";
 
 export type RedemptionStatus = "UNREDEEMED" | "REDEEMED";
+export type RedemptionSource = "ORDER" | "CDKEY";
 
-export interface RedemptionCode {
-  order_id: string;
+export interface RedemptionRow {
+  order_id: string | null;
   code: string;
   exhibit_id: string;
+  source: RedemptionSource;
+  cdkey: string | null;
+  session_id: string;
   status: RedemptionStatus;
   quantity: number; // 准入人数
   valid_from: string;
@@ -18,8 +22,8 @@ export interface RedemptionCode {
   updated_at: string;
 }
 
-export interface RedemptionCodeWithOrder extends RedemptionCode {
-  order: {
+export interface RedemptionCodeWithOrder extends RedemptionRow {
+  order: null | {
     id: string;
     user_id: string;
     source: OrderSource;

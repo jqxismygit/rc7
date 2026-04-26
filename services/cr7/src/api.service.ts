@@ -218,9 +218,11 @@ const routes = [
       'cr7.cdkey.listBatches',
       'cr7.cdkey.listByBatch',
       'cr7.cdkey.getByCode',
+      'cr7.cdkey.redeem',
     ],
     {
       aliases: {
+        'POST /sessions/:sid/redeem': 'cr7.cdkey.redeem',
         'POST /batches': 'cr7.cdkey.createBatch',
         'GET /batches': 'cr7.cdkey.listBatches',
         'GET /batches/:bid/codes': 'cr7.cdkey.listByBatch',

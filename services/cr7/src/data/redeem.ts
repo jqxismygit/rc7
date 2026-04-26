@@ -1,4 +1,4 @@
-import { addDays } from 'date-fns';
+import { addDays, startOfDay } from 'date-fns';
 import { Pool, PoolClient } from 'pg';
 import type { Redeem } from '@cr7/types';
 
@@ -8,12 +8,15 @@ const CODE_LENGTH = 12;
 const CODE_PREFIX = 'R';
 const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
-type RedemptionRow = Redeem.RedemptionCode;
+type RedemptionRow = Redeem.RedemptionRow;
 
 type RedemptionListRow = {
   exhibit_id: string;
-  order_id: string;
+  source: Redeem.RedemptionSource;
+  order_id: string | null;
+  cdkey: string | null;
   code: string;
+  session_id: string;
   status: Redeem.RedemptionStatus;
   quantity: number;
   valid_from: string;
@@ -126,6 +129,9 @@ export async function getRedemptionRowByOrderId(
       exhibit_id,
       order_id,
       code,
+      source,
+      cdkey,
+      session_id,
       status,
       quantity,
       valid_from,
@@ -137,6 +143,7 @@ export async function getRedemptionRowByOrderId(
       updated_at
     FROM ${schema}.exhibit_redemption_codes
     WHERE order_id = $1
+      AND source = 'ORDER'
     LIMIT 1`,
     [orderId],
   );
@@ -177,6 +184,9 @@ export async function getRedemptionListByUser(
       rc.exhibit_id,
       rc.order_id,
       rc.code,
+      rc.source,
+      rc.cdkey,
+      rc.session_id,
       rc.status,
       rc.quantity,
       rc.valid_from,
@@ -212,6 +222,9 @@ export async function getRedemptionRowByCode(
       exhibit_id,
       order_id,
       code,
+      source,
+      cdkey,
+      session_id,
       status,
       quantity,
       valid_from,
@@ -240,6 +253,7 @@ export async function upsertRedemptionCodeByOrderId(
   schema: string,
   exhibitId: string,
   orderId: string,
+  sessionId: string,
   userId: string,
   quantity: number,
   sessionDate: Date,
@@ -255,15 +269,17 @@ export async function upsertRedemptionCodeByOrderId(
         `WITH inserted AS (
           INSERT INTO ${schema}.exhibit_redemption_codes (
             code,
+            source,
             exhibit_id,
             order_id,
+            session_id,
             owner_user_id,
             status,
             quantity,
             valid_from,
             valid_until
           )
-          VALUES ($1, $2, $3, $7, 'UNREDEEMED', $4, $5, $6)
+          VALUES ($1, 'ORDER', $2, $3, $8, $7, 'UNREDEEMED', $4, $5, $6)
           ON CONFLICT (order_id) DO NOTHING
           RETURNING
             exhibit_id,
@@ -281,11 +297,124 @@ export async function upsertRedemptionCodeByOrderId(
         WHERE order_id = $3
           AND NOT EXISTS (SELECT 1 FROM inserted)
         LIMIT 1`,
-        [code, exhibitId, orderId, quantity, sessionDate, valid_until, userId],
+        [code, exhibitId, orderId, quantity, sessionDate, valid_until, userId, sessionId],
       );
 
       if (rows[0] !== undefined) {
         return rows[0].code;
+      }
+    } catch (error) {
+      if ((error as { code?: string }).code !== '23505') {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error('Failed to generate unique redemption code');
+}
+
+export async function createRedemptionCodeByCdkey(
+  client: DBClient,
+  schema: string,
+  input: {
+    exhibit_id: string;
+    cdkey: string;
+    session_id: string;
+    owner_user_id: string;
+    quantity: number;
+    session_date: Date;
+  },
+): Promise<RedemptionRow> {
+  const validFrom = startOfDay(input.session_date);
+  const validUntil = addDays(validFrom, 1);
+
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const code = buildCandidateCode();
+
+    try {
+      const { rows } = await client.query<RedemptionRow>(
+        `WITH inserted AS (
+          INSERT INTO ${schema}.exhibit_redemption_codes (
+            code,
+            source,
+            exhibit_id,
+            order_id,
+            cdkey,
+            session_id,
+            owner_user_id,
+            status,
+            quantity,
+            valid_from,
+            valid_until
+          )
+          VALUES (
+            $1,
+            'CDKEY',
+            $2,
+            NULL,
+            $3,
+            $4,
+            $5,
+            'UNREDEEMED',
+            $6,
+            $7,
+            $8
+          )
+          ON CONFLICT (cdkey) DO NOTHING
+          RETURNING
+            exhibit_id,
+            order_id,
+            code,
+            source,
+            cdkey,
+            session_id,
+            status,
+            quantity,
+            valid_from,
+            valid_until,
+            redeemed_at,
+            redeemed_by,
+            owner_user_id,
+            created_at,
+            updated_at
+        )
+        SELECT *
+        FROM inserted
+        UNION ALL
+        SELECT
+          exhibit_id,
+          order_id,
+          code,
+          source,
+          cdkey,
+          session_id,
+          status,
+          quantity,
+          valid_from,
+          valid_until,
+          redeemed_at,
+          redeemed_by,
+          owner_user_id,
+          created_at,
+          updated_at
+        FROM ${schema}.exhibit_redemption_codes
+        WHERE cdkey = $3
+          AND NOT EXISTS (SELECT 1 FROM inserted)
+        LIMIT 1`,
+        [
+          code,
+          input.exhibit_id,
+          input.cdkey,
+          input.session_id,
+          input.owner_user_id,
+          input.quantity,
+          validFrom,
+          validUntil,
+        ],
+      );
+
+      if (rows[0] !== undefined) {
+        return rows[0];
       }
     } catch (error) {
       if ((error as { code?: string }).code !== '23505') {

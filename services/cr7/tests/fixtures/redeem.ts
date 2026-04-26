@@ -8,6 +8,10 @@ const CODE_LENGTH = 12;
 const CODE_PREFIX = 'R';
 const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
+type RedemptionWithOrder = Redeem.RedemptionCodeWithOrder & {
+  order: NonNullable<Redeem.RedemptionCodeWithOrder['order']>;
+};
+
 function toLuhnDigits(input: string) {
   const digits: number[] = [];
   for (const char of input) {
@@ -65,35 +69,44 @@ export function isValidRedemptionCodeLuhn(code: string) {
 
 export function assertRedeem(data: unknown) {
   expect(data).toBeTypeOf('object');
-  expect(data).toHaveProperty('order_id', expect.any(String));
+  expect(data).toHaveProperty('order_id', expect.toBeOneOf([expect.any(String), null]));
   expect(data).toHaveProperty('code', expect.any(String));
   expect(data).toHaveProperty('exhibit_id', expect.any(String));
+  expect(data).toHaveProperty('source', expect.stringMatching(/^(ORDER|CDKEY)$/));
+  expect(data).toHaveProperty('session_id', expect.any(String));
   expect(data).toHaveProperty('status', expect.stringMatching(/^(UNREDEEMED|REDEEMED)$/));
   expect(data).toHaveProperty('quantity', expect.any(Number));
   expect(data).toHaveProperty('valid_from', expect.any(String));
   expect(data).toHaveProperty('valid_until', expect.any(String));
   expect(data).toHaveProperty('created_at', expect.any(String));
   expect(data).toHaveProperty('updated_at', expect.any(String));
-  expect(data).toHaveProperty('order', expect.any(Object));
+  expect(data).toHaveProperty('order', expect.toBeOneOf([expect.any(Object), null]));
   expect(data).toHaveProperty('exhibition', expect.any(Object));
   expect(data).toHaveProperty('session', expect.any(Object));
   expect(data).toHaveProperty('items', expect.any(Array));
+  expect(data).toHaveProperty('cdkey', expect.toBeOneOf([expect.any(String), null]));
+  expect(data).toHaveProperty('redeemed_at', expect.toBeOneOf([expect.any(String), null]));
+  expect(data).toHaveProperty('redeemed_by', expect.toBeOneOf([expect.any(String), null]));
   expect(data).not.toHaveProperty('id');
 
   const redeem = data as Redeem.RedemptionCodeWithOrder;
   if (redeem.redeemed_at !== null) {
     expect(redeem.redeemed_at).toEqual(expect.any(String));
-  }
-  if (redeem.redeemed_by !== null) {
     expect(redeem.redeemed_by).toEqual(expect.any(String));
   }
 
-  expect(redeem.order).toHaveProperty('id', expect.any(String));
-  expect(redeem.order).toHaveProperty('user_id', expect.any(String));
-  expect(redeem.order).toHaveProperty('exhibit_id', expect.any(String));
-  expect(redeem.order).toHaveProperty('session_id', expect.any(String));
-  expect(redeem.order).toHaveProperty('total_amount', expect.any(Number));
-  expect(redeem.order).toHaveProperty('status', expect.any(String));
+  if (redeem.source === 'CDKEY') {
+    expect(redeem.cdkey).toEqual(expect.any(String));
+  }
+
+  if (redeem.source === 'ORDER') {
+    expect(redeem.order).toHaveProperty('id', expect.any(String));
+    expect(redeem.order).toHaveProperty('user_id', expect.any(String));
+    expect(redeem.order).toHaveProperty('exhibit_id', expect.any(String));
+    expect(redeem.order).toHaveProperty('session_id', expect.any(String));
+    expect(redeem.order).toHaveProperty('total_amount', expect.any(Number));
+    expect(redeem.order).toHaveProperty('status', expect.any(String));
+  }
 
   expect(redeem.exhibition).toHaveProperty('id', expect.any(String));
   expect(redeem.exhibition).toHaveProperty('name', expect.any(String));
@@ -136,7 +149,7 @@ export async function getOrderRedemption(
   server: Server,
   orderId: string,
   token: string,
-) {
+): Promise<RedemptionWithOrder> {
   const redemption = await getJSON<Redeem.RedemptionCodeWithOrder>(
     server,
     `/orders/${orderId}/redemption`,
@@ -144,7 +157,8 @@ export async function getOrderRedemption(
   );
 
   assertRedeem(redemption);
-  return redemption;
+  expect(redemption.order).toBeTruthy();
+  return redemption as RedemptionWithOrder;
 }
 
 export async function redeemCode(
@@ -186,7 +200,7 @@ export async function getRedemptionByCode(
   server: Server,
   code: string,
   token: string,
-) {
+): Promise<RedemptionWithOrder> {
   const redemption = await getJSON<Redeem.RedemptionCodeWithOrder>(
     server,
     `/redemptions/${code}`,
@@ -194,7 +208,8 @@ export async function getRedemptionByCode(
   );
 
   assertRedeem(redemption);
-  return redemption;
+  expect(redemption.order).toBeTruthy();
+  return redemption as RedemptionWithOrder;
 }
 
 export function toSessionDateLabel(value: string) {
