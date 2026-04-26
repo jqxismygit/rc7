@@ -81,6 +81,11 @@ Feature: 兑换码管理
 
     Then 场次 "今天" 的 "单人票" 库存为 1
 
+    When 用户 "Alice" 再次将第 1 次使用第 1 个兑换码兑换场次为 "今天" 的票
+    Then 兑换失败，错误type为 "CDKEY_ALREADY_USED"
+
+    Then 场次 "今天" 的 "单人票" 库存仍为 1
+
     When 运营人员将用户 "Alice" 的核销码扫码核销
     Then 核销成功
 
