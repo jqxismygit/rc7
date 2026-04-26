@@ -1,12 +1,12 @@
 import { addDays, startOfDay } from 'date-fns';
 import { Pool, PoolClient } from 'pg';
 import type { Redeem } from '@cr7/types';
+import { buildLuhnCode } from '../utils/luhn-code.js';
 
 type DBClient = Pool | PoolClient;
 
 const CODE_LENGTH = 12;
 const CODE_PREFIX = 'R';
-const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
 type RedemptionRow = Redeem.RedemptionRow;
 
@@ -60,65 +60,6 @@ export class RedeemDataError extends Error {
   }
 }
 
-function toLuhnDigits(input: string) {
-  const digits: number[] = [];
-
-  for (const char of input) {
-    if (/^[0-9]$/.test(char)) {
-      digits.push(Number(char));
-      continue;
-    }
-
-    const index = ALPHABET.indexOf(char);
-    if (index < 0) {
-      continue;
-    }
-
-    const base36Value = index + 2;
-    for (const digit of String(base36Value)) {
-      digits.push(Number(digit));
-    }
-  }
-
-  return digits;
-}
-
-function calculateLuhnCheckDigit(digits: number[]) {
-  let sum = 0;
-  let shouldDouble = true;
-
-  for (let index = digits.length - 1; index >= 0; index -= 1) {
-    let value = digits[index];
-    if (shouldDouble) {
-      value *= 2;
-      if (value > 9) {
-        value -= 9;
-      }
-    }
-    sum += value;
-    shouldDouble = !shouldDouble;
-  }
-
-  return (10 - (sum % 10)) % 10;
-}
-
-function buildLuhn2(input10: string) {
-  const checkDigit1 = calculateLuhnCheckDigit(toLuhnDigits(input10));
-  const checkDigit2 = calculateLuhnCheckDigit(toLuhnDigits(input10 + String(checkDigit1)));
-  return `${checkDigit1}${checkDigit2}`;
-}
-
-function randomBusinessPart(length: number) {
-  return Array.from({ length })
-    .map(() => ALPHABET[Math.floor(Math.random() * ALPHABET.length)])
-    .join('');
-}
-
-function buildCandidateCode() {
-  const payload = `${CODE_PREFIX}${randomBusinessPart(CODE_LENGTH - 3)}`;
-  return `${payload}${buildLuhn2(payload)}`;
-}
-
 function buildCandidateCodes(
   count: number,
   generatedCodes: Set<string>,
@@ -126,7 +67,10 @@ function buildCandidateCodes(
   const candidates: string[] = [];
 
   while (candidates.length < count) {
-    const code = buildCandidateCode();
+    const code = buildLuhnCode({
+      prefix: CODE_PREFIX,
+      codeLength: CODE_LENGTH,
+    });
     if (generatedCodes.has(code)) {
       continue;
     }
