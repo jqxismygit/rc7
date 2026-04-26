@@ -24,6 +24,7 @@ import {
 } from '../data/exhibition.js';
 import { getUserProfilesByIds } from '../data/user.js';
 import { handleCdkeyError, handleExhibitionError, handleOrderError } from './errors.js';
+import { HALF_SESSION_ID_REGEX, parseSelectedSessionId } from './session-id.js';
 
 interface UserMeta {
   uid: string;
@@ -221,7 +222,7 @@ export class CdkeyService extends RC7BaseService {
 
     'cdkey.redeem': {
       params: {
-        sid: 'uuid',
+        sid: ['uuid', { type: 'string', pattern: HALF_SESSION_ID_REGEX.source }],
         code: 'string',
       },
       handler: this.redeem,
@@ -346,7 +347,8 @@ export class CdkeyService extends RC7BaseService {
       code: string;
     }, { user: UserMeta }>,
   ): Promise<Redeem.RedemptionCodeWithCDKey> {
-    const { sid, code } = ctx.params;
+    const { code } = ctx.params;
+    const { sessionId } = parseSelectedSessionId(ctx.params.sid);
     const { uid } = ctx.meta.user;
     const schema = await this.getSchema();
 
@@ -361,7 +363,7 @@ export class CdkeyService extends RC7BaseService {
         throw new CdkeyDataError('CDKEY already used', 'CDKEY_ALREADY_USED');
       }
 
-      const session = await getSessionById(client, schema, sid)
+      const session = await getSessionById(client, schema, sessionId)
         .catch(handleExhibitionError);
 
       if (session.exhibit_id !== cdkey.exhibit_id) {
@@ -375,7 +377,7 @@ export class CdkeyService extends RC7BaseService {
       }
 
       await reserveSessionInventories(client, schema, {
-        session_id: sid,
+        session_id: sessionId,
         items: [{
           ticket_category_id: cdkey.ticket_category_id,
           quantity: cdkey.redeem_quantity,
@@ -384,7 +386,7 @@ export class CdkeyService extends RC7BaseService {
 
       const redeemedCdkey = await redeemCdkey(client, schema, {
         code,
-        sid,
+        sid: sessionId,
         redeemed_by: uid,
       }).catch(handleCdkeyError);
 
@@ -395,7 +397,7 @@ export class CdkeyService extends RC7BaseService {
       const redemptionRow = await createRedemptionCodeByCdkey(client, schema, {
         exhibit_id: redeemedCdkey.exhibit_id,
         cdkey: redeemedCdkey.code,
-        session_id: sid,
+        session_id: sessionId,
         owner_user_id: uid,
         quantity: redeemedCdkey.redeem_quantity,
         session_date: new Date(session.session_date),

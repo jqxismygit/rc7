@@ -539,6 +539,28 @@ describeFeature(feature, ({
       expect(targetTicket!.quantity).toBe(inventory);
     });
 
+    Then('场次 {string} 的 {string} 库存仍为 {int}', async (
+      _ctx,
+      sessionDate: string,
+      ticketName: string,
+      inventory: number,
+    ) => {
+      const { sessions, exhibition, ticketByName, apiServer, adminToken } = featureContext;
+      const session = getSessionByDate(sessions, sessionDate);
+      const ticket = ticketByName[ticketName];
+      expect(ticket).toBeTruthy();
+
+      const sessionTickets = await getSessionTickets(
+        apiServer,
+        adminToken,
+        exhibition.id,
+        session.id,
+      );
+      const targetTicket = sessionTickets.find(item => item.id === ticket.id);
+      expect(targetTicket).toBeTruthy();
+      expect(targetTicket!.quantity).toBe(inventory);
+    });
+
     // redeem
     When('运营人员将用户 {string} 的核销码扫码核销', async (_ctx, userName: string) => {
       const { usersByName, myRedemptionList, apiServer, exhibition, operatorToken } = featureContext;
@@ -642,6 +664,32 @@ describeFeature(feature, ({
     });
   });
 
-  Scenario('通过兑换码兑换核销码', () => {
+  Scenario('通过兑换码兑换核销码', ({ When, Then }) => {
+    When('用户 {string} 再次将第 {int} 次使用第 {int} 个兑换码兑换场次为 {string} 的票', async (
+      _ctx,
+      userName: string,
+      useIndex: number,
+      codeIndex: number,
+      sessionDate: string,
+    ) => {
+      const { apiServer, usersByName, cdkeyList, sessions } = featureContext;
+      const user = usersByName[userName];
+      expect(user).toBeTruthy();
+      const code = cdkeyList.codes[codeIndex - 1];
+      expect(code).toBeTruthy();
+      const session = getSessionByDate(sessions, sessionDate);
+
+      featureContext.cdkeyRedeemPromise = redeemCdkey(
+        apiServer,
+        user.token,
+        session.id,
+        { code: code.code },
+      ) as Promise<Redeem.RedemptionCodeWithCDKey>;
+    });
+
+    Then('兑换失败，错误type为 {string}', async (_ctx, errorType: string) => {
+      const { cdkeyRedeemPromise } = featureContext;
+      await expect(cdkeyRedeemPromise).rejects.toMatchObject({ body: { type: errorType } });
+    });
   });
 });

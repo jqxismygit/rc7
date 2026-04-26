@@ -1,12 +1,12 @@
 import { addDays, startOfDay } from 'date-fns';
 import { Pool, PoolClient } from 'pg';
 import type { Redeem } from '@cr7/types';
+import { buildLuhnCode } from '../utils/luhn-code.js';
 
 type DBClient = Pool | PoolClient;
 
 const CODE_LENGTH = 12;
 const CODE_PREFIX = 'R';
-const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
 type RedemptionRow = Redeem.RedemptionRow;
 
@@ -60,63 +60,26 @@ export class RedeemDataError extends Error {
   }
 }
 
-function toLuhnDigits(input: string) {
-  const digits: number[] = [];
+function buildCandidateCodes(
+  count: number,
+  generatedCodes: Set<string>,
+): string[] {
+  const candidates: string[] = [];
 
-  for (const char of input) {
-    if (/^[0-9]$/.test(char)) {
-      digits.push(Number(char));
+  while (candidates.length < count) {
+    const code = buildLuhnCode({
+      prefix: CODE_PREFIX,
+      codeLength: CODE_LENGTH,
+    });
+    if (generatedCodes.has(code)) {
       continue;
     }
 
-    const index = ALPHABET.indexOf(char);
-    if (index < 0) {
-      continue;
-    }
-
-    const base36Value = index + 2;
-    for (const digit of String(base36Value)) {
-      digits.push(Number(digit));
-    }
+    generatedCodes.add(code);
+    candidates.push(code);
   }
 
-  return digits;
-}
-
-function calculateLuhnCheckDigit(digits: number[]) {
-  let sum = 0;
-  let shouldDouble = true;
-
-  for (let index = digits.length - 1; index >= 0; index -= 1) {
-    let value = digits[index];
-    if (shouldDouble) {
-      value *= 2;
-      if (value > 9) {
-        value -= 9;
-      }
-    }
-    sum += value;
-    shouldDouble = !shouldDouble;
-  }
-
-  return (10 - (sum % 10)) % 10;
-}
-
-function buildLuhn2(input10: string) {
-  const checkDigit1 = calculateLuhnCheckDigit(toLuhnDigits(input10));
-  const checkDigit2 = calculateLuhnCheckDigit(toLuhnDigits(input10 + String(checkDigit1)));
-  return `${checkDigit1}${checkDigit2}`;
-}
-
-function randomBusinessPart(length: number) {
-  return Array.from({ length })
-    .map(() => ALPHABET[Math.floor(Math.random() * ALPHABET.length)])
-    .join('');
-}
-
-function buildCandidateCode() {
-  const payload = `${CODE_PREFIX}${randomBusinessPart(CODE_LENGTH - 3)}`;
-  return `${payload}${buildLuhn2(payload)}`;
+  return candidates;
 }
 
 export async function getRedemptionRowByOrderId(
@@ -260,13 +223,20 @@ export async function upsertRedemptionCodeByOrderId(
   validDurationDays: number,
 ): Promise<string> {
   const valid_until = addDays(sessionDate, validDurationDays);
+  const generatedCodes = new Set<string>();
+  const maxGeneratedCount = 50;
 
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const code = buildCandidateCode();
+  while (generatedCodes.size < maxGeneratedCount) {
+    const generationBudget = maxGeneratedCount - generatedCodes.size;
+    const candidateCount = Math.min(20, generationBudget);
+    const candidates = buildCandidateCodes(candidateCount, generatedCodes);
 
     try {
       const { rows } = await client.query<RedemptionRow>(
-        `WITH inserted AS (
+        `WITH candidate_codes AS (
+          SELECT UNNEST($1::varchar[]) AS code
+        ),
+        inserted AS (
           INSERT INTO ${schema}.exhibit_redemption_codes (
             code,
             source,
@@ -279,8 +249,19 @@ export async function upsertRedemptionCodeByOrderId(
             valid_from,
             valid_until
           )
-          VALUES ($1, 'ORDER', $2, $3, $8, $7, 'UNREDEEMED', $4, $5, $6)
-          ON CONFLICT (order_id) DO NOTHING
+          SELECT
+            candidate_codes.code,
+            'ORDER',
+            $2,
+            $3,
+            $8,
+            $7,
+            'UNREDEEMED',
+            $4,
+            $5,
+            $6
+          FROM candidate_codes
+          ON CONFLICT DO NOTHING
           RETURNING
             exhibit_id,
             order_id,
@@ -297,7 +278,7 @@ export async function upsertRedemptionCodeByOrderId(
         WHERE order_id = $3
           AND NOT EXISTS (SELECT 1 FROM inserted)
         LIMIT 1`,
-        [code, exhibitId, orderId, quantity, sessionDate, valid_until, userId, sessionId],
+        [candidates, exhibitId, orderId, quantity, sessionDate, valid_until, userId, sessionId],
       );
 
       if (rows[0] !== undefined) {
@@ -327,13 +308,20 @@ export async function createRedemptionCodeByCdkey(
 ): Promise<RedemptionRow> {
   const validFrom = startOfDay(input.session_date);
   const validUntil = addDays(validFrom, 1);
+  const generatedCodes = new Set<string>();
+  const maxGeneratedCount = 50;
 
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const code = buildCandidateCode();
+  while (generatedCodes.size < maxGeneratedCount) {
+    const generationBudget = maxGeneratedCount - generatedCodes.size;
+    const candidateCount = Math.min(20, generationBudget);
+    const candidates = buildCandidateCodes(candidateCount, generatedCodes);
 
     try {
       const { rows } = await client.query<RedemptionRow>(
-        `WITH inserted AS (
+        `WITH candidate_codes AS (
+          SELECT UNNEST($1::varchar[]) AS code
+        ),
+        inserted AS (
           INSERT INTO ${schema}.exhibit_redemption_codes (
             code,
             source,
@@ -347,8 +335,8 @@ export async function createRedemptionCodeByCdkey(
             valid_from,
             valid_until
           )
-          VALUES (
-            $1,
+          SELECT
+            candidate_codes.code,
             'CDKEY',
             $2,
             NULL,
@@ -359,8 +347,8 @@ export async function createRedemptionCodeByCdkey(
             $6,
             $7,
             $8
-          )
-          ON CONFLICT (cdkey) DO NOTHING
+          FROM candidate_codes
+          ON CONFLICT DO NOTHING
           RETURNING
             exhibit_id,
             order_id,
@@ -402,7 +390,7 @@ export async function createRedemptionCodeByCdkey(
           AND NOT EXISTS (SELECT 1 FROM inserted)
         LIMIT 1`,
         [
-          code,
+          candidates,
           input.exhibit_id,
           input.cdkey,
           input.session_id,

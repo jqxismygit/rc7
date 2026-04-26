@@ -3,63 +3,16 @@ import { expect } from 'vitest';
 import { Cdkey, Redeem } from '@cr7/types';
 import { getJSON, postJSON } from '../lib/api.js';
 import { assertRedeem } from './redeem.js';
+import { isValidLuhnCode } from '../../src/utils/luhn-code.js';
 
 const CODE_LENGTH = 12;
 const CODE_PREFIX = 'C';
-const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
-
-function toLuhnDigits(input: string) {
-  const digits: number[] = [];
-  for (const char of input) {
-    if (/^[0-9]$/.test(char)) {
-      digits.push(Number(char));
-      continue;
-    }
-
-    const index = ALPHABET.indexOf(char);
-    if (index >= 0) {
-      const base36Value = index + 2;
-      for (const digit of String(base36Value)) {
-        digits.push(Number(digit));
-      }
-    }
-  }
-
-  return digits;
-}
-
-function calculateLuhnCheckDigit(digits: number[]) {
-  let sum = 0;
-  let shouldDouble = true;
-
-  for (let index = digits.length - 1; index >= 0; index -= 1) {
-    let value = digits[index];
-    if (shouldDouble) {
-      value *= 2;
-      if (value > 9) {
-        value -= 9;
-      }
-    }
-    sum += value;
-    shouldDouble = !shouldDouble;
-  }
-
-  return (10 - (sum % 10)) % 10;
-}
-
-function buildLuhn2(input10: string) {
-  const first = calculateLuhnCheckDigit(toLuhnDigits(input10));
-  const second = calculateLuhnCheckDigit(toLuhnDigits(input10 + String(first)));
-  return `${first}${second}`;
-}
 
 export function isValidCdkeyLuhn(code: string) {
-  if (code.length !== CODE_LENGTH || code.startsWith(CODE_PREFIX) === false) {
-    return false;
-  }
-
-  const payload = code.slice(0, 10);
-  return code.slice(10) === buildLuhn2(payload);
+  return isValidLuhnCode(code, {
+    prefix: CODE_PREFIX,
+    codeLength: CODE_LENGTH,
+  });
 }
 
 export function assertCdkeyBatch(data: unknown) {
