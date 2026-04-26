@@ -49,7 +49,12 @@ export type CdkeyRowsResult = {
   limit: number;
 };
 
-export type CDKEY_DATA_ERROR_CODES = 'CDKEY_NOT_FOUND' | 'CDKEY_BATCH_NOT_FOUND';
+export type CDKEY_DATA_ERROR_CODES
+  = | 'CDKEY_NOT_FOUND'
+    | 'CDKEY_BATCH_NOT_FOUND'
+    | 'CDKEY_ALREADY_USED'
+    | 'CDKEY_EXPIRED'
+    | 'CDKEY_SESSION_NOT_FOUND';
 
 export class CdkeyDataError extends Error {
   code: CDKEY_DATA_ERROR_CODES;
@@ -392,4 +397,72 @@ export async function getCdkeyByCode(
   }
 
   return rows[0];
+}
+
+export async function getCdkeysByCodes(
+  client: DBClient,
+  schema: string,
+  codes: string[],
+): Promise<Map<string, CdkeyRecord>> {
+  if (codes.length === 0) {
+    return new Map();
+  }
+
+  const { rows } = await client.query<CdkeyRecord>(
+    `SELECT
+      c.id,
+      c.batch_id,
+      c.exhibit_id,
+      c.ticket_category_id,
+      c.code,
+      c.redeem_quantity,
+      TO_CHAR(c.redeem_valid_until, 'YYYY-MM-DD') AS redeem_valid_until,
+      c.redeemed_session_id,
+      c.redeemed_by,
+      c.redeemed_at,
+      c.created_at,
+      c.updated_at
+    FROM ${schema}.exhibit_cdkeys c
+    WHERE c.code = ANY($1::varchar[])`,
+    [[...new Set(codes)]],
+  );
+
+  return new Map(rows.map(row => [row.code, row]));
+}
+
+export async function redeemCdkey(
+  client: DBClient,
+  schema: string,
+  input: {
+    code: string;
+    sid: string;
+    redeemed_by: string;
+  },
+): Promise<CdkeyRecord | null> {
+  const { rows } = await client.query<CdkeyRecord>(
+    `UPDATE ${schema}.exhibit_cdkeys c
+    SET
+      redeemed_session_id = $2,
+      redeemed_by = $3,
+      redeemed_at = NOW(),
+      updated_at = NOW()
+    WHERE c.code = $1
+      AND c.redeemed_at IS NULL
+    RETURNING
+      c.id,
+      c.batch_id,
+      c.exhibit_id,
+      c.ticket_category_id,
+      c.code,
+      c.redeem_quantity,
+      TO_CHAR(c.redeem_valid_until, 'YYYY-MM-DD') AS redeem_valid_until,
+      c.redeemed_session_id,
+      c.redeemed_by,
+      c.redeemed_at,
+      c.created_at,
+      c.updated_at`,
+    [input.code, input.sid, input.redeemed_by],
+  );
+
+  return rows[0] ?? null;
 }

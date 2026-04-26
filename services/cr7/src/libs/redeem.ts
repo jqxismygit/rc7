@@ -1,6 +1,6 @@
 import { format, isAfter, isBefore } from 'date-fns';
 import { Context, ServiceBroker, ServiceSchema } from 'moleculer';
-import type { Exhibition, Order, Redeem } from '@cr7/types';
+import { type Exhibition, type Order, type Redeem } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
 import {
   getRedemptionListByUser,
@@ -12,15 +12,15 @@ import {
   getTransfersByCode,
   RedeemDataError,
 } from '../data/redeem.js';
+import { CdkeyRecord, getCdkeysByCodes } from '../data/cdkey.js';
 import { getOrderById, getOrdersByIds, OrderDataError } from '../data/order.js';
 import {
-  getExhibitionById,
   getExhibitionsByIds,
   getSessionById,
   getSessionsByIds,
-  getTicketCategoriesByExhibitionId,
+  getTicketCategoriesByIds,
 } from '../data/exhibition.js';
-import { handleExhibitionError, handleOrderError, handleRedeemError } from './errors.js';
+import { handleCdkeyError, handleExhibitionError, handleOrderError, handleRedeemError } from './errors.js';
 
 interface UserMeta {
   uid: string;
@@ -28,24 +28,93 @@ interface UserMeta {
 
 function buildItems(
   orderItems: Order.OrderItem[],
-  categories: Exhibition.TicketCategory[],
+  categoryMap: Map<string, Exhibition.TicketCategory>,
 ): Redeem.RedemptionCodeWithOrder['items'] {
-  const categoryMap = new Map(categories.map(c => [c.id, c]));
-  return orderItems.map(item => ({
-    id: item.id,
-    ticket_category_id: item.ticket_category_id,
-    quantity: item.quantity,
-    unit_price: item.unit_price,
-    category_name: categoryMap.get(item.ticket_category_id)?.name ?? '',
-  }));
+  return orderItems.map((item) => {
+    return {
+      id: item.id,
+      ticket_category_id: item.ticket_category_id,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      category_name: categoryMap.get(item.ticket_category_id)!.name,
+    };
+  });
 }
 
 function computeValidDurationDays(
   orderItems: Order.OrderItem[],
-  categories: Exhibition.TicketCategory[],
+  categoryMap: Map<string, Exhibition.TicketCategory>,
 ): number {
-  const categoryMap = new Map(categories.map(c => [c.id, c]));
-  return Math.max(1, ...orderItems.map(item => categoryMap.get(item.ticket_category_id)?.valid_duration_days ?? 1));
+  const validDurations = orderItems
+    .map(item => categoryMap.get(item.ticket_category_id)?.valid_duration_days ?? 1);
+  return Math.max(1, ...validDurations);
+}
+
+function assembleRedemption(
+  redemption: Redeem.RedemptionRow,
+  exhibitionMap: Map<string, Exhibition.Exhibition>,
+  sessionMap: Map<string, Exhibition.Session>,
+  ticketCategoryMap: Map<string, Exhibition.TicketCategory>,
+  orderMap: Map<string, Order.OrderWithItems>,
+  cdkeyMap: Map<string, CdkeyRecord>,
+): Redeem.RedemptionCodeWithOrder {
+  const { exhibit_id, session_id, order_id, source } = redemption;
+  const exhibition = exhibitionMap.get(exhibit_id)!;
+  const session = sessionMap.get(session_id)!;
+
+  const res = {
+    ...redemption,
+    order: null,
+    exhibition: {
+      id: exhibition.id,
+      name: exhibition.name,
+      description: exhibition.description,
+      cover_url: exhibition.cover_url,
+      location: exhibition.location,
+      city: exhibition.city,
+      venue_name: exhibition.venue_name,
+      start_date: exhibition.start_date,
+      end_date: exhibition.end_date,
+    },
+    session: {
+      id: session.id,
+      session_date: format(new Date(session.session_date), 'yyyy-MM-dd'),
+      opening_time: exhibition.opening_time,
+      closing_time: exhibition.closing_time,
+      last_entry_time: exhibition.last_entry_time,
+    },
+  };
+
+  if (source === 'ORDER') {
+    const order = orderMap.get(order_id!)!;
+    const redemptionOrder = {
+      id: order.id,
+      user_id: order.user_id,
+      source: order.source,
+      exhibit_id: order.exhibit_id,
+      session_id: order.session_id,
+      total_amount: order.total_amount,
+      status: order.status,
+    };
+    const items = buildItems(order!.items, ticketCategoryMap);
+    Object.assign(res, { order: redemptionOrder, items });
+  }
+
+  if (source === 'CDKEY') {
+    const cdkey = cdkeyMap.get(redemption.cdkey!)!;
+    const ticketCategory = ticketCategoryMap.get(cdkey.ticket_category_id)!;
+
+    const item: Redeem.RedemptionCodeWithOrder['items'][number] = {
+      id: cdkey.id,
+      quantity: redemption.quantity,
+      unit_price: ticketCategory.list_price,
+      ticket_category_id: cdkey.ticket_category_id,
+      category_name: ticketCategory.name,
+    };
+    Object.assign(res, { items: [item] });
+  }
+
+  return res as Redeem.RedemptionCodeWithOrder;
 }
 
 export class RedemptionService extends RC7BaseService {
@@ -163,14 +232,17 @@ export class RedemptionService extends RC7BaseService {
 
     const session = await getSessionById(dbClient, schema, order.session_id)
       .catch(handleRedeemError);
-    const categories = await getTicketCategoriesByExhibitionId(dbClient, schema, order.exhibit_id)
+    const ticketCategoryIds = order.items.map(item => item.ticket_category_id);
+    const categories = await getTicketCategoriesByIds(dbClient, schema, ticketCategoryIds)
       .catch(handleRedeemError);
     const items = buildItems(order.items, categories);
     const validDurationDays = computeValidDurationDays(order.items, categories);
     const quantity = items.reduce((sum, item) => sum + item.quantity, 0);
 
     await upsertRedemptionCodeByOrderId(
-      dbClient, schema, order.exhibit_id, order.id, order.user_id,
+      dbClient, schema, order.exhibit_id, order.id,
+      order.session_id,
+      order.user_id,
       quantity, session.session_date, validDurationDays,
     )
       .catch(handleRedeemError);
@@ -200,7 +272,8 @@ export class RedemptionService extends RC7BaseService {
     const redemptionRow = await getRedemptionRowByOrderId(this.pool, schema, order.id)
       .catch(handleRedeemError);
 
-    return this.assembleRedemption(schema, redemptionRow);
+    const [res] = await this.assembleRedemption(schema, [redemptionRow]);
+    return res;
   }
 
   async listByUser(
@@ -224,85 +297,7 @@ export class RedemptionService extends RC7BaseService {
       limit,
     }).catch(handleRedeemError);
 
-    const orderIds = redemptionRows.redemptions.map(redemption => redemption.order_id);
-    const ordersById = await getOrdersByIds(this.pool, schema, orderIds)
-      .catch(handleOrderError);
-
-    const ticketCategoriesByExhibitionId = new Map<string, Exhibition.TicketCategory[]>();
-    for (const order of ordersById.values()) {
-      if (!ticketCategoriesByExhibitionId.has(order.exhibit_id)) {
-        const categories = await getTicketCategoriesByExhibitionId(this.pool, schema, order.exhibit_id)
-          .catch(handleRedeemError);
-        ticketCategoriesByExhibitionId.set(order.exhibit_id, categories);
-      }
-    }
-
-    const exhibitionById = await getExhibitionsByIds(
-      this.pool,
-      schema,
-      [...new Set([...ordersById.values()].map(order => order.exhibit_id))],
-    ).catch(handleRedeemError);
-    const sessionById = await getSessionsByIds(
-      this.pool,
-      schema,
-      [...new Set([...ordersById.values()].map(order => order.session_id))],
-    ).catch(handleRedeemError);
-
-    const redemptions = redemptionRows.redemptions.map((redemption) => {
-      const order = ordersById.get(redemption.order_id);
-      if (order === undefined) {
-        return handleOrderError(new OrderDataError('Order not found', 'ORDER_NOT_FOUND'));
-      }
-
-      const categories = ticketCategoriesByExhibitionId.get(order.exhibit_id);
-      if (categories === undefined) {
-        return handleRedeemError(new RedeemDataError('Order has no redemption code', 'ORDER_NOT_REDEEMABLE'));
-      }
-
-      const exhibition = exhibitionById.get(order.exhibit_id);
-      if (exhibition === undefined) {
-        return handleRedeemError(new RedeemDataError('Exhibition not found', 'ORDER_NOT_REDEEMABLE'));
-      }
-
-      const session = sessionById.get(order.session_id);
-      if (session === undefined) {
-        return handleRedeemError(new RedeemDataError('Session not found', 'ORDER_NOT_REDEEMABLE'));
-      }
-
-      const items = buildItems(order.items, categories);
-
-      return {
-        ...redemption,
-        order: {
-          id: order.id,
-          user_id: order.user_id,
-          source: order.source,
-          exhibit_id: order.exhibit_id,
-          session_id: order.session_id,
-          total_amount: order.total_amount,
-          status: order.status,
-        },
-        exhibition: {
-          id: exhibition.id,
-          name: exhibition.name,
-          description: exhibition.description,
-          cover_url: exhibition.cover_url,
-          location: exhibition.location,
-          city: exhibition.city,
-          venue_name: exhibition.venue_name,
-          start_date: exhibition.start_date,
-          end_date: exhibition.end_date,
-        },
-        session: {
-          id: session.id,
-          session_date: format(new Date(session.session_date), 'yyyy-MM-dd'),
-          opening_time: exhibition.opening_time,
-          closing_time: exhibition.closing_time,
-          last_entry_time: exhibition.last_entry_time,
-        },
-        items,
-      };
-    });
+    const redemptions = await this.assembleRedemption(schema, redemptionRows.redemptions);
 
     return {
       redemptions,
@@ -320,54 +315,48 @@ export class RedemptionService extends RC7BaseService {
     const redemptionRow = await getRedemptionRowByCode(this.pool, schema, code)
       .catch(handleRedeemError);
 
-    return this.assembleRedemption(schema, redemptionRow);
+    const [res] = await this.assembleRedemption(schema, [redemptionRow]);
+    return res;
   }
 
   async assembleRedemption(
     schema: string,
-    redemptionRow: Redeem.RedemptionCode
-  ): Promise<Redeem.RedemptionCodeWithOrder> {
-    const order = await getOrderById(this.pool, schema, redemptionRow.order_id)
+    redemptionRows: Redeem.RedemptionRow[]
+  ): Promise<Redeem.RedemptionCodeWithOrder[]> {
+    const client = this.pool;
+    const exhibitionIds = [...new Set(redemptionRows.map(row => row.exhibit_id))];
+    const exhibitionMap = await getExhibitionsByIds(client, schema, exhibitionIds)
+      .catch(handleExhibitionError);
+    const sessionIds = [...new Set(redemptionRows.map(row => row.session_id))];
+    const sessionMap = await getSessionsByIds(client, schema, sessionIds)
+      .catch(handleExhibitionError);
+    const orderIds = Array.from(new Set(
+      redemptionRows.map(row => row.order_id)
+        .filter((id): id is string => id !== null)
+    )
+    );
+    const orderMap = await getOrdersByIds(client, schema, orderIds)
       .catch(handleOrderError);
-    const categories = await getTicketCategoriesByExhibitionId(this.pool, schema, order.exhibit_id)
-      .catch(handleRedeemError);
-    const items = buildItems(order.items, categories);
-    const exhibition = await getExhibitionById(this.pool, schema, order.exhibit_id)
-      .catch(handleRedeemError);
-    const session = await getSessionById(this.pool, schema, order.session_id)
-      .catch(handleRedeemError);
+    const cdkeyCodes = Array.from(new Set(
+      redemptionRows.map(row => row.cdkey)
+        .filter((code): code is string => code !== null)
+    ));
+    const cdkeyMap = await getCdkeysByCodes(client, schema, cdkeyCodes)
+      .catch(handleCdkeyError);
 
-    return {
-      ...redemptionRow,
-      order: {
-        id: order.id,
-        user_id: order.user_id,
-        source: order.source,
-        exhibit_id: order.exhibit_id,
-        session_id: order.session_id,
-        total_amount: order.total_amount,
-        status: order.status,
-      },
-      exhibition: {
-        id: exhibition.id,
-        name: exhibition.name,
-        description: exhibition.description,
-        cover_url: exhibition.cover_url,
-        location: exhibition.location,
-        city: exhibition.city,
-        venue_name: exhibition.venue_name,
-        start_date: exhibition.start_date,
-        end_date: exhibition.end_date,
-      },
-      session: {
-        id: session.id,
-        session_date: format(new Date(session.session_date), 'yyyy-MM-dd'),
-        opening_time: exhibition.opening_time,
-        closing_time: exhibition.closing_time,
-        last_entry_time: exhibition.last_entry_time,
-      },
-      items,
-    };
+    const ticketCategoryIds = Array.from(new Set(
+      Array.from(orderMap.values(), order => order.items.map(item => item.ticket_category_id))
+        .flat()
+        .concat(Array.from(cdkeyMap.values(), cdkey => cdkey.ticket_category_id))
+    ));
+    const ticketCategoryMap = await getTicketCategoriesByIds(client, schema, ticketCategoryIds)
+      .catch(handleExhibitionError);
+
+    return redemptionRows.map(redemption => assembleRedemption(
+      redemption,
+      exhibitionMap, sessionMap, ticketCategoryMap,
+      orderMap, cdkeyMap
+    ));
   }
 
   async redeem(
@@ -385,22 +374,31 @@ export class RedemptionService extends RC7BaseService {
         new RedeemDataError('Redemption code not found', 'REDEMPTION_NOT_FOUND')
       );
     }
-    const order = await getOrderById(dbClient, schema, redemption.order_id)
-      .catch(handleOrderError);
-
-    if (
-      order.status === 'REFUND_REQUESTED'
-      || order.status === 'REFUND_PROCESSING'
-      || order.status === 'REFUNDED'
-    ) {
-      handleRedeemError(
-        new RedeemDataError('Order is in refund flow', 'ORDER_REFUND_IN_PROGRESS')
-      );
-    }
     if (redemption.status === 'REDEEMED') {
       handleRedeemError(
         new RedeemDataError('Redemption code already redeemed', 'REDEMPTION_ALREADY_REDEEMED')
       );
+    }
+
+    if (redemption.source === 'ORDER') {
+      if (redemption.order_id === null) {
+        handleRedeemError(
+          new RedeemDataError('Order has no redemption code', 'ORDER_NOT_REDEEMABLE')
+        );
+      }
+
+      const order = await getOrderById(dbClient, schema, redemption.order_id)
+        .catch(handleOrderError);
+
+      if (
+        order.status === 'REFUND_REQUESTED'
+        || order.status === 'REFUND_PROCESSING'
+        || order.status === 'REFUNDED'
+      ) {
+        handleRedeemError(
+          new RedeemDataError('Order is in refund flow', 'ORDER_REFUND_IN_PROGRESS')
+        );
+      }
     }
 
     const now = new Date();
@@ -415,63 +413,28 @@ export class RedemptionService extends RC7BaseService {
       );
     }
 
-    const categories = await getTicketCategoriesByExhibitionId(dbClient, schema, order.exhibit_id)
-      .catch(handleExhibitionError);
-    const items = buildItems(order.items, categories);
+    if (redemption.source === 'ORDER') {
+      const order = await getOrderById(dbClient, schema, redemption.order_id as string)
+        .catch(handleOrderError);
 
-    if (order.source === 'CTRIP') {
-      await ctx.call('xiecheng.notifyOrderConsumed', { oid: order.id });
-    }
+      if (order.source === 'CTRIP') {
+        await ctx.call('xiecheng.notifyOrderConsumed', { oid: order.id });
+      }
 
-    if (order.source === 'MOP') {
-      await ctx.call('mop.notifyOrderConsumed', { oid: order.id });
-    }
+      if (order.source === 'MOP') {
+        await ctx.call('mop.notifyOrderConsumed', { oid: order.id });
+      }
 
-    if (order.source === 'DAMAI') {
-      const redeemed_at = redemption.redeemed_at ?? new Date();
-      await ctx.call('damai.notifyOrderConsumed', { oid: order.id, redeemed_at });
+      if (order.source === 'DAMAI') {
+        const redeemed_at = redemption.redeemed_at ?? new Date();
+        await ctx.call('damai.notifyOrderConsumed', { oid: order.id, redeemed_at });
+      }
     }
 
     const updatedRow = await redeemCode(dbClient, schema, code, uid)
       .catch(handleRedeemError);
 
-    const exhibition = await getExhibitionById(this.pool, schema, order.exhibit_id)
-      .catch(handleExhibitionError);
-    const session = await getSessionById(dbClient, schema, order.session_id)
-      .catch(handleExhibitionError);
-
-    const res: Redeem.RedemptionCodeWithOrder = {
-      ...updatedRow,
-      order: {
-        id: order.id,
-        user_id: order.user_id,
-        source: order.source,
-        exhibit_id: order.exhibit_id,
-        session_id: order.session_id,
-        total_amount: order.total_amount,
-        status: order.status,
-      },
-      exhibition: {
-        id: exhibition.id,
-        name: exhibition.name,
-        description: exhibition.description,
-        cover_url: exhibition.cover_url,
-        location: exhibition.location,
-        city: exhibition.city,
-        venue_name: exhibition.venue_name,
-        start_date: exhibition.start_date,
-        end_date: exhibition.end_date,
-      },
-      session: {
-        id: session.id,
-        session_date: format(new Date(session.session_date), 'yyyy-MM-dd'),
-        opening_time: exhibition.opening_time,
-        closing_time: exhibition.closing_time,
-        last_entry_time: exhibition.last_entry_time,
-      },
-      items,
-    };
-
+    const [res] = await this.assembleRedemption(schema, [updatedRow]);
     return res;
   }
 

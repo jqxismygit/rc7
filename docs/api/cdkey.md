@@ -78,3 +78,29 @@
   - `401 Unauthorized`：未认证
   - `403 Forbidden`：非管理员
   - `404 Not Found`：兑换码不存在
+
+## 用户使用兑换码兑换核销码
+
+- URL: `/cdkeys/sessions/:sid/redeem`
+- Method: `POST`
+- Request Header:
+  ```ts
+  { Authorization: `Bearer ${token}` }
+  ```
+- Request Body:
+  ```ts
+  {
+    code: string;
+  }
+  ```
+- Response Body:
+  ```ts
+  Redeem.RedemptionCodeWithOrder
+  ```
+- Response Status:
+  - `200 OK`：兑换成功
+  - `400 Bad Request`：参数错误
+  - `401 Unauthorized`：未认证
+  - `404 Not Found`：兑换码或场次不存在
+  - `409 Conflict`：兑换码已使用
+  - `410 Gone`：兑换码已过期

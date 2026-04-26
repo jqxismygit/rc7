@@ -67,3 +67,7 @@ export interface CdkeyListResult {
   page: number;
   limit: number;
 }
+
+export interface RedeemCdkeyResult {
+  code: string;
+}

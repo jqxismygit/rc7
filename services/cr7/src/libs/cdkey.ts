@@ -1,8 +1,9 @@
-import { format } from 'date-fns';
+import { format, isBefore, parseISO, startOfDay } from 'date-fns';
 import { Context, ServiceBroker, ServiceSchema } from 'moleculer';
-import type { Cdkey } from '@cr7/types';
+import type { Cdkey, Redeem } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
 import {
+  CdkeyDataError,
   type CdkeyBatchRecord,
   type CdkeyRecord,
   createCdkeyBatch,
@@ -10,15 +11,19 @@ import {
   getCdkeyByCode,
   listCdkeyBatches,
   listCdkeysByBatch,
+  redeemCdkey,
 } from '../data/cdkey.js';
+import { reserveSessionInventories } from '../data/order.js';
+import { createRedemptionCodeByCdkey } from '../data/redeem.js';
 import {
   getExhibitionsByIds,
+  getSessionById,
   getSessionsByIds,
   getTicketCategoryById,
   getTicketCategoriesByIds,
 } from '../data/exhibition.js';
 import { getUserProfilesByIds } from '../data/user.js';
-import { handleCdkeyError, handleExhibitionError } from './errors.js';
+import { handleCdkeyError, handleExhibitionError, handleOrderError } from './errors.js';
 
 interface UserMeta {
   uid: string;
@@ -213,6 +218,14 @@ export class CdkeyService extends RC7BaseService {
       },
       handler: this.getByCode,
     },
+
+    'cdkey.redeem': {
+      params: {
+        sid: 'uuid',
+        code: 'string',
+      },
+      handler: this.redeem,
+    },
   };
 
   methods = {
@@ -325,6 +338,78 @@ export class CdkeyService extends RC7BaseService {
 
     const [res] = await this.assembleCdkeys(schema, [row]);
     return res;
+  }
+
+  async redeem(
+    ctx: Context<{
+      sid: string;
+      code: string;
+    }, { user: UserMeta }>,
+  ): Promise<Redeem.RedemptionCodeWithOrder> {
+    const { sid, code } = ctx.params;
+    const { uid } = ctx.meta.user;
+    const schema = await this.getSchema();
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const cdkey = await getCdkeyByCode(client, schema, code)
+        .catch(handleCdkeyError);
+
+      if (cdkey.redeemed_at !== null) {
+        throw new CdkeyDataError('CDKEY already used', 'CDKEY_ALREADY_USED');
+      }
+
+      const session = await getSessionById(client, schema, sid)
+        .catch(handleExhibitionError);
+
+      if (session.exhibit_id !== cdkey.exhibit_id) {
+        throw new CdkeyDataError('Session not found', 'CDKEY_SESSION_NOT_FOUND');
+      }
+
+      const redeemValidUntil = parseISO(cdkey.redeem_valid_until);
+      const sessionDate = startOfDay(new Date(session.session_date));
+      if (isBefore(redeemValidUntil, sessionDate)) {
+        throw new CdkeyDataError('CDKEY expired', 'CDKEY_EXPIRED');
+      }
+
+      await reserveSessionInventories(client, schema, {
+        session_id: sid,
+        items: [{
+          ticket_category_id: cdkey.ticket_category_id,
+          quantity: cdkey.redeem_quantity,
+        }],
+      }).catch(handleOrderError);
+
+      const redeemedCdkey = await redeemCdkey(client, schema, {
+        code,
+        sid,
+        redeemed_by: uid,
+      }).catch(handleCdkeyError);
+
+      if (redeemedCdkey === null) {
+        throw new CdkeyDataError('CDKEY already used', 'CDKEY_ALREADY_USED');
+      }
+
+      const redemptionRow = await createRedemptionCodeByCdkey(client, schema, {
+        exhibit_id: redeemedCdkey.exhibit_id,
+        cdkey: redeemedCdkey.code,
+        session_id: sid,
+        owner_user_id: uid,
+        quantity: redeemedCdkey.redeem_quantity,
+        session_date: new Date(session.session_date),
+      }).catch(handleCdkeyError);
+
+      await client.query('COMMIT');
+      const [res] = await this.assembleRedemption(schema, [redemptionRow]);
+      return res;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      return handleCdkeyError(error);
+    } finally {
+      client.release();
+    }
   }
 
   async assembleBatch(
