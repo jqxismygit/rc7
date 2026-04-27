@@ -35,6 +35,44 @@ export async function loadExhibitionsMap(exhibitIds) {
 }
 
 /**
+ * 票夹/退票页票种角标（文案 + class）
+ * 优先用核销 source=CDKEY；否则按订单 source（DIRECT=官方，其它 OTA=三方；订单可为 CDKEY）
+ */
+export const TICKET_SOURCE_TAG = {
+  official: {
+    label: "官方票",
+    tagClass: "tag-official",
+    textClass: "tag-text-official",
+  },
+  thirdParty: {
+    label: "三方票",
+    tagClass: "tag-third",
+    textClass: "tag-text-third",
+  },
+  cdkey: {
+    label: "CDK兑换",
+    tagClass: "tag-cdkey",
+    textClass: "tag-text-cdkey",
+  },
+};
+
+/**
+ * @param {{ redemptionSource?: string; orderSource?: string }} [params]
+ * @returns {{ label: string; tagClass: string; textClass: string }}
+ */
+export function resolveTicketListTag({ redemptionSource, orderSource } = {}) {
+  const r = String(redemptionSource || "").toUpperCase();
+  const o = String(orderSource || "").toUpperCase();
+  if (r === "CDKEY" || o === "CDKEY") {
+    return { ...TICKET_SOURCE_TAG.cdkey };
+  }
+  if (o && o !== "DIRECT") {
+    return { ...TICKET_SOURCE_TAG.thirdParty };
+  }
+  return { ...TICKET_SOURCE_TAG.official };
+}
+
+/**
  * 将 OrderWithItems + 展览信息转为票夹列表行
  * @param {object} order
  * @param {object | null} exhibition
@@ -89,7 +127,7 @@ export function buildTicketRowFromOrder(order, exhibition) {
     price: order.total_amount,
     status: orderStatusToUi(order.status),
     canRefund: false,
-    isThird: false,
+    sourceTag: resolveTicketListTag({ orderSource: order?.source }),
   };
 }
 

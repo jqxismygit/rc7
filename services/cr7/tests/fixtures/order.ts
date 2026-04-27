@@ -20,7 +20,7 @@ export function assertOrderWithItems(data: unknown): asserts data is Order.Order
   expect(data).toHaveProperty('paid_at', expect.toBeOneOf([expect.any(String), null]));
   expect(data).toHaveProperty('cancelled_at', expect.toBeOneOf([expect.any(String), null]));
   expect(data).toHaveProperty('released_at', expect.toBeOneOf([expect.any(String), null]));
-  expect(data).toHaveProperty('source', expect.stringMatching(/^(DIRECT|CTRIP|MOP|DAMAI)$/));
+  expect(data).toHaveProperty('source', expect.stringMatching(/^(DIRECT|CTRIP|MOP|DAMAI|CDKEY)$/));
   expect(data).toHaveProperty('created_at', expect.any(String));
   expect(data).toHaveProperty('updated_at', expect.any(String));
   expect(data).toHaveProperty('invoice', expect.toBeOneOf([

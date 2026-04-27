@@ -16,7 +16,7 @@ export type OrderStatus =
   | OrderRefundStatus
   | OrderPaidFailedStatus;
 
-export type OrderSource = 'DIRECT' | 'CTRIP' | 'MOP' | 'DAMAI';
+export type OrderSource = 'DIRECT' | 'CTRIP' | 'MOP' | 'DAMAI' | 'CDKEY';
 export type OrderSessionHalf = 'AM' | 'PM';
 
 export interface OrderRow {

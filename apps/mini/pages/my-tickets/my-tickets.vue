@@ -88,15 +88,15 @@
               <text class="ticket-event-name">{{ ticket.eventName }}</text>
               <view
                 class="ticket-type-tag"
-                :class="ticket.isThird ? 'tag-third' : 'tag-official'"
+                :class="(ticket.sourceTag && ticket.sourceTag.tagClass) || 'tag-official'"
               >
                 <text
                   class="tag-text"
                   :class="
-                    ticket.isThird ? 'tag-text-third' : 'tag-text-official'
+                    (ticket.sourceTag && ticket.sourceTag.textClass) || 'tag-text-official'
                   "
                 >
-                  {{ ticket.isThird ? "三方票" : "官方票" }}
+                  {{ (ticket.sourceTag && ticket.sourceTag.label) || "官方票" }}
                 </text>
               </view>
             </view>
@@ -138,8 +138,15 @@
             <!-- 底部操作栏 -->
             <view class="ticket-actions">
               <view class="action-divider"></view>
-              <view class="action-bar">
-                <text class="action-price">￥{{ ticket.price * 0.01 }}</text>
+              <view
+                class="action-bar"
+                :class="{ 'action-bar--no-price': isCdkeyRedemption(ticket) }"
+              >
+                <text
+                  v-if="!isCdkeyRedemption(ticket)"
+                  class="action-price"
+                  >￥{{ ticket.price * 0.01 }}</text
+                >
                 <view class="action-btns">
                   <button
                     v-if="showRefundButton(ticket)"
@@ -191,6 +198,7 @@ import { listOrders, hideOrder } from "@/services/order.js";
 import {
   loadExhibitionsMap,
   buildTicketRowFromOrder,
+  resolveTicketListTag,
 } from "@/utils/orderDisplay.js";
 import { formatRedemptionValidityDateTimeLine } from "@/utils/ticketEventDisplay.js";
 
@@ -283,6 +291,10 @@ export default {
             order,
             exMap[order.exhibit_id] || null,
           );
+          ticket.sourceTag = resolveTicketListTag({
+            redemptionSource: row.redemption?.source,
+            orderSource: order?.source,
+          });
 
           // 状态来源拆分：
           // 1) redemption: 是否使用
@@ -362,9 +374,25 @@ export default {
       return "unused";
     },
 
+    isCdkeyRedemption(ticket) {
+      return ticket?.sourceTag?.tagClass === "tag-cdkey";
+    },
+
     getTicketStatusPills(ticket) {
       const paymentStatus = ticket?.paymentStatus;
       const usageStatus = ticket?.usageStatus;
+
+      if (this.isCdkeyRedemption(ticket)) {
+        if (paymentStatus === "refunded") {
+          return [{ text: "已退款", className: "pill-refunded" }];
+        }
+        return [
+          {
+            text: this.getUsageStatusText(usageStatus),
+            className: this.getUsageStatusPillClass(usageStatus),
+          },
+        ];
+      }
 
       // 已退款只显示一个状态
       if (paymentStatus === "refunded") {
@@ -890,6 +918,14 @@ export default {
   color: #3a61ff;
 }
 
+.tag-cdkey {
+  background: rgba(216, 252, 15, 0.2);
+}
+
+.tag-text-cdkey {
+  color: $cr7-gold;
+}
+
 /* 信息列表 */
 .ticket-info-list {
   display: flex;
@@ -933,6 +969,10 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding-top: 32rpx;
+}
+
+.action-bar--no-price {
+  justify-content: flex-end;
 }
 
 .action-price {

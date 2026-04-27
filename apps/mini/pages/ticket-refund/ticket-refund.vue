@@ -17,10 +17,22 @@
           <view class="event-info-wrap">
             <view class="event-title-row">
               <text class="event-title">{{ ticket.eventName }}</text>
-              <view class="official-tag">
-                <text class="tag-text">{{
-                  ticket.isThird ? "三方票" : "官方票"
-                }}</text>
+              <view
+                class="official-tag"
+                :class="
+                  (ticket.sourceTag && ticket.sourceTag.tagClass) || 'tag-official'
+                "
+              >
+                <text
+                  class="tag-text"
+                  :class="
+                    (ticket.sourceTag && ticket.sourceTag.textClass) ||
+                    'tag-text-official'
+                  "
+                  >{{
+                    (ticket.sourceTag && ticket.sourceTag.label) || "官方票"
+                  }}</text
+                >
               </view>
             </view>
             <view class="event-meta-item">
@@ -326,15 +338,37 @@ export default {
 .official-tag {
   flex-shrink: 0;
   padding: 8rpx 24rpx;
-  background: rgba(234, 179, 8, 0.2);
   border-radius: 999rpx;
+}
+
+.official-tag.tag-official {
+  background: rgba(234, 179, 8, 0.2);
+}
+
+.official-tag.tag-third {
+  background: rgba(58, 97, 255, 0.2);
+}
+
+.official-tag.tag-cdkey {
+  background: rgba(216, 252, 15, 0.2);
 }
 
 .tag-text {
   font-size: 24rpx;
   font-weight: 700;
-  color: $cr7-gold;
   text-transform: uppercase;
+}
+
+.tag-text-official {
+  color: #eab308;
+}
+
+.tag-text-third {
+  color: #3a61ff;
+}
+
+.tag-text-cdkey {
+  color: $cr7-gold;
 }
 
 .event-meta-item {
