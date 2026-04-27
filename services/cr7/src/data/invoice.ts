@@ -233,3 +233,31 @@ export async function getInvoiceApplicationByOrder(
 
   return rows[0] ?? null;
 }
+
+export async function getInvoicesByOrderIds(
+  client: DBClient,
+  schema: string,
+  orderIds: string[],
+): Promise<Map<string, Pick<InvoiceApplicationRecord, 'id' | 'invoice_title' | 'email' | 'status'>>> {
+  if (orderIds.length === 0) return new Map();
+
+  const { rows } = await client.query<Pick<InvoiceApplicationRecord, 'id' | 'order_id' | 'invoice_title' | 'email' | 'status'>>(
+    `SELECT DISTINCT ON (order_id)
+      id,
+      order_id,
+      invoice_title,
+      email,
+      status
+    FROM ${schema}.invoices
+    WHERE order_id = ANY($1::uuid[])
+    ORDER BY order_id, created_at DESC`,
+    [orderIds],
+  );
+
+  return new Map(rows.map(row => [row.order_id, {
+    id: row.id,
+    invoice_title: row.invoice_title,
+    email: row.email,
+    status: row.status,
+  }]));
+}

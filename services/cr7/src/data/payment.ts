@@ -680,3 +680,27 @@ export async function updateRefundRecordFromCallback(
 
   return rows[0] ?? null;
 }
+
+export async function getRefundsByOutRefundNos(
+  client: DBClient,
+  schema: string,
+  outRefundNos: string[],
+): Promise<Map<string, Pick<Payment.RefundRecord, 'out_refund_no' | 'reason' | 'status'>>> {
+  if (outRefundNos.length === 0) return new Map();
+
+  const { rows } = await client.query<Pick<Payment.RefundRecord, 'out_refund_no' | 'reason' | 'status'>>(
+    `SELECT
+      out_refund_no,
+      reason,
+      status
+    FROM ${schema}.order_refunds
+    WHERE out_refund_no = ANY($1::text[])`,
+    [outRefundNos],
+  );
+
+  return new Map(rows.map(row => [row.out_refund_no, {
+    out_refund_no: row.out_refund_no,
+    reason: row.reason,
+    status: row.status,
+  }]));
+}

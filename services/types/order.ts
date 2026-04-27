@@ -1,14 +1,20 @@
-import { Exhibition } from "./index.js";
+import { Exhibition, Invoice, Payment } from "./index.js";
+
+type OrderRefundStatus =
+  | 'REFUND_REQUESTED'  // 退款已受理
+  | 'REFUND_PROCESSING' // 退款处理中
+  | 'REFUNDED'          // 已退款
+  | 'REFUND_FAILED';     // 退款失败
+
+type OrderPaidFailedStatus =
+  | 'CANCELLED'         // 已取消
+  | 'EXPIRED';          // 已过期
 
 export type OrderStatus =
   | 'PENDING_PAYMENT'   // 待支付
   | 'PAID'              // 已支付
-  | 'REFUND_REQUESTED'  // 退款已受理
-  | 'REFUND_PROCESSING' // 退款处理中
-  | 'REFUNDED'          // 已退款
-  | 'REFUND_FAILED'     // 退款失败
-  | 'CANCELLED'         // 已取消
-  | 'EXPIRED';          // 已过期
+  | OrderRefundStatus
+  | OrderPaidFailedStatus;
 
 export type OrderSource = 'DIRECT' | 'CTRIP' | 'MOP' | 'DAMAI';
 export type OrderSessionHalf = 'AM' | 'PM';
@@ -45,7 +51,18 @@ export interface OrderItem {
   created_at: string;
   updated_at: string;
 }
-export interface OrderWithItems extends OrderRow {
+
+export interface OrderRefundInfo extends Pick<
+  Payment.RefundRecord,
+  'out_refund_no' | 'reason' | 'status'
+> {}
+
+export interface OrderInvoiceInfo extends Pick<
+  Invoice.InvoiceRecord,
+  'id' | 'invoice_title' | 'email' | 'status'
+> {}
+
+export interface OrderBase extends OrderRow {
   items: OrderItem[];
   exhibition: Pick<
     Exhibition.Exhibition,
@@ -63,7 +80,18 @@ export interface OrderWithItems extends OrderRow {
     Exhibition.Exhibition,
     "opening_time" | "closing_time" | "last_entry_time"
   > & { id: string; session_date: string };
+  invoice: null | OrderInvoiceInfo;
+  refund: null | OrderRefundInfo;
 }
+
+interface OrderWithRefund extends OrderBase {
+  status: OrderRefundStatus;
+  refund: OrderRefundInfo;
+}
+
+export type OrderWithItems =
+  | OrderBase
+  | OrderWithRefund;
 
 export interface OrderListResult {
   orders: OrderWithItems[];

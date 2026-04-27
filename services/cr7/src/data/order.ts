@@ -5,7 +5,7 @@ import type { Order } from '@cr7/types';
 type DBClient = Pool | PoolClient;
 
 export type OrderItemRaw = Omit<Order.OrderItem, 'ticket_category_name'>;
-export type OrderRaw = Omit<Order.OrderWithItems, 'exhibition' | 'session' | 'items'> & {
+export type OrderRaw = Omit<Order.OrderWithItems, 'exhibition' | 'session' | 'items' | 'invoice' | 'refund'> & {
   items: OrderItemRaw[];
 };
 type OrderListResultRaw = Omit<Order.OrderListResult, 'orders'> & { orders: OrderRaw[] };

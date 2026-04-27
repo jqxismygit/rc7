@@ -56,6 +56,11 @@ Feature: 为订单开发票
      And 该记录的发票号码是 "fapiao1234567890"
      And 该记录的 PDF URL 是 "https://example.com/invoice.pdf"
 
+    When 用户查看订单列表
+    Then 订单列表中该订单有发票信息
+     And 发票信息中的发票抬头是 "测试公司"
+     And 发票信息的状态是开具成功
+
     When 用户再次申请同一订单的发票
     Then cr7 返回错误，提示该订单的发票已经开具成功
 

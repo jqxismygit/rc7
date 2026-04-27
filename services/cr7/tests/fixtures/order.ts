@@ -23,6 +23,25 @@ export function assertOrderWithItems(data: unknown): asserts data is Order.Order
   expect(data).toHaveProperty('source', expect.stringMatching(/^(DIRECT|CTRIP|MOP|DAMAI)$/));
   expect(data).toHaveProperty('created_at', expect.any(String));
   expect(data).toHaveProperty('updated_at', expect.any(String));
+  expect(data).toHaveProperty('invoice', expect.toBeOneOf([
+    null,
+    expect.objectContaining({
+      id: expect.any(String),
+      invoice_title: expect.any(String),
+      email: expect.any(String),
+      status: expect.stringMatching(/^(PENDING|SUCCESS|FAILED)$/),
+    }),
+  ]));
+
+  if (((data as { status: string }).status).startsWith('REFUND')) {
+    expect(data).toHaveProperty('refund', expect.objectContaining({
+      out_refund_no: expect.any(String),
+      reason: expect.any(String),
+      status: expect.stringMatching(/^(REQUESTED|PROCESSING|SUCCEEDED|FAILED)$/),
+    }));
+  } else {
+    expect(data).toHaveProperty('refund', null);
+  }
 
   expect(data).toHaveProperty('exhibition');
   expect((data as Order.OrderWithItems).exhibition).toHaveProperty('id', expect.any(String));

@@ -25,6 +25,7 @@ import {
   createOrder as createOrderByApi,
   expireOrder,
   getOrder,
+  listOrders,
   listOrdersAdmin,
 } from './fixtures/order.js';
 import {
@@ -674,6 +675,30 @@ describeFeature(feature, ({
     Then('展会场次的 "成人票" 库存增加 2', async () => {
       const latest = await getCurrentTicketInventory(context);
       expect(latest).toBe(context.initialTicketInventory! + 2);
+    });
+
+    When('用户查看订单列表', async () => {
+      const { apiServer } = scenarioContext.fixtures.values;
+      const list = await listOrders(apiServer, scenarioContext.userToken);
+      const matched = list.orders.find(o => o.id === requireOrder(context).id);
+      expect(matched).toBeTruthy();
+      Object.assign(context, { order: matched! });
+    });
+
+    Then('订单列表中该订单有退款信息', () => {
+      const { refund } = context.order!;
+      expect(refund).not.toBeNull();
+      expect(refund).toHaveProperty('out_refund_no', expect.any(String));
+      expect(refund).toHaveProperty('reason', expect.any(String));
+      expect(refund).toHaveProperty('status', expect.any(String));
+    });
+
+    And('退款信息中的退款单号与订单退款记录 ID 一致', () => {
+      expect(context.order!.refund!.out_refund_no).toBe(context.refundRecord!.out_refund_no);
+    });
+
+    And('退款信息中的退款原因是 {string}', (_ctx, reason: string) => {
+      expect(context.order!.refund!.reason).toBe(reason);
     });
   });
 

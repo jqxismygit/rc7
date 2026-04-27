@@ -20,6 +20,8 @@ import {
   getSessionsByIds,
   getTicketCategoriesByIds,
 } from '../data/exhibition.js';
+import { getInvoicesByOrderIds } from '../data/invoice.js';
+import { getRefundsByOutRefundNos } from '../data/payment.js';
 import { handleExhibitionError, handleOrderError } from './errors.js';
 import { parseSelectedSessionId, HALF_SESSION_ID_REGEX } from './session-id.js';
 
@@ -458,6 +460,14 @@ export class OrderService extends RC7BaseService {
     const ticketCategoryMap = await getTicketCategoriesByIds(client, schema, ticketCategoryIds)
       .catch(handleExhibitionError);
 
+    const orderIds = rawOrders.map(o => o.id);
+    const invoiceMap = await getInvoicesByOrderIds(client, schema, orderIds);
+
+    const outRefundNos = rawOrders
+      .map(o => o.current_refund_out_refund_no)
+      .filter((x): x is string => x !== null);
+    const refundMap = await getRefundsByOutRefundNos(client, schema, outRefundNos);
+
     return rawOrders.map((order) => {
       const exhibition = exhibitionMap.get(order.exhibit_id)!;
       const session = sessionMap.get(order.session_id)!;
@@ -485,6 +495,10 @@ export class OrderService extends RC7BaseService {
           ...item,
           ticket_category_name: ticketCategoryMap.get(item.ticket_category_id)?.name ?? '',
         })),
+        invoice: invoiceMap.get(order.id) ?? null,
+        refund: order.current_refund_out_refund_no
+          ? refundMap.get(order.current_refund_out_refund_no) ?? null
+          : null,
       };
     });
   }
