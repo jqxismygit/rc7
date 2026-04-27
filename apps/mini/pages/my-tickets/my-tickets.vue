@@ -291,6 +291,9 @@ export default {
             order,
             exMap[order.exhibit_id] || null,
           );
+          ticket.id = ticket.id || row.redemption?.code;
+          ticket.redemptionCode = row.redemption?.code || "";
+          ticket.orderId = order?.id || "";
           ticket.sourceTag = resolveTicketListTag({
             redemptionSource: row.redemption?.source,
             orderSource: order?.source,
@@ -511,14 +514,9 @@ export default {
         // uni.showToast({ title: "暂未支持", icon: "none" });
         return;
       }
-      if (ticket.orderStatus === "PENDING_PAYMENT") {
-        uni.navigateTo({
-          url: `/pages/order-confirm/order-confirm?orderId=${encodeURIComponent(ticket.id)}`,
-        });
-        return;
-      }
+      const code = ticket.redemptionCode || ticket.id;
       uni.navigateTo({
-        url: `/pages/ticket-detail/ticket-detail?id=${encodeURIComponent(ticket.id)}`,
+        url: `/pages/ticket-detail/ticket-detail?code=${encodeURIComponent(code)}`,
       });
     },
 

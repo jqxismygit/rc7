@@ -12,6 +12,17 @@ export function getOrderRedemption(orderId) {
 }
 
 /**
+ * 根据核销码查询订单/兑换票核销信息
+ * @param {string} code
+ * @returns {Promise<object>}
+ * @see docs/api/redeem.md
+ */
+export function getRedemptionByCode(code) {
+  const c = encodeURIComponent(code);
+  return request.get(`/redemptions/${c}`);
+}
+
+/**
  * 执行核销
  * @param {string} exhibitId
  * @param {{ code: string; quantity?: number }} payload
