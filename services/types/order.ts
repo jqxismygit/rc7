@@ -1,3 +1,5 @@
+import { Exhibition } from "./index.js";
+
 export type OrderStatus =
   | 'PENDING_PAYMENT'   // 待支付
   | 'PAID'              // 已支付
@@ -11,7 +13,7 @@ export type OrderStatus =
 export type OrderSource = 'DIRECT' | 'CTRIP' | 'MOP' | 'DAMAI';
 export type OrderSessionHalf = 'AM' | 'PM';
 
-export interface Order {
+export interface OrderRow {
   id: string;
   user_id: string;
   exhibit_id: string;
@@ -36,15 +38,31 @@ export interface OrderItem {
   id: string;
   order_id: string;
   ticket_category_id: string;
+  ticket_category_name: string;
   quantity: number;
   unit_price: number;
   subtotal: number;
   created_at: string;
   updated_at: string;
 }
-
-export interface OrderWithItems extends Order {
+export interface OrderWithItems extends OrderRow {
   items: OrderItem[];
+  exhibition: Pick<
+    Exhibition.Exhibition,
+    | "id"
+    | "name"
+    | "description"
+    | "cover_url"
+    | "location"
+    | "city"
+    | "venue_name"
+    | "start_date"
+    | "end_date"
+  >;
+  session: Pick<
+    Exhibition.Exhibition,
+    "opening_time" | "closing_time" | "last_entry_time"
+  > & { id: string; session_date: string };
 }
 
 export interface OrderListResult {

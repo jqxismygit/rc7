@@ -4,6 +4,12 @@ import type { Order } from '@cr7/types';
 
 type DBClient = Pool | PoolClient;
 
+export type OrderItemRaw = Omit<Order.OrderItem, 'ticket_category_name'>;
+export type OrderRaw = Omit<Order.OrderWithItems, 'exhibition' | 'session' | 'items'> & {
+  items: OrderItemRaw[];
+};
+type OrderListResultRaw = Omit<Order.OrderListResult, 'orders'> & { orders: OrderRaw[] };
+
 type CreateOrderInput = {
   id?: string;
   user_id: string;
@@ -231,8 +237,8 @@ async function getOrderItemsByOrderId(
   client: DBClient,
   schema: string,
   orderId: string,
-): Promise<Order.OrderItem[]> {
-  const { rows } = await client.query<Order.OrderItem>(
+): Promise<OrderItemRaw[]> {
+  const { rows } = await client.query<OrderItemRaw>(
     `SELECT
       id,
       order_id,
@@ -255,12 +261,12 @@ async function getOrderItemsByOrderIds(
   client: DBClient,
   schema: string,
   orderIds: string[],
-): Promise<Map<string, Order.OrderItem[]>> {
+): Promise<Map<string, OrderItemRaw[]>> {
   if (orderIds.length === 0) {
     return new Map();
   }
 
-  const { rows } = await client.query<Order.OrderItem>(
+  const { rows } = await client.query<OrderItemRaw>(
     `SELECT
       id,
       order_id,
@@ -276,7 +282,7 @@ async function getOrderItemsByOrderIds(
     [orderIds]
   );
 
-  const itemsByOrderId = new Map<string, Order.OrderItem[]>();
+  const itemsByOrderId = new Map<string, OrderItemRaw[]>();
 
   for (const item of rows) {
     const items = itemsByOrderId.get(item.order_id) ?? [];
@@ -291,8 +297,8 @@ export async function getOrderById(
   client: DBClient,
   schema: string,
   orderId: string,
-): Promise<Order.OrderWithItems> {
-  const { rows } = await client.query<Omit<Order.OrderWithItems, 'items'>>(
+): Promise<OrderRaw> {
+  const { rows } = await client.query<Omit<OrderRaw, 'items'>>(
     `SELECT
       o.id,
       o.user_id,
@@ -342,12 +348,12 @@ export async function getOrdersByIds(
   client: DBClient,
   schema: string,
   orderIds: string[],
-): Promise<Map<string, Order.OrderWithItems>> {
+): Promise<Map<string, OrderRaw>> {
   if (orderIds.length === 0) {
     return new Map();
   }
 
-  const { rows: orders } = await client.query<Omit<Order.OrderWithItems, 'items'>>(
+  const { rows: orders } = await client.query<Omit<OrderRaw, 'items'>>(
     `SELECT
       o.id,
       o.user_id,
@@ -383,7 +389,7 @@ export async function getOrdersByIds(
   const fetchedOrderIds = orders.map(order => order.id);
   const itemsByOrderId = await getOrderItemsByOrderIds(client, schema, fetchedOrderIds);
 
-  const ordersById = new Map<string, Order.OrderWithItems>();
+  const ordersById = new Map<string, OrderRaw>();
   for (const order of orders) {
     ordersById.set(order.id, {
       ...normalizeOrderSessionDate(order),
@@ -403,7 +409,7 @@ export async function getOrders(
     page: number;
     limit: number;
   },
-): Promise<Order.OrderListResult> {
+): Promise<OrderListResultRaw> {
   const { status, page, limit } = options;
   const offset = (page - 1) * limit;
 
@@ -432,7 +438,7 @@ export async function getOrders(
 
   const total = parseInt(countRows[0].total, 10);
 
-  const { rows: orders } = await client.query<Omit<Order.OrderWithItems, 'items'>>(
+  const { rows: orders } = await client.query<Omit<OrderRaw, 'items'>>(
     `WITH order_rows AS (
       SELECT
         o.id,
@@ -512,7 +518,7 @@ export async function getOrdersAdmin(
     page: number;
     limit: number;
   },
-): Promise<Order.OrderListResult> {
+): Promise<OrderListResultRaw> {
   const { status, page, limit } = options;
   const offset = (page - 1) * limit;
 
@@ -539,7 +545,7 @@ export async function getOrdersAdmin(
 
   const total = parseInt(countRows[0].total, 10);
 
-  const { rows: orders } = await client.query<Omit<Order.OrderWithItems, 'items'>>(
+  const { rows: orders } = await client.query<Omit<OrderRaw, 'items'>>(
     `WITH order_rows AS (
       SELECT
         o.id,
@@ -654,7 +660,7 @@ export async function createOrder(
   client: DBClient,
   schema: string,
   input: CreateOrderInput,
-): Promise<Order.OrderWithItems> {
+): Promise<OrderRaw> {
   validateCreateItems(input.items);
 
   const aggregatedItems = normalizeOrderItems(input.items);

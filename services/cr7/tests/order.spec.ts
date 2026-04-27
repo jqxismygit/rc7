@@ -683,6 +683,11 @@ describeFeature(feature, ({
       expect(orderDetail.exhibit_id).toBe(exhibition.id);
       expect(orderDetail.session_id).toBe(session.id);
       expect(orderDetail.items[0].ticket_category_id).toBe(ticketByName[ticketName].id);
+      expect(orderDetail.exhibition.id).toBe(exhibition.id);
+      expect(orderDetail.exhibition.name).toBe(exhibition.name);
+      expect(orderDetail.session.id).toBe(session.id);
+      expect(orderDetail.session.session_date).toBe(toDateLabel(sessionDate));
+      expect(orderDetail.items[0].ticket_category_name).toBe(ticketByName[ticketName].name);
     });
   });
 
@@ -961,6 +966,11 @@ describeFeature(feature, ({
       expect(orderDetail.exhibit_id).toBe(exhibition.id);
       expect(orderDetail.session_id).toBe(session.id);
       expect(orderDetail.items[0].ticket_category_id).toBe(ticketByName[ticketName].id);
+      expect(orderDetail.exhibition.id).toBe(exhibition.id);
+      expect(orderDetail.exhibition.name).toBe(exhibition.name);
+      expect(orderDetail.session.id).toBe(session.id);
+      expect(orderDetail.session.session_date).toBe(toDateLabel(sessionDate));
+      expect(orderDetail.items[0].ticket_category_name).toBe(ticketByName[ticketName].name);
     });
   });
 

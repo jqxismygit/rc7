@@ -10,7 +10,7 @@ import {
   markInvoiceApplicationSuccess,
 } from '../data/invoice.js';
 import { getTicketCategoriesByIds } from '../data/exhibition.js';
-import { getOrderById } from '../data/order.js';
+import { getOrderById, type OrderRaw } from '../data/order.js';
 
 const { MoleculerClientError } = Errors;
 
@@ -114,7 +114,7 @@ export class FapiaoService extends RC7BaseService {
 
   async applyFapiaoByOrder(
     schema: string,
-    order: Order.OrderWithItems,
+    order: OrderRaw,
     ticketCategoryMap: Map<string, Exhibition.TicketCategory>,
     invoice_title: string,
     tax_no: string,

@@ -1,6 +1,6 @@
 import { format, isAfter, isBefore } from 'date-fns';
 import { Context, ServiceBroker, ServiceSchema } from 'moleculer';
-import { type Exhibition, type Order, type Redeem } from '@cr7/types';
+import { type Exhibition, type Redeem } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
 import {
   getRedemptionListByUser,
@@ -13,7 +13,7 @@ import {
   RedeemDataError,
 } from '../data/redeem.js';
 import { CdkeyRecord, getCdkeysByCodes } from '../data/cdkey.js';
-import { getOrderById, getOrdersByIds, OrderDataError } from '../data/order.js';
+import { getOrderById, getOrdersByIds, OrderDataError, type OrderRaw } from '../data/order.js';
 import {
   getExhibitionsByIds,
   getSessionById,
@@ -27,7 +27,7 @@ interface UserMeta {
 }
 
 function buildItems(
-  orderItems: Order.OrderItem[],
+  orderItems: OrderRaw['items'],
   categoryMap: Map<string, Exhibition.TicketCategory>,
 ): Redeem.RedemptionCode['items'] {
   return orderItems.map((item) => {
@@ -42,7 +42,7 @@ function buildItems(
 }
 
 function computeValidDurationDays(
-  orderItems: Order.OrderItem[],
+  orderItems: OrderRaw['items'],
   categoryMap: Map<string, Exhibition.TicketCategory>,
 ): number {
   const validDurations = orderItems
@@ -55,7 +55,7 @@ function assembleRedemption(
   exhibitionMap: Map<string, Exhibition.Exhibition>,
   sessionMap: Map<string, Exhibition.Session>,
   ticketCategoryMap: Map<string, Exhibition.TicketCategory>,
-  orderMap: Map<string, Order.OrderWithItems>,
+  orderMap: Map<string, OrderRaw>,
   cdkeyMap: Map<string, CdkeyRecord>,
 ): Redeem.RedemptionCode {
   const { exhibit_id, session_id, order_id, source } = redemption;
