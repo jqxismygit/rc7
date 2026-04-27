@@ -16,7 +16,7 @@ import { prepareAdminToken } from './fixtures/user.js';
 import { setupWechatFixture, WechatFixture } from './fixtures/wechat.js';
 import { getSessions, prepareExhibition, prepareTicketCategory } from './fixtures/exhibition.js';
 import { updateTicketCategoryMaxInventory } from './fixtures/inventory.js';
-import { createOrder, getOrder } from './fixtures/order.js';
+import { createOrder, getOrder, listOrders } from './fixtures/order.js';
 import {
   applyOrderInvoice,
   applyOrderInvoiceAsAdmin,
@@ -576,6 +576,31 @@ describeFeature(feature, ({
     And('该记录的 PDF URL 是 {string}', (_ctx, pdfUrl: string) => {
       const [first] = featureContext.fapiaoList!.items;
       expect(first.pdf_url).toBe(pdfUrl);
+    });
+
+    When('用户查看订单列表', async () => {
+      const { apiServer, userToken } = featureContext;
+      const list = await listOrders(apiServer, userToken);
+      const matched = list.orders.find(o => o.id === featureContext.order.id);
+      expect(matched).toBeTruthy();
+      featureContext.order = matched!;
+    });
+
+    Then('订单列表中该订单有发票信息', () => {
+      const { invoice } = featureContext.order;
+      expect(invoice).not.toBeNull();
+      expect(invoice).toHaveProperty('id', expect.any(String));
+      expect(invoice).toHaveProperty('invoice_title', expect.any(String));
+      expect(invoice).toHaveProperty('email', expect.any(String));
+      expect(invoice).toHaveProperty('status', expect.any(String));
+    });
+
+    And('发票信息中的发票抬头是 {string}', (_ctx, invoiceTitle: string) => {
+      expect(featureContext.order.invoice!.invoice_title).toBe(invoiceTitle);
+    });
+
+    And('发票信息的状态是开具成功', () => {
+      expect(featureContext.order.invoice!.status).toBe('SUCCESS');
     });
 
     When('用户再次申请同一订单的发票', async () => {

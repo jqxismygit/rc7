@@ -1169,6 +1169,24 @@ describeFeature(feature, ({
       expect(refundRecord.status).toBe('SUCCEEDED');
       expect(refundRecord.refund_status).toBe('SUCCESS');
     });
+
+    When('管理员查看该订单详情', async () => {
+      const { apiServer, order, adminToken } = featureContext;
+      featureContext.order = await getOrderAdmin(apiServer, order!.id, adminToken);
+    });
+
+    Then('订单中有退款信息', () => {
+      const { order } = featureContext;
+      expect(order!.refund).not.toBeNull();
+      expect(order!.refund).toHaveProperty('out_refund_no', expect.any(String));
+      expect(order!.refund).toHaveProperty('reason', expect.any(String));
+      expect(order!.refund).toHaveProperty('status', expect.any(String));
+    });
+
+    And('订单退款信息中的退款单号与退款记录的退款单号一致', () => {
+      const { order, refundRecords } = featureContext;
+      expect(order!.refund!.out_refund_no).toBe(refundRecords![0].out_refund_no);
+    });
   });
 
   Scenario('用户在携程下单后，完成支付后又取消了订单，但是订单不存在', (s: StepTest<void>) => {

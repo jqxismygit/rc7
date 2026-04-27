@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { Context, Errors, ServiceBroker, ServiceSchema } from 'moleculer';
 import type { Order } from '@cr7/types';
 import { RC7BaseService } from './cr7.base.js';
@@ -12,8 +13,16 @@ import {
   markOrderPaid as markOrderPaidData,
   markOrderRefundedDirect as markOrderRefundedDirectData,
   releaseExpiredOrders,
+  type OrderRaw,
 } from '../data/order.js';
-import { handleOrderError } from './errors.js';
+import {
+  getExhibitionsByIds,
+  getSessionsByIds,
+  getTicketCategoriesByIds,
+} from '../data/exhibition.js';
+import { getInvoicesByOrderIds } from '../data/invoice.js';
+import { getRefundsByOutRefundNos } from '../data/payment.js';
+import { handleExhibitionError, handleOrderError } from './errors.js';
 import { parseSelectedSessionId, HALF_SESSION_ID_REGEX } from './session-id.js';
 
 const { MoleculerClientError } = Errors;
@@ -48,6 +57,7 @@ export class OrderService extends RC7BaseService {
 
   methods_order: ServiceSchema['methods'] = {
     createOrderWithTransaction: this.createOrderWithTransaction,
+    assembleOrders: this.assembleOrders,
   };
 
   actions_order: ServiceSchema['actions'] = {
@@ -284,9 +294,10 @@ export class OrderService extends RC7BaseService {
     const dbClient = await this.pool.connect();
     const { sessionId, sessionHalf } = parseSelectedSessionId(params.sid);
 
+    let rawOrder: OrderRaw;
     try {
       await dbClient.query('BEGIN');
-      const order = await createOrder(dbClient, schema, {
+      rawOrder = await createOrder(dbClient, schema, {
         id: params.id,
         user_id: params.user_id,
         exhibit_id: params.eid,
@@ -297,13 +308,14 @@ export class OrderService extends RC7BaseService {
         source: params.source,
       });
       await dbClient.query('COMMIT');
-      return order;
     } catch (error) {
       await dbClient.query('ROLLBACK');
       return handleOrderError(error);
     } finally {
       dbClient.release();
     }
+    const [assembled] = await this.assembleOrders(schema, [rawOrder]);
+    return assembled;
   }
 
   async cancelOrder(
@@ -336,15 +348,16 @@ export class OrderService extends RC7BaseService {
     const { uid } = ctx.meta.user;
     const schema = await this.getSchema();
 
-    return getOrderById(this.pool, schema, oid)
+    const rawOrder = await getOrderById(this.pool, schema, oid)
       .then((order) => {
         if (order.user_id !== uid) {
           throw new OrderDataError('Order not found', 'ORDER_NOT_FOUND');
         }
-
         return order;
       })
       .catch(handleOrderError);
+    const [assembled] = await this.assembleOrders(schema, [rawOrder]);
+    return assembled;
   }
 
   async listOrders(
@@ -362,11 +375,13 @@ export class OrderService extends RC7BaseService {
     const { uid } = ctx.meta.user;
     const schema = await this.getSchema();
 
-    return getOrders(this.pool, schema, uid, {
+    const result = await getOrders(this.pool, schema, uid, {
       status,
       page,
       limit,
     }).catch(handleOrderError);
+    const orders = await this.assembleOrders(schema, result.orders);
+    return { ...result, orders };
   }
 
   async hideOrder(
@@ -405,11 +420,13 @@ export class OrderService extends RC7BaseService {
     } = ctx.params;
     const schema = await this.getSchema();
 
-    return getOrdersAdmin(this.pool, schema, {
+    const result = await getOrdersAdmin(this.pool, schema, {
       status,
       page,
       limit,
     }).catch(handleOrderError);
+    const orders = await this.assembleOrders(schema, result.orders);
+    return { ...result, orders };
   }
 
   async getOrderAdmin(
@@ -418,8 +435,72 @@ export class OrderService extends RC7BaseService {
     const { oid } = ctx.params;
     const schema = await this.getSchema();
 
-    return getOrderById(this.pool, schema, oid)
+    const rawOrder = await getOrderById(this.pool, schema, oid)
       .catch(handleOrderError);
+    const [assembled] = await this.assembleOrders(schema, [rawOrder]);
+    return assembled;
+  }
+
+  async assembleOrders(
+    schema: string,
+    rawOrders: OrderRaw[],
+  ): Promise<Order.OrderWithItems[]> {
+    if (rawOrders.length === 0) return [];
+
+    const client = this.pool;
+    const exhibitionIds = [...new Set(rawOrders.map(o => o.exhibit_id))];
+    const exhibitionMap = await getExhibitionsByIds(client, schema, exhibitionIds)
+      .catch(handleExhibitionError);
+    const sessionIds = [...new Set(rawOrders.map(o => o.session_id))];
+    const sessionMap = await getSessionsByIds(client, schema, sessionIds)
+      .catch(handleExhibitionError);
+    const ticketCategoryIds = [...new Set(
+      rawOrders.flatMap(o => o.items.map(i => i.ticket_category_id))
+    )];
+    const ticketCategoryMap = await getTicketCategoriesByIds(client, schema, ticketCategoryIds)
+      .catch(handleExhibitionError);
+
+    const orderIds = rawOrders.map(o => o.id);
+    const invoiceMap = await getInvoicesByOrderIds(client, schema, orderIds);
+
+    const outRefundNos = rawOrders
+      .map(o => o.current_refund_out_refund_no)
+      .filter((x): x is string => x !== null);
+    const refundMap = await getRefundsByOutRefundNos(client, schema, outRefundNos);
+
+    return rawOrders.map((order) => {
+      const exhibition = exhibitionMap.get(order.exhibit_id)!;
+      const session = sessionMap.get(order.session_id)!;
+      return {
+        ...order,
+        exhibition: {
+          id: exhibition.id,
+          name: exhibition.name,
+          description: exhibition.description,
+          cover_url: exhibition.cover_url,
+          location: exhibition.location,
+          city: exhibition.city,
+          venue_name: exhibition.venue_name,
+          start_date: exhibition.start_date,
+          end_date: exhibition.end_date,
+        },
+        session: {
+          id: session.id,
+          session_date: format(new Date(session.session_date), 'yyyy-MM-dd'),
+          opening_time: exhibition.opening_time,
+          closing_time: exhibition.closing_time,
+          last_entry_time: exhibition.last_entry_time,
+        },
+        items: order.items.map(item => ({
+          ...item,
+          ticket_category_name: ticketCategoryMap.get(item.ticket_category_id)?.name ?? '',
+        })),
+        invoice: invoiceMap.get(order.id) ?? null,
+        refund: order.current_refund_out_refund_no
+          ? refundMap.get(order.current_refund_out_refund_no) ?? null
+          : null,
+      };
+    });
   }
 
   async markOrderPaid(
