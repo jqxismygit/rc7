@@ -617,6 +617,8 @@ export default function ExhibitionDetailPage() {
       await createExhibitionTicketCategoryApi(eid, {
         ...values,
         list_price: values.list_price * 100,
+        //@ts-ignore
+        price: values.list_price * 100,
       });
       message.success("票种已添加");
       closeAddTicketModal();

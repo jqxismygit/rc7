@@ -1,9 +1,6 @@
 <template>
   <view class="redeem-page">
-    <cr7-nav-bar
-      title="票码兑换"
-      fallback-url="/pages/my-tickets/my-tickets"
-    />
+    <cr7-nav-bar title="票码兑换" fallback-url="/pages/my-tickets/my-tickets" />
 
     <scroll-view
       class="page-scroll"
@@ -16,9 +13,7 @@
             <sx-svg name="ticket2" :width="53" :height="35" color="#D8FC0F" />
           </view>
           <text class="hero-title">输入兑换码</text>
-          <text class="hero-desc"
-            >输入兑换码，将票券转入 CR7@LIFE 票夹</text
-          >
+          <text class="hero-desc">输入兑换码，将票券转入 CR7@LIFE 票夹</text>
         </view>
 
         <view class="input-card">
@@ -70,7 +65,8 @@
           </view>
           <view class="tips-card">
             <text class="tips-item">
-              1. 支持在合作平台/线下渠道购买的票券，通过兑换码同步到当前微信账号；
+              1.
+              支持在合作平台/线下渠道购买的票券，通过兑换码同步到当前微信账号；
             </text>
             <text class="tips-item">2. 每个兑换码仅限使用一次；</text>
             <text class="tips-item">
@@ -162,9 +158,7 @@ export default {
         this.sessions = list;
         const sid = section.sessionId || "";
         this.selectedSessionId =
-          sid && list.some((s) => s.id === sid)
-            ? sid
-            : list[0]?.id || "";
+          sid && list.some((s) => s.id === sid) ? sid : list[0]?.id || "";
       } catch {
         this.sessions = [];
         this.selectedSessionId = "";
@@ -176,10 +170,13 @@ export default {
 
     pickErrorMessage(err) {
       const code = err?.statusCode;
+      if (err?.message) {
+        return err?.message;
+      }
       if (code === 400) return "请检查兑换码与场次后重试";
       if (code === 401) return "请先登录后再兑换";
       if (code === 404) return "兑换码或场次不存在";
-      if (code === 409) return "兑换码已使用";
+      if (code === 409) return "库存不足";
       if (code === 410) return "兑换码已过期";
       return "兑换失败，请稍后重试";
     },
