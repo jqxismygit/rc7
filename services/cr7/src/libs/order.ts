@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 import { Context, Errors, ServiceBroker, ServiceSchema } from 'moleculer';
 import type { Order } from '@cr7/types';
-import { RC7BaseService } from './cr7.base.js';
+import { CR7BaseService } from './cr7.base.js';
 import {
   cancelOrder,
   createOrder,
@@ -50,7 +50,7 @@ const createOrderItemsParamsSchema = {
   },
 };
 
-export class OrderService extends RC7BaseService {
+export class OrderService extends CR7BaseService {
   constructor(broker: ServiceBroker) {
     super(broker);
   }

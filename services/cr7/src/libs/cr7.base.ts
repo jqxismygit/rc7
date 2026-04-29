@@ -5,10 +5,10 @@ import { Pool } from 'pg';
 const { MoleculerClientError } = Errors;
 
 /**
- * RC7BaseService
+ * CR7BaseService
  * 基础服务类，提供所有 RC7 服务的公共方法和属性
  */
-export class RC7BaseService extends Service {
+export class CR7BaseService extends Service {
   pool!: Pool;
 
   constructor(broker: ServiceBroker) {

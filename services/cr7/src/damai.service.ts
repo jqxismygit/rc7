@@ -2,7 +2,7 @@ import config from 'config';
 import { format, isDate, parse, parseISO } from 'date-fns';
 import { Context, Errors, ServiceBroker } from 'moleculer';
 import { Damai, Exhibition, Inventory, Order, Payment, Redeem } from '@cr7/types';
-import { RC7BaseService } from './libs/cr7.base.js';
+import { CR7BaseService } from './libs/cr7.base.js';
 import { buildDamaiSignature, damaiPostJson, verifyDamaiSignature } from './libs/damai.js';
 import {
   createDamaiOrderSyncRecord,
@@ -511,7 +511,7 @@ function buildDamaiGetETicketInfoSuccess(input: {
   };
 }
 
-class DamaiService extends RC7BaseService {
+class DamaiService extends CR7BaseService {
   constructor(broker: ServiceBroker) {
     super(broker);
 

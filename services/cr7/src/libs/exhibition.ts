@@ -23,7 +23,7 @@ import {
   getTicketCategoryByIdGlobal,
 } from '../data/exhibition.js';
 import { handleExhibitionError } from './errors.js';
-import { RC7BaseService } from './cr7.base.js';
+import { CR7BaseService } from './cr7.base.js';
 import { HALF_SESSION_ID_REGEX, parseSelectedSessionId } from './session-id.js';
 
 const { MoleculerClientError } = Errors;
@@ -143,7 +143,7 @@ function buildHalfDaySessions(
  * ExhibitionService
  * 展览活动相关服务，提供展览和票种管理功能
  */
-export class ExhibitionService extends RC7BaseService {
+export class ExhibitionService extends CR7BaseService {
   constructor(broker: ServiceBroker) {
     super(broker);
   }

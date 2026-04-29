@@ -1,4 +1,4 @@
-import { RC7BaseService } from './libs/cr7.base.js';
+import { CR7BaseService } from './libs/cr7.base.js';
 import { AssetsService } from './libs/assets.js';
 import { ExhibitionService } from './libs/exhibition.js';
 import { FapiaoService } from './libs/invoice.js';
@@ -13,7 +13,7 @@ import { ServiceBroker } from 'moleculer';
  * RC7Service
  * RC7 主服务，继承所有子服务功能
  */
-export default class RC7Service extends RC7BaseService {
+export default class RC7Service extends CR7BaseService {
   constructor(broker: ServiceBroker) {
     super(broker);
     const assetsService = new AssetsService(broker);
