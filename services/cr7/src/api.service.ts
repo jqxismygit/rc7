@@ -282,8 +282,33 @@ const routes = [
     }
   ),
   routeConfig(
+    '/mop',
+    [
+      'mop.receiveOrderFromMop',
+      'mop.queryOrderFromMop',
+      'mop.receiveTicketFromMop',
+      'mop.receiveOrderStatusChangeFromMop',
+    ],
+    {
+      authentication: false,
+      authorization: false,
+      aliases: {
+        'POST /order': 'mop.receiveOrderFromMop',
+        'POST /orderQuery': 'mop.queryOrderFromMop',
+        'POST /ticket': 'mop.receiveTicketFromMop',
+        'POST /orderStatusChange': 'mop.receiveOrderStatusChangeFromMop',
+      },
+    }
+  ),
+  routeConfig(
     '/ota/damai',
-    ['damai.createOrderFromDamai', 'damai.payOrderFromDamai', 'damai.cancelOrderFromDamai', 'damai.refundApplyFromDamai', 'damai.getETicketInfoFromDamai'],
+    [
+      'damai.createOrderFromDamai',
+      'damai.payOrderFromDamai',
+      'damai.cancelOrderFromDamai',
+      'damai.refundApplyFromDamai',
+      'damai.getETicketInfoFromDamai'
+    ],
     {
       authentication: false,
       authorization: false,
@@ -305,25 +330,7 @@ const routes = [
       }
     }
   ),
-  routeConfig(
-    '/mop',
-    [
-      'mop.receiveOrderFromMop',
-      'mop.queryOrderFromMop',
-      'mop.receiveTicketFromMop',
-      'mop.receiveOrderStatusChangeFromMop',
-    ],
-    {
-      authentication: false,
-      authorization: false,
-      aliases: {
-        'POST /order': 'mop.receiveOrderFromMop',
-        'POST /orderQuery': 'mop.queryOrderFromMop',
-        'POST /ticket': 'mop.receiveTicketFromMop',
-        'POST /orderStatusChange': 'mop.receiveOrderStatusChangeFromMop',
-      },
-    }
-  ),
+
   routeConfig(
     '/topics',
     [
