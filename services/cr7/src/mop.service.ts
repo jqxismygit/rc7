@@ -4,7 +4,7 @@ import config from 'config';
 import { format, isAfter, isDate, parse, parseISO, isWithinInterval, startOfDay } from 'date-fns';
 import { Context, Errors, ServiceBroker } from 'moleculer';
 import { Exhibition, Inventory, Mop, Order, Payment, Redeem } from '@cr7/types';
-import { RC7BaseService } from './libs/cr7.base.js';
+import { CR7BaseService } from './libs/cr7.base.js';
 import { getCityMetaById } from './libs/city.js';
 import {
   createMopOrderSyncRecord,
@@ -371,7 +371,7 @@ function validateSessionDateRange(start_session_date: Date, end_session_date: Da
   }
 }
 
-export default class MoeService extends RC7BaseService {
+export default class MoeService extends CR7BaseService {
   constructor(broker: ServiceBroker) {
     super(broker);
 

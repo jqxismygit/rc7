@@ -1,7 +1,7 @@
 import { format, isBefore, parseISO, startOfDay } from 'date-fns';
 import { Context, ServiceBroker, ServiceSchema } from 'moleculer';
 import type { Cdkey, Redeem } from '@cr7/types';
-import { RC7BaseService } from './cr7.base.js';
+import { CR7BaseService } from './cr7.base.js';
 import {
   CdkeyDataError,
   type CdkeyBatchRecord,
@@ -134,7 +134,7 @@ function assembleCdkeyRow(
   };
 }
 
-export class CdkeyService extends RC7BaseService {
+export class CdkeyService extends CR7BaseService {
   constructor(broker: ServiceBroker) {
     super(broker);
   }

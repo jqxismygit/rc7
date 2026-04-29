@@ -1,9 +1,9 @@
 import { Context, Errors, ServiceBroker } from 'moleculer';
-import { RC7BaseService } from './libs/cr7.base.js';
+import { CR7BaseService } from './libs/cr7.base.js';
 
 const { MoleculerServerError } = Errors;
 
-export default class DouyinService extends RC7BaseService {
+export default class DouyinService extends CR7BaseService {
   constructor(broker: ServiceBroker) {
     super(broker);
 

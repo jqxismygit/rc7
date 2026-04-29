@@ -1,7 +1,7 @@
 import Moleculer from 'moleculer';
 import { Context, ServiceSchema } from 'moleculer';
 import type { Topic } from '@cr7/types';
-import { RC7BaseService } from './cr7.base.js';
+import { CR7BaseService } from './cr7.base.js';
 import {
   createArticle,
   createTopic,
@@ -36,7 +36,7 @@ function validateArticleIds(articleIds: string[]) {
   }
 }
 
-export class TopicService extends RC7BaseService {
+export class TopicService extends CR7BaseService {
   actions_topics: ServiceSchema['actions'] = {
     'topics.create': {
       rest: 'POST /',

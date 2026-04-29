@@ -4,7 +4,7 @@ import { Context, ServiceBroker, ServiceSchema } from 'moleculer';
 import { format } from 'date-fns';
 import { addMinutes } from 'date-fns';
 import type { Payment } from '@cr7/types';
-import { RC7BaseService } from './cr7.base.js';
+import { CR7BaseService } from './cr7.base.js';
 import {
   assertOrderRefundableByPolicies,
   assertOrderRefundableByStatus,
@@ -106,7 +106,7 @@ type WechatRefundCallbackResource = {
   };
 };
 
-export class PaymentService extends RC7BaseService {
+export class PaymentService extends CR7BaseService {
   constructor(broker: ServiceBroker) {
     super(broker);
   }

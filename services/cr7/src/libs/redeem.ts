@@ -1,7 +1,7 @@
 import { format, isAfter, isBefore } from 'date-fns';
 import { Context, ServiceBroker, ServiceSchema } from 'moleculer';
 import { type Exhibition, type Redeem } from '@cr7/types';
-import { RC7BaseService } from './cr7.base.js';
+import { CR7BaseService } from './cr7.base.js';
 import {
   getRedemptionListByUser,
   getRedemptionRowByCode,
@@ -114,7 +114,7 @@ function assembleRedemption(
   return { ...res, items: [item] } as Redeem.RedemptionCodeWithCDKey;
 }
 
-export class RedemptionService extends RC7BaseService {
+export class RedemptionService extends CR7BaseService {
   constructor(broker: ServiceBroker) {
     super(broker);
   }

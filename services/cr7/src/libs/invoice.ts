@@ -1,6 +1,6 @@
 import { Context, Errors, ServiceBroker, ServiceSchema } from 'moleculer';
-import type { Exhibition, Invoice, Order } from '@cr7/types';
-import { RC7BaseService } from './cr7.base.js';
+import type { Exhibition, Invoice } from '@cr7/types';
+import { CR7BaseService } from './cr7.base.js';
 import { sendFapiaoKpjRequest, FapiaoTraceableError } from './fapiao.js';
 import {
   createInvoiceApplication,
@@ -43,7 +43,7 @@ function getPdfUrlFromResponse(response: Record<string, unknown>) {
   return typeof pdfUrl === 'string' ? pdfUrl : null;
 }
 
-export class FapiaoService extends RC7BaseService {
+export class FapiaoService extends CR7BaseService {
   constructor(broker: ServiceBroker) {
     super(broker);
   }

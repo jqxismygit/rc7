@@ -14,7 +14,7 @@ import {
   listXcOrderSyncRecordsByOrderId,
 } from './data/xiecheng.js';
 import { handleXiechengError } from './libs/errors.js';
-import { RC7BaseService } from './libs/cr7.base.js';
+import { CR7BaseService } from './libs/cr7.base.js';
 import {
   xieChengSyncInventory,
   xieChengSyncPrice,
@@ -92,7 +92,7 @@ function toXcOrderStatus(status: Order.OrderStatus): number {
   }
 }
 
-export default class XiechengService extends RC7BaseService {
+export default class XiechengService extends CR7BaseService {
   constructor(broker: ServiceBroker) {
     super(broker);
 

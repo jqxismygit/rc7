@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import Moleculer, { Context, ServiceSchema } from 'moleculer';
 import sharp from 'sharp';
-import { RC7BaseService } from './cr7.base.js';
+import { CR7BaseService } from './cr7.base.js';
 
 const { MoleculerClientError } = Moleculer.Errors;
 
@@ -58,7 +58,7 @@ function resolveVideoExt(contentType?: string | string[]) {
   throw new MoleculerClientError('文件格式不支持', 400, 'VIDEO_INVALID_TYPE');
 }
 
-export class AssetsService extends RC7BaseService {
+export class AssetsService extends CR7BaseService {
   actions_assets: ServiceSchema['actions'] = {
     'assets.uploadImage': {
       rest: 'POST /images',
