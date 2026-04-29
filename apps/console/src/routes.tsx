@@ -47,6 +47,7 @@ const CommonLayout = React.lazy(() => import("./layout/common"));
 const ExhibitionDetail = React.lazy(() => import("./pages/exhibition/detail"));
 const Category = React.lazy(() => import("./pages/category"));
 const CategoryDetail = React.lazy(() => import("./pages/category/detail"));
+const Cdk = React.lazy(() => import("./pages/cdk"));
 
 const Role = React.lazy(() => import("./pages/user/role"));
 const User = React.lazy(() => import("./pages/user"));
@@ -163,6 +164,13 @@ export const routes: RouteConfig[] = [
     name: "订单",
     icon: <DollarOutlined />,
     element: <Order />,
+    permission: "permission_order_manage",
+  },
+  {
+    path: "/cdk",
+    name: "CDK 管理",
+    icon: <KeyOutlined />,
+    element: <Cdk />,
     permission: "permission_order_manage",
   },
   {

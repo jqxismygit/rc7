@@ -137,11 +137,13 @@
             <text class="detail-label">数量</text>
             <text class="detail-value">{{ ticket.quantity }} 张</text>
           </view>
-          <view class="detail-row">
-            <text class="detail-label">购买时间</text>
+          <view class="detail-row" :class="{ 'detail-row-last': !ticket.orderId }">
+            <text class="detail-label">{{
+              ticket.orderId ? "购买时间" : "兑换时间"
+            }}</text>
             <text class="detail-value">{{ ticket.purchaseTime }}</text>
           </view>
-          <view class="detail-row detail-row-last">
+          <view v-if="ticket.orderId" class="detail-row detail-row-last">
             <text class="detail-label">订单总额</text>
             <text class="detail-value price"
               >¥ {{ formatPrice(ticket.price * 0.01) }}</text
@@ -205,7 +207,7 @@
 
 <script>
 import { getOrderDetail, cancelOrder } from "@/services/order.js";
-import { getOrderRedemption } from "@/services/redeem.js";
+import { getOrderRedemption, getRedemptionByCode } from "@/services/redeem.js";
 import { applyOrderInvoice } from "@/services/invoice.js";
 import request from "@/utils/request.js";
 import { buildTicketDetailFromOrder } from "@/utils/orderDisplay.js";
@@ -256,6 +258,7 @@ export default {
   data() {
     return {
       ticketId: "",
+      redemptionCodeParam: "",
       ticket: {},
       validityText: "",
       redemption: null,
@@ -264,7 +267,7 @@ export default {
       pageLoading: true,
       pageError: "",
       navInsetPx: 0,
-      qrcodeStyle: null,
+      qrcodeStyle: ticketColorConfig[0],
       invoiceSubmitting: false,
     };
   },
@@ -282,6 +285,7 @@ export default {
     /** 底部双按钮仅跟随核销状态：待使用/已使用 */
     showDetailActionsBar() {
       if (this.ticket.orderStatus === "PENDING_PAYMENT") return false;
+      if (!this.ticket.orderId) return false;
       return ["UNREDEEMED", "REDEEMED"].includes(this.redemptionStatus);
     },
     redemptionStatus() {
@@ -301,6 +305,7 @@ export default {
     },
     /** 仅已使用可开具发票 */
     invoiceDisabled() {
+      if (!this.ticket.orderId) return true;
       return this.redemptionStatus !== "REDEEMED";
     },
     redemptionCode() {
@@ -350,6 +355,7 @@ export default {
   onLoad(options) {
     this.navInsetPx = getNavBarInsetPx();
     this.ticketId = options.id;
+    this.redemptionCodeParam = options.code || "";
     this.loadTicketDetail();
   },
 
@@ -360,6 +366,12 @@ export default {
       this.redemption = null;
       this.redemptionError = "";
       try {
+        if (this.redemptionCodeParam) {
+          await this.loadTicketDetailByCode(this.redemptionCodeParam);
+          this.pageLoading = false;
+          return;
+        }
+
         const order = await getOrderDetail(this.ticketId);
         let exhibition = null;
         try {
@@ -379,30 +391,18 @@ export default {
       }
     },
 
+    async loadTicketDetailByCode(code) {
+      const redemption = await getRedemptionByCode(code);
+      this.redemption = redemption;
+      this.ticket = this.buildTicketDetailFromRedemption(redemption);
+      this.applyRedemptionDisplay(redemption);
+    },
+
     async loadRedemption(order) {
       if (!order || order.status !== "PAID") return;
       try {
         this.redemption = await getOrderRedemption(order.id);
-
-        const openingTime = dayjs(
-          this.redemption.session?.session_date +
-            " " +
-            this.redemption.session?.opening_time,
-        ).format("HH:mm");
-        const closingTime = dayjs(
-          this.redemption.session?.session_date +
-            " " +
-            this.redemption.session?.closing_time,
-        ).format("HH:mm");
-        this.validityText = `${this.redemption.session?.session_date} ${openingTime} ~ ${closingTime}`;
-
-        const categoryName = this.redemption?.items[0]?.category_name;
-        console.log("categoryName", categoryName);
-        if (categoryName) {
-          this.qrcodeStyle =
-            ticketColorConfig.find((item) => item.name === categoryName) ??
-            ticketColorConfig[0];
-        }
+        this.applyRedemptionDisplay(this.redemption);
       } catch (e) {
         if (e?.statusCode === 410) {
           this.redemptionError = "该订单暂未生成核销码，请稍后刷新";
@@ -414,6 +414,80 @@ export default {
         }
         this.redemptionError = "核销信息加载失败";
         console.error("loadRedemption", e);
+      }
+    },
+
+    buildTicketDetailFromRedemption(redemption) {
+      const order = redemption?.order || {};
+      const exhibition = redemption?.exhibition || {};
+      const items = Array.isArray(redemption?.items) ? redemption.items : [];
+      const itemNames = items
+        .map((it) => String(it?.category_name || "").trim())
+        .filter(Boolean);
+      const uniqueNames = [...new Set(itemNames)];
+      const totalQty =
+        redemption?.quantity ||
+        items.reduce((sum, item) => sum + (item?.quantity || 0), 0) ||
+        1;
+      const ticketType = uniqueNames.length
+        ? uniqueNames.join(" / ")
+        : "门票";
+      const source = String(redemption?.source || "").toUpperCase();
+      const totalAmount =
+        order?.total_amount ??
+        items.reduce(
+          (sum, item) =>
+            sum + (Number(item?.unit_price) || 0) * (item?.quantity || 0),
+          0,
+        );
+
+      return {
+        id: redemption?.code || order?.id || "",
+        orderId: order?.id || redemption?.order_id || "",
+        orderStatus: order?.status || "PAID",
+        eventId: redemption?.exhibit_id || exhibition?.id || order?.exhibit_id,
+        eventName: exhibition?.name || "展览门票",
+        eventDate: "",
+        eventLocation: exhibition?.location || exhibition?.venue_name || "—",
+        eventCover:
+          exhibition?.cover_url ||
+          exhibition?.cover_image ||
+          exhibition?.cover ||
+          "",
+        ticketType:
+          items.length === 1
+            ? `${ticketType} ×${items[0]?.quantity || totalQty}`
+            : `${ticketType} · 共 ${totalQty} 张`,
+        quantity: totalQty,
+        price: source === "CDKEY" ? 0 : totalAmount,
+        status: redemption?.status === "REDEEMED" ? "used" : "unused",
+        purchaseTime: dayjs(redemption?.created_at).format("YYYY-MM-DD HH:mm"),
+        qrCode: "",
+        paidAmount: totalAmount,
+        orderNo: order?.id || "",
+        refundAmount: totalAmount,
+      };
+    },
+
+    applyRedemptionDisplay(redemption) {
+      const session = redemption?.session || {};
+      if (session.session_date && session.opening_time && session.closing_time) {
+        const openingTime = dayjs(
+          `${session.session_date} ${session.opening_time}`,
+        ).format("HH:mm");
+        const closingTime = dayjs(
+          `${session.session_date} ${session.closing_time}`,
+        ).format("HH:mm");
+        this.validityText = `${session.session_date} ${openingTime} ~ ${closingTime}`;
+      } else {
+        this.validityText = this.redemptionValidityText;
+      }
+
+      const categoryName = redemption?.items?.[0]?.category_name;
+      if (categoryName) {
+        this.qrcodeStyle =
+          ticketColorConfig.find((item) => item.name === categoryName) ??
+          ticketColorConfig[0];
       }
     },
 
@@ -440,7 +514,7 @@ export default {
 
     formatTicketId(id) {
       if (!id) return "";
-      const raw = id.replace(/\D/g, "");
+      const raw = String(id).replace(/\D/g, "");
       return raw.replace(/(.{4})/g, "$1 ").trim();
     },
 
@@ -479,8 +553,10 @@ export default {
     },
 
     handleRefund() {
+      const orderId = this.ticket.orderId || this.ticketId;
+      if (!orderId) return;
       uni.navigateTo({
-        url: "/pages/ticket-refund/ticket-refund?id=" + this.ticketId,
+        url: "/pages/ticket-refund/ticket-refund?id=" + orderId,
       });
     },
 
@@ -589,9 +665,10 @@ export default {
       const payload = await this.collectInvoicePayload();
       if (!payload) return;
       this.invoiceSubmitting = true;
+      const orderId = this.ticket.orderId || this.ticketId;
       try {
         uni.showLoading({ title: "开具中...", mask: true });
-        await applyOrderInvoice(this.ticketId, payload);
+        await applyOrderInvoice(orderId, payload);
         uni.hideLoading();
         uni.showToast({ title: "发票申请成功", icon: "success" });
       } catch (e) {
@@ -610,6 +687,8 @@ export default {
     },
 
     handleDeleteOrder() {
+      const orderId = this.ticket.orderId || this.ticketId;
+      if (!orderId) return;
       uni.showModal({
         title: "取消订单",
         content: "确认取消该订单？取消后将释放占用库存。",
@@ -617,7 +696,7 @@ export default {
           if (!res.confirm) return;
           try {
             uni.showLoading({ title: "处理中...", mask: true });
-            await cancelOrder(this.ticketId);
+            await cancelOrder(orderId);
             uni.hideLoading();
             uni.showToast({ title: "已取消", icon: "success" });
             setTimeout(() => {
