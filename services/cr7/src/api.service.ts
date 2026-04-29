@@ -330,7 +330,17 @@ const routes = [
       }
     }
   ),
-
+  routeConfig(
+    '/ota/douyin/callback',
+    ['douyin.webhook'],
+    {
+      authentication: false,
+      authorization: false,
+      aliases: {
+        'POST /': 'douyin.webhook',
+      }
+    }
+  ),
   routeConfig(
     '/topics',
     [
