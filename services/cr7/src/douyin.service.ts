@@ -23,7 +23,7 @@ export default class DouyinService extends CR7BaseService {
             event: 'string',
             content: [
               'string',
-              { type: 'object', properties: { challenge: 'string' } }
+              { type: 'object', properties: { challenge: 'number' } }
             ]
           },
           handler: this.webhookEntry
