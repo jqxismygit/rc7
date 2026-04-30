@@ -1,0 +1,13 @@
+[Unit]
+Description=Douyin client token service.
+
+[Service]
+WorkingDirectory=/var/lib/cr7/services/douyin
+Environment=NODE_ENV=production
+Environment=DOUYIN_SETTINGS_PATH=/var/lib/cr7/services/douyin/douyin-settings.json
+ExecStart=/usr/bin/node index.js
+Restart=always
+RestartSec=500ms
+
+[Install]
+WantedBy=default.target

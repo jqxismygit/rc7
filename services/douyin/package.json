@@ -1,0 +1,21 @@
+{
+  "name": "@cr7/douyin",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Douyin client token service",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "vitest run"
+  },
+  "keywords": ["douyin"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^24.10.13",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

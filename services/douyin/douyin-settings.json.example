@@ -1,0 +1,7 @@
+{
+  "douyin": {
+    "base_url": "https://open.douyin.com",
+    "client_key": "your_client_key_here",
+    "client_secret": "your_client_secret_here"
+  }
+}

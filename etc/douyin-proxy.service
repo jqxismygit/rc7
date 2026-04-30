@@ -1,0 +1,14 @@
+[Unit]
+Description=douyin client token proxy
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+WorkingDirectory=/var/lib/cr7
+ExecStart=/usr/bin/ssh -o ExitOnForwardFailure=yes -o ServerAliveInterval=5 -o ConnectTimeout=20 -NL localhost:3001:127.0.0.1:3001 -i /var/lib/cr7/.ssh/id_ed25519 cr7@cr7-prod
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
